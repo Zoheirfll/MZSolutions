@@ -10,8 +10,7 @@ from django.utils import timezone
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.text import slugify
-from google.oauth2 import id_token as google_id_token
-from google.auth.transport import requests as google_requests
+import requests as http_requests
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -55,7 +54,11 @@ class RegisterView(APIView):
         EmailVerificationCode.objects.update_or_create(
             user=user, defaults={'code': code}
         )
-        _send_verification_email(user, code)
+        try:
+            _send_verification_email(user, code)
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"Email send failed: {e}")
 
         return Response(
             {'pending_verification': True, 'email': user.email},
@@ -105,8 +108,13 @@ class ResendVerificationView(APIView):
             return Response({'detail': 'OK'})  # ne pas révéler
 
         code = _generate_code()
-        EmailVerificationCode.objects.update_or_create(user=user, defaults={'code': code})
-        _send_verification_email(user, code)
+        EmailVerificationCode.objects.filter(user=user).delete()
+        EmailVerificationCode.objects.create(user=user, code=code)
+        try:
+            _send_verification_email(user, code)
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"Resend email failed: {e}")
         return Response({'detail': 'Code renvoyé.'})
 
 
@@ -196,13 +204,15 @@ class PasswordResetConfirmView(APIView):
 
 # ── Google OAuth ────────────────────────────────────────────────────────────
 
-def _verify_google_token(id_token_str):
-    info = google_id_token.verify_oauth2_token(
-        id_token_str,
-        google_requests.Request(),
-        settings.GOOGLE_CLIENT_ID,
+def _verify_google_token(access_token):
+    resp = http_requests.get(
+        'https://www.googleapis.com/oauth2/v3/userinfo',
+        headers={'Authorization': f'Bearer {access_token}'},
+        timeout=5,
     )
-    return info  # contient: sub, email, given_name, family_name
+    if not resp.ok:
+        raise ValueError('Token Google invalide')
+    return resp.json()  # contient: sub, email, given_name, family_name
 
 
 class GoogleRegisterView(APIView):
@@ -210,7 +220,7 @@ class GoogleRegisterView(APIView):
 
     @transaction.atomic
     def post(self, request):
-        id_token_str = request.data.get('id_token', '')
+        access_token = request.data.get('access_token', '')
         store_name = request.data.get('store_name', '').strip()
         store_slug = slugify(request.data.get('store_slug', '').strip())
 
@@ -218,7 +228,7 @@ class GoogleRegisterView(APIView):
             return Response({'detail': 'Nom et slug de boutique requis.'}, status=400)
 
         try:
-            info = _verify_google_token(id_token_str)
+            info = _verify_google_token(access_token)
         except Exception:
             return Response({'detail': 'Token Google invalide.'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -256,10 +266,10 @@ class GoogleLoginView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        id_token_str = request.data.get('id_token', '')
+        access_token = request.data.get('access_token', '')
 
         try:
-            info = _verify_google_token(id_token_str)
+            info = _verify_google_token(access_token)
         except Exception:
             return Response({'detail': 'Token Google invalide.'}, status=status.HTTP_400_BAD_REQUEST)
 

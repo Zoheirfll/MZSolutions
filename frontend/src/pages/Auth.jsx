@@ -163,7 +163,7 @@ function GoogleStoreStep({ googleToken, userInfo, onDone }) {
     setLoading(true)
     try {
       const { data } = await api.post('/auth/google/register/', {
-        id_token: googleToken,
+        access_token: googleToken,
         store_name: storeName,
         store_slug: storeSlug,
       })
@@ -295,7 +295,7 @@ export default function Auth() {
         })
         const userInfo = await userInfoRes.json()
 
-        const { data } = await api.post('/auth/google/login/', { id_token: tokenResp.access_token })
+        const { data } = await api.post('/auth/google/login/', { access_token: tokenResp.access_token })
         localStorage.setItem('access', data.access)
         localStorage.setItem('refresh', data.refresh)
         setUser(data.user)
