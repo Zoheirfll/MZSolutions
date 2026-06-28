@@ -99,9 +99,15 @@ trial_ends_at (default now + 30 jours)
 
 | Méthode | URL | Auth | Description |
 |---|---|---|---|
-| POST | `/api/auth/register/` | Non | Crée User + Store + Quota (transaction atomique) |
+| POST | `/api/auth/register/` | Non | Crée User + Store + Quota → renvoie pending_verification |
+| POST | `/api/auth/verify-email/` | Non | Valide code OTP → retourne tokens JWT |
+| POST | `/api/auth/resend-verification/` | Non | Renvoie un nouveau code OTP |
 | POST | `/api/auth/login/` | Non | Retourne access + refresh JWT |
 | GET | `/api/auth/me/` | Oui | User connecté avec store_slug |
+| POST | `/api/auth/password-reset/` | Non | Envoie lien de réinitialisation par email |
+| POST | `/api/auth/password-reset/confirm/` | Non | Valide uid+token, met à jour le MDP |
+| POST | `/api/auth/google/register/` | Non | Inscription via Google + store_name/slug |
+| POST | `/api/auth/google/login/` | Non | Connexion via Google (compte existant requis) |
 | GET/PUT | `/api/stores/me/` | Oui | Boutique du vendeur connecté |
 | GET | `/api/stores/me/quota/` | Oui | Quota trial restant |
 | POST | `/api/token/refresh/` | Non | Renouvelle le token access |
@@ -112,9 +118,9 @@ trial_ends_at (default now + 30 jours)
 
 ### ✅ Sprint 1 — Fondations (TERMINÉ)
 **Epic 1.1 — Authentification**
-- US-1.1.1 : Inscription vendeur (email + password + store_name + store_slug)
-- US-1.1.2 : Connexion/Déconnexion JWT avec messages d'erreur clairs
-- US-1.1.3 : Réinitialisation mot de passe par email *(à implémenter)*
+- US-1.1.1 : Inscription classique (email + password) + Google OAuth → vérification email par code OTP 6 chiffres (15 min)
+- US-1.1.2 : Connexion JWT (classique + Google) avec messages d'erreur clairs, détection compte non vérifié
+- US-1.1.3 : Réinitialisation mot de passe par email (Gmail SMTP, lien 1h)
 
 **Epic 1.2 — Boutique & Multi-Tenant**
 - US-1.2.1 : Création boutique avec slug unique global → URL publique immédiate

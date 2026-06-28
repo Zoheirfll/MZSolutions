@@ -13,7 +13,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'email', 'first_name', 'last_name', 'phone', 'store_slug']
+        fields = ['id', 'email', 'first_name', 'last_name', 'phone', 'store_slug', 'is_email_verified']
 
     def get_store_slug(self, obj):
         try:
@@ -49,6 +49,8 @@ class RegisterSerializer(serializers.Serializer):
 
         user = User(**validated_data)
         user.set_password(password)
+        user.is_active = False
+        user.is_email_verified = False
         user.save()
 
         store = Store.objects.create(owner=user, name=store_name, slug=store_slug)
@@ -65,6 +67,11 @@ class LoginSerializer(serializers.Serializer):
         user = authenticate(username=data['email'], password=data['password'])
         if not user:
             raise serializers.ValidationError("Email ou mot de passe incorrect.")
+        if not user.is_email_verified:
+            raise serializers.ValidationError(
+                "Veuillez vérifier votre email avant de vous connecter.",
+                code='email_not_verified',
+            )
         if not user.is_active:
             raise serializers.ValidationError("Ce compte est désactivé.")
         data['user'] = user
