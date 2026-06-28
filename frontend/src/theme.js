@@ -37,4 +37,13 @@ export const theme = {
 
   // Gradient hero
   hero: 'bg-gradient-to-br from-[#2e1065] via-[#6d28d9] to-[#7c3aed]',
+
+  // Dashboard dark theme
+  dark: {
+    app:     '#0f0f0f',
+    sidebar: '#12122a',
+    card:    '#1a1a2e',
+    border:  '#2a2a45',
+    muted:   '#6b6b8a',
+  },
 }

@@ -9,16 +9,39 @@ from stores.models import Store, SubscriptionQuota
 
 
 class UserSerializer(serializers.ModelSerializer):
-    store_slug = serializers.SerializerMethodField()
+    store_slug  = serializers.SerializerMethodField()
+    store_name  = serializers.SerializerMethodField()
+    team_role   = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ['id', 'email', 'first_name', 'last_name', 'phone', 'store_slug', 'is_email_verified']
+        fields = ['id', 'email', 'first_name', 'last_name', 'phone',
+                  'store_slug', 'store_name', 'team_role', 'is_email_verified']
 
     def get_store_slug(self, obj):
         try:
             return obj.store.slug
         except Store.DoesNotExist:
+            pass
+        try:
+            return obj.team_membership.store.slug
+        except Exception:
+            return None
+
+    def get_store_name(self, obj):
+        try:
+            return obj.store.name
+        except Store.DoesNotExist:
+            pass
+        try:
+            return obj.team_membership.store.name
+        except Exception:
+            return None
+
+    def get_team_role(self, obj):
+        try:
+            return obj.team_membership.role
+        except Exception:
             return None
 
 

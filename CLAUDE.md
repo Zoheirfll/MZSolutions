@@ -103,7 +103,7 @@ trial_ends_at (default now + 30 jours)
 | POST | `/api/auth/verify-email/` | Non | Valide code OTP → retourne tokens JWT |
 | POST | `/api/auth/resend-verification/` | Non | Renvoie un nouveau code OTP |
 | POST | `/api/auth/login/` | Non | Retourne access + refresh JWT |
-| GET | `/api/auth/me/` | Oui | User connecté avec store_slug |
+| GET | `/api/auth/me/` | Oui | User connecté avec store_slug, store_name, team_role |
 | POST | `/api/auth/password-reset/` | Non | Envoie lien de réinitialisation par email |
 | POST | `/api/auth/password-reset/confirm/` | Non | Valide uid+token, met à jour le MDP |
 | POST | `/api/auth/google/register/` | Non | Inscription via Google + store_name/slug |
@@ -111,12 +111,16 @@ trial_ends_at (default now + 30 jours)
 | GET/PUT | `/api/stores/me/` | Oui | Boutique du vendeur connecté |
 | GET | `/api/stores/me/quota/` | Oui | Quota trial restant |
 | POST | `/api/token/refresh/` | Non | Renouvelle le token access |
+| POST | `/api/team/invite/` | Oui | Invite un membre (email + rôle) → envoie email |
+| GET | `/api/team/members/` | Oui | Liste membres du store (`?role=`) |
+| PUT/DELETE | `/api/team/members/<id>/` | Oui | Modifier rôle / désactiver |
+| GET/POST | `/api/team/accept-invitation/` | Non | Vérifie token / active compte |
 
 ---
 
 ## Sprints & User Stories
 
-### ✅ Sprint 1 — Fondations (TERMINÉ)
+### ✅ Sprint 1 — Fondations (TERMINÉ — commit 31a6a97)
 **Epic 1.1 — Authentification**
 - US-1.1.1 : Inscription classique (email + password) + Google OAuth → vérification email par code OTP 6 chiffres (15 min)
 - US-1.1.2 : Connexion JWT (classique + Google) avec messages d'erreur clairs, détection compte non vérifié
@@ -129,20 +133,36 @@ trial_ends_at (default now + 30 jours)
 
 ---
 
-### 🔜 Sprint 2 — Catalogue Produits
-**Epic 2.1 — Catégories**
-- US-2.1.1 : Créer/modifier/supprimer des catégories (arborescence)
-- US-2.1.2 : Un produit peut appartenir à plusieurs catégories (many-to-many)
+### ✅ Epic 1.1 Auth complète (TERMINÉ)
+- Vérification email OTP 6 chiffres (15 min, resend corrigé)
+- Reset password Gmail SMTP (lien 1h)
+- Google OAuth inscription + connexion (access_token via userinfo API)
+- UserManager custom (createsuperuser sans username)
+- Console backend pour dev, SMTP pour prod
 
-**Epic 2.2 — Produits**
-- US-2.2.1 : Créer produit (nom, description, prix, stock, images, catégories)
-- US-2.2.2 : Modifier / archiver un produit
-- US-2.2.3 : Variantes produit (taille, couleur, etc.)
-- US-2.2.4 : Import produits en masse (CSV)
+### ✅ Sprint 2 — Équipe multi-rôles + modèle produit (TERMINÉ)
+**Epic 2.1 — Rôles et permissions**
+- US-2.1.1 : Invitation membre par email (Admin, Confirmateur, Dropshipper) avec lien d'activation
+- US-2.1.2 : Permissions Confirmateur — Finances/Statistiques/Équipe masqués dans sidebar
+- US-2.1.3 : Permissions Dropshipper — idem + Équipe masqué
+
+**Epic 2.2 — Modèle produit de base**
+- Modèle `Product` (store, name, description, price, stock, is_active) — backend uniquement
+- UI produits → Sprint 3
+
+**Nouveau dans ce sprint :**
+- App Django `team` : TeamMember, invitation token, accept-invitation
+- App Django `products` : modèle Product + admin
+- Dashboard layout sombre (sidebar + topbar) inspiré RiseCart
+- Page Ma Boutique (`/dashboard/boutique`)
+- Page Équipe (`/dashboard/equipe`) — 4 onglets
+- Page AcceptInvitation (`/accept-invitation`) — publique
+- `src/data/wilayas.js` — 58 wilayas algériennes
+- `team_role` dans `/api/auth/me/` pour permissions frontend
 
 ---
 
-### 🔜 Sprint 3 — Boutique Publique & Panier
+### 🔜 Sprint 3 — Catalogue Produits (UI) & Boutique Publique
 - Page boutique publique (URL : `mzsolutions.app/<slug>`)
 - Catalogue produits visible client
 - Panier (ajout, suppression, modification quantité)
