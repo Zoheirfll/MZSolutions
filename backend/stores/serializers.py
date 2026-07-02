@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Store, SubscriptionQuota
+from .models import Store, SubscriptionQuota, StoreSettings
 
 
 class SubscriptionQuotaSerializer(serializers.ModelSerializer):
@@ -9,6 +9,12 @@ class SubscriptionQuotaSerializer(serializers.ModelSerializer):
     class Meta:
         model = SubscriptionQuota
         fields = ['orders_limit', 'orders_used', 'orders_remaining', 'trial_ends_at', 'is_trial_active']
+
+
+class StoreSettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model  = StoreSettings
+        fields = ['low_stock_threshold']
 
 
 class StoreSerializer(serializers.ModelSerializer):

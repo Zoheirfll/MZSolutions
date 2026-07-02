@@ -9,6 +9,7 @@ from rest_framework import status
 from .models import TeamMember
 from .serializers import InviteSerializer, TeamMemberSerializer, AcceptInvitationSerializer
 from accounts.serializers import get_tokens, UserSerializer
+from core.permissions import IsOwnerOrAdminForWrites
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +25,7 @@ def _get_store(request):
 
 
 class InviteView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsOwnerOrAdminForWrites]
 
     def post(self, request):
         store = _get_store(request)
@@ -71,7 +72,7 @@ class InviteView(APIView):
 
 
 class TeamListView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsOwnerOrAdminForWrites]
 
     def get(self, request):
         store = _get_store(request)
@@ -85,7 +86,7 @@ class TeamListView(APIView):
 
 
 class TeamMemberDetailView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsOwnerOrAdminForWrites]
 
     def _get_member(self, request, pk):
         store = _get_store(request)

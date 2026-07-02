@@ -1,0 +1,316 @@
+import { useEffect, useState, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
+import DashboardLayout from '../../components/DashboardLayout'
+import api from '../../api/axios'
+import { theme } from '../../theme'
+import { WILAYAS } from '../../data/wilayas'
+
+const DELIVERY_OPTIONS = [
+  { value: 'store',     label: 'Vendu depuis le magasin' },
+  { value: 'insurance', label: 'Assurance' },
+  { value: 'free',      label: 'Livraison gratuite' },
+  { value: 'exchange',  label: 'Échange' },
+]
+
+const EMPTY_CLIENT = {
+  first_name: '', last_name: '', phone: '',
+  wilaya: '', commune: '', address: '',
+}
+
+export default function OrderFormPage() {
+  const navigate = useNavigate()
+  const [client,       setClient]       = useState(EMPTY_CLIENT)
+  const [cartItems,    setCartItems]    = useState([])
+  const [shippingCost, setShippingCost] = useState(0)
+  const [deliveryType, setDeliveryType] = useState('')
+  const [note,         setNote]         = useState('')
+  const [saving,       setSaving]       = useState(false)
+  const [errors,       setErrors]       = useState({})
+
+  // Recherche produit
+  const [search,    setSearch]    = useState('')
+  const [products,  setProducts]  = useState([])
+  const [searching, setSearching] = useState(false)
+  const searchTimer = useRef(null)
+
+  useEffect(() => {
+    clearTimeout(searchTimer.current)
+    if (!search.trim()) { setProducts([]); return }
+    setSearching(true)
+    searchTimer.current = setTimeout(() => {
+      api.get(`/products/?search=${encodeURIComponent(search)}&per_page=8`)
+        .then(({ data }) => setProducts(data.results ?? []))
+        .catch(() => {})
+        .finally(() => setSearching(false))
+    }, 350)
+    return () => clearTimeout(searchTimer.current)
+  }, [search])
+
+  const addProduct = (p, variantOption = null) => {
+    const price = variantOption ? Number(variantOption.price) : Number(p.price)
+    const key   = variantOption ? `v${variantOption.id}` : `p${p.id}`
+    setCartItems(prev => {
+      const exists = prev.find(i => i._key === key)
+      if (exists) return prev.map(i => i._key === key ? { ...i, quantity: i.quantity + 1 } : i)
+      return [...prev, {
+        _key:          key,
+        product:       p.id,
+        variant_option: variantOption?.id || null,
+        product_name:  variantOption ? `${p.name} — ${variantOption.value}` : p.name,
+        price,
+        quantity:      1,
+      }]
+    })
+    setSearch('')
+    setProducts([])
+  }
+
+  const updateQty = (key, qty) => {
+    if (qty < 1) { setCartItems(prev => prev.filter(i => i._key !== key)); return }
+    setCartItems(prev => prev.map(i => i._key === key ? { ...i, quantity: qty } : i))
+  }
+
+  const removeItem = key => setCartItems(prev => prev.filter(i => i._key !== key))
+
+  const subtotal = cartItems.reduce((s, i) => s + i.price * i.quantity, 0)
+  const total    = subtotal + Number(shippingCost || 0)
+
+  const handleSubmit = async () => {
+    setSaving(true)
+    setErrors({})
+    try {
+      await api.post('/orders/', {
+        ...client,
+        shipping_cost: shippingCost,
+        delivery_type: deliveryType,
+        note,
+        items: cartItems.map(({ _key, ...i }) => i),
+      })
+      navigate('/dashboard/commandes')
+    } catch (err) {
+      setErrors(err.response?.data || {})
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const inputCls = 'w-full px-3.5 py-2.5 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 transition'
+  const bdrStyle = { borderColor: theme.dark.border }
+
+  return (
+    <DashboardLayout title="Nouvelle commande">
+      <div className="flex gap-6 items-start">
+
+        {/* ── Colonne gauche ── */}
+        <div className="flex-1 space-y-5 min-w-0">
+
+          {/* Articles */}
+          <div className="rounded-xl border p-5" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
+            <h2 className="font-semibold text-gray-200 mb-4">Articles</h2>
+
+            {/* Recherche produit */}
+            <div className="relative mb-4">
+              <input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Recherche de produit"
+                className={inputCls}
+                style={bdrStyle}
+              />
+              {(products.length > 0 || searching) && (
+                <div className="absolute z-20 left-0 right-0 top-full mt-1 rounded-lg border overflow-hidden shadow-xl"
+                  style={{ background: theme.dark.sidebar, borderColor: theme.dark.border }}>
+                  {searching && <p className="px-4 py-3 text-xs text-gray-500">Recherche…</p>}
+                  {products.map(p => {
+                    const allOptions = (p.variants || []).flatMap(v => v.options || [])
+                    return (
+                      <div key={p.id} className="border-b last:border-0" style={{ borderColor: theme.dark.border }}>
+                        {/* Produit direct si pas d'options de variante */}
+                        {allOptions.length === 0 && (
+                          <button
+                            onClick={() => addProduct(p)}
+                            className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 transition flex items-center justify-between"
+                          >
+                            <span>{p.name}</span>
+                            <span className="text-violet-300 text-xs">{Number(p.price).toLocaleString('fr-DZ')} DZD</span>
+                          </button>
+                        )}
+                        {/* Options de variante */}
+                        {allOptions.map(opt => (
+                          <button
+                            key={opt.id}
+                            onClick={() => addProduct(p, opt)}
+                            className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-white/5 transition flex items-center justify-between"
+                          >
+                            <span>{p.name} — {opt.value}</span>
+                            <span className="text-violet-300 text-xs">{Number(opt.price || p.price).toLocaleString('fr-DZ')} DZD</span>
+                          </button>
+                        ))}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Articles ajoutés */}
+            {cartItems.length === 0 ? (
+              <p className="text-sm text-gray-500 text-center py-4">Aucun article ajouté</p>
+            ) : (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-xs border-b" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
+                    <th className="pb-2 text-left font-medium">PRODUIT</th>
+                    <th className="pb-2 text-right font-medium">PRIX</th>
+                    <th className="pb-2 text-center font-medium w-24">QTÉ</th>
+                    <th className="pb-2 text-right font-medium">TOTAL</th>
+                    <th className="pb-2 w-8"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cartItems.map(item => (
+                    <tr key={item._key} className="border-b" style={{ borderColor: theme.dark.border + '44' }}>
+                      <td className="py-2.5 pr-3 text-gray-200">{item.product_name}</td>
+                      <td className="py-2.5 text-right text-gray-300">{Number(item.price).toLocaleString('fr-DZ')}</td>
+                      <td className="py-2.5 text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          <button onClick={() => updateQty(item._key, item.quantity - 1)} className="w-6 h-6 rounded border text-gray-400 hover:text-gray-200 text-xs" style={{ borderColor: theme.dark.border }}>−</button>
+                          <span className="w-6 text-center text-gray-200">{item.quantity}</span>
+                          <button onClick={() => updateQty(item._key, item.quantity + 1)} className="w-6 h-6 rounded border text-gray-400 hover:text-gray-200 text-xs" style={{ borderColor: theme.dark.border }}>+</button>
+                        </div>
+                      </td>
+                      <td className="py-2.5 text-right text-gray-200 font-medium">
+                        {(item.price * item.quantity).toLocaleString('fr-DZ')}
+                      </td>
+                      <td className="py-2.5 text-center">
+                        <button onClick={() => removeItem(item._key)} className="text-red-400 hover:text-red-300 text-xs">✕</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {/* Information Client */}
+          <div className="rounded-xl border p-5 space-y-4" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
+            <h2 className="font-semibold text-gray-200">Information Client</h2>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs text-gray-400 mb-1.5">Prénom *</label>
+                <input value={client.first_name} onChange={e => setClient(c => ({ ...c, first_name: e.target.value }))} required className={inputCls} style={bdrStyle} placeholder="Prénom" />
+                {errors.first_name && <p className="text-red-400 text-xs mt-1">{errors.first_name}</p>}
+              </div>
+              <div>
+                <label className="block text-xs text-gray-400 mb-1.5">Nom</label>
+                <input value={client.last_name} onChange={e => setClient(c => ({ ...c, last_name: e.target.value }))} className={inputCls} style={bdrStyle} placeholder="Nom" />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-400 mb-1.5">Téléphone *</label>
+                <input value={client.phone} onChange={e => setClient(c => ({ ...c, phone: e.target.value }))} required className={inputCls} style={bdrStyle} placeholder="Téléphone" />
+                {errors.phone && <p className="text-red-400 text-xs mt-1">{errors.phone}</p>}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs text-gray-400 mb-1.5">Wilaya *</label>
+                <select value={client.wilaya} onChange={e => setClient(c => ({ ...c, wilaya: e.target.value }))} className={inputCls} style={{ ...bdrStyle, background: theme.dark.sidebar }}>
+                  <option value="">Choisissez une Wilaya</option>
+                  {WILAYAS.map(w => <option key={w.id} value={w.name}>{w.id} — {w.name}</option>)}
+                </select>
+                {errors.wilaya && <p className="text-red-400 text-xs mt-1">{errors.wilaya}</p>}
+              </div>
+              <div>
+                <label className="block text-xs text-gray-400 mb-1.5">Commune</label>
+                <input value={client.commune} onChange={e => setClient(c => ({ ...c, commune: e.target.value }))} className={inputCls} style={bdrStyle} placeholder="Commune" />
+              </div>
+            </div>
+          </div>
+
+          {/* Livraison */}
+          <div className="rounded-xl border p-5 space-y-3" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
+            <h2 className="font-semibold text-gray-200">Livraison</h2>
+            {DELIVERY_OPTIONS.map(opt => (
+              <label key={opt.value} className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="radio"
+                  name="delivery_type"
+                  value={opt.value}
+                  checked={deliveryType === opt.value}
+                  onChange={() => setDeliveryType(opt.value)}
+                  className="accent-violet-600 w-4 h-4"
+                />
+                <span className="text-sm text-gray-300">{opt.label}</span>
+              </label>
+            ))}
+          </div>
+
+          {/* Remarque */}
+          <div className="rounded-xl border p-5" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
+            <h2 className="font-semibold text-gray-200 mb-3">Remarque</h2>
+            <label className="block text-xs text-gray-400 mb-1.5">Remarque</label>
+            <textarea
+              value={note}
+              onChange={e => setNote(e.target.value)}
+              rows={4}
+              className="w-full px-3.5 py-2.5 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 transition resize-none"
+              style={bdrStyle}
+              placeholder="Ajouter une note…"
+            />
+          </div>
+        </div>
+
+        {/* ── Panier (colonne droite fixe) ── */}
+        <div className="w-72 shrink-0 sticky top-4">
+          <div className="rounded-xl border p-5" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
+            <h2 className="font-semibold text-gray-200 mb-4 text-center">Panier</h2>
+
+            <div className="space-y-2 mb-4">
+              <div className="flex justify-between text-sm">
+                <span style={{ color: theme.dark.muted }}>Total des articles</span>
+                <span className="text-gray-200">{subtotal.toLocaleString('fr-DZ')} <span className="text-xs text-gray-500">DZD</span></span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span style={{ color: theme.dark.muted }}>Frais de livraison</span>
+                <span className="text-gray-200">{Number(shippingCost || 0).toLocaleString('fr-DZ')} <span className="text-xs text-gray-500">DZD</span></span>
+              </div>
+              <div className="border-t pt-2 mt-2" style={{ borderColor: theme.dark.border }}>
+                <div className="flex justify-between font-semibold">
+                  <span className="text-sm text-gray-300">Montant à payer à la livraison</span>
+                  <span className="text-white">{total.toLocaleString('fr-DZ')} <span className="text-xs text-gray-400">DZD</span></span>
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-xs text-gray-400 mb-1.5">Frais de livraison</label>
+              <input
+                type="number"
+                min="0"
+                value={shippingCost}
+                onChange={e => setShippingCost(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500"
+                style={bdrStyle}
+              />
+            </div>
+
+            {errors.detail && <p className="text-red-400 text-xs mb-3">{errors.detail}</p>}
+
+            <button
+              onClick={handleSubmit}
+              disabled={saving || cartItems.length === 0 || !client.first_name || !client.phone || !client.wilaya}
+              className="w-full py-3 rounded-lg text-sm font-semibold text-white transition disabled:opacity-50"
+              style={{ background: '#2563eb' }}
+            >
+              {saving ? 'Enregistrement…' : 'Enregistrer'}
+            </button>
+
+            <button onClick={() => navigate('/dashboard/commandes')} className="w-full mt-2 py-2 text-xs text-gray-400 hover:text-gray-200 transition">
+              ← Retour
+            </button>
+          </div>
+        </div>
+      </div>
+    </DashboardLayout>
+  )
+}

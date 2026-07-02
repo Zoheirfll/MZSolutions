@@ -25,6 +25,7 @@ INSTALLED_APPS = [
     'stores',
     'team',
     'products',
+    'orders',
 ]
 
 MIDDLEWARE = [
@@ -106,6 +107,8 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = 'static/'
+MEDIA_URL  = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Autoriser la popup Google OAuth
@@ -124,3 +127,10 @@ PASSWORD_RESET_TIMEOUT = 3600  # 1 heure
 
 # Google OAuth
 GOOGLE_CLIENT_ID = config('GOOGLE_CLIENT_ID', default='')
+
+# Chargily Pay
+CHARGILY_API_KEY    = config('CHARGILY_API_KEY', default='')
+CHARGILY_SECRET_KEY = config('CHARGILY_SECRET_KEY', default='')
+CHARGILY_MODE       = config('CHARGILY_MODE', default='test')
+CHARGILY_API_BASE   = config('CHARGILY_API_BASE', default='https://pay.chargily.net/api/v2')
+BACKEND_URL         = config('BACKEND_URL', default='http://localhost:8000')

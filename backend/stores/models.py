@@ -43,3 +43,11 @@ class SubscriptionQuota(models.Model):
 
     def __str__(self):
         return f"Quota {self.store.name}"
+
+
+class StoreSettings(models.Model):
+    store               = models.OneToOneField(Store, on_delete=models.CASCADE, related_name='settings')
+    low_stock_threshold = models.PositiveIntegerField(default=5)
+
+    def __str__(self):
+        return f"Settings {self.store.name}"
