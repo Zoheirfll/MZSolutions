@@ -39,6 +39,33 @@ PAYMENT_METHOD_CHOICES = [
     ('chargily', 'Paiement en ligne (Chargily)'),
 ]
 
+CARRIER_CHOICES = [
+    ('yalidine',   'Yalidine'),
+    ('zr_express', 'ZR Express'),
+]
+
+
+class CarrierAccount(models.Model):
+    store      = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='carrier_accounts')
+    carrier    = models.CharField(max_length=20, choices=CARRIER_CHOICES)
+    api_id     = models.CharField(max_length=100, blank=True)
+    api_token  = models.CharField(max_length=200, blank=True)
+    is_active  = models.BooleanField(default=True)
+    is_default = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['carrier']
+        unique_together = [('store', 'carrier')]
+
+    def save(self, *args, **kwargs):
+        if self.is_default:
+            CarrierAccount.objects.filter(store=self.store, is_default=True).exclude(pk=self.pk).update(is_default=False)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.get_carrier_display()} — {self.store.name}"
+
 
 class Order(models.Model):
     store         = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='orders')
@@ -56,7 +83,12 @@ class Order(models.Model):
     payment_method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES, default='cod')
     chargily_checkout_id   = models.CharField(max_length=100, blank=True, db_index=True)
     chargily_payment_link  = models.URLField(blank=True)
-    note          = models.TextField(blank=True)
+    note           = models.TextField(blank=True)
+    customer_email = models.EmailField(blank=True)
+    carrier                      = models.ForeignKey(CarrierAccount, null=True, blank=True, on_delete=models.SET_NULL, related_name='shipments')
+    carrier_tracking_number      = models.CharField(max_length=100, blank=True)
+    carrier_status               = models.CharField(max_length=50, blank=True)
+    carrier_shipment_created_at  = models.DateTimeField(null=True, blank=True)
     created_at    = models.DateTimeField(auto_now_add=True)
     updated_at    = models.DateTimeField(auto_now=True)
 
@@ -140,6 +172,33 @@ class PaymentWebhookLog(models.Model):
 
     def __str__(self):
         return f"{self.event_type or '?'} — {self.checkout_id or '?'} ({self.status})"
+
+
+class AbandonedCart(models.Model):
+    store            = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='abandoned_carts')
+    first_name       = models.CharField(max_length=100, blank=True)
+    last_name        = models.CharField(max_length=100, blank=True)
+    phone            = models.CharField(max_length=30)
+    email            = models.EmailField(blank=True)
+    wilaya           = models.CharField(max_length=100, blank=True)
+    items            = models.JSONField(default=list)
+    total            = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    reminder_sent    = models.BooleanField(default=False)
+    reminder_sent_at = models.DateTimeField(null=True, blank=True)
+    is_recovered     = models.BooleanField(default=False)
+    recovered_at     = models.DateTimeField(null=True, blank=True)
+    created_at       = models.DateTimeField(auto_now_add=True)
+    updated_at       = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['store', 'phone']),
+            models.Index(fields=['store', 'is_recovered', 'reminder_sent']),
+        ]
+
+    def __str__(self):
+        return f"Panier abandonné #{self.pk} — {self.phone}"
 
 
 class CallAttempt(models.Model):
