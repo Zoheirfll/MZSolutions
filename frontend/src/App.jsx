@@ -11,6 +11,7 @@ import AcceptInvitation from './pages/AcceptInvitation'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
 import StockPage from './pages/StockPage'
+import ParametresLivraisonPage from './pages/ParametresLivraisonPage'
 import ProductsPage from './pages/products/ProductsPage'
 import ProductFormPage from './pages/products/ProductFormPage'
 import CategoriesPage from './pages/products/CategoriesPage'
@@ -24,7 +25,14 @@ import CancellationsPage from './pages/orders/CancellationsPage'
 import OrderDetailPage from './pages/orders/OrderDetailPage'
 import FailureReasonsPage from './pages/orders/FailureReasonsPage'
 import ConfirmationRatePage from './pages/orders/ConfirmationRatePage'
+import AbandonedCartsPage from './pages/orders/AbandonedCartsPage'
+import ThemePage from './pages/boutique/ThemePage'
+import PagesPage from './pages/boutique/PagesPage'
+import PageFormPage from './pages/boutique/PageFormPage'
+import MenuPage from './pages/boutique/MenuPage'
+import FileManagerPage from './pages/boutique/FileManagerPage'
 import StorefrontHomePage from './pages/storefront/StorefrontHomePage'
+import StorefrontPagePage from './pages/storefront/StorefrontPagePage'
 import StorefrontProductsPage from './pages/storefront/StorefrontProductsPage'
 import StorefrontProductPage from './pages/storefront/StorefrontProductPage'
 import CheckoutPage from './pages/storefront/CheckoutPage'
@@ -44,6 +52,7 @@ function App() {
           <Route path="/store/:slug/products"              element={<StorefrontProductsPage />} />
           <Route path="/store/:slug/products/:productId"   element={<StorefrontProductPage />} />
           <Route path="/store/:slug/checkout"              element={<CheckoutPage />} />
+          <Route path="/store/:slug/pages/:pageSlug"      element={<StorefrontPagePage />} />
 
           <Route path="/auth"             element={<Auth />} />
           <Route path="/forgot-password"  element={<ForgotPassword />} />
@@ -52,7 +61,14 @@ function App() {
 
           <Route path="/dashboard"                           element={<PD><Dashboard /></PD>} />
           <Route path="/dashboard/boutique"                  element={<PD><StorePage /></PD>} />
+          <Route path="/dashboard/boutique/theme"            element={<PD><ThemePage /></PD>} />
+          <Route path="/dashboard/boutique/pages"            element={<PD><PagesPage /></PD>} />
+          <Route path="/dashboard/boutique/pages/nouvelle"   element={<PD><PageFormPage /></PD>} />
+          <Route path="/dashboard/boutique/pages/:id/modifier" element={<PD><PageFormPage /></PD>} />
+          <Route path="/dashboard/boutique/menu"             element={<PD><MenuPage /></PD>} />
+          <Route path="/dashboard/boutique/fichiers"         element={<PD><FileManagerPage /></PD>} />
           <Route path="/dashboard/stock"                     element={<PD><StockPage /></PD>} />
+          <Route path="/dashboard/parametres-livraison"      element={<PD><ParametresLivraisonPage /></PD>} />
           <Route path="/dashboard/produits"                  element={<PD><ProductsPage /></PD>} />
           <Route path="/dashboard/produits/nouveau"          element={<PD><ProductFormPage /></PD>} />
           <Route path="/dashboard/produits/:id/modifier"     element={<PD><ProductFormPage /></PD>} />
@@ -66,6 +82,7 @@ function App() {
           <Route path="/dashboard/commandes/raisons-echec"                element={<PD><FailureReasonsPage /></PD>} />
           <Route path="/dashboard/commandes/taux-confirmation"           element={<PD><ConfirmationRatePage /></PD>} />
           <Route path="/dashboard/commandes/:id"                         element={<PD><OrderDetailPage /></PD>} />
+          <Route path="/dashboard/commandes/paniers-abandonnes"           element={<PD><AbandonedCartsPage /></PD>} />
           <Route path="/dashboard/commandes/annulations/demandes"       element={<PD><CancellationsPage mode="requests" /></PD>} />
           <Route path="/dashboard/commandes/annulations/confirmees"     element={<PD><CancellationsPage mode="confirmed" /></PD>} />
           <Route path="/dashboard/clients"                   element={<PD><ComingSoon title="Clients" /></PD>} />
