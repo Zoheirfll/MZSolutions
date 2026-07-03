@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard'
 import StorePage from './pages/StorePage'
 import ComingSoon from './pages/ComingSoon'
 import TeamPage from './pages/TeamPage'
+import PermissionsPage from './pages/PermissionsPage'
 import AcceptInvitation from './pages/AcceptInvitation'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
@@ -122,6 +123,7 @@ function App() {
           <Route path="/dashboard/expeditions"               element={<PD><ComingSoon title="Expéditions & Retours" /></PD>} />
           <Route path="/dashboard/stats"                     element={<PD><ComingSoon title="Statistiques" /></PD>} />
           <Route path="/dashboard/equipe"                    element={<PD><TeamPage /></PD>} />
+          <Route path="/dashboard/equipe/permissions"        element={<PD><PermissionsPage /></PD>} />
           <Route path="/dashboard/abonnement"                element={<PD><ComingSoon title="Abonnement" /></PD>} />
 
           <Route path="*" element={<Navigate to="/auth" replace />} />

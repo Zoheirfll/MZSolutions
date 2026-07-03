@@ -4,7 +4,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from core.permissions import is_owner_or_admin
+from core.permissions import is_owner_or_admin, has_permission
 from orders.models import Order
 from dropshipping.models import CommissionEntry
 from .models import Cost
@@ -26,7 +26,7 @@ class CostListCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        if not is_owner_or_admin(request):
+        if not (is_owner_or_admin(request) or has_permission(request, 'finances_view')):
             return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
         store = _get_store(request)
         qs = Cost.objects.filter(store=store)
@@ -124,7 +124,7 @@ class ProfitabilityView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        if not is_owner_or_admin(request):
+        if not (is_owner_or_admin(request) or has_permission(request, 'finances_view')):
             return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
         store = _get_store(request)
         group_by = request.query_params.get('group_by', 'product')
@@ -175,7 +175,7 @@ class ProfitabilitySummaryView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        if not is_owner_or_admin(request):
+        if not (is_owner_or_admin(request) or has_permission(request, 'finances_view')):
             return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
         store = _get_store(request)
         period_start = request.query_params.get('period_start')

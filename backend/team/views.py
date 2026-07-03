@@ -6,10 +6,10 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
 
-from .models import TeamMember
+from .models import TeamMember, RolePermission, PERMISSION_CATALOG, ROLES_WITH_PERMISSIONS, get_effective_permissions
 from .serializers import InviteSerializer, TeamMemberSerializer, AcceptInvitationSerializer
 from accounts.serializers import get_tokens, UserSerializer
-from core.permissions import IsOwnerOrAdminForWrites
+from core.permissions import IsOwnerOrAdminForWrites, is_owner_or_admin
 
 logger = logging.getLogger(__name__)
 
@@ -143,3 +143,53 @@ class AcceptInvitationView(APIView):
             'user': UserSerializer(member.user).data,
             **get_tokens(member.user),
         })
+
+
+class RolePermissionsView(APIView):
+    """Matrice de permissions par rôle (Epic 7.5) — owner/admin uniquement.
+    GET renvoie le catalogue complet + les valeurs effectives par rôle ;
+    POST fait un upsert d'un seul toggle (role, permission, enabled)."""
+    permission_classes = [IsAuthenticated]
+
+    def _get_store(self, request):
+        try:
+            return request.user.store
+        except Exception:
+            pass
+        try:
+            return request.user.team_membership.store
+        except Exception:
+            return None
+
+    def get(self, request):
+        if not is_owner_or_admin(request):
+            return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
+        store = self._get_store(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        return Response({
+            'catalog': [{'key': k, 'label': label} for k, label in PERMISSION_CATALOG],
+            'roles':   ROLES_WITH_PERMISSIONS,
+            'matrix':  {role: get_effective_permissions(store, role) for role in ROLES_WITH_PERMISSIONS},
+        })
+
+    def post(self, request):
+        if not is_owner_or_admin(request):
+            return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
+        store = self._get_store(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+
+        role       = request.data.get('role')
+        permission = request.data.get('permission')
+        enabled    = bool(request.data.get('enabled'))
+        if role not in ROLES_WITH_PERMISSIONS:
+            return Response({'detail': f'Rôle invalide. Valeurs : {ROLES_WITH_PERMISSIONS}'}, status=400)
+        if permission not in dict(PERMISSION_CATALOG):
+            return Response({'detail': 'Permission inconnue.'}, status=400)
+
+        RolePermission.objects.update_or_create(
+            store=store, role=role, permission=permission,
+            defaults={'enabled': enabled},
+        )
+        return Response({'role': role, 'permissions': get_effective_permissions(store, role)})

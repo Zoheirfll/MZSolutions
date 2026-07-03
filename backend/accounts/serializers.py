@@ -13,11 +13,12 @@ class UserSerializer(serializers.ModelSerializer):
     store_name     = serializers.SerializerMethodField()
     team_role      = serializers.SerializerMethodField()
     team_member_id = serializers.SerializerMethodField()
+    permissions    = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = ['id', 'email', 'first_name', 'last_name', 'phone',
-                  'store_slug', 'store_name', 'team_role', 'team_member_id', 'is_email_verified']
+                  'store_slug', 'store_name', 'team_role', 'team_member_id', 'permissions', 'is_email_verified']
 
     def get_store_slug(self, obj):
         try:
@@ -50,6 +51,16 @@ class UserSerializer(serializers.ModelSerializer):
             return obj.team_membership.id
         except Exception:
             return None
+
+    def get_permissions(self, obj):
+        from team.models import PERMISSION_CATALOG, get_effective_permissions
+        try:
+            membership = obj.team_membership
+        except Exception:
+            membership = None
+        if not membership:
+            return {key: True for key, _ in PERMISSION_CATALOG}
+        return get_effective_permissions(membership.store, membership.role)
 
 
 class RegisterSerializer(serializers.Serializer):

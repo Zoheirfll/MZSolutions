@@ -91,6 +91,7 @@ const ICONS = {
 export default function DashboardLayout({ children, title }) {
   const { user, logout } = useAuth()
   const teamRole = user?.team_role || null
+  const can = key => !!user?.permissions?.[key]
   const navigate = useNavigate()
   const location = useLocation()
   const [expanded, setExpanded]         = useState({
@@ -230,7 +231,7 @@ export default function DashboardLayout({ children, title }) {
                 {expanded.commandes && (
                   <ul className="mt-0.5 ml-5 space-y-0.5 border-l pl-3" style={{ borderColor: theme.dark.border }}>
                     <li>{link('/dashboard/commandes', 'Toutes les commandes', true)}</li>
-                    {teamRole === 'confirmateur' ? null : (
+                    {!can('orders_manage') ? null : (
                       <>
                         <li><span className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm cursor-not-allowed opacity-40 text-gray-400">Commandes programmées</span></li>
                         <li>{link('/dashboard/commandes/nouvelle', 'Nouvelle commande')}</li>
@@ -261,11 +262,11 @@ export default function DashboardLayout({ children, title }) {
                 )}
               </li>
 
-              <li>{mainLink('/dashboard/reclamations', ICONS.complaints, 'Réclamations', false, openComplaintsCount)}</li>
-              <li>{mainLink('/dashboard/echanges', ICONS.exchange, 'Échanges', false, openExchangesCount)}</li>
+              {can('complaints_view') && <li>{mainLink('/dashboard/reclamations', ICONS.complaints, 'Réclamations', false, openComplaintsCount)}</li>}
+              {can('exchanges_view') && <li>{mainLink('/dashboard/echanges', ICONS.exchange, 'Échanges', false, openExchangesCount)}</li>}
 
-              {/* Produits & Catégories — masqué pour confirmateur */}
-              {teamRole !== 'confirmateur' && (
+              {/* Produits & Catégories */}
+              {can('products_view') && (
                 <li>
                   <button
                     onClick={() => setExpanded(e => ({ ...e, produits: !e.produits }))}
@@ -309,7 +310,7 @@ export default function DashboardLayout({ children, title }) {
                 </li>
               )}
 
-              {teamRole !== 'confirmateur' && (
+              {can('clients_view') && (
                 <li>
                   <button
                     onClick={() => setExpanded(e => ({ ...e, clients: !e.clients }))}
@@ -331,7 +332,7 @@ export default function DashboardLayout({ children, title }) {
                   )}
                 </li>
               )}
-              {!['confirmateur', 'dropshipper'].includes(teamRole) && (
+              {teamRole !== 'dropshipper' && can('dropshipping_view') && (
                 <li>{mainLink('/dashboard/dropshipping', ICONS.dropshipping, 'Dropshipping')}</li>
               )}
               {teamRole === 'dropshipper' && (
@@ -340,7 +341,7 @@ export default function DashboardLayout({ children, title }) {
                   <li>{mainLink('/dashboard/mes-commissions', ICONS.subscription, 'Mes commissions')}</li>
                 </>
               )}
-              {!['confirmateur', 'dropshipper'].includes(teamRole) && (
+              {can('finances_view') && (
                 <li>
                   <button
                     onClick={() => setExpanded(e => ({ ...e, finances: !e.finances }))}
@@ -361,8 +362,8 @@ export default function DashboardLayout({ children, title }) {
                   )}
                 </li>
               )}
-              {teamRole !== 'confirmateur' && <li>{disabled(ICONS.shipping, 'Expéditions')}</li>}
-              {teamRole !== 'confirmateur' && <li>{mainLink('/dashboard/stock', ICONS.stock, 'Stock & Inventaire', false, lowStockCount)}</li>}
+              {can('shipping_settings_view') && <li>{disabled(ICONS.shipping, 'Expéditions')}</li>}
+              {can('stock_view') && <li>{mainLink('/dashboard/stock', ICONS.stock, 'Stock & Inventaire', false, lowStockCount)}</li>}
               {!['confirmateur', 'dropshipper'].includes(teamRole) && (
                 <li>{disabled(ICONS.stats, 'Statistiques')}</li>
               )}
@@ -370,22 +371,29 @@ export default function DashboardLayout({ children, title }) {
           </div>
 
           {/* PARAMÈTRES */}
-          {teamRole !== 'confirmateur' && (
+          {(can('store_view') || can('shipping_settings_view') || can('team_view')) && (
             <div>
               <p className="text-[10px] font-semibold px-2 mb-2 tracking-widest" style={{ color: theme.dark.muted }}>PARAMÈTRES</p>
               <ul className="space-y-0.5">
-                <li>
-                  {mainLink('/dashboard/boutique', ICONS.store, 'Ma boutique')}
-                  <ul className="ml-7 mt-0.5 space-y-0.5">
-                    <li>{link('/dashboard/boutique/theme',   'Thème & Apparence')}</li>
-                    <li>{link('/dashboard/boutique/pages',   'Pages')}</li>
-                    <li>{link('/dashboard/boutique/menu',    'Menu')}</li>
-                    <li>{link('/dashboard/boutique/fichiers','Fichiers')}</li>
-                  </ul>
-                </li>
-                <li>{mainLink('/dashboard/parametres-livraison', ICONS.shipping, 'Paramètres livraison')}</li>
-                {!['confirmateur', 'dropshipper'].includes(teamRole) && (
+                {can('store_view') && (
+                  <li>
+                    {mainLink('/dashboard/boutique', ICONS.store, 'Ma boutique')}
+                    <ul className="ml-7 mt-0.5 space-y-0.5">
+                      <li>{link('/dashboard/boutique/theme',   'Thème & Apparence')}</li>
+                      <li>{link('/dashboard/boutique/pages',   'Pages')}</li>
+                      <li>{link('/dashboard/boutique/menu',    'Menu')}</li>
+                      <li>{link('/dashboard/boutique/fichiers','Fichiers')}</li>
+                    </ul>
+                  </li>
+                )}
+                {can('shipping_settings_view') && (
+                  <li>{mainLink('/dashboard/parametres-livraison', ICONS.shipping, 'Paramètres livraison')}</li>
+                )}
+                {can('team_view') && (
                   <li>{mainLink('/dashboard/equipe', ICONS.team, 'Équipe')}</li>
+                )}
+                {(!teamRole || teamRole === 'admin') && (
+                  <li>{mainLink('/dashboard/equipe/permissions', ICONS.team, 'Permissions par rôle')}</li>
                 )}
                 {!['confirmateur', 'dropshipper'].includes(teamRole) && (
                   <li>{disabled(ICONS.subscription, 'Abonnement')}</li>
