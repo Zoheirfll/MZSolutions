@@ -2,8 +2,28 @@ from rest_framework import serializers
 from .models import (
     Order, OrderItem, OrderStatusHistory, STATUS_CHOICES,
     OrderAssignment, FailureReason, CallAttempt, CALL_STATUS_CHOICES,
-    PAYMENT_METHOD_CHOICES,
+    PAYMENT_METHOD_CHOICES, AbandonedCart, CarrierAccount, CARRIER_CHOICES,
 )
+
+
+class CarrierAccountSerializer(serializers.ModelSerializer):
+    carrier_label     = serializers.SerializerMethodField()
+    api_token         = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    api_token_masked  = serializers.SerializerMethodField()
+
+    class Meta:
+        model  = CarrierAccount
+        fields = ['id', 'carrier', 'carrier_label', 'api_id', 'api_token', 'api_token_masked',
+                  'is_active', 'is_default', 'created_at']
+        read_only_fields = ['id', 'created_at']
+
+    def get_carrier_label(self, obj):
+        return dict(CARRIER_CHOICES).get(obj.carrier, obj.carrier)
+
+    def get_api_token_masked(self, obj):
+        if not obj.api_token:
+            return ''
+        return '•' * max(0, len(obj.api_token) - 4) + obj.api_token[-4:]
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
@@ -81,6 +101,7 @@ class OrderSerializer(serializers.ModelSerializer):
     status_label         = serializers.SerializerMethodField()
     confirmateur_name    = serializers.SerializerMethodField()
     payment_method_label = serializers.SerializerMethodField()
+    carrier_label        = serializers.SerializerMethodField()
 
     class Meta:
         model  = Order
@@ -90,6 +111,7 @@ class OrderSerializer(serializers.ModelSerializer):
             'subtotal', 'shipping_cost', 'total',
             'delivery_type', 'payment_method', 'payment_method_label', 'note',
             'items_count', 'confirmateur_name', 'created_at',
+            'carrier_label', 'carrier_tracking_number', 'carrier_status',
         ]
 
     def get_items_count(self, obj):
@@ -101,6 +123,9 @@ class OrderSerializer(serializers.ModelSerializer):
     def get_payment_method_label(self, obj):
         return dict(PAYMENT_METHOD_CHOICES).get(obj.payment_method, obj.payment_method)
 
+    def get_carrier_label(self, obj):
+        return obj.carrier.get_carrier_display() if obj.carrier else None
+
     def get_confirmateur_name(self, obj):
         try:
             a = obj.assignment
@@ -109,6 +134,17 @@ class OrderSerializer(serializers.ModelSerializer):
         except Exception:
             pass
         return None
+
+
+class AbandonedCartSerializer(serializers.ModelSerializer):
+    class Meta:
+        model  = AbandonedCart
+        fields = [
+            'id', 'first_name', 'last_name', 'phone', 'email', 'wilaya',
+            'items', 'total', 'reminder_sent', 'reminder_sent_at',
+            'is_recovered', 'recovered_at', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['id', 'reminder_sent', 'reminder_sent_at', 'is_recovered', 'recovered_at', 'created_at', 'updated_at']
 
 
 class OrderDetailSerializer(OrderSerializer):

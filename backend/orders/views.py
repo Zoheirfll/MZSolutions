@@ -8,10 +8,12 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
 
-from .models import Order, OrderItem, OrderStatusHistory, STATUS_CHOICES, OrderAssignment, FailureReason, CallAttempt, CALL_STATUS_CHOICES, PaymentWebhookLog
-from .serializers import OrderSerializer, OrderDetailSerializer, OrderAssignmentSerializer, FailureReasonSerializer, CallAttemptSerializer
+from django.utils import timezone
+from .models import Order, OrderItem, OrderStatusHistory, STATUS_CHOICES, OrderAssignment, FailureReason, CallAttempt, CALL_STATUS_CHOICES, PaymentWebhookLog, AbandonedCart, CarrierAccount, CARRIER_CHOICES
+from .serializers import OrderSerializer, OrderDetailSerializer, OrderAssignmentSerializer, FailureReasonSerializer, CallAttemptSerializer, AbandonedCartSerializer, CarrierAccountSerializer
 from .utils import assign_order_round_robin
 from . import chargily
+from .carriers import get_carrier_client
 from core.permissions import IsOwnerOrAdminForWrites, is_owner_or_admin
 
 
@@ -186,7 +188,105 @@ class OrderStatusView(APIView):
             changed_by = request.user,
             note       = request.data.get('note', ''),
         )
-        return Response(OrderDetailSerializer(order).data)
+
+        carrier_warning = self._maybe_create_shipment(request, store, order, new_status)
+
+        data = OrderDetailSerializer(order).data
+        if carrier_warning:
+            data['carrier_warning'] = carrier_warning
+        return Response(data)
+
+    def _maybe_create_shipment(self, request, store, order, new_status):
+        if new_status != 'confirmed' or order.carrier_tracking_number:
+            return None
+
+        carrier_id = request.data.get('carrier_id')
+        account = None
+        if carrier_id:
+            account = store.carrier_accounts.filter(pk=carrier_id, is_active=True).first()
+        if not account:
+            account = store.carrier_accounts.filter(is_default=True, is_active=True).first()
+
+        if not account:
+            return 'Aucun transporteur configuré — expédition non créée.'
+
+        try:
+            result = get_carrier_client(account).create_shipment(order)
+        except Exception as e:
+            return f"Erreur transporteur : {e}"
+
+        order.carrier = account
+        order.carrier_tracking_number = result.tracking_number
+        order.carrier_status = result.status
+        order.carrier_shipment_created_at = timezone.now()
+        order.save(update_fields=['carrier', 'carrier_tracking_number', 'carrier_status', 'carrier_shipment_created_at'])
+        return None
+
+
+class CarrierAccountListCreateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        store = _get_store(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        accounts = store.carrier_accounts.all()
+        return Response(CarrierAccountSerializer(accounts, many=True).data)
+
+    def post(self, request):
+        if not is_owner_or_admin(request):
+            return Response({'detail': 'Création réservée au propriétaire ou administrateur.'}, status=403)
+        store = _get_store(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+
+        carrier = request.data.get('carrier')
+        valid = [c[0] for c in CARRIER_CHOICES]
+        if carrier not in valid:
+            return Response({'detail': f'Transporteur invalide. Valeurs : {valid}'}, status=400)
+        if store.carrier_accounts.filter(carrier=carrier).exists():
+            return Response({'detail': 'Ce transporteur est déjà connecté pour cette boutique.'}, status=400)
+
+        account = CarrierAccount.objects.create(
+            store      = store,
+            carrier    = carrier,
+            api_id     = request.data.get('api_id', ''),
+            api_token  = request.data.get('api_token', ''),
+            is_default = request.data.get('is_default', False),
+        )
+        return Response(CarrierAccountSerializer(account).data, status=status.HTTP_201_CREATED)
+
+
+class CarrierAccountDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def _get(self, request, pk):
+        store = _get_store(request)
+        if not store:
+            return None, Response({'detail': 'Accès refusé.'}, status=403)
+        try:
+            return store.carrier_accounts.get(pk=pk), None
+        except CarrierAccount.DoesNotExist:
+            return None, Response({'detail': 'Compte transporteur introuvable.'}, status=404)
+
+    def put(self, request, pk):
+        if not is_owner_or_admin(request):
+            return Response({'detail': 'Modification réservée au propriétaire ou administrateur.'}, status=403)
+        account, err = self._get(request, pk)
+        if err: return err
+        for field in ['api_id', 'api_token', 'is_active', 'is_default']:
+            if field in request.data:
+                setattr(account, field, request.data[field])
+        account.save()
+        return Response(CarrierAccountSerializer(account).data)
+
+    def delete(self, request, pk):
+        if not is_owner_or_admin(request):
+            return Response({'detail': 'Suppression réservée au propriétaire ou administrateur.'}, status=403)
+        account, err = self._get(request, pk)
+        if err: return err
+        account.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class OrderStatsView(APIView):
@@ -612,3 +712,79 @@ class FailureReasonDetailView(APIView):
         if err: return err
         reason.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# ─── Paniers abandonnés ───────────────────────────────────────────────────────
+
+class PublicAbandonedCartView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        store_slug = request.data.get('store_slug')
+        phone = (request.data.get('phone') or '').strip()
+        if not store_slug or not phone:
+            return Response({'detail': 'store_slug et phone sont requis.'}, status=400)
+        try:
+            from stores.models import Store
+            store = Store.objects.get(slug=store_slug)
+        except Store.DoesNotExist:
+            return Response({'detail': 'Boutique introuvable.'}, status=404)
+
+        # Ne pas écraser un panier déjà récupéré
+        existing = AbandonedCart.objects.filter(store=store, phone=phone, is_recovered=True).first()
+        if existing:
+            return Response({'detail': 'Commande déjà finalisée.'}, status=200)
+
+        obj, _ = AbandonedCart.objects.update_or_create(
+            store=store,
+            phone=phone,
+            is_recovered=False,
+            defaults={
+                'first_name': request.data.get('first_name', ''),
+                'last_name':  request.data.get('last_name', ''),
+                'email':      request.data.get('email', ''),
+                'wilaya':     request.data.get('wilaya', ''),
+                'items':      request.data.get('items', []),
+                'total':      request.data.get('total', 0),
+                'reminder_sent': False,
+            }
+        )
+        return Response({'id': obj.pk}, status=200)
+
+
+class PublicMarkCartRecoveredView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        store_slug = request.data.get('store_slug')
+        phone = (request.data.get('phone') or '').strip()
+        if not store_slug or not phone:
+            return Response({'detail': 'store_slug et phone sont requis.'}, status=400)
+        AbandonedCart.objects.filter(
+            store__slug=store_slug, phone=phone, is_recovered=False
+        ).update(is_recovered=True, recovered_at=timezone.now())
+        return Response({'detail': 'Panier marqué comme récupéré.'})
+
+
+class AbandonedCartListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        store = _get_store(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        qs = store.abandoned_carts.all()
+        recovered = request.query_params.get('recovered')
+        if recovered == '1':
+            qs = qs.filter(is_recovered=True)
+        elif recovered == '0':
+            qs = qs.filter(is_recovered=False)
+        try:
+            page     = max(1, int(request.query_params.get('page', 1)))
+            per_page = max(1, min(100, int(request.query_params.get('per_page', 20))))
+        except ValueError:
+            page, per_page = 1, 20
+        total  = qs.count()
+        offset = (page - 1) * per_page
+        results = AbandonedCartSerializer(qs[offset:offset + per_page], many=True).data
+        return Response({'count': total, 'page': page, 'per_page': per_page, 'results': results})
