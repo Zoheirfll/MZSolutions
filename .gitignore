@@ -15,3 +15,8 @@ frontend/.env
 .idea/
 .DS_Store
 Thumbs.db
+~$*.docx
+~$*.doc
+
+# Outils locaux
+graphify-out/

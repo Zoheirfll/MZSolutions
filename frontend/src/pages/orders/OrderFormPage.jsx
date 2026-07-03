@@ -99,10 +99,10 @@ export default function OrderFormPage() {
 
   return (
     <DashboardLayout title="Nouvelle commande">
-      <div className="flex gap-6 items-start">
+      <div className="flex flex-col lg:flex-row gap-6 items-start">
 
         {/* ── Colonne gauche ── */}
-        <div className="flex-1 space-y-5 min-w-0">
+        <div className="flex-1 w-full space-y-5 min-w-0">
 
           {/* Articles */}
           <div className="rounded-xl border p-5" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
@@ -155,47 +155,59 @@ export default function OrderFormPage() {
 
             {/* Articles ajoutés */}
             {cartItems.length === 0 ? (
-              <p className="text-sm text-gray-500 text-center py-4">Aucun article ajouté</p>
+              <div className={theme.emptyState}>
+                <svg className="w-10 h-10 mb-2 opacity-40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" />
+                  <path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6" />
+                </svg>
+                <p>Aucun article ajouté</p>
+              </div>
             ) : (
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-xs border-b" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
-                    <th className="pb-2 text-left font-medium">PRODUIT</th>
-                    <th className="pb-2 text-right font-medium">PRIX</th>
-                    <th className="pb-2 text-center font-medium w-24">QTÉ</th>
-                    <th className="pb-2 text-right font-medium">TOTAL</th>
-                    <th className="pb-2 w-8"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {cartItems.map(item => (
-                    <tr key={item._key} className="border-b" style={{ borderColor: theme.dark.border + '44' }}>
-                      <td className="py-2.5 pr-3 text-gray-200">{item.product_name}</td>
-                      <td className="py-2.5 text-right text-gray-300">{Number(item.price).toLocaleString('fr-DZ')}</td>
-                      <td className="py-2.5 text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          <button onClick={() => updateQty(item._key, item.quantity - 1)} className="w-6 h-6 rounded border text-gray-400 hover:text-gray-200 text-xs" style={{ borderColor: theme.dark.border }}>−</button>
-                          <span className="w-6 text-center text-gray-200">{item.quantity}</span>
-                          <button onClick={() => updateQty(item._key, item.quantity + 1)} className="w-6 h-6 rounded border text-gray-400 hover:text-gray-200 text-xs" style={{ borderColor: theme.dark.border }}>+</button>
-                        </div>
-                      </td>
-                      <td className="py-2.5 text-right text-gray-200 font-medium">
-                        {(item.price * item.quantity).toLocaleString('fr-DZ')}
-                      </td>
-                      <td className="py-2.5 text-center">
-                        <button onClick={() => removeItem(item._key)} className="text-red-400 hover:text-red-300 text-xs">✕</button>
-                      </td>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm min-w-105">
+                  <thead>
+                    <tr className="text-xs border-b" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
+                      <th className="pb-2 text-left font-medium">PRODUIT</th>
+                      <th className="pb-2 text-right font-medium">PRIX</th>
+                      <th className="pb-2 text-center font-medium w-24">QTÉ</th>
+                      <th className="pb-2 text-right font-medium">TOTAL</th>
+                      <th className="pb-2 w-8"></th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {cartItems.map(item => (
+                      <tr key={item._key} className="border-b" style={{ borderColor: theme.dark.border + '44' }}>
+                        <td className="py-2.5 pr-3 text-gray-200">{item.product_name}</td>
+                        <td className="py-2.5 text-right text-gray-300">{Number(item.price).toLocaleString('fr-DZ')}</td>
+                        <td className="py-2.5 text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            <button onClick={() => updateQty(item._key, item.quantity - 1)} className="w-6 h-6 rounded border text-gray-400 hover:text-gray-200 text-xs" style={{ borderColor: theme.dark.border }}>−</button>
+                            <span className="w-6 text-center text-gray-200">{item.quantity}</span>
+                            <button onClick={() => updateQty(item._key, item.quantity + 1)} className="w-6 h-6 rounded border text-gray-400 hover:text-gray-200 text-xs" style={{ borderColor: theme.dark.border }}>+</button>
+                          </div>
+                        </td>
+                        <td className="py-2.5 text-right text-gray-200 font-medium">
+                          {(item.price * item.quantity).toLocaleString('fr-DZ')}
+                        </td>
+                        <td className="py-2.5 text-center">
+                          <button onClick={() => removeItem(item._key)} className="text-red-400 hover:text-red-300 transition" title="Retirer">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
+                              <path d="M18 6L6 18M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
 
           {/* Information Client */}
           <div className="rounded-xl border p-5 space-y-4" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
             <h2 className="font-semibold text-gray-200">Information Client</h2>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className="block text-xs text-gray-400 mb-1.5">Prénom *</label>
                 <input value={client.first_name} onChange={e => setClient(c => ({ ...c, first_name: e.target.value }))} required className={inputCls} style={bdrStyle} placeholder="Prénom" />
@@ -211,7 +223,7 @@ export default function OrderFormPage() {
                 {errors.phone && <p className="text-red-400 text-xs mt-1">{errors.phone}</p>}
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs text-gray-400 mb-1.5">Wilaya *</label>
                 <select value={client.wilaya} onChange={e => setClient(c => ({ ...c, wilaya: e.target.value }))} className={inputCls} style={{ ...bdrStyle, background: theme.dark.sidebar }}>
@@ -261,7 +273,7 @@ export default function OrderFormPage() {
         </div>
 
         {/* ── Panier (colonne droite fixe) ── */}
-        <div className="w-72 shrink-0 sticky top-4">
+        <div className="w-full lg:w-72 shrink-0 lg:sticky lg:top-4">
           <div className="rounded-xl border p-5" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
             <h2 className="font-semibold text-gray-200 mb-4 text-center">Panier</h2>
 
@@ -299,14 +311,16 @@ export default function OrderFormPage() {
             <button
               onClick={handleSubmit}
               disabled={saving || cartItems.length === 0 || !client.first_name || !client.phone || !client.wilaya}
-              className="w-full py-3 rounded-lg text-sm font-semibold text-white transition disabled:opacity-50"
-              style={{ background: '#2563eb' }}
+              className="w-full py-3 rounded-lg text-sm font-semibold text-white bg-violet-600 hover:bg-violet-500 transition disabled:opacity-50"
             >
               {saving ? 'Enregistrement…' : 'Enregistrer'}
             </button>
 
-            <button onClick={() => navigate('/dashboard/commandes')} className="w-full mt-2 py-2 text-xs text-gray-400 hover:text-gray-200 transition">
-              ← Retour
+            <button onClick={() => navigate('/dashboard/commandes')} className="w-full mt-2 py-2 text-xs text-gray-400 hover:text-gray-200 transition flex items-center justify-center gap-1.5">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="12" height="12">
+                <path d="M19 12H5M12 19l-7-7 7-7" />
+              </svg>
+              Retour
             </button>
           </div>
         </div>

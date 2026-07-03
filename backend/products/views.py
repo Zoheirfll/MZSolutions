@@ -708,6 +708,19 @@ class PublicStoreView(APIView):
         if not store:
             return Response({'detail': 'Boutique introuvable.'}, status=404)
         logo_url = request.build_absolute_uri(store.logo.url) if store.logo else None
+        try:
+            s = store.settings
+            theme = {
+                'template':  s.theme_template,
+                'primary':   s.theme_primary,
+                'secondary': s.theme_secondary,
+                'font':      s.theme_font,
+            }
+            menu_items = s.menu_items or []
+        except Exception:
+            theme = {'template': 'violet', 'primary': '', 'secondary': '', 'font': 'inter'}
+            menu_items = []
+        pages = list(store.pages.filter(is_published=True).values('id', 'title', 'slug', 'page_type', 'order'))
         return Response({
             'name':        store.name,
             'slug':        store.slug,
@@ -715,6 +728,9 @@ class PublicStoreView(APIView):
             'phone':       store.phone,
             'email':       store.email,
             'logo_url':    logo_url,
+            'theme':       theme,
+            'menu_items':  menu_items,
+            'pages':       pages,
         })
 
 
@@ -847,3 +863,31 @@ class PublicProductDetailView(APIView):
             'avg_rating':      avg_rating,
             'reviews_count':   len(reviews),
         })
+
+
+# ─── Pages publiques ──────────────────────────────────────────────────────────
+
+class PublicStorePageListView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, slug):
+        store = _get_public_store(slug)
+        if not store:
+            return Response({'detail': 'Boutique introuvable.'}, status=404)
+        pages = store.pages.filter(is_published=True).values('id', 'title', 'slug', 'page_type', 'order')
+        return Response(list(pages))
+
+
+class PublicStorePageView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, slug, page_slug):
+        store = _get_public_store(slug)
+        if not store:
+            return Response({'detail': 'Boutique introuvable.'}, status=404)
+        try:
+            from stores.serializers import StorePageSerializer
+            page = store.pages.get(slug=page_slug, is_published=True)
+            return Response(StorePageSerializer(page).data)
+        except Exception:
+            return Response({'detail': 'Page introuvable.'}, status=404)

@@ -558,7 +558,9 @@ export default function ProductFormPage() {
             {/* ── SEO ── */}
             {section === 'SEO' && (
               <div className="rounded-xl border p-8 text-center" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-                <p className="text-3xl mb-3">🔍</p>
+                <svg className="w-8 h-8 mx-auto mb-3 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" />
+                </svg>
                 <p className="text-gray-400 font-medium">SEO disponible prochainement</p>
               </div>
             )}
@@ -571,8 +573,7 @@ export default function ProductFormPage() {
               <button
                 type="submit"
                 disabled={saving}
-                className="px-6 py-2.5 rounded-lg text-sm font-semibold text-white transition disabled:opacity-60"
-                style={{ background: '#7c3aed' }}
+                className="px-6 py-2.5 rounded-lg text-sm font-semibold text-white bg-violet-600 hover:bg-violet-500 transition disabled:opacity-60"
               >
                 {saving ? 'Enregistrement…' : isEdit ? 'Mettre à jour' : 'Enregistrer le produit'}
               </button>

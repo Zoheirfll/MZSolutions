@@ -82,6 +82,27 @@ export const theme = {
   logo: 'text-violet-400',
   hero: 'bg-gradient-to-br from-[#2e1065] via-[#6d28d9] to-[#7c3aed]',
 
+  // Per-KPI accent colors for stat cards — gives each metric a distinct
+  // identity instead of everything defaulting to violet.
+  stat: {
+    blue:   { hex: '#3b82f6', text: 'text-blue-400',   bg: 'bg-blue-500/10',   ring: 'ring-blue-500/20' },
+    green:  { hex: '#22c55e', text: 'text-emerald-400', bg: 'bg-emerald-500/10', ring: 'ring-emerald-500/20' },
+    orange: { hex: '#f59e0b', text: 'text-amber-400',  bg: 'bg-amber-500/10',  ring: 'ring-amber-500/20' },
+    red:    { hex: '#ef4444', text: 'text-red-400',    bg: 'bg-red-500/10',    ring: 'ring-red-500/20' },
+    violet: { hex: '#8b5cf6', text: 'text-violet-400',  bg: 'bg-violet-500/10',  ring: 'ring-violet-500/20' },
+    cyan:   { hex: '#06b6d4', text: 'text-cyan-400',   bg: 'bg-cyan-500/10',   ring: 'ring-cyan-500/20' },
+  },
+
+  // Elevation hierarchy — normal cards vs hover vs modals.
+  shadow: {
+    sm: 'shadow-sm shadow-black/20',
+    md: 'shadow-md shadow-black/30',
+    lg: 'shadow-xl shadow-black/40',
+  },
+
+  // Simple entry transitions (no extra plugin needed).
+  fadeIn: 'animate-[fadeIn_0.25s_ease-out]',
+
   // Premium dark ("Linear/Vercel"): near-black surfaces, neutral hairline
   // borders (no purple tint), accent reserved for interactive elements only.
   dark: {

@@ -52,20 +52,25 @@ export default function StorePage() {
           style={{ background: theme.dark.card, borderColor: theme.dark.border }}
         >
           <p className="text-xs font-semibold text-gray-400 mb-3 tracking-widest">URL PUBLIQUE DE VOTRE BOUTIQUE</p>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
             <div
-              className="flex-1 flex items-center px-4 py-3 rounded-lg border text-violet-300 font-mono text-sm"
+              className="flex-1 flex items-center px-4 py-3 rounded-lg border text-violet-300 font-mono text-sm overflow-x-auto"
               style={{ borderColor: '#3d2d6e', background: '#0f0f1f' }}
             >
-              <span className="text-gray-500 mr-1">https://</span>
-              {publicUrl}
+              <span className="text-gray-500 mr-1 shrink-0">https://</span>
+              <span className="truncate">{publicUrl}</span>
             </div>
             <button
               onClick={handleCopy}
-              className="px-4 py-3 rounded-lg text-sm font-medium transition"
+              className="inline-flex items-center gap-1.5 px-4 py-3 rounded-lg text-sm font-medium transition"
               style={{ background: copied ? '#16a34a22' : '#ffffff10', color: copied ? '#4ade80' : '#a78bfa' }}
             >
-              {copied ? '✓ Copié' : 'Copier'}
+              {copied && (
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              )}
+              {copied ? 'Copié' : 'Copier'}
             </button>
           </div>
         </div>
@@ -100,7 +105,7 @@ export default function StorePage() {
                 placeholder="Décrivez votre boutique…"
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs text-gray-400 mb-1.5">Téléphone</label>
                 <input
@@ -128,14 +133,18 @@ export default function StorePage() {
 
             <div className="flex items-center justify-between pt-2">
               {saved && (
-                <span className="text-xs text-emerald-400 font-medium">✓ Modifications enregistrées</span>
+                <span className="inline-flex items-center gap-1.5 text-xs text-emerald-400 font-medium">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                  Modifications enregistrées
+                </span>
               )}
               <div className="ml-auto">
                 <button
                   type="submit"
                   disabled={saving}
-                  className="px-6 py-2.5 rounded-lg text-sm font-semibold text-white transition disabled:opacity-60"
-                  style={{ background: '#7c3aed' }}
+                  className={theme.btn.primary + ' px-6 py-2.5'}
                 >
                   {saving ? 'Enregistrement…' : 'Enregistrer'}
                 </button>

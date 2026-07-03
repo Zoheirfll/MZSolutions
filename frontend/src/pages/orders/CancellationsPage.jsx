@@ -6,6 +6,38 @@ import { theme } from '../../theme'
 
 const PER_PAGE_OPTIONS = [10, 25, 50]
 
+function CheckIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14" {...props}>
+      <path d="M20 6L9 17l-5-5" />
+    </svg>
+  )
+}
+
+function XIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14" {...props}>
+      <path d="M18 6L6 18M6 6l12 12" />
+    </svg>
+  )
+}
+
+function ChevronLeftIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14" {...props}>
+      <path d="M15 18l-6-6 6-6" />
+    </svg>
+  )
+}
+
+function ChevronRightIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14" {...props}>
+      <path d="M9 18l6-6-6-6" />
+    </svg>
+  )
+}
+
 export default function CancellationsPage({ mode }) {
   const navigate   = useNavigate()
   const isRequests = mode === 'requests'
@@ -39,8 +71,8 @@ export default function CancellationsPage({ mode }) {
   return (
     <DashboardLayout title={isRequests ? "Demande d'annulation" : 'Annulation confirmée'}>
 
-      <div className="rounded-xl border overflow-hidden mb-4" style={{ borderColor: theme.dark.border }}>
-        <table className="w-full text-sm">
+      <div className="rounded-xl border overflow-x-auto mb-4" style={{ borderColor: theme.dark.border }}>
+        <table className="w-full text-sm min-w-165">
           <thead style={{ background: theme.dark.sidebar }}>
             <tr className="text-left text-xs border-b" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
               <th className="px-4 py-3 font-medium">ID</th>
@@ -55,9 +87,24 @@ export default function CancellationsPage({ mode }) {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={isRequests ? 8 : 7} className="text-center py-12 text-gray-500">Chargement…</td></tr>
+              <tr><td colSpan={isRequests ? 8 : 7} className="py-16">
+                <div className="flex items-center justify-center gap-2 text-gray-500">
+                  <svg className="w-5 h-5 animate-spin text-violet-500" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                  </svg>
+                  Chargement…
+                </div>
+              </td></tr>
             ) : orders.length === 0 ? (
-              <tr><td colSpan={isRequests ? 8 : 7} className="text-center py-12 text-gray-500">Aucune donnée</td></tr>
+              <tr><td colSpan={isRequests ? 8 : 7}>
+                <div className={theme.emptyState}>
+                  <svg className="w-12 h-12 mb-3 opacity-40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M9 12l2 2 4-4M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <p>Aucune commande trouvée</p>
+                </div>
+              </td></tr>
             ) : orders.map(o => (
               <tr
                 key={o.id}
@@ -79,15 +126,15 @@ export default function CancellationsPage({ mode }) {
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => changeStatus(o.id, 'cancelled')}
-                        className="text-xs px-2.5 py-1 rounded text-red-400 border border-red-800 hover:bg-red-900/20 transition"
+                        className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded text-red-400 border border-red-800 hover:bg-red-900/20 transition"
                       >
-                        ✓ Confirmer
+                        <CheckIcon /> Confirmer
                       </button>
                       <button
                         onClick={() => changeStatus(o.id, 'confirmed')}
-                        className="text-xs px-2.5 py-1 rounded text-emerald-400 border border-emerald-800 hover:bg-emerald-900/20 transition"
+                        className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded text-emerald-400 border border-emerald-800 hover:bg-emerald-900/20 transition"
                       >
-                        ✗ Rejeter
+                        <XIcon /> Rejeter
                       </button>
                     </div>
                   </td>
@@ -111,14 +158,18 @@ export default function CancellationsPage({ mode }) {
             </select>
           </label>
           <div className="flex items-center gap-1">
-            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-2.5 py-1 rounded text-xs disabled:opacity-30 hover:bg-white/5">←</button>
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-2 py-1 rounded disabled:opacity-30 hover:bg-white/5 flex items-center justify-center">
+              <ChevronLeftIcon />
+            </button>
             {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i + 1).map(n => (
-              <button key={n} onClick={() => setPage(n)} className="px-2.5 py-1 rounded text-xs"
-                style={{ background: page === n ? '#7c3aed' : 'transparent', color: page === n ? '#fff' : theme.dark.muted }}>
+              <button key={n} onClick={() => setPage(n)} className={`px-2.5 py-1 rounded text-xs transition ${page === n ? 'bg-violet-600 text-white' : ''}`}
+                style={page === n ? undefined : { color: theme.dark.muted }}>
                 {n}
               </button>
             ))}
-            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="px-2.5 py-1 rounded text-xs disabled:opacity-30 hover:bg-white/5">→</button>
+            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="px-2 py-1 rounded disabled:opacity-30 hover:bg-white/5 flex items-center justify-center">
+              <ChevronRightIcon />
+            </button>
           </div>
         </div>
       </div>

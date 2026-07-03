@@ -18,19 +18,69 @@ const STATUS_OPTIONS = [
   { value: 'cancelled',   label: 'Annulée' },
 ]
 
+// Mapping statut → badge (variantes sombres alignées sur theme.badge) :
+// success (emerald) = confirmée/expédiée/livrée · warning (amber) = en attente / tentatives d'appel
+// danger (red) = retournée/annulée · neutral = fallback
 const STATUS_COLORS = {
-  pending:     'bg-amber-900/30 text-amber-400',
-  no_answer_1: 'bg-blue-900/30 text-blue-400',
-  no_answer_2: 'bg-orange-900/30 text-orange-400',
-  no_answer_3: 'bg-red-900/30 text-red-400',
-  confirmed:   'bg-violet-900/30 text-violet-300',
-  shipped:     'bg-cyan-900/30 text-cyan-400',
-  delivered:   'bg-emerald-900/30 text-emerald-400',
-  returned:    'bg-orange-900/30 text-orange-400',
-  cancelled:   'bg-red-900/30 text-red-400',
+  pending:          'bg-amber-900/30 text-amber-400',
+  no_answer_1:      'bg-amber-900/30 text-amber-400',
+  no_answer_2:      'bg-amber-900/30 text-amber-400',
+  no_answer_3:      'bg-amber-900/30 text-amber-400',
+  confirmed:        'bg-emerald-900/30 text-emerald-400',
+  shipped:          'bg-emerald-900/30 text-emerald-400',
+  delivered:        'bg-emerald-900/30 text-emerald-400',
+  returned:         'bg-red-900/30 text-red-400',
+  cancel_requested: 'bg-red-900/30 text-red-400',
+  cancelled:        'bg-red-900/30 text-red-400',
 }
+const STATUS_FALLBACK = 'bg-gray-800 text-gray-400'
 
 const PER_PAGE_OPTIONS = [10, 25, 50]
+
+function RefreshIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="16" height="16" {...props}>
+      <path d="M3 12a9 9 0 0 1 15.36-6.36L21 8" />
+      <path d="M21 3v5h-5" />
+      <path d="M21 12a9 9 0 0 1-15.36 6.36L3 16" />
+      <path d="M3 21v-5h5" />
+    </svg>
+  )
+}
+
+function PlusIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="18" height="18" {...props}>
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  )
+}
+
+function HistoryIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="16" height="16" {...props}>
+      <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+      <path d="M3 3v5h5" />
+      <path d="M12 7v5l3 3" />
+    </svg>
+  )
+}
+
+function ChevronLeftIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14" {...props}>
+      <path d="M15 18l-6-6 6-6" />
+    </svg>
+  )
+}
+
+function ChevronRightIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14" {...props}>
+      <path d="M9 18l6-6-6-6" />
+    </svg>
+  )
+}
 
 function QuickEditModal({ order, onClose, onSaved }) {
   const [status,  setStatus]  = useState('')
@@ -56,15 +106,15 @@ function QuickEditModal({ order, onClose, onSaved }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
       <div
-        className="w-full max-w-lg rounded-xl border p-6"
+        className="w-full max-w-lg rounded-xl border p-5 sm:p-6 max-h-[90vh] overflow-y-auto"
         style={{ background: theme.dark.card, borderColor: theme.dark.border }}
         onClick={e => e.stopPropagation()}
       >
         <h2 className="text-lg font-semibold text-gray-100 mb-5">État de la commande</h2>
 
-        <div className="grid grid-cols-2 gap-4 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           <div>
             <label className="block text-xs mb-1.5" style={{ color: theme.dark.muted }}>Statut actuel</label>
             <p className="text-sm text-gray-200 font-medium py-2">{order.status_label}</p>
@@ -83,7 +133,7 @@ function QuickEditModal({ order, onClose, onSaved }) {
           <textarea value={note} onChange={e => setNote(e.target.value)} rows={2} className={`${inputCls} resize-none`} style={bdrStyle} placeholder="Note libre…" />
         </div>
 
-        <div className="grid grid-cols-2 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
           <div>
             <label className="block text-xs mb-1.5" style={{ color: theme.dark.muted }}>Wilaya</label>
             <select value={wilaya} onChange={e => setWilaya(e.target.value)} className={inputCls} style={bdrStyle}>
@@ -99,7 +149,7 @@ function QuickEditModal({ order, onClose, onSaved }) {
 
         <div className="flex justify-end gap-3">
           <button onClick={onClose} className="px-4 py-2 text-sm text-red-400 hover:text-red-300 transition">Fermer</button>
-          <button onClick={handleSave} disabled={saving} className="px-4 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-50" style={{ background: '#16a34a' }}>
+          <button onClick={handleSave} disabled={saving} className="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50">
             {saving ? '…' : 'Sauvegarder'}
           </button>
         </div>
@@ -117,9 +167,9 @@ function HistoryModal({ orderId, onClose }) {
   }, [orderId])
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
       <div
-        className="w-full max-w-lg rounded-xl border p-6 max-h-[80vh] overflow-y-auto"
+        className="w-full max-w-lg rounded-xl border p-5 sm:p-6 max-h-[85vh] overflow-y-auto"
         style={{ background: theme.dark.card, borderColor: theme.dark.border }}
         onClick={e => e.stopPropagation()}
       >
@@ -139,7 +189,7 @@ function HistoryModal({ orderId, onClose }) {
                 {order.history.map(h => (
                   <div key={h.id}>
                     <p className="text-xs" style={{ color: theme.dark.muted }}>{new Date(h.changed_at).toLocaleString('fr-DZ')}</p>
-                    <span className={`inline-block mt-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[h.status] || 'bg-gray-800 text-gray-400'}`}>
+                    <span className={`inline-block mt-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[h.status] || STATUS_FALLBACK}`}>
                       {h.status_label}
                     </span>
                     {h.note && <p className="text-xs text-gray-400 mt-1">{h.note}</p>}
@@ -206,11 +256,11 @@ export default function OrdersPage() {
     <DashboardLayout title="Commandes">
       {/* Header */}
       <div className="flex items-center justify-between mb-5 gap-3 flex-wrap">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap w-full sm:w-auto">
           <select
             value={statusF}
             onChange={e => setStatusF(e.target.value)}
-            className="px-3 py-2 rounded-lg border text-sm text-gray-200 outline-none"
+            className="px-3 py-2 rounded-lg border text-sm text-gray-200 outline-none w-full sm:w-auto"
             style={{ background: theme.dark.card, borderColor: theme.dark.border, minWidth: 200 }}
           >
             {STATUS_OPTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
@@ -219,23 +269,27 @@ export default function OrdersPage() {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Recherche nom, téléphone…"
-            className="px-3 py-2 rounded-lg border text-sm text-gray-200 outline-none focus:border-violet-500 transition"
-            style={{ background: theme.dark.card, borderColor: theme.dark.border, width: 220 }}
+            className="px-3 py-2 rounded-lg border text-sm text-gray-200 outline-none focus:border-violet-500 transition w-full sm:w-55"
+            style={{ background: theme.dark.card, borderColor: theme.dark.border }}
           />
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={fetchOrders} className="w-9 h-9 rounded-lg border flex items-center justify-center text-gray-400 hover:text-gray-200 hover:bg-white/5 transition" style={{ borderColor: theme.dark.border }}>↺</button>
+          <button onClick={fetchOrders} className="w-9 h-9 rounded-lg border flex items-center justify-center text-gray-400 hover:text-gray-200 hover:bg-white/5 transition" style={{ borderColor: theme.dark.border }} title="Actualiser">
+            <RefreshIcon />
+          </button>
           <button
             onClick={() => navigate('/dashboard/commandes/nouvelle')}
-            className="w-9 h-9 rounded-lg flex items-center justify-center text-white font-bold text-xl"
-            style={{ background: '#7c3aed' }}
-          >+</button>
+            className="w-9 h-9 rounded-lg flex items-center justify-center text-white bg-violet-600 hover:bg-violet-500 transition"
+            title="Nouvelle commande"
+          >
+            <PlusIcon />
+          </button>
         </div>
       </div>
 
       {/* Table */}
-      <div className="rounded-xl border overflow-hidden" style={{ borderColor: theme.dark.border }}>
-        <table className="w-full text-sm">
+      <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border }}>
+        <table className="w-full text-sm min-w-225">
           <thead style={{ background: theme.dark.sidebar }}>
             <tr className="text-left text-xs border-b" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
               <th className="px-4 py-3"><input type="checkbox" checked={allChecked} onChange={toggleAll} className="accent-violet-600" /></th>
@@ -252,9 +306,25 @@ export default function OrdersPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={10} className="text-center py-12 text-gray-500">Chargement…</td></tr>
+              <tr><td colSpan={10} className="py-16">
+                <div className="flex items-center justify-center gap-2 text-gray-500">
+                  <svg className="w-5 h-5 animate-spin text-violet-500" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                  </svg>
+                  Chargement…
+                </div>
+              </td></tr>
             ) : orders.length === 0 ? (
-              <tr><td colSpan={10} className="text-center py-12 text-gray-500">Aucune donnée</td></tr>
+              <tr><td colSpan={10}>
+                <div className={theme.emptyState}>
+                  <svg className="w-12 h-12 mb-3 opacity-40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="7" width="18" height="14" rx="2" />
+                    <path d="M8 7V5a4 4 0 018 0v2" />
+                  </svg>
+                  <p>Aucune commande trouvée</p>
+                </div>
+              </td></tr>
             ) : orders.map(o => (
               <tr
                 key={o.id}
@@ -273,7 +343,7 @@ export default function OrdersPage() {
                 <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                   <button
                     onClick={() => setQuickEdit(o)}
-                    className={`px-2.5 py-0.5 rounded-full text-xs font-medium hover:opacity-80 transition ${STATUS_COLORS[o.status] || 'bg-gray-800 text-gray-400'}`}
+                    className={`px-2.5 py-0.5 rounded-full text-xs font-medium hover:opacity-80 transition ${STATUS_COLORS[o.status] || STATUS_FALLBACK}`}
                   >
                     {o.status_label}
                   </button>
@@ -281,7 +351,9 @@ export default function OrdersPage() {
                 <td className="px-4 py-3 text-gray-400">{o.commune || '—'}</td>
                 <td className="px-4 py-3 text-gray-400 max-w-40 truncate" title={o.note}>{o.note || '—'}</td>
                 <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
-                  <button onClick={() => setHistoryId(o.id)} className="text-gray-400 hover:text-violet-400 transition" title="Historique">🕐</button>
+                  <button onClick={() => setHistoryId(o.id)} className="text-gray-400 hover:text-violet-400 transition" title="Historique">
+                    <HistoryIcon />
+                  </button>
                 </td>
               </tr>
             ))}
@@ -302,14 +374,18 @@ export default function OrdersPage() {
             </select>
           </label>
           <div className="flex items-center gap-1">
-            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-2.5 py-1 rounded text-xs disabled:opacity-30 hover:bg-white/5">←</button>
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-2 py-1 rounded disabled:opacity-30 hover:bg-white/5 flex items-center justify-center">
+              <ChevronLeftIcon />
+            </button>
             {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i + 1).map(n => (
               <button key={n} onClick={() => setPage(n)} className="px-2.5 py-1 rounded text-xs"
                 style={{ background: page === n ? '#7c3aed' : 'transparent', color: page === n ? '#fff' : theme.dark.muted }}>
                 {n}
               </button>
             ))}
-            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="px-2.5 py-1 rounded text-xs disabled:opacity-30 hover:bg-white/5">→</button>
+            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="px-2 py-1 rounded disabled:opacity-30 hover:bg-white/5 flex items-center justify-center">
+              <ChevronRightIcon />
+            </button>
           </div>
         </div>
       </div>

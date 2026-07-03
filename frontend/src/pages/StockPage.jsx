@@ -46,10 +46,9 @@ export default function StockPage() {
           <button
             onClick={saveThreshold}
             disabled={saving}
-            className="px-4 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-60 transition"
-            style={{ background: '#7c3aed' }}
+            className={theme.btn.primary + ' text-sm px-4 py-2'}
           >
-            {saving ? '…' : 'Enregistrer'}
+            {saving ? 'Enregistrement…' : 'Enregistrer'}
           </button>
         </div>
       </div>
@@ -63,8 +62,8 @@ export default function StockPage() {
       </div>
 
       {/* Table */}
-      <div className="rounded-xl border overflow-hidden" style={{ borderColor: theme.dark.border }}>
-        <table className="w-full text-sm">
+      <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border }}>
+        <table className="w-full text-sm min-w-150">
           <thead style={{ background: theme.dark.sidebar }}>
             <tr className="text-left text-xs border-b" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
               <th className="px-4 py-3 font-medium">PRODUIT</th>
@@ -75,12 +74,23 @@ export default function StockPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={4} className="text-center py-12 text-gray-500">Chargement…</td></tr>
+              [...Array(4)].map((_, i) => (
+                <tr key={i} className="border-b" style={{ borderColor: theme.dark.border + '44' }}>
+                  <td className="px-4 py-3"><div className={theme.skeleton + ' h-4 w-32'} /></td>
+                  <td className="px-4 py-3"><div className={theme.skeleton + ' h-4 w-16'} /></td>
+                  <td className="px-4 py-3"><div className={theme.skeleton + ' h-4 w-16'} /></td>
+                  <td className="px-4 py-3"><div className={theme.skeleton + ' h-4 w-20'} /></td>
+                </tr>
+              ))
             ) : data.results.length === 0 ? (
               <tr>
-                <td colSpan={4} className="text-center py-12">
-                  <p className="text-2xl mb-2">✅</p>
-                  <p className="text-gray-500 text-sm">Tous les stocks sont au-dessus du seuil.</p>
+                <td colSpan={4}>
+                  <div className="flex flex-col items-center justify-center text-center py-12 px-6 text-gray-500">
+                    <svg className="w-10 h-10 mb-2 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p className="text-sm">Tous les stocks sont au-dessus du seuil.</p>
+                  </div>
                 </td>
               </tr>
             ) : data.results.map((item, i) => (

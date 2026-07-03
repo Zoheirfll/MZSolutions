@@ -2,15 +2,62 @@ import { useEffect, useState, useCallback } from 'react'
 import { useParams, Link, useSearchParams } from 'react-router-dom'
 import StorefrontLayout from './StorefrontLayout'
 import publicApi from '../../api/publicApi'
+import { theme } from '../../theme'
+
+function PackageIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
+      <path d="m3.3 7 8.7 5 8.7-5" />
+      <path d="M12 22V12" />
+    </svg>
+  )
+}
+
+function SearchIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <circle cx="11" cy="11" r="7" />
+      <path d="m21 21-4.3-4.3" />
+    </svg>
+  )
+}
+
+function TruckIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M10 17h4V5H2v12h3" />
+      <path d="M20 17h2v-3.34a4 4 0 0 0-1.17-2.83L19 9h-5v8h1" />
+      <circle cx="7.5" cy="17.5" r="2.5" />
+      <circle cx="17.5" cy="17.5" r="2.5" />
+    </svg>
+  )
+}
+
+function ChevronLeft(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="m15 18-6-6 6-6" />
+    </svg>
+  )
+}
+
+function ChevronRight(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="m9 18 6-6-6-6" />
+    </svg>
+  )
+}
 
 function ProductCard({ product, slug }) {
   return (
     <Link to={`/store/${slug}/products/${product.id}`}
-      className="group border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-shadow">
+      className={`group ${theme.card} ${theme.cardHover} overflow-hidden block`}>
       <div className="aspect-square bg-gray-100 overflow-hidden">
         {product.image_url
           ? <img src={product.image_url} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-          : <div className="w-full h-full flex items-center justify-center text-4xl text-gray-300">📦</div>
+          : <div className="w-full h-full flex items-center justify-center text-gray-300"><PackageIcon className="w-10 h-10" /></div>
         }
       </div>
       <div className="p-3">
@@ -22,7 +69,9 @@ function ProductCard({ product, slug }) {
           )}
         </div>
         {product.free_shipping && (
-          <span className="text-xs text-emerald-600 mt-1 inline-block">✓ Livraison gratuite</span>
+          <span className={`${theme.badge.success} mt-2`}>
+            <TruckIcon className="w-3 h-3" /> Livraison gratuite
+          </span>
         )}
       </div>
     </Link>
@@ -66,14 +115,12 @@ export default function StorefrontProductsPage() {
 
   const totalPages = Math.ceil(total / PER_PAGE)
 
-  const inputCls = 'w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-violet-500 transition'
-
   return (
     <StorefrontLayout>
-      <div className="max-w-6xl mx-auto px-4 py-8 flex gap-6">
+      <div className="max-w-6xl mx-auto px-4 py-8 flex flex-col md:flex-row gap-6">
 
         {/* Sidebar filtres */}
-        <aside className="w-56 shrink-0 space-y-6">
+        <aside className="w-full md:w-56 shrink-0 space-y-6">
           <div>
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Catégories</h3>
             <div className="space-y-1.5">
@@ -92,9 +139,9 @@ export default function StorefrontProductsPage() {
 
           <div>
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Prix (DZD)</h3>
-            <div className="space-y-2">
-              <input value={minPrice} onChange={e => { setMinPrice(e.target.value); setPage(1) }} type="number" min="0" placeholder="Min" className={inputCls} />
-              <input value={maxPrice} onChange={e => { setMaxPrice(e.target.value); setPage(1) }} type="number" min="0" placeholder="Max" className={inputCls} />
+            <div className="flex md:flex-col gap-2">
+              <input value={minPrice} onChange={e => { setMinPrice(e.target.value); setPage(1) }} type="number" min="0" placeholder="Min" className={theme.input} />
+              <input value={maxPrice} onChange={e => { setMaxPrice(e.target.value); setPage(1) }} type="number" min="0" placeholder="Max" className={theme.input} />
             </div>
             {(minPrice || maxPrice) && (
               <button onClick={() => { setMinPrice(''); setMaxPrice(''); setPage(1) }} className="mt-2 text-xs text-violet-600 hover:underline">
@@ -111,21 +158,21 @@ export default function StorefrontProductsPage() {
           </div>
 
           {loading ? (
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
               {[...Array(12)].map((_, i) => (
-                <div key={i} className="border border-gray-200 rounded-xl overflow-hidden animate-pulse">
-                  <div className="aspect-square bg-gray-100" />
+                <div key={i} className={`${theme.card} overflow-hidden`}>
+                  <div className={`aspect-square ${theme.skeleton} rounded-none`} />
                   <div className="p-3 space-y-2">
-                    <div className="h-3 bg-gray-200 rounded w-3/4" />
-                    <div className="h-3 bg-gray-200 rounded w-1/2" />
+                    <div className={`h-3 ${theme.skeleton} w-3/4`} />
+                    <div className={`h-3 ${theme.skeleton} w-1/2`} />
                   </div>
                 </div>
               ))}
             </div>
           ) : products.length === 0 ? (
-            <div className="text-center py-20">
-              <p className="text-4xl mb-3">🔍</p>
-              <p className="text-gray-400">Aucun produit trouvé.</p>
+            <div className={theme.emptyState}>
+              <SearchIcon className="w-12 h-12 text-gray-300 mb-3" />
+              <p>Aucun produit trouvé.</p>
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
@@ -135,15 +182,19 @@ export default function StorefrontProductsPage() {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 mt-8">
-              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 rounded-lg border text-sm disabled:opacity-30 hover:bg-gray-50">←</button>
+            <div className="flex items-center justify-center gap-2 mt-8 flex-wrap">
+              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="p-2 rounded-lg border border-gray-300 text-gray-600 disabled:opacity-30 hover:bg-gray-50 transition">
+                <ChevronLeft className="w-4 h-4" />
+              </button>
               {[...Array(totalPages)].map((_, i) => (
                 <button key={i} onClick={() => setPage(i + 1)}
-                  className={`px-3 py-1.5 rounded-lg text-sm border ${page === i + 1 ? 'bg-violet-600 text-white border-violet-600' : 'hover:bg-gray-50'}`}>
+                  className={`px-3 py-1.5 rounded-lg text-sm border transition ${page === i + 1 ? 'bg-violet-600 text-white border-violet-600' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}>
                   {i + 1}
                 </button>
               ))}
-              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="px-3 py-1.5 rounded-lg border text-sm disabled:opacity-30 hover:bg-gray-50">→</button>
+              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="p-2 rounded-lg border border-gray-300 text-gray-600 disabled:opacity-30 hover:bg-gray-50 transition">
+                <ChevronRight className="w-4 h-4" />
+              </button>
             </div>
           )}
         </div>

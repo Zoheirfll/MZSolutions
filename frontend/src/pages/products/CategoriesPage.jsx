@@ -3,6 +3,82 @@ import DashboardLayout from '../../components/DashboardLayout'
 import api from '../../api/axios'
 import { theme } from '../../theme'
 
+function EditIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14" {...props}>
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </svg>
+  )
+}
+
+function TrashIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14" {...props}>
+      <path d="M3 6h18" />
+      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+      <path d="M10 11v6M14 11v6" />
+    </svg>
+  )
+}
+
+function PlusIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="16" height="16" {...props}>
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  )
+}
+
+function TagIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18" {...props}>
+      <path d="M20.59 13.41 11 4H4v7l9.59 9.59a2 2 0 0 0 2.82 0l4.18-4.18a2 2 0 0 0 0-2.82Z" />
+      <circle cx="7.5" cy="7.5" r="1" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+
+function CloseIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18" {...props}>
+      <path d="M18 6 6 18M6 6l12 12" />
+    </svg>
+  )
+}
+
+function ChevronIcon({ open, ...props }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14"
+      className={`transition-transform ${open ? 'rotate-90' : ''}`} {...props}>
+      <path d="M9 18l6-6-6-6" />
+    </svg>
+  )
+}
+
+function Spinner() {
+  return (
+    <div className="flex items-center justify-center gap-2 py-12 text-gray-500">
+      <svg className="animate-spin" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+        <circle cx="12" cy="12" r="9" opacity="0.25" />
+        <path d="M21 12a9 9 0 0 0-9-9" strokeLinecap="round" />
+      </svg>
+      <span className="text-xs">Chargement…</span>
+    </div>
+  )
+}
+
+function EmptyState({ icon, title, subtitle }) {
+  return (
+    <div className="flex flex-col items-center justify-center text-center py-14 px-6 text-gray-500">
+      {icon && <div className="mb-3 text-gray-600">{icon}</div>}
+      <p className="text-sm font-medium text-gray-300">{title}</p>
+      {subtitle && <p className="text-xs mt-1" style={{ color: theme.dark.muted }}>{subtitle}</p>}
+    </div>
+  )
+}
+
 const TABS = [
   { label: 'Tous',       value: '' },
   { label: 'Publié',     value: 'publie' },
@@ -49,7 +125,7 @@ function Modal({ cat, parentOptions, onClose, onSaved }) {
       <div className="w-full max-w-md rounded-xl border p-6" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
         <div className="flex items-center justify-between mb-5">
           <h3 className="font-semibold text-gray-200">{isEdit ? 'Modifier' : 'Nouvelle'} catégorie</h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-300 text-2xl leading-none">×</button>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-300 transition cursor-pointer"><CloseIcon /></button>
         </div>
         <form onSubmit={submit} className="space-y-4">
           <div>
@@ -70,13 +146,13 @@ function Modal({ cat, parentOptions, onClose, onSaved }) {
             <input type="file" accept="image/*" onChange={e => setImage(e.target.files[0])} className="text-xs text-gray-400" />
           </div>
           <div className="flex items-center gap-3">
-            <input type="checkbox" id="active" checked={form.is_active} onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} className="accent-violet-500" />
+            <input type="checkbox" id="active" checked={form.is_active} onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} className="accent-violet-500 cursor-pointer" />
             <label htmlFor="active" className="text-sm text-gray-300">Catégorie active</label>
           </div>
           <div className="flex justify-end gap-3 pt-2">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-400 hover:text-gray-200">Annuler</button>
-            <button type="submit" disabled={saving} className="px-5 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-60" style={{ background: '#7c3aed' }}>
-              {saving ? '…' : isEdit ? 'Mettre à jour' : 'Créer'}
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-400 hover:text-gray-200 transition cursor-pointer">Annuler</button>
+            <button type="submit" disabled={saving} className={theme.btn.primary + ' text-sm px-5 py-2'}>
+              {saving ? 'Enregistrement…' : isEdit ? 'Mettre à jour' : 'Créer'}
             </button>
           </div>
         </form>
@@ -162,19 +238,19 @@ export default function CategoriesPage() {
             type="checkbox"
             checked={selected.includes(cat.id)}
             onChange={() => toggleSelect(cat.id)}
-            className="accent-violet-500"
+            className="accent-violet-500 cursor-pointer"
           />
         )}
 
         {cat.image_url
           ? <img src={cat.image_url} alt={cat.name} className="w-9 h-9 object-cover rounded-lg shrink-0" />
-          : <div className="w-9 h-9 rounded-lg flex items-center justify-center text-lg shrink-0" style={{ background: theme.dark.sidebar }}>🏷️</div>
+          : <div className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-500 shrink-0" style={{ background: theme.dark.sidebar }}><TagIcon width={16} height={16} /></div>
         }
 
         {tab !== 'corbeille' && (
           <button
             onClick={() => handleToggle(cat)}
-            className={`w-9 h-5 rounded-full transition-colors relative shrink-0 ${cat.is_active ? 'bg-violet-600' : 'bg-gray-600'}`}
+            className={`w-9 h-5 rounded-full transition-colors relative shrink-0 cursor-pointer ${cat.is_active ? 'bg-violet-600' : 'bg-gray-600'}`}
           >
             <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${cat.is_active ? 'left-4' : 'left-0.5'}`} />
           </button>
@@ -195,21 +271,21 @@ export default function CategoriesPage() {
 
         <div className="flex items-center gap-1">
           {tab === 'corbeille' ? (
-            <button onClick={() => handleRestore(cat.id)} className="px-2.5 py-1 rounded text-xs text-emerald-400 hover:bg-emerald-900/20 transition">
+            <button onClick={() => handleRestore(cat.id)} className={theme.badge.success + ' cursor-pointer hover:opacity-80 transition'}>
               Restaurer
             </button>
           ) : (
             <>
               {!indent && (
-                <button onClick={() => setModal({ parent: cat.id })} className="w-7 h-7 rounded flex items-center justify-center text-gray-400 hover:bg-white/10 transition text-sm">+</button>
+                <button onClick={() => setModal({ parent: cat.id })} className="w-7 h-7 rounded flex items-center justify-center text-gray-400 hover:bg-white/10 transition cursor-pointer" title="Ajouter une sous-catégorie"><PlusIcon width={14} height={14} /></button>
               )}
-              <button onClick={() => setModal(cat)} className="w-7 h-7 rounded flex items-center justify-center text-emerald-400 hover:bg-emerald-900/20 transition text-sm">✏️</button>
+              <button onClick={() => setModal(cat)} className="w-7 h-7 rounded flex items-center justify-center text-emerald-400 hover:bg-emerald-900/20 transition cursor-pointer" title="Modifier"><EditIcon /></button>
             </>
           )}
-          <button onClick={() => handleDelete(cat.id)} className="w-7 h-7 rounded flex items-center justify-center text-red-400 hover:bg-red-900/20 transition text-sm">🗑️</button>
+          <button onClick={() => handleDelete(cat.id)} className="w-7 h-7 rounded flex items-center justify-center text-red-400 hover:bg-red-900/20 transition cursor-pointer" title="Supprimer"><TrashIcon /></button>
           {!indent && cat.children_count > 0 && (
-            <button onClick={() => fetchChildren(cat.id)} className="w-7 h-7 rounded flex items-center justify-center text-gray-400 hover:bg-white/10 transition text-sm">
-              {expanded[cat.id] ? '▾' : '▸'}
+            <button onClick={() => fetchChildren(cat.id)} className="w-7 h-7 rounded flex items-center justify-center text-gray-400 hover:bg-white/10 transition cursor-pointer">
+              <ChevronIcon open={!!expanded[cat.id]} />
             </button>
           )}
         </div>
@@ -231,57 +307,59 @@ export default function CategoriesPage() {
         />
       )}
 
-      <div className="flex items-center justify-between mb-5">
-        <div className="flex gap-1 rounded-lg p-1" style={{ background: theme.dark.card, border: `1px solid ${theme.dark.border}` }}>
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-5">
+        <div className="flex gap-1 rounded-lg p-1 overflow-x-auto" style={{ background: theme.dark.card, border: `1px solid ${theme.dark.border}` }}>
           {TABS.map(t => (
             <button key={t.value} onClick={() => { setTab(t.value); setPage(1); setChildren({}) }}
-              className="px-4 py-1.5 rounded-md text-sm font-medium transition"
-              style={{ background: tab === t.value ? '#7c3aed' : 'transparent', color: tab === t.value ? '#fff' : theme.dark.muted }}
+              className={`px-4 py-1.5 rounded-md text-sm font-medium transition cursor-pointer whitespace-nowrap ${tab === t.value ? 'bg-violet-600 text-white' : ''}`}
+              style={tab === t.value ? undefined : { color: theme.dark.muted }}
             >{t.label}</button>
           ))}
         </div>
         {tab !== 'corbeille' && (
-          <button onClick={() => setModal({})} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white" style={{ background: '#7c3aed' }}>
-            Ajouter une nouvelle +
+          <button onClick={() => setModal({})} className={theme.btn.primary + ' text-sm shrink-0'}>
+            <PlusIcon width={16} height={16} /> Ajouter une nouvelle
           </button>
         )}
       </div>
 
-      <div className="rounded-xl border overflow-hidden" style={{ borderColor: theme.dark.border }}>
+      <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border }}>
         {/* Table header with select-all */}
-        <div className="flex items-center gap-3 px-4 py-2 border-b text-xs font-semibold" style={{ background: theme.dark.sidebar, borderColor: theme.dark.border, color: theme.dark.muted }}>
+        <div className="flex items-center gap-3 px-4 py-2 border-b text-xs font-semibold min-w-120" style={{ background: theme.dark.sidebar, borderColor: theme.dark.border, color: theme.dark.muted }}>
           <input
             type="checkbox"
             checked={(data.results || []).length > 0 && selected.length === (data.results || []).length}
             onChange={toggleAll}
-            className="accent-violet-500"
+            className="accent-violet-500 cursor-pointer"
           />
           <span className="flex-1">NOM</span>
           <span className="mr-24">DATE</span>
         </div>
 
         {loading ? (
-          <div className="text-center py-12 text-gray-500">Chargement…</div>
+          <Spinner />
         ) : (data.results || []).length === 0 ? (
-          <div className="text-center py-12 text-gray-500">Aucune catégorie.</div>
+          <EmptyState icon={<TagIcon />} title="Aucune catégorie" subtitle="Créez votre première catégorie pour organiser vos produits." />
         ) : (
-          (data.results || []).map(cat => <CatRow key={cat.id} cat={cat} />)
+          <div className="min-w-120">
+            {(data.results || []).map(cat => <CatRow key={cat.id} cat={cat} />)}
+          </div>
         )}
       </div>
 
       {/* Footer pagination */}
-      <div className="flex items-center justify-between mt-4">
-        <div className="flex items-center gap-4 text-xs" style={{ color: theme.dark.muted }}>
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-4">
+        <div className="flex items-center gap-4 text-xs flex-wrap" style={{ color: theme.dark.muted }}>
           <span>{selected.length} de {data.count} sélectionné{selected.length > 1 ? 's' : ''}</span>
           {selected.length > 0 && tab !== 'corbeille' && (
-            <button onClick={handleBulkDelete} className="text-red-400 hover:underline">Mettre en corbeille</button>
+            <button onClick={handleBulkDelete} className="text-red-400 hover:underline cursor-pointer">Mettre en corbeille</button>
           )}
           <div className="flex items-center gap-2">
             <span>Lignes par page :</span>
             <select
               value={perPage}
               onChange={e => { setPerPage(Number(e.target.value)); setPage(1) }}
-              className="px-2 py-1 rounded border text-gray-300 text-xs"
+              className="px-2 py-1 rounded border text-gray-300 text-xs cursor-pointer"
               style={{ background: theme.dark.card, borderColor: theme.dark.border }}
             >
               {PER_PAGE_OPTS.map(n => <option key={n} value={n}>{n}</option>)}
@@ -293,7 +371,7 @@ export default function CategoriesPage() {
           <button
             onClick={() => setPage(p => Math.max(1, p - 1))}
             disabled={page === 1}
-            className="px-3 py-1.5 rounded text-sm text-gray-400 hover:text-gray-200 disabled:opacity-40 transition"
+            className="px-3 py-1.5 rounded text-sm text-gray-400 hover:text-gray-200 disabled:opacity-40 transition cursor-pointer disabled:cursor-not-allowed"
           >← Précédent</button>
           {Array.from({ length: totalPages }, (_, i) => i + 1).slice(
             Math.max(0, page - 3), Math.min(totalPages, page + 2)
@@ -301,14 +379,14 @@ export default function CategoriesPage() {
             <button
               key={n}
               onClick={() => setPage(n)}
-              className="w-8 h-8 rounded text-sm transition"
-              style={{ background: n === page ? '#7c3aed' : 'transparent', color: n === page ? '#fff' : theme.dark.muted }}
+              className={`w-8 h-8 rounded text-sm transition cursor-pointer ${n === page ? 'bg-violet-600 text-white' : ''}`}
+              style={n === page ? undefined : { color: theme.dark.muted }}
             >{n}</button>
           ))}
           <button
             onClick={() => setPage(p => Math.min(totalPages, p + 1))}
             disabled={page === totalPages}
-            className="px-3 py-1.5 rounded text-sm text-gray-400 hover:text-gray-200 disabled:opacity-40 transition"
+            className="px-3 py-1.5 rounded text-sm text-gray-400 hover:text-gray-200 disabled:opacity-40 transition cursor-pointer disabled:cursor-not-allowed"
           >Suivant →</button>
         </div>
       </div>

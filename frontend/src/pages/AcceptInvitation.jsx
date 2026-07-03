@@ -45,11 +45,16 @@ export default function AcceptInvitation() {
 
   if (invalid) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: theme.dark.app }}>
+      <div className="min-h-screen flex items-center justify-center px-4 bg-gray-50">
         <div className="text-center">
-          <p className="text-4xl mb-4">❌</p>
-          <p className="text-gray-300 text-lg font-semibold">Lien invalide ou déjà utilisé</p>
-          <button onClick={() => navigate('/auth')} className="mt-4 text-violet-400 text-sm hover:underline">
+          <div className="w-14 h-14 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+            <svg className="w-7 h-7 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </div>
+          <p className="text-gray-700 text-lg font-semibold">Lien invalide ou déjà utilisé</p>
+          <button onClick={() => navigate('/auth')}
+            className={`mt-4 ${theme.btn.ghost}`}>
             Retour à la connexion
           </button>
         </div>
@@ -59,36 +64,43 @@ export default function AcceptInvitation() {
 
   if (!info) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: theme.dark.app }}>
-        <p className="text-gray-400">Vérification du lien…</p>
+      <div className="min-h-screen flex items-center justify-center px-4 bg-gray-50">
+        <div className="flex flex-col items-center gap-3">
+          <svg className="w-8 h-8 text-violet-600 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+          </svg>
+          <p className="text-gray-500 text-sm">Vérification du lien…</p>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4" style={{ background: theme.dark.app }}>
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <span className="text-2xl font-bold text-violet-400">MZSolutions</span>
-          <p className="text-gray-400 text-sm mt-1">Activation de votre compte</p>
-        </div>
+    <div className="flex min-h-screen font-sans">
 
-        <div className="rounded-xl border p-6" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-          <div className="mb-6 pb-5 border-b" style={{ borderColor: theme.dark.border }}>
-            <p className="text-gray-300 text-sm">
-              Bonjour <span className="text-white font-semibold">{info.first_name} {info.last_name}</span>,
+      {/* ─── Formulaire ─── */}
+      <div className="w-full lg:w-[55%] flex flex-col px-6 py-12 sm:px-16 overflow-y-auto bg-white">
+        <div className="w-full max-w-sm mx-auto lg:mx-0 flex flex-col flex-1 justify-center">
+
+          <p className={`text-2xl font-bold tracking-tight mb-2 ${theme.logo}`}>MZSolutions</p>
+          <p className="text-sm text-gray-500 mb-8">Activation de votre compte</p>
+
+          <div className={`${theme.panel} mb-6`}>
+            <p className="text-gray-700 text-sm">
+              Bonjour <span className="text-gray-900 font-semibold">{info.first_name} {info.last_name}</span>,
             </p>
-            <p className="text-gray-400 text-sm mt-1">
+            <p className="text-gray-500 text-sm mt-1">
               Vous avez été invité(e) à rejoindre{' '}
-              <span className="text-violet-300 font-medium">{info.store_name}</span>{' '}
+              <span className="text-violet-700 font-medium">{info.store_name}</span>{' '}
               en tant que{' '}
-              <span className="text-violet-300 font-medium">{ROLE_LABELS[info.role]}</span>.
+              <span className="text-violet-700 font-medium">{ROLE_LABELS[info.role]}</span>.
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-xs text-gray-400 mb-1.5">Mot de passe</label>
+          <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+            <div className="flex flex-col gap-1.5">
+              <label className={theme.label}>Mot de passe *</label>
               <input
                 type="password"
                 name="password"
@@ -96,38 +108,68 @@ export default function AcceptInvitation() {
                 onChange={handleChange}
                 required
                 minLength={8}
-                className="w-full px-3.5 py-2.5 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 transition"
-                style={{ borderColor: theme.dark.border }}
+                className={theme.input}
                 placeholder="Minimum 8 caractères"
               />
             </div>
-            <div>
-              <label className="block text-xs text-gray-400 mb-1.5">Confirmer le mot de passe</label>
+            <div className="flex flex-col gap-1.5">
+              <label className={theme.label}>Confirmer le mot de passe *</label>
               <input
                 type="password"
                 name="confirm"
                 value={form.confirm}
                 onChange={handleChange}
                 required
-                className="w-full px-3.5 py-2.5 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 transition"
-                style={{ borderColor: theme.dark.border }}
+                className={theme.input}
                 placeholder="Répétez le mot de passe"
               />
             </div>
 
-            {error && <p className="text-red-400 text-xs">{error}</p>}
+            {error && (
+              <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+                {error}
+              </p>
+            )}
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-2.5 rounded-lg font-semibold text-sm text-white transition disabled:opacity-60"
-              style={{ background: '#7c3aed' }}
-            >
+            <button type="submit" disabled={loading}
+              className={`w-full py-3 text-sm ${theme.btn.primary}`}>
               {loading ? 'Activation…' : 'Activer mon compte'}
             </button>
           </form>
         </div>
       </div>
+
+      {/* ─── Hero ─── */}
+      <div className={`hidden lg:flex lg:w-[45%] ${theme.hero} items-center justify-center px-12 sticky top-0 h-screen`}>
+        <div className="text-white max-w-sm">
+          <span className="inline-block bg-white/10 border border-white/20 text-white/90 text-xs font-medium px-3 py-1 rounded-full mb-6">
+            Invitation d'équipe
+          </span>
+          <h1 className="text-[2rem] font-bold leading-snug mb-5">
+            Rejoignez l'équipe de {info.store_name}
+          </h1>
+          <p className="text-white/75 text-sm leading-relaxed mb-8">
+            Activez votre compte pour accéder au tableau de bord et commencer à collaborer.
+          </p>
+          <ul className="space-y-3">
+            {[
+              'Accès sécurisé selon votre rôle',
+              'Collaboration en temps réel',
+              'Suivi des commandes et du stock',
+            ].map((f) => (
+              <li key={f} className="flex items-center gap-2.5 text-white/85 text-sm">
+                <span className="w-5 h-5 rounded-full bg-white/15 flex items-center justify-center shrink-0">
+                  <svg className="w-3 h-3 text-green-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                  </svg>
+                </span>
+                {f}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
     </div>
   )
 }

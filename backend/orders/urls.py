@@ -5,9 +5,11 @@ from .views import (
     OrderAssignmentView,
     CallAttemptListView, CallAttemptDetailView,
     FailureReasonListView, FailureReasonDetailView,
+    AbandonedCartListView,
 )
 
 urlpatterns = [
+    path('abandoned-carts/',                       AbandonedCartListView.as_view()),
     path('',                                      OrderListCreateView.as_view()),
     path('stats/',                                OrderStatsView.as_view()),
     path('stats/confirmation/',                   ConfirmationRateView.as_view()),

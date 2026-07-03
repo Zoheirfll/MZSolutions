@@ -50,11 +50,15 @@ function Modal({ role, onClose, onSaved }) {
           <h3 className="text-base font-semibold text-gray-200">
             Inviter un {ROLE_LABELS[role]}
           </h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-300 text-xl leading-none">×</button>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-300 transition">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
 
         <form onSubmit={submit} className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs text-gray-400 mb-1">Prénom *</label>
               <input name="first_name" value={form.first_name} onChange={change} required className={inputCls} style={bdrStyle} placeholder="Prénom" />
@@ -65,7 +69,7 @@ function Modal({ role, onClose, onSaved }) {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs text-gray-400 mb-1">Email *</label>
               <input type="email" name="email" value={form.email} onChange={change} required className={inputCls} style={bdrStyle} placeholder="Email" />
@@ -88,7 +92,7 @@ function Modal({ role, onClose, onSaved }) {
 
           {role === 'dropshipper' && (
             <>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs text-gray-400 mb-1">Wilaya</label>
                   <select name="wilaya" value={form.wilaya} onChange={change} className={inputCls} style={{ ...bdrStyle, background: theme.dark.sidebar }}>
@@ -114,7 +118,7 @@ function Modal({ role, onClose, onSaved }) {
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-400 hover:text-gray-200 transition">
               Annuler
             </button>
-            <button type="submit" disabled={loading} className="px-5 py-2 rounded-lg text-sm font-semibold text-white transition disabled:opacity-60" style={{ background: '#7c3aed' }}>
+            <button type="submit" disabled={loading} className="px-5 py-2 rounded-lg text-sm font-semibold text-white bg-violet-600 hover:bg-violet-500 transition disabled:opacity-60">
               {loading ? 'Envoi…' : 'Envoyer l\'invitation'}
             </button>
           </div>
@@ -127,55 +131,60 @@ function Modal({ role, onClose, onSaved }) {
 function MembersTable({ members, onToggle }) {
   if (!members.length) {
     return (
-      <div className="text-center py-16 text-gray-500 text-sm">
-        Aucun membre dans cette catégorie.
+      <div className="flex flex-col items-center justify-center text-center py-16 px-6 text-gray-500">
+        <svg className="w-10 h-10 mb-3 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m9-2.13a4 4 0 10-8 0 4 4 0 008 0zm6 4v.01M3 16v.01" />
+        </svg>
+        <p className="text-sm">Aucun membre dans cette catégorie.</p>
       </div>
     )
   }
   return (
-    <table className="w-full text-sm">
-      <thead>
-        <tr className="text-left text-xs text-gray-500 border-b" style={{ borderColor: theme.dark.border }}>
-          <th className="pb-3 pr-4 font-medium">Nom</th>
-          <th className="pb-3 pr-4 font-medium">Email</th>
-          <th className="pb-3 pr-4 font-medium">Téléphone</th>
-          <th className="pb-3 pr-4 font-medium">Rôle</th>
-          <th className="pb-3 pr-4 font-medium">Statut</th>
-          <th className="pb-3 font-medium">Créé le</th>
-          <th className="pb-3 font-medium">Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {members.map(m => (
-          <tr key={m.id} className="border-b" style={{ borderColor: theme.dark.border + '55' }}>
-            <td className="py-3 pr-4 text-gray-200 font-medium">{m.first_name} {m.last_name}</td>
-            <td className="py-3 pr-4 text-gray-400">{m.email}</td>
-            <td className="py-3 pr-4 text-gray-400">{m.phone || '—'}</td>
-            <td className="py-3 pr-4">
-              <span className="text-xs px-2 py-0.5 rounded-full bg-violet-600/20 text-violet-300">
-                {ROLE_LABELS[m.role]}
-              </span>
-            </td>
-            <td className="py-3 pr-4">
-              <span className={`text-xs px-2 py-0.5 rounded-full ${m.is_active ? 'bg-emerald-900/30 text-emerald-400' : 'bg-amber-900/30 text-amber-400'}`}>
-                {m.is_active ? 'Actif' : 'En attente'}
-              </span>
-            </td>
-            <td className="py-3 pr-4 text-gray-500 text-xs">
-              {new Date(m.invited_at).toLocaleDateString('fr-FR')}
-            </td>
-            <td className="py-3">
-              <button
-                onClick={() => onToggle(m)}
-                className="text-xs text-red-400 hover:text-red-300 transition"
-              >
-                Désactiver
-              </button>
-            </td>
+    <div className="overflow-x-auto -mx-5 px-5 sm:mx-0 sm:px-0">
+      <table className="w-full text-sm min-w-180">
+        <thead>
+          <tr className="text-left text-xs text-gray-500 border-b" style={{ borderColor: theme.dark.border }}>
+            <th className="pb-3 pr-4 font-medium">Nom</th>
+            <th className="pb-3 pr-4 font-medium">Email</th>
+            <th className="pb-3 pr-4 font-medium">Téléphone</th>
+            <th className="pb-3 pr-4 font-medium">Rôle</th>
+            <th className="pb-3 pr-4 font-medium">Statut</th>
+            <th className="pb-3 font-medium">Créé le</th>
+            <th className="pb-3 font-medium">Actions</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {members.map(m => (
+            <tr key={m.id} className="border-b" style={{ borderColor: theme.dark.border + '55' }}>
+              <td className="py-3 pr-4 text-gray-200 font-medium">{m.first_name} {m.last_name}</td>
+              <td className="py-3 pr-4 text-gray-400">{m.email}</td>
+              <td className="py-3 pr-4 text-gray-400">{m.phone || '—'}</td>
+              <td className="py-3 pr-4">
+                <span className="text-xs px-2 py-0.5 rounded-full bg-violet-600/20 text-violet-300">
+                  {ROLE_LABELS[m.role]}
+                </span>
+              </td>
+              <td className="py-3 pr-4">
+                <span className={`text-xs px-2 py-0.5 rounded-full ${m.is_active ? 'bg-emerald-900/30 text-emerald-400' : 'bg-amber-900/30 text-amber-400'}`}>
+                  {m.is_active ? 'Actif' : 'En attente'}
+                </span>
+              </td>
+              <td className="py-3 pr-4 text-gray-500 text-xs">
+                {new Date(m.invited_at).toLocaleDateString('fr-FR')}
+              </td>
+              <td className="py-3">
+                <button
+                  onClick={() => onToggle(m)}
+                  className="text-xs text-red-400 hover:text-red-300 transition"
+                >
+                  Désactiver
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   )
 }
 
@@ -218,14 +227,14 @@ export default function TeamPage() {
         />
       )}
 
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
         {/* Onglets */}
-        <div className="flex gap-1 rounded-lg p-1" style={{ background: theme.dark.card, border: `1px solid ${theme.dark.border}` }}>
+        <div className="flex gap-1 rounded-lg p-1 overflow-x-auto" style={{ background: theme.dark.card, border: `1px solid ${theme.dark.border}` }}>
           {TABS.map(t => (
             <button
               key={t.key}
               onClick={() => setActiveTab(t.key)}
-              className="px-4 py-1.5 rounded-md text-sm font-medium transition"
+              className="px-4 py-1.5 rounded-md text-sm font-medium transition whitespace-nowrap"
               style={{
                 background: activeTab === t.key ? '#7c3aed' : 'transparent',
                 color: activeTab === t.key ? '#fff' : theme.dark.muted,
@@ -239,24 +248,31 @@ export default function TeamPage() {
         {activeTab !== 'retirer' && (
           <button
             onClick={() => setShowModal(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white transition"
-            style={{ background: '#7c3aed' }}
+            className={theme.btn.primary + ' text-sm'}
           >
-            + Ajouter
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            Ajouter
           </button>
         )}
       </div>
 
       {invited && (
-        <div className="mb-4 px-4 py-3 rounded-lg text-sm text-emerald-400 border" style={{ background: '#0d2218', borderColor: '#16a34a44' }}>
-          ✓ Invitation envoyée par email.
+        <div className="mb-4 flex items-center gap-2 px-4 py-3 rounded-lg text-sm text-emerald-400 border" style={{ background: '#0d2218', borderColor: '#16a34a44' }}>
+          <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+          Invitation envoyée par email.
         </div>
       )}
 
       <div className="rounded-xl border p-5" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
         {activeTab === 'retirer' ? (
           <div className="text-center py-16">
-            <p className="text-4xl mb-4">💰</p>
+            <svg className="w-10 h-10 mx-auto mb-4 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.66 0-3 .9-3 2s1.34 2 3 2 3 .9 3 2-1.34 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V6m0 10v2m9-8a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
             <p className="text-gray-400 font-medium">Relevés de paiement</p>
             <p className="text-sm mt-2" style={{ color: theme.dark.muted }}>
               Disponible au Sprint 6 — Finances & Paiements

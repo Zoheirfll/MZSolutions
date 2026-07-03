@@ -3,8 +3,9 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Store, StoreSettings
-from .serializers import StoreSerializer, SubscriptionQuotaSerializer, StoreSettingsSerializer
+from .models import Store, StoreSettings, StorePage, MediaFolder, MediaFile
+from .serializers import (StoreSerializer, SubscriptionQuotaSerializer, StoreSettingsSerializer,
+                           StorePageSerializer, MediaFolderSerializer, MediaFileSerializer)
 from core.permissions import IsOwnerOrAdminForWrites
 
 
@@ -60,3 +61,170 @@ class StoreSettingsView(APIView):
         ser.is_valid(raise_exception=True)
         ser.save()
         return Response(ser.data)
+
+
+# ─── Pages personnalisées ─────────────────────────────────────────────────────
+
+def _get_store_from_request(request):
+    try:
+        return request.user.store
+    except Exception:
+        pass
+    try:
+        return request.user.team_membership.store
+    except Exception:
+        return None
+
+
+class StorePageListCreateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        store = _get_store_from_request(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        pages = store.pages.all()
+        return Response(StorePageSerializer(pages, many=True).data)
+
+    def post(self, request):
+        store = _get_store_from_request(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        ser = StorePageSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        ser.save(store=store)
+        return Response(ser.data, status=201)
+
+
+class StorePageDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def _get(self, request, pk):
+        store = _get_store_from_request(request)
+        if not store:
+            return None, Response({'detail': 'Accès refusé.'}, status=403)
+        try:
+            return store.pages.get(pk=pk), None
+        except StorePage.DoesNotExist:
+            return None, Response({'detail': 'Page introuvable.'}, status=404)
+
+    def get(self, request, pk):
+        page, err = self._get(request, pk)
+        if err: return err
+        return Response(StorePageSerializer(page).data)
+
+    def put(self, request, pk):
+        page, err = self._get(request, pk)
+        if err: return err
+        ser = StorePageSerializer(page, data=request.data, partial=True)
+        ser.is_valid(raise_exception=True)
+        ser.save()
+        return Response(ser.data)
+
+    def delete(self, request, pk):
+        page, err = self._get(request, pk)
+        if err: return err
+        page.delete()
+        return Response(status=204)
+
+
+# ─── Gestionnaire de fichiers ─────────────────────────────────────────────────
+
+class MediaFolderListCreateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        store = _get_store_from_request(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        return Response(MediaFolderSerializer(store.media_folders.all(), many=True).data)
+
+    def post(self, request):
+        store = _get_store_from_request(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        ser = MediaFolderSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        ser.save(store=store)
+        return Response(ser.data, status=201)
+
+
+class MediaFolderDeleteView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, pk):
+        store = _get_store_from_request(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        try:
+            folder = store.media_folders.get(pk=pk)
+        except MediaFolder.DoesNotExist:
+            return Response({'detail': 'Dossier introuvable.'}, status=404)
+        folder.delete()
+        return Response(status=204)
+
+
+class MediaFileListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        store = _get_store_from_request(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        qs = store.media_files.all()
+        folder_id = request.query_params.get('folder')
+        if folder_id == 'none':
+            qs = qs.filter(folder__isnull=True)
+        elif folder_id:
+            qs = qs.filter(folder_id=folder_id)
+        search = request.query_params.get('search', '').strip()
+        if search:
+            qs = qs.filter(original_name__icontains=search)
+        return Response(MediaFileSerializer(qs, many=True, context={'request': request}).data)
+
+
+class MediaFileUploadView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        store = _get_store_from_request(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        folder_id = request.data.get('folder')
+        folder = None
+        if folder_id:
+            try:
+                folder = store.media_folders.get(pk=folder_id)
+            except MediaFolder.DoesNotExist:
+                pass
+        files = request.FILES.getlist('files')
+        if not files:
+            return Response({'detail': 'Aucun fichier reçu.'}, status=400)
+        created = []
+        for f in files:
+            mf = MediaFile.objects.create(
+                store=store,
+                folder=folder,
+                file=f,
+                original_name=f.name,
+                size=f.size,
+                mime_type=f.content_type or '',
+            )
+            created.append(MediaFileSerializer(mf, context={'request': request}).data)
+        return Response(created, status=201)
+
+
+class MediaFileDeleteView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, pk):
+        store = _get_store_from_request(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        try:
+            mf = store.media_files.get(pk=pk)
+        except MediaFile.DoesNotExist:
+            return Response({'detail': 'Fichier introuvable.'}, status=404)
+        mf.file.delete(save=False)
+        mf.delete()
+        return Response(status=204)

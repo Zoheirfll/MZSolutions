@@ -58,10 +58,10 @@ export default function ConfirmationRatePage() {
             onClick={() => setPeriod(p.value)}
             className={`px-4 py-1.5 rounded-lg text-sm font-medium transition ${
               period === p.value
-                ? 'text-white'
+                ? 'text-white bg-violet-600'
                 : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
             }`}
-            style={period === p.value ? { background: '#7c3aed' } : { border: `1px solid ${theme.dark.border}` }}
+            style={period === p.value ? undefined : { border: `1px solid ${theme.dark.border}` }}
           >
             {p.label}
           </button>
@@ -88,14 +88,20 @@ export default function ConfirmationRatePage() {
       </div>
 
       {loading ? (
-        <p className="text-gray-500 text-center py-16">Chargement…</p>
+        <div className="flex items-center justify-center gap-2 text-gray-500 py-16">
+          <svg className="w-5 h-5 animate-spin text-violet-500" viewBox="0 0 24 24" fill="none">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+          </svg>
+          Chargement…
+        </div>
       ) : !data ? (
         <p className="text-gray-500 text-center py-16">Erreur de chargement.</p>
       ) : (
         <div className="space-y-5">
 
           {/* KPI global */}
-          <div className="rounded-xl border p-8 flex items-center gap-10" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
+          <div className="rounded-xl border p-6 sm:p-8 flex flex-col lg:flex-row items-center gap-8 lg:gap-10" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
             {/* Cercle taux */}
             <div className="flex flex-col items-center shrink-0">
               <div className="relative w-32 h-32">

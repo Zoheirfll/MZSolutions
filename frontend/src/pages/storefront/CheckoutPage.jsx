@@ -1,12 +1,74 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import StorefrontLayout from './StorefrontLayout'
 import publicApi from '../../api/publicApi'
 import { useCart } from '../../context/CartContext'
 import { WILAYAS } from '../../data/wilayas'
+import { theme } from '../../theme'
+
+function CheckIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  )
+}
+
+function XIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+    </svg>
+  )
+}
+
+function PackageIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
+      <path d="m3.3 7 8.7 5 8.7-5" />
+      <path d="M12 22V12" />
+    </svg>
+  )
+}
+
+function CartIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <circle cx="9" cy="21" r="1" />
+      <circle cx="20" cy="21" r="1" />
+      <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+    </svg>
+  )
+}
+
+function MinusIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M5 12h14" />
+    </svg>
+  )
+}
+
+function PlusIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M5 12h14" /><path d="M12 5v14" />
+    </svg>
+  )
+}
+
+function TrashIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M3 6h18" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+    </svg>
+  )
+}
 
 const EMPTY_CLIENT = {
-  first_name: '', last_name: '', phone: '',
+  first_name: '', last_name: '', phone: '', email: '',
   wilaya: '', commune: '', address: '',
 }
 
@@ -22,6 +84,26 @@ export default function CheckoutPage() {
   const [saving,        setSaving]        = useState(false)
   const [error,         setError]         = useState('')
   const [confirmedId,   setConfirmedId]   = useState(null)
+  const abandonedTimerRef = useRef(null)
+
+  // Debounce : sauvegarde le panier abandonné 2s après que le téléphone est rempli
+  useEffect(() => {
+    if (client.phone.length < 8 || cartItems.length === 0) return
+    clearTimeout(abandonedTimerRef.current)
+    abandonedTimerRef.current = setTimeout(() => {
+      publicApi.post('/abandoned-carts/', {
+        store_slug: slug,
+        first_name: client.first_name,
+        last_name:  client.last_name,
+        phone:      client.phone,
+        email:      client.email,
+        wilaya:     client.wilaya,
+        items:      cartItems.map(({ _key, image_url, ...i }) => i),
+        total:      subtotal,
+      }).catch(() => {})
+    }, 2000)
+    return () => clearTimeout(abandonedTimerRef.current)
+  }, [client.phone, client.email, client.first_name, client.wilaya, cartItems.length])
 
   const handleSubmit = async e => {
     e.preventDefault()
@@ -41,6 +123,8 @@ export default function CheckoutPage() {
         return
       }
       clearCart(slug)
+      // Marquer le panier comme récupéré
+      publicApi.post('/abandoned-carts/recover/', { store_slug: slug, phone: client.phone }).catch(() => {})
       setConfirmedId(data.id)
     } catch (err) {
       setError(err.response?.data?.detail || "Une erreur est survenue lors de la commande.")
@@ -53,10 +137,12 @@ export default function CheckoutPage() {
     return (
       <StorefrontLayout>
         <div className="max-w-lg mx-auto px-4 py-20 text-center">
-          <div className="text-5xl mb-4">✓</div>
+          <div className={`${theme.badge.success} inline-flex! w-16! h-16! rounded-full! p-0! items-center justify-center mb-4`}>
+            <CheckIcon className="w-8 h-8" />
+          </div>
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Merci pour votre commande !</h1>
           <p className="text-gray-500 mb-6">Commande #{confirmedId} reçue. Nous vous contacterons bientôt.</p>
-          <Link to={`/store/${slug}/products`} className="inline-block px-5 py-2.5 rounded-lg font-semibold text-white" style={{ background: '#7c3aed' }}>
+          <Link to={`/store/${slug}/products`} className={theme.btn.primary}>
             Continuer mes achats
           </Link>
         </div>
@@ -67,9 +153,10 @@ export default function CheckoutPage() {
   if (cartItems.length === 0) {
     return (
       <StorefrontLayout>
-        <div className="max-w-lg mx-auto px-4 py-20 text-center text-gray-400">
+        <div className={theme.emptyState}>
+          <CartIcon className="w-12 h-12 text-gray-300 mb-3" />
           <p className="mb-4">Votre panier est vide.</p>
-          <Link to={`/store/${slug}/products`} className="text-violet-600 font-medium hover:underline">
+          <Link to={`/store/${slug}/products`} className={theme.btn.outline}>
             Voir les produits
           </Link>
         </div>
@@ -77,78 +164,118 @@ export default function CheckoutPage() {
     )
   }
 
-  const inputCls = 'w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100 transition bg-white'
+  const sectionTitle = (num, label) => (
+    <div className="flex items-center gap-2.5 mb-4">
+      <span className="w-6 h-6 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center shrink-0">{num}</span>
+      <h2 className="font-semibold text-gray-900">{label}</h2>
+    </div>
+  )
 
   return (
     <StorefrontLayout>
-      <div className="max-w-4xl mx-auto px-4 py-10">
+      <div className="max-w-4xl mx-auto px-4 py-8 sm:py-10">
         <h1 className="text-2xl font-bold text-gray-900 mb-8">Finaliser la commande</h1>
 
-        <form onSubmit={handleSubmit} className="flex gap-8 items-start">
-          <div className="flex-1 min-w-0 space-y-6">
-            {/* Articles */}
-            <div className="border border-gray-200 rounded-xl p-5">
-              <h2 className="font-semibold text-gray-900 mb-4">Articles</h2>
+        <form onSubmit={handleSubmit} className="flex flex-col lg:flex-row gap-6 lg:gap-8 items-start">
+          <div className="flex-1 min-w-0 w-full space-y-6">
+            {/* Étape 1 — Articles */}
+            <div className={theme.panel}>
+              {sectionTitle(1, 'Panier')}
               <div className="space-y-3">
                 {cartItems.map(item => (
                   <div key={item._key} className="flex items-center gap-3">
-                    <div className="w-14 h-14 rounded-lg bg-gray-50 border border-gray-200 overflow-hidden shrink-0 flex items-center justify-center text-xl text-gray-300">
-                      {item.image_url ? <img src={item.image_url} alt="" className="w-full h-full object-cover" /> : '📦'}
+                    <div className="w-14 h-14 rounded-lg bg-gray-50 border border-gray-200 overflow-hidden shrink-0 flex items-center justify-center text-gray-300">
+                      {item.image_url ? <img src={item.image_url} alt="" className="w-full h-full object-cover" /> : <PackageIcon className="w-6 h-6" />}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-900 truncate">{item.product_name}</p>
                       <p className="text-xs text-gray-500">Prix unitaire : {Number(item.price).toLocaleString('fr-DZ')} DZD</p>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <button type="button" onClick={() => updateQuantity(slug, item._key, item.quantity - 1)} className="w-7 h-7 rounded border border-gray-300 text-gray-500 hover:text-gray-800 text-xs">−</button>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button type="button" onClick={() => updateQuantity(slug, item._key, item.quantity - 1)} className="w-7 h-7 rounded border border-gray-300 text-gray-500 hover:text-gray-800 flex items-center justify-center">
+                        <MinusIcon className="w-3.5 h-3.5" />
+                      </button>
                       <span className="w-6 text-center text-sm">{item.quantity}</span>
-                      <button type="button" onClick={() => updateQuantity(slug, item._key, item.quantity + 1)} className="w-7 h-7 rounded border border-gray-300 text-gray-500 hover:text-gray-800 text-xs">+</button>
+                      <button type="button" onClick={() => updateQuantity(slug, item._key, item.quantity + 1)} className="w-7 h-7 rounded border border-gray-300 text-gray-500 hover:text-gray-800 flex items-center justify-center">
+                        <PlusIcon className="w-3.5 h-3.5" />
+                      </button>
                     </div>
-                    <p className="w-20 text-right text-sm font-semibold text-gray-900">
+                    <p className="w-20 text-right text-sm font-semibold text-gray-900 hidden sm:block">
                       {(item.price * item.quantity).toLocaleString('fr-DZ')}
                     </p>
-                    <button type="button" onClick={() => removeItem(slug, item._key)} className="text-red-400 hover:text-red-500 text-xs">✕</button>
+                    <button type="button" onClick={() => removeItem(slug, item._key)} className="text-red-400 hover:text-red-500 shrink-0">
+                      <TrashIcon className="w-4 h-4" />
+                    </button>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Infos client */}
-            <div className="border border-gray-200 rounded-xl p-5 space-y-4">
-              <h2 className="font-semibold text-gray-900">Vos informations</h2>
-              <div className="grid grid-cols-2 gap-4">
-                <input value={client.first_name} onChange={e => setClient(c => ({ ...c, first_name: e.target.value }))} required className={inputCls} placeholder="Prénom *" />
-                <input value={client.last_name} onChange={e => setClient(c => ({ ...c, last_name: e.target.value }))} className={inputCls} placeholder="Nom" />
+            {/* Étape 2 — Infos client */}
+            <div className={theme.panel}>
+              {sectionTitle(2, 'Informations client')}
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className={theme.label}>Prénom *</label>
+                    <input value={client.first_name} onChange={e => setClient(c => ({ ...c, first_name: e.target.value }))} required className={theme.input} />
+                  </div>
+                  <div>
+                    <label className={theme.label}>Nom</label>
+                    <input value={client.last_name} onChange={e => setClient(c => ({ ...c, last_name: e.target.value }))} className={theme.input} />
+                  </div>
+                </div>
+                <div>
+                  <label className={theme.label}>Téléphone *</label>
+                  <input type="tel" value={client.phone} onChange={e => setClient(c => ({ ...c, phone: e.target.value }))} required className={theme.input} placeholder="06xx xxx xxx" />
+                </div>
+                <div>
+                  <label className={theme.label}>Email <span className="text-gray-400 font-normal">(optionnel — pour recevoir un rappel)</span></label>
+                  <input type="email" value={client.email} onChange={e => setClient(c => ({ ...c, email: e.target.value }))} className={theme.input} placeholder="votre@email.com" />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className={theme.label}>Wilaya *</label>
+                    <select value={client.wilaya} onChange={e => setClient(c => ({ ...c, wilaya: e.target.value }))} required className={theme.input}>
+                      <option value="">Sélectionner…</option>
+                      {WILAYAS.map(w => <option key={w.id} value={w.name}>{w.id} — {w.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className={theme.label}>Commune</label>
+                    <input value={client.commune} onChange={e => setClient(c => ({ ...c, commune: e.target.value }))} className={theme.input} />
+                  </div>
+                </div>
+                <div>
+                  <label className={theme.label}>Adresse</label>
+                  <textarea value={client.address} onChange={e => setClient(c => ({ ...c, address: e.target.value }))} rows={2} className={theme.input} />
+                </div>
+                <div>
+                  <label className={theme.label}>Note (optionnel)</label>
+                  <textarea value={note} onChange={e => setNote(e.target.value)} rows={2} className={theme.input} />
+                </div>
               </div>
-              <input value={client.phone} onChange={e => setClient(c => ({ ...c, phone: e.target.value }))} required className={inputCls} placeholder="Téléphone *" />
-              <div className="grid grid-cols-2 gap-4">
-                <select value={client.wilaya} onChange={e => setClient(c => ({ ...c, wilaya: e.target.value }))} required className={inputCls}>
-                  <option value="">Wilaya *</option>
-                  {WILAYAS.map(w => <option key={w.id} value={w.name}>{w.id} — {w.name}</option>)}
-                </select>
-                <input value={client.commune} onChange={e => setClient(c => ({ ...c, commune: e.target.value }))} className={inputCls} placeholder="Commune" />
-              </div>
-              <textarea value={client.address} onChange={e => setClient(c => ({ ...c, address: e.target.value }))} rows={2} className={inputCls} placeholder="Adresse" />
-              <textarea value={note} onChange={e => setNote(e.target.value)} rows={2} className={inputCls} placeholder="Note (optionnel)" />
             </div>
 
-            {/* Paiement */}
-            <div className="border border-gray-200 rounded-xl p-5 space-y-3">
-              <h2 className="font-semibold text-gray-900">Mode de paiement</h2>
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input type="radio" name="payment_method" checked={paymentMethod === 'cod'} onChange={() => setPaymentMethod('cod')} className="accent-violet-600 w-4 h-4" />
-                <span className="text-sm text-gray-700">Paiement à la livraison</span>
-              </label>
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input type="radio" name="payment_method" checked={paymentMethod === 'chargily'} onChange={() => setPaymentMethod('chargily')} className="accent-violet-600 w-4 h-4" />
-                <span className="text-sm text-gray-700">Paiement en ligne (Chargily)</span>
-              </label>
+            {/* Étape 3 — Paiement */}
+            <div className={theme.panel}>
+              {sectionTitle(3, 'Paiement')}
+              <div className="space-y-3">
+                <label className={`flex items-center gap-3 cursor-pointer rounded-xl border p-3.5 transition ${paymentMethod === 'cod' ? 'border-violet-500 bg-violet-50/50' : 'border-gray-200 hover:border-gray-300'}`}>
+                  <input type="radio" name="payment_method" checked={paymentMethod === 'cod'} onChange={() => setPaymentMethod('cod')} className="accent-violet-600 w-4 h-4" />
+                  <span className="text-sm text-gray-700">Paiement à la livraison</span>
+                </label>
+                <label className={`flex items-center gap-3 cursor-pointer rounded-xl border p-3.5 transition ${paymentMethod === 'chargily' ? 'border-violet-500 bg-violet-50/50' : 'border-gray-200 hover:border-gray-300'}`}>
+                  <input type="radio" name="payment_method" checked={paymentMethod === 'chargily'} onChange={() => setPaymentMethod('chargily')} className="accent-violet-600 w-4 h-4" />
+                  <span className="text-sm text-gray-700">Paiement en ligne (Chargily)</span>
+                </label>
+              </div>
             </div>
           </div>
 
           {/* Résumé */}
-          <div className="w-72 shrink-0 sticky top-24">
-            <div className="border border-gray-200 rounded-xl p-5">
+          <div className="w-full lg:w-72 shrink-0 lg:sticky lg:top-24">
+            <div className={theme.panel}>
               <h2 className="font-semibold text-gray-900 mb-4 text-center">Résumé</h2>
               <div className="space-y-2 mb-4 text-sm">
                 <div className="flex justify-between">
@@ -161,13 +288,12 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
-              {error && <p className="text-red-500 text-xs mb-3">{error}</p>}
+              {error && <p className={theme.errorText}>{error}</p>}
 
               <button
                 type="submit"
                 disabled={saving}
-                className="w-full py-3 rounded-lg font-semibold text-white text-sm disabled:opacity-50"
-                style={{ background: '#7c3aed' }}
+                className={`${theme.btn.primary} w-full mt-1`}
               >
                 {saving ? 'Envoi…' : 'Confirmer la commande'}
               </button>
