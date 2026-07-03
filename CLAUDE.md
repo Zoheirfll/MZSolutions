@@ -48,7 +48,8 @@ accounts/        — modèle User custom (login par email), auth JWT
 stores/          — Store, SubscriptionQuota, StoreSettings
 team/            — TeamMember, invitation token
 products/        — Category, Product, ProductImage, ProductVariant, VariantOption, Supplier, SupplierCredit, SupplierPayment, ProductReview
-orders/          — Order, OrderItem, OrderStatusHistory, OrderAssignment, CallAttempt, FailureReason, PaymentWebhookLog
+orders/          — Order, OrderItem, OrderStatusHistory, OrderAssignment, CallAttempt, FailureReason, PaymentWebhookLog, CarrierAccount
+orders/carriers/ — clients transporteurs (Yalidine, ZR Express) : base.py (BaseCarrierClient, MockCarrierClient), yalidine.py, zr_express.py, get_carrier_client()
 core/            — app Django générique (utilitaires partagés) : permissions.py (is_owner_or_admin, IsOwnerOrAdminForWrites)
 ```
 
@@ -57,6 +58,11 @@ core/            — app Django générique (utilitaires partagés) : permission
 - Settings (`.env`, jamais commité) : `CHARGILY_API_KEY`, `CHARGILY_SECRET_KEY`, `CHARGILY_MODE` (test/live), `CHARGILY_API_BASE`, `BACKEND_URL`
 - ⚠️ URL de base différente entre modes : **test** = `https://pay.chargily.net/test/api/v2`, **live** = `https://pay.chargily.net/api/v2`
 - En dev local, le webhook Chargily (`/api/public/webhooks/chargily/`) doit être exposé via un tunnel public (ngrok) car Chargily ne peut pas appeler `localhost` — mettre à jour `BACKEND_URL` dans `.env` et le champ "Point de terminaison webhook" du dashboard Chargily à chaque nouveau tunnel
+
+### Transporteurs — Yalidine / ZR Express (mock)
+- `backend/orders/carriers/` : interface commune `BaseCarrierClient.create_shipment(order)` / `.get_status(tracking_number)`. `YalidineClient` et `ZRExpressClient` héritent de `MockCarrierClient` — **aucun appel réseau réel pour l'instant**, faute d'accès API obtenus. Génèrent un tracking factice `MOCK-{carrier}-{order_id}-{uuid6}` et un statut `created`
+- Quand une commande passe au statut `confirmed` (`OrderStatusView.post`), le système crée automatiquement une expédition via le transporteur par défaut de la boutique (`CarrierAccount.is_default`), ou celui précisé par `carrier_id` dans le payload. Idempotent (ne recrée pas si `carrier_tracking_number` déjà rempli). Si aucun compte actif : la commande est quand même confirmée, réponse avec `carrier_warning` (pas d'erreur bloquante)
+- Pour brancher les vraies API : remplacer le contenu de `yalidine.py` / `zr_express.py` (utiliser `self.carrier_account.api_id` / `.api_token`), le reste du système n'a pas besoin de changer
 
 ### Structure Frontend (`frontend/src/`)
 ```
@@ -78,11 +84,12 @@ pages/products/ReviewsPage.jsx        — modération avis
 pages/products/SupplierCreditPage.jsx    — crédits fournisseurs
 pages/products/SupplierPaymentPage.jsx   — versements fournisseurs
 pages/orders/OrdersPage.jsx           — liste commandes (filtre statut, recherche, modal "État de la commande" avec note + wilaya/commune, colonne Note, icône historique)
-pages/orders/OrderDetailPage.jsx      — détail commande (changer statut, assignation confirmateur, historique)
+pages/orders/OrderDetailPage.jsx      — détail commande (changer statut, sélection transporteur si confirmation + affichage tracking, assignation confirmateur, historique en timeline)
 pages/orders/OrderFormPage.jsx        — création commande manuelle (vendeur)
 pages/orders/CancellationsPage.jsx    — demandes d'annulation / confirmées
 pages/orders/FailureReasonsPage.jsx   — raisons d'échec d'appel
 pages/orders/ConfirmationRatePage.jsx — taux de confirmation par confirmateur
+pages/ParametresLivraisonPage.jsx     — comptes transporteurs (Yalidine/ZR Express) : onglets "Sociétés de livraison" (cartes) / "Mes Sociétés de livraison" (tableau : toggle statut, copier clé/jeton API, badge défaut)
 pages/storefront/StorefrontHomePage.jsx     — page d'accueil boutique publique
 pages/storefront/StorefrontProductsPage.jsx — liste produits publique
 pages/storefront/StorefrontProductPage.jsx  — fiche produit publique (Ajouter au panier / Acheter maintenant)
@@ -93,14 +100,14 @@ api/publicApi.js                — instance Axios pour les endpoints publics (`
 data/wilayas.js                 — 58 wilayas algériennes
 ```
 
-### Thème (mauve/violet)
-Toujours importer et utiliser `theme.js` — ne jamais hardcoder des classes Tailwind de couleur directement.
+### Thème — Premium SaaS sombre (style Linear/Vercel)
+Toujours importer et utiliser `theme.js` — ne jamais hardcoder des classes Tailwind de couleur directement. `theme.js` est la source unique : toute page qui consomme `theme.dark.*` / `theme.btn.*` / `theme.badge.*` / `theme.table.*` hérite automatiquement des mises à jour du design system (pas besoin de retoucher chaque page individuellement).
 ```js
 import { theme } from '../theme'
 // theme.btn.primary, theme.input, theme.logo, theme.hero, theme.badge.*
 // theme.dark.app / sidebar / card / border / muted
 ```
-Couleur primaire : `violet-600` (#7c3aed). Gradient hero : `#2e1065 → #6d28d9 → #7c3aed`.
+Couleur primaire : `violet-600` (#7c3aed), réservée aux éléments interactifs/actifs (pas de fond violet saturé décoratif). Fonds quasi-noirs neutres (`#08090a`/`#0a0b0c`/`#0d0e10`), bordures fines "hairline" neutres (pas de teinte violette dans les bordures), rayons resserrés (`rounded-lg`/`rounded-xl`, pas `2xl`), boutons plats sans glow/shadow coloré, badges avec `ring-1 ring-inset` plutôt que fond saturé plein. Gradient hero (page marketing uniquement) : `#2e1065 → #6d28d9 → #7c3aed`.
 
 ---
 
@@ -218,6 +225,7 @@ first_name, last_name, phone, wilaya, commune, address
 subtotal, shipping_cost, total (recalculés via order.recalculate())
 delivery_type, payment_method (cod | chargily), note
 chargily_checkout_id, chargily_payment_link
+carrier (FK → CarrierAccount, nullable), carrier_tracking_number, carrier_status, carrier_shipment_created_at
 created_at, updated_at
 ```
 - Statuts `no_answer_1/2/3` = tentatives d'appel séquentielles intégrées au statut principal (pas de modèle séparé de log d'appel type "CallAttempt" pour ce flux — un seul changement de statut + note suffit)
@@ -242,6 +250,17 @@ Assignation automatique round-robin entre confirmateurs actifs (`orders/utils.py
 
 ### `orders.CallAttempt` / `orders.FailureReason`
 Legacy — logging détaillé d'appel (agent, raison d'échec) conservé pour les statistiques (`ConfirmationRateView`), indépendant du flux principal `no_answer_1/2/3` du statut de commande.
+
+### `orders.CarrierAccount`
+```
+store (FK → Store)
+carrier : yalidine | zr_express
+name, departure_wilaya
+api_id, api_token (jamais renvoyé en clair par l'API — write_only + api_token_masked)
+is_active, is_default (un seul défaut par boutique, forcé dans .save())
+created_at
+```
+Contrainte unique `(store, carrier)` — un seul compte par transporteur par boutique.
 
 ### `orders.PaymentWebhookLog`
 ```
@@ -276,6 +295,8 @@ Chaque webhook Chargily reçu est journalisé ici en premier, avant tout traitem
 | GET/PUT | `/api/stores/me/` | Oui | Boutique du vendeur connecté |
 | GET | `/api/stores/me/quota/` | Oui | Quota trial restant |
 | GET/PUT | `/api/stores/me/settings/` | Oui | Paramètres (low_stock_threshold) |
+| GET/POST | `/api/stores/me/carriers/` | Oui | Comptes transporteurs (Yalidine/ZR Express) — lister / créer |
+| PUT/DELETE | `/api/stores/me/carriers/<id>/` | Oui | Modifier (dont `is_default`, `is_active`) / supprimer un compte |
 
 ### Équipe
 | Méthode | URL | Auth | Description |
@@ -315,7 +336,7 @@ Chaque webhook Chargily reçu est journalisé ici en premier, avant tout traitem
 |---|---|---|---|
 | GET/POST | `/api/orders/` | Oui | Liste paginée (`?status=&search=&page=&per_page=`) + créer (owner/admin) |
 | GET/PUT/DELETE | `/api/orders/<id>/` | Oui | Détail / modifier / supprimer |
-| POST | `/api/orders/<id>/status/` | Oui | Changer statut + note → log `OrderStatusHistory` |
+| POST | `/api/orders/<id>/status/` | Oui | Changer statut + note → log `OrderStatusHistory`. Accepte `carrier_id` optionnel ; si nouveau statut = `confirmed`, crée automatiquement une expédition (mockée) via le transporteur par défaut ou celui précisé — réponse enrichie de `carrier_warning` si aucun transporteur actif |
 | GET | `/api/orders/stats/` | Oui | Compteurs par statut |
 | GET | `/api/orders/stats/confirmation/` | Oui | Taux de confirmation (période, par confirmateur) |
 | GET/PUT | `/api/orders/<id>/assignment/` | Oui | Voir / réassigner confirmateur |
@@ -388,8 +409,7 @@ Chaque webhook Chargily reçu est journalisé ici en premier, avant tout traitem
 - Testé de bout en bout en mode test Chargily (checkout réel + webhook réel via tunnel ngrok)
 
 ### 🔜 Sprint 5 (suite) — Livraison
-- Intégration **Yalidine** (API livraison)
-- Intégration **ZR Express**
+- **Epic 6.1 (US-6.1.1/6.1.2)** ✅ architecture faite, **mockée** : `CarrierAccount` (connexion comptes Yalidine/ZR Express, clé/jeton API, transporteur par défaut), création automatique de l'expédition à la confirmation de commande. Page `ParametresLivraisonPage.jsx`. **Vrais appels API non branchés** — en attente des accès (voir Risques) ; voir `docs/superpowers/specs/2026-07-02-carrier-integration-design.md` et `docs/superpowers/plans/2026-07-02-carrier-integration.md`
 - Calcul automatique des frais de livraison par wilaya
 - Génération bon de livraison / étiquette
 - Notifications SMS client (provider TBD)
@@ -453,6 +473,8 @@ Chaque webhook Chargily reçu est journalisé ici en premier, avant tout traitem
 | Suivi appel commande | Statuts `no_answer_1/2/3` intégrés au statut principal de la commande (pas de sous-état séparé) |
 | Quota commandes | Incrémenté à la création pour COD ; incrémenté au webhook `checkout.paid` pour Chargily (évite de compter les paniers Chargily abandonnés) |
 | Paiement Chargily | URL API différente en test (`/test/api/v2`) vs live (`/api/v2`) — à vérifier à chaque déploiement |
+| Intégration transporteurs | Architecture complète construite avec clients mockés (`MockCarrierClient`) en attendant les accès API réels Yalidine/ZR Express — permet de livrer le flux métier (connexion compte, confirmation → expédition, tracking) sans bloquer sur des accès externes non obtenus |
+| Design system frontend | Style "Premium SaaS sombre" (Linear/Vercel) centralisé dans `theme.js` — fonds neutres quasi-noirs, bordures hairline, accent violet réservé aux états interactifs |
 
 ---
 
@@ -467,6 +489,7 @@ Chaque webhook Chargily reçu est journalisé ici en premier, avant tout traitem
 | Planification `cancel_stale_calls` | Commande management prête mais non planifiée (cron/Tâches Windows à configurer) |
 | Modèle Customer / liste noire | Différé — US-5.2.1 mentionne l'identification client par téléphone mais pas de modèle dédié encore |
 | Clés Chargily production | Seules les clés de test sont configurées (`.env` local, non commité) |
+| Accès API Yalidine / ZR Express | Non obtenus — `orders/carriers/` utilise des clients mockés (`MOCK-{carrier}-...`) en attendant. Brancher les vrais clients dans `yalidine.py`/`zr_express.py` dès réception des accès |
 
 ---
 
