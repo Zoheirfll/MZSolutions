@@ -53,6 +53,8 @@ class StoreSettings(models.Model):
     store               = models.OneToOneField(Store, on_delete=models.CASCADE, related_name='settings')
     low_stock_threshold        = models.PositiveIntegerField(default=5)
     abandoned_cart_delay_hours = models.PositiveIntegerField(default=1)
+    risk_threshold_orders      = models.PositiveIntegerField(default=3)
+    risk_period_days           = models.PositiveIntegerField(default=90)
     theme_template  = models.CharField(max_length=20, choices=THEME_CHOICES, default='violet')
     theme_primary   = models.CharField(max_length=7, blank=True)
     theme_secondary = models.CharField(max_length=7, blank=True)

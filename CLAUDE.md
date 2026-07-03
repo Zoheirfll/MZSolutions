@@ -111,6 +111,9 @@ pages/orders/CancellationsPage.jsx    — demandes d'annulation / confirmées
 pages/orders/FailureReasonsPage.jsx   — raisons d'échec d'appel
 pages/orders/ConfirmationRatePage.jsx — taux de confirmation par confirmateur
 pages/ParametresLivraisonPage.jsx     — comptes transporteurs (Yalidine/ZR Express) : onglets "Sociétés de livraison" (cartes) / "Mes Sociétés de livraison" (tableau : toggle statut, copier clé/jeton API, badge défaut)
+pages/customers/ClientsPage.jsx           — liste clients agrégée par téléphone (nom, email, tél, nb commandes, wilaya, commune, badge risque)
+pages/customers/AtRiskCustomersPage.jsx   — clients à risque + panneau réglages (seuil/période), bouton marquer/démarquer manuellement
+pages/customers/BlacklistPage.jsx         — liste noire par boutique, modal "Bloquer un numéro de téléphone" (message + téléphone)
 pages/storefront/StorefrontHomePage.jsx     — page d'accueil boutique publique
 pages/storefront/StorefrontProductsPage.jsx — liste produits publique
 pages/storefront/StorefrontProductPage.jsx  — fiche produit publique (Ajouter au panier / Acheter maintenant)
@@ -165,6 +168,8 @@ trial_ends_at (default now + 30 jours)
 ```
 store (OneToOne → Store)
 low_stock_threshold (default 5)
+risk_threshold_orders (default 3) — nb commandes cancelled/returned déclenchant le risque auto
+risk_period_days (default 90) — fenêtre glissante pour le calcul du risque
 ```
 
 ### `team.TeamMember`
@@ -318,6 +323,27 @@ error_message, received_at
 ```
 Chaque webhook Chargily reçu est journalisé ici en premier, avant tout traitement — garantit l'audit même en cas d'erreur de traitement. Le endpoint webhook retourne toujours HTTP 200 (même en erreur interne) pour éviter les tempêtes de retry côté Chargily ; les erreurs internes sont visibles via `status='error'`.
 
+### Clients (pas de modèle `Customer`)
+Aucune table `Customer` — un client est identifié uniquement par `Order.phone`. La liste "Clients" et le calcul de risque sont **agrégés à la volée** (`GROUP BY phone` sur `store.orders`, voir `ClientListView`), jamais persistés/synchronisés. Seuls deux petits modèles existent pour ce qui ne peut pas être dérivé des commandes :
+
+### `orders.CustomerRisk`
+```
+store (FK → Store), phone
+manual_risk (bool, default False) — flag manuel, indépendant du calcul auto
+note (optionnel)
+created_at, updated_at
+```
+Une seule ligne par `(store, phone)`, créée via `get_or_create` seulement quand le vendeur bascule le flag manuel (`POST /api/orders/clients/<phone>/risk/`). Le risque **automatique** n'est jamais stocké ici — recalculé à chaque lecture : `is_risky = (commandes cancelled/returned du client sur risk_period_days) >= risk_threshold_orders OR manual_risk`.
+
+### `orders.BlacklistedPhone`
+```
+store (FK → Store), phone
+message (optionnel — affiché au client si sa commande est refusée)
+blocked_attempts (compteur), last_attempt_at (nullable)
+created_at
+```
+Liste noire **non mutualisée** — un numéro bloqué sur une boutique ne l'est pas sur les autres (contrainte unique `(store, phone)`). Vérifiée dans `PublicOrderView.post()` (`backend/orders/views.py`) **avant toute création** : si le téléphone soumis correspond à une entrée, la commande est refusée (403, message personnalisé du vendeur renvoyé dans `detail` et affiché au client par `CheckoutPage.jsx`), et `blocked_attempts`/`last_attempt_at` sont incrémentés/mis à jour pour que le vendeur voie les tentatives sur la page Liste noire.
+
 ---
 
 ## API Endpoints (complets — Sprint 1 à 5)
@@ -393,6 +419,10 @@ Chaque webhook Chargily reçu est journalisé ici en premier, avant tout traitem
 | DELETE | `/api/orders/<id>/call-attempts/<cid>/` | Oui | Supprimer tentative |
 | GET/POST | `/api/orders/failure-reasons/` | Oui | Raisons d'échec d'appel |
 | PUT/DELETE | `/api/orders/failure-reasons/<id>/` | Oui | Modifier / supprimer |
+| GET | `/api/orders/clients/` | Oui | Liste clients agrégée par téléphone (`?search=&risk_only=&page=&per_page=`) — `is_risky`/`manual_risk`/`risky_count` calculés à la volée |
+| POST | `/api/orders/clients/<phone>/risk/` | Oui | Bascule le flag de risque manuel (`CustomerRisk.manual_risk`), indépendant du calcul automatique |
+| GET/POST | `/api/orders/blacklist/` | Oui | Liste noire de la boutique — lister / bloquer un numéro (`phone`, `message` optionnel) |
+| PUT/DELETE | `/api/orders/blacklist/<id>/` | Oui | Modifier le message / débloquer (supprimer) un numéro |
 
 ### Boutique publique & Checkout invité
 | Méthode | URL | Auth | Description |
@@ -402,7 +432,7 @@ Chaque webhook Chargily reçu est journalisé ici en premier, avant tout traitem
 | GET | `/api/public/store/<slug>/products/` | Non | Liste produits publique |
 | GET | `/api/public/store/<slug>/products/<id>/` | Non | Détail produit public (variantes, avis). Injecte `price` réduit + `original_price` si une offre automatique (`Promotion kind='auto'`) cible le produit ou une de ses catégories |
 | POST | `/api/public/store/<slug>/promo/<code>/` | Non | Valide un code promo pour le panier fourni (`items`) — vérifie existence/validité puis calcule `discount_amount` réel via `compute_discount_for_items` (respecte le scope produits/catégories du coupon). 404/400 avec détail si invalide ou si aucun article éligible |
-| POST | `/api/public/orders/` | Non | Checkout invité — crée Order + OrderItems, quota vérifié. Accepte `promo_code` optionnel : revalidé et verrouillé côté serveur (`select_for_update`) avant toute création, applique `discount_amount` sur la commande et incrémente `Promotion.uses_count`. Si `payment_method=chargily` : crée un checkout Chargily et renvoie `payment_url` (sinon `null` + détail explicite si l'appel API échoue). Si `cod` : quota incrémenté immédiatement |
+| POST | `/api/public/orders/` | Non | Checkout invité — crée Order + OrderItems, quota vérifié. **Vérifie d'abord `BlacklistedPhone`** : si le `phone` soumis est bloqué pour cette boutique, refuse (403, message du vendeur) avant toute création et incrémente `blocked_attempts`. Accepte `promo_code` optionnel : revalidé et verrouillé côté serveur (`select_for_update`) avant toute création, applique `discount_amount` sur la commande et incrémente `Promotion.uses_count`. Si `payment_method=chargily` : crée un checkout Chargily et renvoie `payment_url` (sinon `null` + détail explicite si l'appel API échoue). Si `cod` : quota incrémenté immédiatement |
 | POST | `/api/public/webhooks/chargily/` | Non (signature HMAC) | Webhook Chargily — `checkout.paid` confirme la commande + incrémente le quota ; `checkout.failed`/`checkout.expired` laisse la commande en attente + email au vendeur (`Store.email`). Toujours 200, toujours journalisé (`PaymentWebhookLog`) |
 
 ---
@@ -471,6 +501,12 @@ Chaque webhook Chargily reçu est journalisé ici en premier, avant tout traitem
 - Modèle unique `products.Promotion` (`kind='code'|'auto'`) — voir section Modèles de données
 - Pas de cumul coupon + offre auto sur une même commande (décision produit)
 - Testé de bout en bout via `manage.py shell` (application, incrément `uses_count`, épuisement `max_uses`, injection prix réduit sur fiche produit)
+
+### ✅ Epic 6.3 — Clients à risque et liste noire (TERMINÉ — branche `epic-6.3-clients-risque`)
+- **Page Clients** (`ClientsPage.jsx`) : liste agrégée à la volée par téléphone (pas de modèle `Customer`), demandée en plus des US
+- **US-6.3.1 — Détection de risque** : automatique si commandes `cancelled`/`returned` sur `risk_period_days` ≥ `risk_threshold_orders` (les deux configurables, `StoreSettings`, réglages éditables directement dans `AtRiskCustomersPage.jsx`) OU marquage manuel indépendant (`CustomerRisk.manual_risk`, bouton toggle par ligne)
+- **US-6.3.2 — Liste noire** : `BlacklistedPhone` scopé par boutique (contrainte unique `(store, phone)` — non mutualisé). Une commande avec un numéro bloqué est refusée (403) avant toute création, avec le message personnalisé du vendeur affiché au client (`CheckoutPage.jsx` affiche déjà `err.response.data.detail`, aucun changement nécessaire côté storefront) ; `blocked_attempts`/`last_attempt_at` journalisés pour visibilité vendeur sur `BlacklistPage.jsx`
+- Testé de bout en bout via `manage.py shell` (détection auto sur vraies données boutique, toggle manuel, création liste noire + tentative de commande bloquée + vérification qu'aucune commande n'est créée)
 
 ### 🔜 Sprint 6 — Paiements & Marketing
 - ~~Intégration Chargily Pay~~ ✅ fait en avance (Epic 5.3)

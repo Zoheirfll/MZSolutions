@@ -82,6 +82,7 @@ export default function DashboardLayout({ children, title }) {
     fournisseurs: location.pathname.startsWith('/dashboard/produits/fournisseurs'),
     commandes:    location.pathname.startsWith('/dashboard/commandes'),
     annulation:   location.pathname.startsWith('/dashboard/commandes/annulations'),
+    clients:      location.pathname.startsWith('/dashboard/clients'),
   })
   const [lowStockCount, setLowStockCount] = useState(0)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
@@ -286,7 +287,28 @@ export default function DashboardLayout({ children, title }) {
                 </li>
               )}
 
-              {teamRole !== 'confirmateur' && <li>{disabled(ICONS.customers, 'Clients')}</li>}
+              {teamRole !== 'confirmateur' && (
+                <li>
+                  <button
+                    onClick={() => setExpanded(e => ({ ...e, clients: !e.clients }))}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
+                      location.pathname.startsWith('/dashboard/clients') ? 'bg-white/6 text-gray-100 font-medium' : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.customers}</span>Clients</span>
+                    <svg className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${expanded.clients ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                  {expanded.clients && (
+                    <ul className="mt-0.5 ml-5 space-y-0.5 border-l pl-3" style={{ borderColor: theme.dark.border }}>
+                      <li>{link('/dashboard/clients', 'Clients', true)}</li>
+                      <li>{link('/dashboard/clients/risque', 'Clients à risque')}</li>
+                      <li>{link('/dashboard/clients/liste-noire', 'Liste noire')}</li>
+                    </ul>
+                  )}
+                </li>
+              )}
               {teamRole !== 'confirmateur' && <li>{disabled(ICONS.shipping, 'Expéditions')}</li>}
               {teamRole !== 'confirmateur' && <li>{mainLink('/dashboard/stock', ICONS.stock, 'Stock & Inventaire', false, lowStockCount)}</li>}
               {!['confirmateur', 'dropshipper'].includes(teamRole) && (

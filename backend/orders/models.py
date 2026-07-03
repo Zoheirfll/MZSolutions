@@ -219,3 +219,37 @@ class CallAttempt(models.Model):
 
     def __str__(self):
         return f"#{self.order_id} — {self.get_status_display()}"
+
+
+class CustomerRisk(models.Model):
+    """Flag de risque manuel par (boutique, téléphone). Le calcul automatique
+    (commandes cancelled/returned sur StoreSettings.risk_period_days) n'est
+    jamais persisté ici — recalculé à la lecture, comme le low-stock."""
+    store       = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='customer_risks')
+    phone       = models.CharField(max_length=30)
+    manual_risk = models.BooleanField(default=False)
+    note        = models.TextField(blank=True)
+    created_at  = models.DateTimeField(auto_now_add=True)
+    updated_at  = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['store', 'phone'], name='unique_store_customer_risk')]
+
+    def __str__(self):
+        return f"Risque {self.phone} — {self.store.name}"
+
+
+class BlacklistedPhone(models.Model):
+    store            = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='blacklisted_phones')
+    phone            = models.CharField(max_length=30)
+    message          = models.TextField(blank=True)
+    blocked_attempts = models.PositiveIntegerField(default=0)
+    last_attempt_at  = models.DateTimeField(null=True, blank=True)
+    created_at       = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        constraints = [models.UniqueConstraint(fields=['store', 'phone'], name='unique_store_blacklist_phone')]
+
+    def __str__(self):
+        return f"Blacklist {self.phone} — {self.store.name}"

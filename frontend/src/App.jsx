@@ -28,6 +28,9 @@ import OrderDetailPage from './pages/orders/OrderDetailPage'
 import FailureReasonsPage from './pages/orders/FailureReasonsPage'
 import ConfirmationRatePage from './pages/orders/ConfirmationRatePage'
 import AbandonedCartsPage from './pages/orders/AbandonedCartsPage'
+import ClientsPage from './pages/customers/ClientsPage'
+import AtRiskCustomersPage from './pages/customers/AtRiskCustomersPage'
+import BlacklistPage from './pages/customers/BlacklistPage'
 import ThemePage from './pages/boutique/ThemePage'
 import PagesPage from './pages/boutique/PagesPage'
 import PageFormPage from './pages/boutique/PageFormPage'
@@ -89,7 +92,9 @@ function App() {
           <Route path="/dashboard/commandes/paniers-abandonnes"           element={<PD><AbandonedCartsPage /></PD>} />
           <Route path="/dashboard/commandes/annulations/demandes"       element={<PD><CancellationsPage mode="requests" /></PD>} />
           <Route path="/dashboard/commandes/annulations/confirmees"     element={<PD><CancellationsPage mode="confirmed" /></PD>} />
-          <Route path="/dashboard/clients"                   element={<PD><ComingSoon title="Clients" /></PD>} />
+          <Route path="/dashboard/clients"                   element={<PD><ClientsPage /></PD>} />
+          <Route path="/dashboard/clients/risque"            element={<PD><AtRiskCustomersPage /></PD>} />
+          <Route path="/dashboard/clients/liste-noire"        element={<PD><BlacklistPage /></PD>} />
           <Route path="/dashboard/expeditions"               element={<PD><ComingSoon title="Expéditions & Retours" /></PD>} />
           <Route path="/dashboard/stats"                     element={<PD><ComingSoon title="Statistiques" /></PD>} />
           <Route path="/dashboard/equipe"                    element={<PD><TeamPage /></PD>} />

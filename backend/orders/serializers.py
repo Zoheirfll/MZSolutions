@@ -3,6 +3,7 @@ from .models import (
     Order, OrderItem, OrderStatusHistory, STATUS_CHOICES,
     OrderAssignment, FailureReason, CallAttempt, CALL_STATUS_CHOICES,
     PAYMENT_METHOD_CHOICES, AbandonedCart, CarrierAccount, CARRIER_CHOICES,
+    BlacklistedPhone,
 )
 
 
@@ -157,3 +158,10 @@ class OrderDetailSerializer(OrderSerializer):
         fields = OrderSerializer.Meta.fields + [
             'items', 'history', 'assignment', 'call_attempts', 'address', 'updated_at',
         ]
+
+
+class BlacklistedPhoneSerializer(serializers.ModelSerializer):
+    class Meta:
+        model  = BlacklistedPhone
+        fields = ['id', 'phone', 'message', 'blocked_attempts', 'last_attempt_at', 'created_at']
+        read_only_fields = ['id', 'blocked_attempts', 'last_attempt_at', 'created_at']

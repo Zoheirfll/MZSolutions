@@ -15,6 +15,7 @@ class StoreSettingsSerializer(serializers.ModelSerializer):
     class Meta:
         model  = StoreSettings
         fields = ['low_stock_threshold', 'abandoned_cart_delay_hours',
+                  'risk_threshold_orders', 'risk_period_days',
                   'theme_template', 'theme_primary', 'theme_secondary', 'theme_font',
                   'menu_items']
 
