@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import DashboardLayout from '../components/DashboardLayout'
 import api from '../api/axios'
 import { theme } from '../theme'
+import { WILAYAS } from '../data/wilayas'
 
 const CARRIERS = [
   { code: 'yalidine',   label: 'Yalidine' },
@@ -12,6 +13,8 @@ export default function ParametresLivraisonPage() {
   const [accounts, setAccounts]         = useState([])
   const [loading, setLoading]           = useState(true)
   const [modalCarrier, setModalCarrier] = useState(null)
+  const [name, setName]                 = useState('')
+  const [departureWilaya, setDepartureWilaya] = useState('')
   const [apiId, setApiId]               = useState('')
   const [apiToken, setApiToken]         = useState('')
   const [isActive, setIsActive]         = useState(true)
@@ -31,6 +34,8 @@ export default function ParametresLivraisonPage() {
 
   const openModal = (code) => {
     const existing = accountFor(code)
+    setName(existing?.name || '')
+    setDepartureWilaya(existing?.departure_wilaya || '')
     setApiId(existing?.api_id || '')
     setApiToken('')
     setIsActive(existing ? existing.is_active : true)
@@ -42,7 +47,7 @@ export default function ParametresLivraisonPage() {
     setSaving(true)
     try {
       const existing = accountFor(modalCarrier)
-      const payload = { api_id: apiId, api_token: apiToken, is_active: isActive }
+      const payload = { name, departure_wilaya: departureWilaya, api_id: apiId, api_token: apiToken, is_active: isActive }
       if (existing) {
         await api.put(`/stores/me/carriers/${existing.id}/`, payload)
       } else {
@@ -117,9 +122,16 @@ export default function ParametresLivraisonPage() {
                 {CARRIERS.find(c => c.code === modalCarrier)?.label[0]}
               </div>
             </div>
-            <label className={theme.labelDark}>Clé API</label>
+            <label className={theme.labelDark}>Sélectionnez la ville de départ</label>
+            <select value={departureWilaya} onChange={e => setDepartureWilaya(e.target.value)} className={theme.inputDark + ' mb-3'}>
+              <option value="">Sélectionnez la ville de départ</option>
+              {WILAYAS.map(w => <option key={w.id} value={w.name}>{w.name}</option>)}
+            </select>
+            <label className={theme.labelDark}>Name</label>
+            <input value={name} onChange={e => setName(e.target.value)} placeholder="Entrez le nom de l'entreprise" className={theme.inputDark + ' mb-3'} />
+            <label className={theme.labelDark}>Entrez votre clé API</label>
             <input value={apiId} onChange={e => setApiId(e.target.value)} placeholder="Entrez votre clé API" className={theme.inputDark + ' mb-3'} />
-            <label className={theme.labelDark}>Jeton API</label>
+            <label className={theme.labelDark}>Entrez votre jeton API</label>
             <input value={apiToken} onChange={e => setApiToken(e.target.value)} type="password" placeholder="Entrez votre jeton API" className={theme.inputDark + ' mb-3'} />
             <label className="flex items-center gap-2 text-sm text-gray-300 mb-5 cursor-pointer">
               <input type="checkbox" checked={isActive} onChange={e => setIsActive(e.target.checked)} />

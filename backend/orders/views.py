@@ -248,11 +248,14 @@ class CarrierAccountListCreateView(APIView):
             return Response({'detail': 'Ce transporteur est déjà connecté pour cette boutique.'}, status=400)
 
         account = CarrierAccount.objects.create(
-            store      = store,
-            carrier    = carrier,
-            api_id     = request.data.get('api_id', ''),
-            api_token  = request.data.get('api_token', ''),
-            is_default = request.data.get('is_default', False),
+            store             = store,
+            carrier           = carrier,
+            name              = request.data.get('name', ''),
+            departure_wilaya  = request.data.get('departure_wilaya', ''),
+            api_id            = request.data.get('api_id', ''),
+            api_token         = request.data.get('api_token', ''),
+            is_active         = request.data.get('is_active', True),
+            is_default        = request.data.get('is_default', False),
         )
         return Response(CarrierAccountSerializer(account).data, status=status.HTTP_201_CREATED)
 
@@ -274,7 +277,7 @@ class CarrierAccountDetailView(APIView):
             return Response({'detail': 'Modification réservée au propriétaire ou administrateur.'}, status=403)
         account, err = self._get(request, pk)
         if err: return err
-        for field in ['api_id', 'api_token', 'is_active', 'is_default']:
+        for field in ['name', 'departure_wilaya', 'api_id', 'api_token', 'is_active', 'is_default']:
             if field in request.data:
                 setattr(account, field, request.data[field])
         account.save()

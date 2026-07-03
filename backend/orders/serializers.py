@@ -13,7 +13,7 @@ class CarrierAccountSerializer(serializers.ModelSerializer):
 
     class Meta:
         model  = CarrierAccount
-        fields = ['id', 'carrier', 'carrier_label', 'api_id', 'api_token', 'api_token_masked',
+        fields = ['id', 'carrier', 'carrier_label', 'name', 'departure_wilaya', 'api_id', 'api_token', 'api_token_masked',
                   'is_active', 'is_default', 'created_at']
         read_only_fields = ['id', 'created_at']
 

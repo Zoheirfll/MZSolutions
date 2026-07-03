@@ -46,13 +46,15 @@ CARRIER_CHOICES = [
 
 
 class CarrierAccount(models.Model):
-    store      = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='carrier_accounts')
-    carrier    = models.CharField(max_length=20, choices=CARRIER_CHOICES)
-    api_id     = models.CharField(max_length=100, blank=True)
-    api_token  = models.CharField(max_length=200, blank=True)
-    is_active  = models.BooleanField(default=True)
-    is_default = models.BooleanField(default=False)
-    created_at = models.DateTimeField(auto_now_add=True)
+    store             = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='carrier_accounts')
+    carrier           = models.CharField(max_length=20, choices=CARRIER_CHOICES)
+    name              = models.CharField(max_length=100, blank=True)
+    departure_wilaya  = models.CharField(max_length=100, blank=True)
+    api_id            = models.CharField(max_length=100, blank=True)
+    api_token         = models.CharField(max_length=200, blank=True)
+    is_active         = models.BooleanField(default=True)
+    is_default        = models.BooleanField(default=False)
+    created_at        = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ['carrier']
