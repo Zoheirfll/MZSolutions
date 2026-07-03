@@ -940,6 +940,26 @@ Le stockage des tokens JWT en `localStorage` (plutôt que cookies httpOnly) a é
 
 ---
 
+## Tests (Epic 8.7 — couverture complète, branche `epic-8.7-tests`)
+
+Le projet n'avait aucun test avant cette passe. Objectif : couverture exhaustive epic par epic, backend et frontend, sur l'ensemble des 25+ epics déjà livrées — pas un échantillon critique-path.
+
+### Backend — `Django TestCase` + DRF `APIClient` (150 tests, `manage.py test`)
+Aucune nouvelle dépendance (déjà disponible via `django`/`djangorestframework`). Un fichier `tests.py` par app (`accounts`, `core`, `stores`, `team`, `products`, `orders`, `dropshipping`, `finance`, `channels`, `webhooks`).
+
+- **`backend/core/test_utils.py`** — helpers partagés pour éviter la duplication : `make_owner()` (User + Store + SubscriptionQuota), `make_team_member(store, role)`, `auth_client(user)` (APIClient authentifié via JWT frais), `clear_throttle_cache()` (à appeler en `setUp` des tests qui frappent des vues throttled — Epic 8.6 — sinon contamination croisée entre tests via le cache de rate limiting). Emails/slugs uniques générés via un compteur interne pour éviter les collisions entre méthodes de test.
+- Couverture notable au-delà du CRUD basique : isolation multi-tenant (deux boutiques, vérifier qu'aucune ne voit les données de l'autre), les correctifs de sécurité de l'Epic 8.6 revérifiés par test (prix de commande falsifié côté client → toujours recalculé serveur ; webhook Chargily à signature invalide → rejeté sans effet de bord ; `CallAttemptListView` restreinte par rôle ; upload de fichier hors whitelist → rejeté ; `api_key` jamais exposée en clair), la matrice de permissions par rôle (Epic 7.5) avec vérification que l'octroi d'une permission se reflète dans `/api/auth/me/`, l'idempotence du calcul de commission dropshipper sur passages répétés à `delivered` et sa réversion sur `returned`/`cancelled`, le flux d'échange produit avec double-approbation bloquée, la rentabilité (Epic 7.4) qui exclut les coûts opérationnels du détail par produit mais les inclut dans le résumé global.
+- Paiements/webhooks Chargily testés sans réseau réel via `unittest.mock.patch('orders.chargily.requests.post', ...)` et `patch('orders.chargily.verify_webhook_signature', return_value=True/False)`.
+- Lancer : `cd backend && venv/Scripts/python manage.py test` (~4 min, une base `test_mzsolutions` est créée/détruite automatiquement — le rôle Postgres utilisé doit avoir l'attribut `CREATEDB`).
+
+### Frontend — Vitest + Testing Library (65 tests, tests unitaires/intégration — pas d'E2E Playwright)
+- `frontend/vitest.config.js` (env `jsdom`, `setupFiles: './src/test/setup.js'` qui charge `@testing-library/jest-dom/vitest`), scripts `npm run test` (run) / `npm run test:watch`.
+- `vi.mock()` systématique sur `../api/axios`/`../api/publicApi` (jamais de vrai appel HTTP dans les tests) et sur `useAuth`/`useGoogleLogin` quand la page en dépend.
+- Couverture : `lib/pixels.js`/`lib/sanitize.js` (validation `pixel_id` et sanitisation DOMPurify de l'Epic 8.6), `CartContext`/`AuthContext` (via `renderHook`/`act`, y compris le blacklist de refresh token au logout), composants partagés (`PrivateRoute`, `StatusBadge`, `Select`, `EmptyState`), `DashboardLayout` (gating de la sidebar par permission — vérifie qu'un confirmateur sans permission accordée ne voit aucune section owner/admin, et qu'accorder une permission fait apparaître la section correspondante), et des pages représentatives de flux complets : `Auth.jsx` (login/register, erreurs mappées, tab `email_not_verified`), `OrderFormPage.jsx` (recherche produit, panier, soumission, erreurs serveur), `CheckoutPage.jsx` storefront (panier vide, code promo, COD, redirection Chargily, échec bloquant), `PermissionsPage.jsx` (toggle optimiste + rollback si le serveur échoue).
+- Lancer : `cd frontend && npm run test`.
+
+---
+
 ## TBD (À Décider)
 
 | Sujet | Statut |
