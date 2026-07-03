@@ -110,6 +110,8 @@ pages/orders/OrderFormPage.jsx        — création commande manuelle (vendeur)
 pages/orders/CancellationsPage.jsx    — demandes d'annulation / confirmées
 pages/orders/FailureReasonsPage.jsx   — raisons d'échec d'appel
 pages/orders/ConfirmationRatePage.jsx — taux de confirmation par confirmateur
+pages/orders/ComplaintsPage.jsx       — liste réclamations (filtres statut, recherche)
+pages/orders/ComplaintDetailPage.jsx  — détail réclamation : description, historique des échanges en timeline, changement de statut + note, ajout de message
 pages/ParametresLivraisonPage.jsx     — comptes transporteurs (Yalidine/ZR Express) : onglets "Sociétés de livraison" (cartes) / "Mes Sociétés de livraison" (tableau : toggle statut, copier clé/jeton API, badge défaut)
 pages/customers/ClientsPage.jsx           — liste clients agrégée par téléphone (nom, email, tél, nb commandes, wilaya, commune, badge risque)
 pages/customers/AtRiskCustomersPage.jsx   — clients à risque + panneau réglages (seuil/période), bouton marquer/démarquer manuellement
@@ -117,7 +119,8 @@ pages/customers/BlacklistPage.jsx         — liste noire par boutique, modal "B
 pages/storefront/StorefrontHomePage.jsx     — page d'accueil boutique publique
 pages/storefront/StorefrontProductsPage.jsx — liste produits publique
 pages/storefront/StorefrontProductPage.jsx  — fiche produit publique (Ajouter au panier / Acheter maintenant)
-pages/storefront/CheckoutPage.jsx           — tunnel de commande invité (panier, infos client, COD/Chargily)
+pages/storefront/CheckoutPage.jsx           — tunnel de commande invité (panier, infos client, COD/Chargily), lien "Déposer une réclamation" sur l'écran de confirmation
+pages/storefront/ComplaintFormPage.jsx      — formulaire public de réclamation, sans compte : téléphone (+ n° de commande optionnel) → sujet + description
 pages/storefront/StorefrontLayout.jsx       — layout boutique publique (recherche, icône panier)
 context/CartContext.jsx         — panier storefront (localStorage, scoping par slug boutique)
 api/publicApi.js                — instance Axios pour les endpoints publics (`/api/public`)
@@ -344,6 +347,18 @@ created_at
 ```
 Liste noire **non mutualisée** — un numéro bloqué sur une boutique ne l'est pas sur les autres (contrainte unique `(store, phone)`). Vérifiée dans `PublicOrderView.post()` (`backend/orders/views.py`) **avant toute création** : si le téléphone soumis correspond à une entrée, la commande est refusée (403, message personnalisé du vendeur renvoyé dans `detail` et affiché au client par `CheckoutPage.jsx`), et `blocked_attempts`/`last_attempt_at` sont incrémentés/mis à jour pour que le vendeur voie les tentatives sur la page Liste noire.
 
+### `orders.Complaint` / `orders.ComplaintMessage`
+```
+Complaint : store (FK), order (FK → Order)
+  subject, description, status : open | in_progress | resolved
+  created_at, updated_at
+
+ComplaintMessage : complaint (FK, related_name='messages')
+  message (optionnel), status (optionnel — rempli si le message accompagne un changement de statut)
+  author (FK User, nullable = message du client), created_at
+```
+Réclamation client déposée **sans compte** (`PublicComplaintCreateView`, `POST /api/public/complaints/`) : le client fournit `store_slug`, `order_id`, `phone`, `subject`, `description` — la commande doit appartenir à la boutique **et** le téléphone doit correspondre à `Order.phone`, sinon 404 générique (pas de distinction commande inexistante / mauvais téléphone, anti-énumération). À la création, un premier `ComplaintMessage` (message = description, `author=None`, `status='open'`) est créé automatiquement — c'est le point de départ de l'historique des échanges (US-7.1.2). Chaque changement de statut côté vendeur (`ComplaintStatusView`) ou message ajouté (`ComplaintMessageCreateView`) crée une nouvelle ligne `ComplaintMessage` — historique jamais modifié/supprimé, même pattern que `OrderStatusHistory`.
+
 ---
 
 ## API Endpoints (complets — Sprint 1 à 5)
@@ -423,6 +438,10 @@ Liste noire **non mutualisée** — un numéro bloqué sur une boutique ne l'est
 | POST | `/api/orders/clients/<phone>/risk/` | Oui | Bascule le flag de risque manuel (`CustomerRisk.manual_risk`), indépendant du calcul automatique |
 | GET/POST | `/api/orders/blacklist/` | Oui | Liste noire de la boutique — lister / bloquer un numéro (`phone`, `message` optionnel) |
 | PUT/DELETE | `/api/orders/blacklist/<id>/` | Oui | Modifier le message / débloquer (supprimer) un numéro |
+| GET | `/api/orders/complaints/` | Oui | Liste paginée (`?status=&search=&page=&per_page=`) |
+| GET | `/api/orders/complaints/<id>/` | Oui | Détail + historique des échanges (`messages`) |
+| POST | `/api/orders/complaints/<id>/status/` | Oui | Change le statut (`open\|in_progress\|resolved`) + note → log `ComplaintMessage` |
+| POST | `/api/orders/complaints/<id>/messages/` | Oui | Ajoute un message sans changer le statut |
 
 ### Boutique publique & Checkout invité
 | Méthode | URL | Auth | Description |
@@ -433,6 +452,7 @@ Liste noire **non mutualisée** — un numéro bloqué sur une boutique ne l'est
 | GET | `/api/public/store/<slug>/products/<id>/` | Non | Détail produit public (variantes, avis). Injecte `price` réduit + `original_price` si une offre automatique (`Promotion kind='auto'`) cible le produit ou une de ses catégories |
 | POST | `/api/public/store/<slug>/promo/<code>/` | Non | Valide un code promo pour le panier fourni (`items`) — vérifie existence/validité puis calcule `discount_amount` réel via `compute_discount_for_items` (respecte le scope produits/catégories du coupon). 404/400 avec détail si invalide ou si aucun article éligible |
 | POST | `/api/public/orders/` | Non | Checkout invité — crée Order + OrderItems, quota vérifié. **Vérifie d'abord `BlacklistedPhone`** : si le `phone` soumis est bloqué pour cette boutique, refuse (403, message du vendeur) avant toute création et incrémente `blocked_attempts`. Accepte `promo_code` optionnel : revalidé et verrouillé côté serveur (`select_for_update`) avant toute création, applique `discount_amount` sur la commande et incrémente `Promotion.uses_count`. Si `payment_method=chargily` : crée un checkout Chargily et renvoie `payment_url` (sinon `null` + détail explicite si l'appel API échoue). Si `cod` : quota incrémenté immédiatement |
+| POST | `/api/public/complaints/` | Non | Dépose une réclamation sans compte (`store_slug`, `order_id`, `phone`, `subject`, `description`) — la commande doit appartenir à la boutique et le téléphone doit correspondre, sinon 404 générique |
 | POST | `/api/public/webhooks/chargily/` | Non (signature HMAC) | Webhook Chargily — `checkout.paid` confirme la commande + incrémente le quota ; `checkout.failed`/`checkout.expired` laisse la commande en attente + email au vendeur (`Store.email`). Toujours 200, toujours journalisé (`PaymentWebhookLog`) |
 
 ---
@@ -514,8 +534,17 @@ Liste noire **non mutualisée** — un numéro bloqué sur une boutique ne l'est
 - Abandoned cart reminders (SMS + email)
 - ~~Codes promo~~ ✅ fait en avance (Epic 6.2)
 
-### 🔜 Sprint 7 — Équipe & Dropshipping
-- Dropshipping intra-store : revendeur vend les produits du vendeur principal
+### ✅ Epic 7.1 — Réclamations (TERMINÉ — branche `epic-7.1-reclamations`)
+- **US-7.1.1 — Dépôt de réclamation** : formulaire public sans compte (`ComplaintFormPage.jsx`, route `/store/:slug/reclamation`) — le client fournit son téléphone (+ n° de commande optionnel, pré-rempli depuis l'écran de confirmation de `CheckoutPage.jsx` s'il vient de commander). `PublicComplaintCreateView` associe automatiquement la commande la plus récente correspondant au téléphone (ou celle précisée si `order_id` fourni), **sans jamais renvoyer de détails de commande au client** — un premier design exposait une liste de commandes par téléphone (`?phone=`), abandonné car il permettait à un tiers de deviner un numéro et consulter les commandes/montants de quelqu'un d'autre. 404 générique si aucune commande ne correspond. Accessible depuis le footer de toute la boutique (`StorefrontLayout.jsx`)
+- **US-7.1.2 — Suivi de résolution** : workflow de statuts `open → in_progress → resolved` (`ComplaintStatusView`), historique des échanges **jamais supprimé** — chaque changement de statut ou message ajouté crée une nouvelle ligne `ComplaintMessage` (même pattern que `OrderStatusHistory`). Dashboard `ComplaintsPage.jsx` (liste + filtres) et `ComplaintDetailPage.jsx` (timeline + changement de statut + ajout de message)
+- Modèles `orders.Complaint` / `orders.ComplaintMessage` — voir section Modèles de données
+- Badge "réclamations ouvertes" dans la sidebar (même pattern que le badge stock bas)
+- Testé de bout en bout via `manage.py shell` (mauvais téléphone rejeté en 404, bon téléphone crée la réclamation + message initial, changement de statut + ajout de message enrichissent bien l'historique, endpoint liste n'accepte pas POST)
+
+### 🔜 Sprint 7 (suite) — SAV, Dropshipping & Finances
+- Epic 7.2 — Échanges de produits
+- Dropshipping intra-store : revendeur vend les produits du vendeur principal, commissions
+- Module financier
 - Permissions avancées par rôle
 
 ### 🔜 Sprint 8 — Abonnements, Shopify Sync & Production

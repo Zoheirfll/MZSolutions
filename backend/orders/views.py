@@ -10,8 +10,8 @@ from rest_framework.views import APIView
 from rest_framework import status
 
 from django.utils import timezone
-from .models import Order, OrderItem, OrderStatusHistory, STATUS_CHOICES, OrderAssignment, FailureReason, CallAttempt, CALL_STATUS_CHOICES, PaymentWebhookLog, AbandonedCart, CarrierAccount, CARRIER_CHOICES, CustomerRisk, BlacklistedPhone
-from .serializers import OrderSerializer, OrderDetailSerializer, OrderAssignmentSerializer, FailureReasonSerializer, CallAttemptSerializer, AbandonedCartSerializer, CarrierAccountSerializer, BlacklistedPhoneSerializer
+from .models import Order, OrderItem, OrderStatusHistory, STATUS_CHOICES, OrderAssignment, FailureReason, CallAttempt, CALL_STATUS_CHOICES, PaymentWebhookLog, AbandonedCart, CarrierAccount, CARRIER_CHOICES, CustomerRisk, BlacklistedPhone, Complaint, ComplaintMessage, COMPLAINT_STATUS_CHOICES
+from .serializers import OrderSerializer, OrderDetailSerializer, OrderAssignmentSerializer, FailureReasonSerializer, CallAttemptSerializer, AbandonedCartSerializer, CarrierAccountSerializer, BlacklistedPhoneSerializer, ComplaintSerializer, ComplaintDetailSerializer
 from .utils import assign_order_round_robin
 from . import chargily
 from .carriers import get_carrier_client
@@ -437,6 +437,156 @@ class BlacklistDetailView(APIView):
         if err: return err
         entry.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# ─── Réclamations ──────────────────────────────────────────────────────────────
+
+class ComplaintListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        store = _get_store(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+
+        qs = store.complaints.select_related('order').all()
+
+        status_filter = request.query_params.get('status')
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+
+        search = request.query_params.get('search', '').strip()
+        if search:
+            qs = qs.filter(
+                Q(order__phone__icontains=search) |
+                Q(order__first_name__icontains=search) |
+                Q(order__last_name__icontains=search) |
+                Q(subject__icontains=search)
+            )
+
+        page     = max(1, int(request.query_params.get('page', 1)))
+        per_page = int(request.query_params.get('per_page', 10))
+        total    = qs.count()
+        qs       = qs[(page - 1) * per_page: page * per_page]
+
+        return Response({
+            'count':    total,
+            'page':     page,
+            'per_page': per_page,
+            'results':  ComplaintSerializer(qs, many=True).data,
+        })
+
+
+class ComplaintDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def _get(self, request, pk):
+        store = _get_store(request)
+        if not store:
+            return None, Response({'detail': 'Accès refusé.'}, status=403)
+        try:
+            return store.complaints.select_related('order').prefetch_related('messages__author').get(pk=pk), None
+        except Complaint.DoesNotExist:
+            return None, Response({'detail': 'Réclamation introuvable.'}, status=404)
+
+    def get(self, request, pk):
+        complaint, err = self._get(request, pk)
+        if err: return err
+        return Response(ComplaintDetailSerializer(complaint).data)
+
+
+class ComplaintStatusView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        store = _get_store(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        try:
+            complaint = store.complaints.get(pk=pk)
+        except Complaint.DoesNotExist:
+            return Response({'detail': 'Réclamation introuvable.'}, status=404)
+
+        new_status = request.data.get('status')
+        valid = [s[0] for s in COMPLAINT_STATUS_CHOICES]
+        if new_status not in valid:
+            return Response({'detail': f'Statut invalide. Valeurs : {valid}'}, status=400)
+
+        complaint.status = new_status
+        complaint.save(update_fields=['status', 'updated_at'])
+        ComplaintMessage.objects.create(
+            complaint = complaint,
+            status    = new_status,
+            message   = request.data.get('note', ''),
+            author    = request.user,
+        )
+        return Response(ComplaintDetailSerializer(complaint).data)
+
+
+class ComplaintMessageCreateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        store = _get_store(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        try:
+            complaint = store.complaints.get(pk=pk)
+        except Complaint.DoesNotExist:
+            return Response({'detail': 'Réclamation introuvable.'}, status=404)
+
+        message = request.data.get('message', '').strip()
+        if not message:
+            return Response({'detail': 'Message vide.'}, status=400)
+
+        ComplaintMessage.objects.create(complaint=complaint, message=message, author=request.user)
+        return Response(ComplaintDetailSerializer(complaint).data, status=status.HTTP_201_CREATED)
+
+
+def _get_public_store_for_complaints(slug):
+    from stores.models import Store
+    try:
+        return Store.objects.get(slug=slug, is_active=True)
+    except Store.DoesNotExist:
+        return None
+
+
+class PublicComplaintCreateView(APIView):
+    """Le client ne fournit que son téléphone (+ éventuellement le numéro de
+    commande reçu à la confirmation d'achat) — jamais de liste de commandes
+    renvoyée au client, pour éviter qu'un tiers ne devine un téléphone et
+    consulte les commandes/montants de quelqu'un d'autre."""
+    permission_classes = [AllowAny]
+
+    @transaction.atomic
+    def post(self, request):
+        store_slug = request.data.get('store_slug')
+        if not store_slug:
+            return Response({'detail': 'store_slug requis.'}, status=400)
+        store = _get_public_store_for_complaints(store_slug)
+        if not store:
+            return Response({'detail': 'Boutique introuvable.'}, status=404)
+
+        order_id    = request.data.get('order_id')
+        phone       = (request.data.get('phone') or '').strip()
+        subject     = (request.data.get('subject') or '').strip()
+        description = (request.data.get('description') or '').strip()
+
+        if not phone or not subject or not description:
+            return Response({'detail': 'Tous les champs sont requis.'}, status=400)
+
+        if order_id:
+            order = store.orders.filter(pk=order_id, phone=phone).first()
+        else:
+            order = store.orders.filter(phone=phone).order_by('-created_at').first()
+
+        if not order:
+            return Response({'detail': 'Aucune commande trouvée avec ce numéro de téléphone.'}, status=404)
+
+        complaint = Complaint.objects.create(store=store, order=order, subject=subject, description=description)
+        ComplaintMessage.objects.create(complaint=complaint, message=description, status='open', author=None)
+
+        return Response({'id': complaint.id, 'detail': 'Réclamation envoyée.'}, status=status.HTTP_201_CREATED)
 
 
 class ConfirmationRateView(APIView):

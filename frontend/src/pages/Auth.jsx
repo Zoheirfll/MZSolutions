@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { useGoogleLogin } from '@react-oauth/google'
 import { useAuth } from '../context/AuthContext'
 import api from '../api/axios'
+import Logo from '../components/Logo'
 import { theme } from '../theme'
 
 function Field({ label, error, children }) {
@@ -278,11 +279,8 @@ export default function Auth() {
       <div className="w-full lg:w-[55%] flex flex-col px-6 py-10 sm:px-14 sm:py-14 overflow-y-auto bg-white">
 
         {/* Logo */}
-        <div className="flex items-center gap-2 mb-10">
-          <div className="w-8 h-8 rounded-xl flex items-center justify-center"
-            style={{ background: 'linear-gradient(135deg, #7c3aed, #a78bfa)' }}>
-            <span className="text-white text-xs font-bold">MZ</span>
-          </div>
+        <div className="flex items-center gap-2.5 mb-10">
+          <Logo className="w-12 h-auto shrink-0 text-violet-600" />
           <span className="text-xl font-bold bg-gradient-to-r from-violet-700 to-violet-500 bg-clip-text text-transparent">
             MZSolutions
           </span>
