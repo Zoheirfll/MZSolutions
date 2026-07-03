@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
 import Select from '../../components/Select'
+import CheckboxList from '../../components/CheckboxList'
 import api from '../../api/axios'
 import { theme } from '../../theme'
 
 const EMPTY_FORM = {
   name: '', code: '', discount_type: 'percentage', discount_value: '',
-  starts_at: '', ends_at: '', max_uses: '', is_active: true,
+  starts_at: '', ends_at: '', max_uses: '', products: [], categories: [], is_active: true,
 }
 
 const DISCOUNT_TYPE_OPTIONS = [
@@ -86,7 +87,7 @@ function toDatetimeLocal(value) {
   return value.slice(0, 16)
 }
 
-function CouponModal({ coupon, onClose, onSaved }) {
+function CouponModal({ coupon, products, categories, onClose, onSaved }) {
   const [form, setForm] = useState(coupon?.id ? {
     name: coupon.name,
     code: coupon.code,
@@ -95,6 +96,8 @@ function CouponModal({ coupon, onClose, onSaved }) {
     starts_at: toDatetimeLocal(coupon.starts_at),
     ends_at: toDatetimeLocal(coupon.ends_at),
     max_uses: coupon.max_uses ?? '',
+    products: coupon.products || [],
+    categories: coupon.categories || [],
     is_active: coupon.is_active,
   } : EMPTY_FORM)
   const [saving, setSaving] = useState(false)
@@ -102,6 +105,13 @@ function CouponModal({ coupon, onClose, onSaved }) {
 
   const inputCls = 'w-full px-3.5 py-2.5 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 transition [color-scheme:dark]'
   const bdrStyle = { borderColor: theme.dark.border }
+
+  const toggleProduct = (id) => setForm(f => ({
+    ...f, products: f.products.includes(id) ? f.products.filter(x => x !== id) : [...f.products, id],
+  }))
+  const toggleCategory = (id) => setForm(f => ({
+    ...f, categories: f.categories.includes(id) ? f.categories.filter(x => x !== id) : [...f.categories, id],
+  }))
 
   const submit = async e => {
     e.preventDefault()
@@ -171,6 +181,14 @@ function CouponModal({ coupon, onClose, onSaved }) {
             <label className="block text-xs text-gray-400 mb-1.5">Nombre d'utilisations maximum (optionnel)</label>
             <input type="number" min="1" value={form.max_uses} onChange={e => setForm(f => ({ ...f, max_uses: e.target.value }))} className={inputCls} style={bdrStyle} placeholder="Illimité" />
           </div>
+          <div>
+            <label className="block text-xs text-gray-400 mb-1.5">Limiter à des produits (optionnel — sinon s'applique à tout le panier)</label>
+            <CheckboxList items={products} selected={form.products} onToggle={toggleProduct} emptyLabel="Aucun produit disponible." />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-400 mb-1.5">Limiter à des catégories (optionnel)</label>
+            <CheckboxList items={categories} selected={form.categories} onToggle={toggleCategory} emptyLabel="Aucune catégorie disponible." />
+          </div>
           <label className="flex items-center justify-between text-sm text-gray-300">
             Actif
             <input type="checkbox" checked={form.is_active} onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} className="w-4 h-4 accent-violet-600 cursor-pointer" />
@@ -188,10 +206,12 @@ function CouponModal({ coupon, onClose, onSaved }) {
 }
 
 export default function CouponsPage() {
-  const [coupons, setCoupons] = useState([])
-  const [modal, setModal]     = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [copiedId, setCopiedId] = useState(null)
+  const [coupons, setCoupons]     = useState([])
+  const [products, setProducts]   = useState([])
+  const [categories, setCategories] = useState([])
+  const [modal, setModal]         = useState(null)
+  const [loading, setLoading]     = useState(true)
+  const [copiedId, setCopiedId]   = useState(null)
 
   const fetchCoupons = () => {
     setLoading(true)
@@ -201,7 +221,11 @@ export default function CouponsPage() {
       .finally(() => setLoading(false))
   }
 
-  useEffect(() => { fetchCoupons() }, [])
+  useEffect(() => {
+    fetchCoupons()
+    api.get('/products/?per_page=200').then(({ data }) => setProducts(data.results || [])).catch(() => {})
+    api.get('/products/categories/?per_page=200').then(({ data }) => setCategories(data.results || [])).catch(() => {})
+  }, [])
 
   const handleDelete = async (id) => {
     if (!confirm('Supprimer ce coupon ?')) return
@@ -221,6 +245,8 @@ export default function CouponsPage() {
       {modal !== null && (
         <CouponModal
           coupon={modal?.id ? modal : null}
+          products={products}
+          categories={categories}
           onClose={() => setModal(null)}
           onSaved={() => { setModal(null); fetchCoupons() }}
         />
@@ -240,6 +266,7 @@ export default function CouponsPage() {
               <th className="px-4 py-3 font-medium">NOM</th>
               <th className="px-4 py-3 font-medium">CODE</th>
               <th className="px-4 py-3 font-medium">RÉDUCTION</th>
+              <th className="px-4 py-3 font-medium">CIBLE</th>
               <th className="px-4 py-3 font-medium">VALIDITÉ</th>
               <th className="px-4 py-3 font-medium">UTILISATIONS</th>
               <th className="px-4 py-3 font-medium">STATUT</th>
@@ -248,9 +275,9 @@ export default function CouponsPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={7}><Spinner /></td></tr>
+              <tr><td colSpan={8}><Spinner /></td></tr>
             ) : coupons.length === 0 ? (
-              <tr><td colSpan={7}>
+              <tr><td colSpan={8}>
                 <EmptyState icon={<TagIcon />} title="Aucun coupon" subtitle="Créez votre premier code promo pour commencer." />
               </td></tr>
             ) : coupons.map(c => (
@@ -263,6 +290,16 @@ export default function CouponsPage() {
                 </td>
                 <td className="px-4 py-3 text-gray-300">
                   {c.discount_type === 'percentage' ? `${Number(c.discount_value)}%` : `${Number(c.discount_value).toLocaleString('fr-DZ')} DZD`}
+                </td>
+                <td className="px-4 py-3">
+                  {c.product_names.length === 0 && c.category_names.length === 0 ? (
+                    <span className="text-gray-600 text-xs">Tout le panier</span>
+                  ) : (
+                    <div className="flex flex-wrap gap-1 max-w-56">
+                      {c.product_names.map(n => <span key={n} className={theme.badge.info}>{n}</span>)}
+                      {c.category_names.map(n => <span key={n} className={theme.badge.cyan}>{n}</span>)}
+                    </div>
+                  )}
                 </td>
                 <td className="px-4 py-3 text-gray-500 text-xs">
                   {c.starts_at ? new Date(c.starts_at).toLocaleDateString('fr-DZ') : '—'} → {c.ends_at ? new Date(c.ends_at).toLocaleDateString('fr-DZ') : '—'}

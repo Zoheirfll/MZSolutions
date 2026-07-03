@@ -64,7 +64,9 @@ function ProductCard({ product, slug }) {
         <p className="text-sm font-medium text-gray-900 truncate">{product.name}</p>
         <div className="flex items-center gap-2 mt-1">
           <span className="text-violet-700 font-semibold">{Number(product.price).toLocaleString('fr-DZ')} DZD</span>
-          {product.compare_price && (
+          {product.original_price ? (
+            <span className="text-xs text-gray-400 line-through">{Number(product.original_price).toLocaleString('fr-DZ')}</span>
+          ) : product.compare_price && (
             <span className="text-xs text-gray-400 line-through">{Number(product.compare_price).toLocaleString('fr-DZ')}</span>
           )}
         </div>

@@ -141,6 +141,7 @@ export default function ProductsPage() {
               <th className="px-4 py-3 font-medium w-16">IMAGE</th>
               <th className="px-4 py-3 font-medium">NOM</th>
               <th className="px-4 py-3 font-medium">PRIX</th>
+              <th className="px-4 py-3 font-medium">PRIX PROMO</th>
               <th className="px-4 py-3 font-medium">CATÉGORIE</th>
               <th className="px-4 py-3 font-medium">QUANTITÉ</th>
               <th className="px-4 py-3 font-medium">VENDU</th>
@@ -149,9 +150,9 @@ export default function ProductsPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={8}><Spinner /></td></tr>
+              <tr><td colSpan={9}><Spinner /></td></tr>
             ) : data.results.length === 0 ? (
-              <tr><td colSpan={8}>
+              <tr><td colSpan={9}>
                 <EmptyState icon={<ImageIcon />} title="Aucun produit trouvé" subtitle="Ajoutez votre premier produit pour commencer." />
               </td></tr>
             ) : data.results.map(p => (
@@ -165,6 +166,20 @@ export default function ProductsPage() {
                 </td>
                 <td className="px-4 py-3 text-gray-200 font-medium max-w-45 truncate">{p.name}</td>
                 <td className="px-4 py-3 text-violet-300 font-semibold">{Number(p.price).toLocaleString('fr-DZ')} DZD</td>
+                <td className="px-4 py-3">
+                  {p.active_promotion ? (
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-emerald-400 font-semibold">{Number(p.active_promotion.discounted_price).toLocaleString('fr-DZ')} DZD</span>
+                      <span className={theme.badge.danger} title={p.active_promotion.name}>
+                        -{p.active_promotion.discount_type === 'percentage'
+                          ? `${Number(p.active_promotion.discount_value)}%`
+                          : `${Number(p.active_promotion.discount_value).toLocaleString('fr-DZ')} DZD`}
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="text-gray-600">—</span>
+                  )}
+                </td>
                 <td className="px-4 py-3 text-gray-400">
                   {p.category_names?.length > 0 ? p.category_names.join(', ') : '—'}
                 </td>

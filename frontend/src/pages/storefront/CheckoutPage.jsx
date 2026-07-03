@@ -91,11 +91,7 @@ export default function CheckoutPage() {
   const [checkingPromo, setCheckingPromo] = useState(false)
   const abandonedTimerRef = useRef(null)
 
-  const discountAmount = appliedPromo
-    ? (appliedPromo.discount_type === 'percentage'
-        ? Math.min(subtotal * appliedPromo.discount_value / 100, subtotal)
-        : Math.min(appliedPromo.discount_value, subtotal))
-    : 0
+  const discountAmount = appliedPromo ? Number(appliedPromo.discount_amount) : 0
   const total = subtotal - discountAmount
 
   const applyPromo = async () => {
@@ -103,7 +99,9 @@ export default function CheckoutPage() {
     setCheckingPromo(true)
     setPromoError('')
     try {
-      const { data } = await publicApi.get(`/store/${slug}/promo/${encodeURIComponent(promoCode.trim())}/`)
+      const { data } = await publicApi.post(`/store/${slug}/promo/${encodeURIComponent(promoCode.trim())}/`, {
+        items: cartItems.map(({ _key, image_url, ...i }) => i),
+      })
       setAppliedPromo(data)
     } catch (err) {
       setAppliedPromo(null)

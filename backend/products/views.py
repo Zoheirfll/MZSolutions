@@ -167,7 +167,7 @@ class ProductDetailView(APIView):
         if not store:
             return None, Response({'detail': 'Accès refusé.'}, status=403)
         try:
-            return store.products.select_related('category', 'supplier').prefetch_related('images', 'variants__options').get(pk=pk), None
+            return store.products.select_related('supplier').prefetch_related('images', 'categories', 'variants__options').get(pk=pk), None
         except Product.DoesNotExist:
             return None, Response({'detail': 'Produit introuvable.'}, status=404)
 
@@ -841,29 +841,27 @@ class PublicProductListView(APIView):
         for p in qs:
             first_image = p.images.order_by('order').first()
             image_url = request.build_absolute_uri(first_image.image.url) if first_image and first_image.image else None
+
+            promo = p.active_auto_promotion()
+            display_price = p.price
+            original_price = None
+            if promo:
+                display_price = p.price - promo.compute_discount(p.price)
+                original_price = p.price
+
             results.append({
-                'id':            p.id,
-                'name':          p.name,
-                'price':         str(p.price),
-                'compare_price': str(p.compare_price) if p.compare_price else None,
-                'image_url':     image_url,
-                'categories':    [{'id': c.id, 'name': c.name} for c in p.categories.all()],
-                'free_shipping': p.free_shipping,
+                'id':              p.id,
+                'name':            p.name,
+                'price':           str(display_price),
+                'original_price':  str(original_price) if original_price is not None else None,
+                'compare_price':   str(p.compare_price) if p.compare_price else None,
+                'image_url':       image_url,
+                'categories':      [{'id': c.id, 'name': c.name} for c in p.categories.all()],
+                'free_shipping':   p.free_shipping,
             })
 
         return Response({'count': total, 'page': page, 'per_page': per_page, 'results': results})
 
-
-def _active_auto_promo_for(product):
-    """Première offre automatique valide ciblant ce produit (directement ou via une de ses catégories)."""
-    category_ids = list(product.categories.values_list('id', flat=True))
-    promos = product.store.promotions.filter(kind='auto', is_active=True).filter(
-        Q(products=product) | Q(categories__in=category_ids)
-    ).distinct()
-    for promo in promos:
-        if promo.is_valid_now():
-            return promo
-    return None
 
 
 class PublicProductDetailView(APIView):
@@ -916,7 +914,7 @@ class PublicProductDetailView(APIView):
         if reviews:
             avg_rating = round(sum(r['rating'] for r in reviews) / len(reviews), 1)
 
-        promo = _active_auto_promo_for(product)
+        promo = product.active_auto_promotion()
         display_price = product.price
         original_price = None
         if promo:
@@ -944,9 +942,11 @@ class PublicProductDetailView(APIView):
 
 
 class PublicPromoValidateView(APIView):
+    """Valide un code promo et calcule la réduction réelle pour le panier fourni
+    (respecte le scope produits/catégories du coupon, s'il y en a un)."""
     permission_classes = [AllowAny]
 
-    def get(self, request, slug, code):
+    def post(self, request, slug, code):
         store = _get_public_store(slug)
         if not store:
             return Response({'detail': 'Boutique introuvable.'}, status=404)
@@ -955,11 +955,18 @@ class PublicPromoValidateView(APIView):
         except Promotion.DoesNotExist:
             return Response({'detail': 'Code promo introuvable.'}, status=404)
         if not promo.is_valid_now():
-            return Response({'detail': 'Ce code promo est expiré, inactif ou a atteint son nombre maximum d\'utilisations.'}, status=400)
+            return Response({'detail': "Ce code promo est expiré, inactif ou a atteint son nombre maximum d'utilisations."}, status=400)
+
+        items = request.data.get('items', [])
+        discount_amount = promo.compute_discount_for_items(items)
+        if discount_amount <= 0:
+            return Response({'detail': "Ce code promo ne s'applique à aucun article de votre panier."}, status=400)
+
         return Response({
-            'code':           promo.code,
-            'discount_type':  promo.discount_type,
-            'discount_value': str(promo.discount_value),
+            'code':             promo.code,
+            'discount_type':    promo.discount_type,
+            'discount_value':   str(promo.discount_value),
+            'discount_amount':  str(discount_amount),
         })
 
 

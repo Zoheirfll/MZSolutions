@@ -432,10 +432,9 @@ class PublicOrderView(APIView):
                 return Response({'detail': 'Code promo invalide.'}, status=400)
             if not promo.is_valid_now():
                 return Response({'detail': "Ce code promo est expiré, inactif ou a atteint son nombre maximum d'utilisations."}, status=400)
-            computed_subtotal = sum(
-                Decimal(str(item.get('price', 0))) * int(item.get('quantity', 1)) for item in items_data
-            )
-            discount_amount = promo.compute_discount(computed_subtotal)
+            discount_amount = promo.compute_discount_for_items(items_data)
+            if discount_amount <= 0:
+                return Response({'detail': "Ce code promo ne s'applique à aucun article de votre panier."}, status=400)
 
         order = Order.objects.create(
             store         = store,

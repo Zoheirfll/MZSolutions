@@ -144,6 +144,7 @@ class ProductSerializer(serializers.ModelSerializer):
     supplier_name  = serializers.SerializerMethodField()
     sold_count     = serializers.SerializerMethodField()
     total_stock    = serializers.SerializerMethodField()
+    active_promotion = serializers.SerializerMethodField()
 
     class Meta:
         model  = Product
@@ -153,11 +154,24 @@ class ProductSerializer(serializers.ModelSerializer):
             'categories', 'category_names', 'supplier', 'supplier_name',
             'free_shipping', 'allow_out_of_stock', 'drop_shipping',
             'is_active', 'created_at', 'images', 'variants', 'sold_count',
+            'active_promotion',
         ]
         read_only_fields = ['id', 'created_at']
 
     def get_category_names(self, obj):
         return [c.name for c in obj.categories.all()]
+
+    def get_active_promotion(self, obj):
+        promo = obj.active_auto_promotion()
+        if not promo:
+            return None
+        discounted_price = obj.price - promo.compute_discount(obj.price)
+        return {
+            'name': promo.name,
+            'discount_type': promo.discount_type,
+            'discount_value': str(promo.discount_value),
+            'discounted_price': str(discounted_price),
+        }
 
     def get_supplier_name(self, obj):
         if obj.supplier:

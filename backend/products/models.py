@@ -89,6 +89,17 @@ class Product(models.Model):
             return sum(opt.stock for v in variants for opt in v.options.all())
         return self.stock
 
+    def active_auto_promotion(self):
+        """Première offre automatique valide ciblant ce produit (directement ou via une de ses catégories)."""
+        category_ids = list(self.categories.values_list('id', flat=True))
+        promos = self.store.promotions.filter(kind='auto', is_active=True).filter(
+            models.Q(products=self) | models.Q(categories__in=category_ids)
+        ).distinct()
+        for promo in promos:
+            if promo.is_valid_now():
+                return promo
+        return None
+
     def __str__(self):
         return f"{self.name} — {self.store.name}"
 
@@ -196,6 +207,34 @@ class Promotion(models.Model):
         else:
             discount = self.discount_value
         return min(discount, base_amount)
+
+    def compute_discount_for_items(self, items):
+        """items : itérable de dicts {'product': id, 'price': ..., 'quantity': ...} (panier/lignes de commande).
+        Si des produits/catégories ciblent la promo, seuls les articles éligibles comptent dans la base de calcul —
+        sinon la réduction s'applique au panier entier."""
+        from decimal import Decimal
+        promo_product_ids  = set(self.products.values_list('id', flat=True))
+        promo_category_ids = set(self.categories.values_list('id', flat=True))
+        scoped = bool(promo_product_ids or promo_category_ids)
+
+        if scoped:
+            item_product_ids = [i.get('product') for i in items if i.get('product')]
+            product_categories = {}
+            for pid, cid in Product.objects.filter(id__in=item_product_ids).values_list('id', 'categories__id'):
+                product_categories.setdefault(pid, set()).add(cid)
+
+            def _eligible(i):
+                pid = i.get('product')
+                if pid in promo_product_ids:
+                    return True
+                return bool(product_categories.get(pid, set()) & promo_category_ids)
+
+            base_amount = sum(
+                Decimal(str(i.get('price', 0))) * int(i.get('quantity', 1)) for i in items if _eligible(i)
+            )
+        else:
+            base_amount = sum(Decimal(str(i.get('price', 0))) * int(i.get('quantity', 1)) for i in items)
+        return self.compute_discount(base_amount)
 
     def __str__(self):
         return f"{self.name} — {self.store.name}"

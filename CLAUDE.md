@@ -12,9 +12,10 @@ Chaque epic envoyée par l'utilisateur suit ce cycle, sans qu'il soit nécessair
 1. **Créer une branche** nommée d'après l'epic (ex. `epic-livraison-yalidine`), à partir de `main` à jour.
 2. **Travailler l'epic** jusqu'à ce qu'elle soit complète et peaufinée (pas de demi-mesure — build/tests vérifiés avant de considérer terminé).
 3. **Mettre à jour `CLAUDE.md`** systématiquement à la fin (nouveaux modèles, endpoints, composants, conventions, décisions techniques, sprint concerné).
-4. **Commit + push** de la branche.
-5. **Retour sur `main`** (merge ou PR selon ce que demande l'utilisateur au moment venu — à confirmer avant tout merge vers `main`).
-6. Passer à l'epic suivante.
+4. **⚠️ Attendre la validation explicite de l'utilisateur avant tout commit/push/merge.** L'utilisateur veut relire le code d'abord — ne jamais commit/push automatiquement en fin d'epic, même si tout est testé et fonctionnel. Signaler que le travail est prêt et attendre le feu vert.
+5. Une fois validé : commit + push de la branche.
+6. **Retour sur `main`** (merge ou PR selon ce que demande l'utilisateur au moment venu — à confirmer avant tout merge vers `main`).
+7. Passer à l'epic suivante.
 
 ---
 
@@ -86,6 +87,7 @@ components/DashboardLayout.jsx  — layout dashboard (sidebar, topbar, badge sto
 components/PrivateRoute.jsx     — protection des routes
 components/Select.jsx           — dropdown custom (remplace TOUT <select> natif, voir note ci-dessous)
 components/StatCard.jsx         — carte KPI réutilisable (theme.stat.*, icône lucide-react)
+components/CheckboxList.jsx     — liste de checkboxes scrollable pour sélection multiple (produits/catégories ciblés par une promotion)
 components/StatusBadge.jsx      — badge de statut commande, mapping centralisé (remplace les couleurs inline dupliquées par page)
 components/EmptyState.jsx       — état vide réutilisable (icône + titre + description)
 pages/Auth.jsx                  — login/inscription (split layout)
@@ -98,7 +100,7 @@ pages/products/ProductFormPage.jsx    — créer/modifier produit (variantes, im
 pages/products/CategoriesPage.jsx     — gestion catégories (Corbeille, pagination, checkboxes)
 pages/products/SuppliersPage.jsx      — CRUD fournisseurs
 pages/products/ReviewsPage.jsx        — modération avis
-pages/products/CouponsPage.jsx        — CRUD codes promo (`Promotion kind='code'`), copier le code, compteur uses_count/max_uses
+pages/products/CouponsPage.jsx        — CRUD codes promo (`Promotion kind='code'`), copier le code, compteur uses_count/max_uses, ciblage optionnel produits/catégories via checkboxes
 pages/products/AutoPromotionsPage.jsx — CRUD offres automatiques (`Promotion kind='auto'`), sélection produits/catégories via checkboxes
 pages/products/SupplierCreditPage.jsx    — crédits fournisseurs
 pages/products/SupplierPaymentPage.jsx   — versements fournisseurs
@@ -250,13 +252,14 @@ discount_value
 starts_at, ends_at (nullable — bornes de validité optionnelles)
 max_uses (nullable, kind='code' uniquement), uses_count (incrémenté à chaque commande utilisant le code)
 is_active
-products (M2M → Product), categories (M2M → Category) — cible d'une offre 'auto' (au moins un requis)
+products (M2M → Product), categories (M2M → Category) — cible optionnelle. Requis pour 'auto' (au moins un des deux) ; optionnel pour 'code' (vide = s'applique à tout le panier, sinon limité aux produits/catégories ciblés)
 created_at
 ```
 - `is_valid_now()` : vérifie `is_active` + fenêtre `starts_at`/`ends_at` + `uses_count < max_uses` (si `kind='code'`)
-- `compute_discount(base_amount)` : calcule le montant de la réduction (%, ou fixe plafonné au montant de base)
-- **Coupon (kind='code')** : validé et verrouillé (`select_for_update`) côté serveur à la création de commande publique (`PublicOrderView.post()`), pour éviter toute race condition sur `max_uses` en cas de commandes simultanées. `uses_count` incrémenté seulement après création réussie de la commande.
-- **Offre automatique (kind='auto')** : appliquée à la lecture, pas de recalcul serveur à la commande (cohérent avec l'architecture existante qui fait confiance au prix fourni par le frontend à la création — voir `PublicOrderView`). `PublicProductDetailView` injecte `price` déjà réduit + `original_price` (prix avant réduction) si une offre auto valide cible le produit ou une de ses catégories.
+- `compute_discount(base_amount)` : calcule le montant de la réduction (%, ou fixe plafonné au montant de base) sur un montant déjà connu
+- `compute_discount_for_items(items)` : source unique de calcul pour un panier (`items` = liste de `{product, price, quantity}`) — filtre d'abord les lignes éligibles selon `products`/`categories` du coupon (si scopé), puis applique `compute_discount()` sur la base filtrée. Utilisée à la fois par `PublicOrderView.post()` (commande) et `PublicPromoValidateView` (aperçu checkout) pour ne jamais dupliquer la logique de scope
+- **Coupon (kind='code')** : validé et verrouillé (`select_for_update`) côté serveur à la création de commande publique (`PublicOrderView.post()`), pour éviter toute race condition sur `max_uses` en cas de commandes simultanées. `uses_count` incrémenté seulement après création réussie de la commande. Si le panier ne contient aucun article éligible au scope du coupon → 400
+- **Offre automatique (kind='auto')** : appliquée à la lecture, pas de recalcul serveur à la commande (cohérent avec l'architecture existante qui fait confiance au prix fourni par le frontend à la création — voir `PublicOrderView`). `Product.active_auto_promotion()` (méthode réutilisée par `ProductSerializer` dashboard, `PublicProductListView` et `PublicProductDetailView`) injecte `price` déjà réduit + `original_price` (prix avant réduction) si une offre auto valide cible le produit ou une de ses catégories
 - **Pas de cumul** entre coupon et offre auto sur une même commande (décision Epic 6.2).
 
 ### `orders.Order`
@@ -398,7 +401,7 @@ Chaque webhook Chargily reçu est journalisé ici en premier, avant tout traitem
 | GET | `/api/public/store/<slug>/categories/` | Non | Catégories publiques |
 | GET | `/api/public/store/<slug>/products/` | Non | Liste produits publique |
 | GET | `/api/public/store/<slug>/products/<id>/` | Non | Détail produit public (variantes, avis). Injecte `price` réduit + `original_price` si une offre automatique (`Promotion kind='auto'`) cible le produit ou une de ses catégories |
-| GET | `/api/public/store/<slug>/promo/<code>/` | Non | Valide un code promo (existe, actif, dans sa fenêtre de validité, pas épuisé) — retourne `discount_type`/`discount_value` ou 404/400 avec détail |
+| POST | `/api/public/store/<slug>/promo/<code>/` | Non | Valide un code promo pour le panier fourni (`items`) — vérifie existence/validité puis calcule `discount_amount` réel via `compute_discount_for_items` (respecte le scope produits/catégories du coupon). 404/400 avec détail si invalide ou si aucun article éligible |
 | POST | `/api/public/orders/` | Non | Checkout invité — crée Order + OrderItems, quota vérifié. Accepte `promo_code` optionnel : revalidé et verrouillé côté serveur (`select_for_update`) avant toute création, applique `discount_amount` sur la commande et incrémente `Promotion.uses_count`. Si `payment_method=chargily` : crée un checkout Chargily et renvoie `payment_url` (sinon `null` + détail explicite si l'appel API échoue). Si `cod` : quota incrémenté immédiatement |
 | POST | `/api/public/webhooks/chargily/` | Non (signature HMAC) | Webhook Chargily — `checkout.paid` confirme la commande + incrémente le quota ; `checkout.failed`/`checkout.expired` laisse la commande en attente + email au vendeur (`Store.email`). Toujours 200, toujours journalisé (`PaymentWebhookLog`) |
 
@@ -462,8 +465,9 @@ Chaque webhook Chargily reçu est journalisé ici en premier, avant tout traitem
 - Notifications SMS client (provider TBD)
 
 ### ✅ Epic 6.2 — Promotions (TERMINÉ — branche `epic-6.2-promotions`)
-- **US-6.2.1 — Coupons** : code promo (%/montant fixe), fenêtre de validité optionnelle, nombre d'utilisations max optionnel. Validation + verrouillage (`select_for_update`) côté serveur à la commande, protège contre la race condition sur `max_uses`. Page dashboard `CouponsPage.jsx`, champ + bouton "Appliquer" sur `CheckoutPage.jsx`
-- **US-6.2.2 — Offre automatique** : réduction sur produit(s)/catégorie(s) ciblés, sans code, injectée directement dans `PublicProductDetailView` (`price` réduit + `original_price`). Visible sur `StorefrontProductPage.jsx`. Page dashboard `AutoPromotionsPage.jsx`
+- **US-6.2.1 — Coupons** : code promo (%/montant fixe), fenêtre de validité optionnelle, nombre d'utilisations max optionnel, ciblage optionnel produits/catégories (vide = tout le panier). Validation + verrouillage (`select_for_update`) côté serveur à la commande, protège contre la race condition sur `max_uses`. Page dashboard `CouponsPage.jsx`, champ + bouton "Appliquer" sur `CheckoutPage.jsx` (aperçu via `POST .../promo/<code>/` avec le panier, montant exact calculé serveur)
+- **US-6.2.2 — Offre automatique** : réduction sur produit(s)/catégorie(s) ciblés, sans code, injectée directement dans `PublicProductDetailView`/`PublicProductListView`/`ProductSerializer` dashboard via `Product.active_auto_promotion()` (`price` réduit + `original_price`). Visible sur `StorefrontProductPage.jsx`, `StorefrontProductsPage.jsx`, `StorefrontHomePage.jsx` et badge `-X%` dans `ProductsPage.jsx` (colonne PRIX PROMO). Page dashboard `AutoPromotionsPage.jsx`
+- Bug préexistant corrigé au passage : `ProductDetailView` référençait un champ `category` inexistant sur `Product` dans `select_related()`, faisant planter `GET /api/products/<id>/` en 500 (formulaire d'édition produit vide côté frontend, erreur avalée silencieusement)
 - Modèle unique `products.Promotion` (`kind='code'|'auto'`) — voir section Modèles de données
 - Pas de cumul coupon + offre auto sur une même commande (décision produit)
 - Testé de bout en bout via `manage.py shell` (application, incrément `uses_count`, épuisement `max_uses`, injection prix réduit sur fiche produit)

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
 import Select from '../../components/Select'
+import CheckboxList from '../../components/CheckboxList'
 import api from '../../api/axios'
 import { theme } from '../../theme'
 
@@ -84,22 +85,6 @@ function EmptyState({ icon, title, subtitle }) {
 function toDatetimeLocal(value) {
   if (!value) return ''
   return value.slice(0, 16)
-}
-
-function CheckboxList({ items, selected, onToggle, emptyLabel }) {
-  if (items.length === 0) {
-    return <p className="text-xs text-gray-500 py-2">{emptyLabel}</p>
-  }
-  return (
-    <div className="max-h-40 overflow-y-auto rounded-lg border divide-y" style={{ borderColor: theme.dark.border }}>
-      {items.map(item => (
-        <label key={item.id} className="flex items-center gap-2.5 px-3 py-2 text-sm text-gray-300 cursor-pointer hover:bg-white/5 transition" style={{ borderColor: theme.dark.border }}>
-          <input type="checkbox" checked={selected.includes(item.id)} onChange={() => onToggle(item.id)} className="w-4 h-4 accent-violet-600 cursor-pointer shrink-0" />
-          {item.name}
-        </label>
-      ))}
-    </div>
-  )
 }
 
 function AutoPromoModal({ promo, products, categories, onClose, onSaved }) {
