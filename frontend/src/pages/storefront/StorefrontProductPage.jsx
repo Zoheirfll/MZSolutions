@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import StorefrontLayout from './StorefrontLayout'
 import publicApi from '../../api/publicApi'
 import { useCart } from '../../context/CartContext'
+import { trackEvent } from '../../lib/pixels'
 import { theme } from '../../theme'
 
 function PackageIcon(props) {
@@ -218,12 +219,14 @@ export default function StorefrontProductPage() {
 
   const handleAddToCart = () => {
     addItem(slug, buildCartItem())
+    trackEvent('AddToCart', { content_ids: [product.id], content_name: product.name, value: displayPrice, currency: 'DZD' })
     setAdded(true)
     setTimeout(() => setAdded(false), 2000)
   }
 
   const handleBuyNow = () => {
     addItem(slug, buildCartItem())
+    trackEvent('AddToCart', { content_ids: [product.id], content_name: product.name, value: displayPrice, currency: 'DZD' })
     navigate(`/store/${slug}/checkout`)
   }
 

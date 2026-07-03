@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams, useNavigate } from 'react-router-dom'
+import { Link, useParams, useNavigate, useLocation } from 'react-router-dom'
 import publicApi from '../../api/publicApi'
 import { useCart } from '../../context/CartContext'
 import { injectTheme, cleanupTheme } from '../../storefront-themes'
+import { loadPixelScripts, trackEvent } from '../../lib/pixels'
 
 function SearchIcon(props) {
   return (
@@ -24,6 +25,7 @@ function CartIcon(props) {
 export default function StorefrontLayout({ children, storeOverride }) {
   const { slug } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const { getCount } = useCart()
   const [store, setStore]     = useState(storeOverride || null)
   const [search, setSearch]   = useState('')
@@ -39,9 +41,15 @@ export default function StorefrontLayout({ children, storeOverride }) {
       setStore(data)
       const t = data.theme || {}
       injectTheme(t.template || 'violet', t.primary || '', t.secondary || '', t.font || 'inter')
+      loadPixelScripts(slug, data.pixels)
     }).catch(() => {})
     return () => cleanupTheme()
   }, [slug, storeOverride])
+
+  // PageView (US-8.3.2) — à chaque navigation dans la boutique publique
+  useEffect(() => {
+    if (store) trackEvent('PageView', { page_path: location.pathname })
+  }, [location.pathname, store])
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10)

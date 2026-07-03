@@ -1,5 +1,17 @@
 from rest_framework import serializers
-from .models import Store, SubscriptionQuota, StoreSettings, StorePage, MediaFolder, MediaFile
+from .models import Store, SubscriptionQuota, StoreSettings, StorePage, MediaFolder, MediaFile, PixelConfig, PIXEL_TYPE_CHOICES
+
+
+class PixelConfigSerializer(serializers.ModelSerializer):
+    pixel_type_label = serializers.SerializerMethodField()
+
+    class Meta:
+        model  = PixelConfig
+        fields = ['id', 'pixel_type', 'pixel_type_label', 'pixel_id', 'label', 'is_active', 'created_at']
+        read_only_fields = ['id', 'created_at']
+
+    def get_pixel_type_label(self, obj):
+        return dict(PIXEL_TYPE_CHOICES).get(obj.pixel_type, obj.pixel_type)
 
 
 class SubscriptionQuotaSerializer(serializers.ModelSerializer):

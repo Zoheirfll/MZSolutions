@@ -65,6 +65,35 @@ class StoreSettings(models.Model):
         return f"Settings {self.store.name}"
 
 
+PIXEL_TYPE_CHOICES = [
+    ('facebook',            'Facebook Pixel'),
+    ('tiktok',              'TikTok Pixel'),
+    ('google_analytics',    'Google Analytics'),
+    ('google_tag_manager',  'Google Tag Manager'),
+]
+
+
+class PixelConfig(models.Model):
+    """Identifiant de pixel marketing configuré par le vendeur (Epic 8.3
+    US-8.3.1). Plusieurs entrées possibles par type (ex: deux comptes
+    publicitaires Facebook différents), même souplesse que les comptes
+    transporteurs. Le catalogue Facebook (Meta Commerce) n'a pas d'entrée
+    ici — c'est le flux `/api/public/store/<slug>/catalog.xml` de l'Epic 8.2,
+    aucun identifiant à saisir."""
+    store      = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='pixels')
+    pixel_type = models.CharField(max_length=30, choices=PIXEL_TYPE_CHOICES)
+    pixel_id   = models.CharField(max_length=150)
+    label      = models.CharField(max_length=100, blank=True)
+    is_active  = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['pixel_type', '-created_at']
+
+    def __str__(self):
+        return f"{self.get_pixel_type_display()} — {self.pixel_id} ({self.store.name})"
+
+
 PAGE_TYPE_CHOICES = [
     ('about', 'À propos'),
     ('faq',   'FAQ'),

@@ -76,6 +76,11 @@ const ICONS = {
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342a4 4 0 010-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 9.632a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684zm0-9.632a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zM6 12a3 3 0 11-6 0 3 3 0 016 0z" />
     </svg>
   ),
+  marketing: (
+    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+    </svg>
+  ),
   bell: (
     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 10-12 0v3.2a2 2 0 01-.6 1.4L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
@@ -342,7 +347,10 @@ export default function DashboardLayout({ children, title }) {
                 <li>{mainLink('/dashboard/dropshipping', ICONS.dropshipping, 'Dropshipping')}</li>
               )}
               {(!teamRole || teamRole === 'admin') && (
-                <li>{mainLink('/dashboard/canaux-vente', ICONS.channels, 'Canaux de vente')}</li>
+                <>
+                  <li>{mainLink('/dashboard/canaux-vente', ICONS.channels, 'Canaux de vente')}</li>
+                  <li>{mainLink('/dashboard/marketing', ICONS.marketing, 'Marketing')}</li>
+                </>
               )}
               {teamRole === 'dropshipper' && (
                 <>

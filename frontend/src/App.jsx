@@ -9,6 +9,7 @@ import ComingSoon from './pages/ComingSoon'
 import TeamPage from './pages/TeamPage'
 import PermissionsPage from './pages/PermissionsPage'
 import SalesChannelsPage from './pages/SalesChannelsPage'
+import MarketingPixelsPage from './pages/MarketingPixelsPage'
 import AcceptInvitation from './pages/AcceptInvitation'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
@@ -130,6 +131,7 @@ function App() {
           <Route path="/dashboard/finances/couts"             element={<PD><CostsPage /></PD>} />
           <Route path="/dashboard/finances/rentabilite"       element={<PD><ProfitabilityPage /></PD>} />
           <Route path="/dashboard/canaux-vente"               element={<PD><SalesChannelsPage /></PD>} />
+          <Route path="/dashboard/marketing"                  element={<PD><MarketingPixelsPage /></PD>} />
           <Route path="/dashboard/expeditions"               element={<PD><ComingSoon title="Expéditions & Retours" /></PD>} />
           <Route path="/dashboard/stats"                     element={<PD><GlobalStatsPage /></PD>} />
           <Route path="/dashboard/stats/commandes"           element={<PD><OrdersStatsPage /></PD>} />
