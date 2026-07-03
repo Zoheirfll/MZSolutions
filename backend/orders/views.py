@@ -29,6 +29,39 @@ def _get_store(request):
         return None
 
 
+def _authoritative_item_price(store, item):
+    """Résout le prix réel (serveur) d'une ligne de panier — ne jamais faire
+    confiance au `price` envoyé par le client (Epic 8.6, faille critique :
+    un client pouvait auparavant payer le montant de son choix en modifiant
+    la requête réseau). Même logique de prix que `PublicProductDetailView` :
+    l'option de variante a son propre prix (jamais remisé par une offre
+    auto) ; sinon le prix de base du produit, remisé si une offre auto
+    (`Promotion kind='auto'`) est active."""
+    from products.models import Product, VariantOption
+
+    variant_option_id = item.get('variant_option')
+    product_id = item.get('product')
+
+    if variant_option_id:
+        try:
+            opt = VariantOption.objects.select_related('variant__product').get(
+                pk=variant_option_id, variant__product__store=store, variant__product_id=product_id,
+            )
+        except VariantOption.DoesNotExist:
+            return None
+        return opt.price if opt.price is not None else opt.variant.product.price
+
+    try:
+        product = store.products.get(pk=product_id)
+    except Product.DoesNotExist:
+        return None
+
+    promo = product.active_auto_promotion()
+    if promo:
+        return product.price - promo.compute_discount(product.price)
+    return product.price
+
+
 def _deduct_stock_for_order(store, order):
     """Décrémente le stock de chaque article à la création de la commande
     (évite la survente si deux clients commandent le dernier article en même
@@ -221,6 +254,15 @@ class OrderListCreateView(APIView):
                 if item.get('product') not in allowed_product_ids:
                     return Response({'detail': "Cet article ne fait pas partie de vos produits sélectionnés."}, status=403)
 
+        # Prix résolus côté serveur (jamais celui envoyé par le client) avant
+        # toute création, pour ne rien laisser en base si un article est invalide.
+        resolved_prices = []
+        for item in items_data:
+            price = _authoritative_item_price(store, item)
+            if price is None:
+                return Response({'detail': 'Un article de la commande est introuvable.'}, status=400)
+            resolved_prices.append(price)
+
         order = Order.objects.create(
             store         = store,
             first_name    = request.data.get('first_name', ''),
@@ -235,13 +277,13 @@ class OrderListCreateView(APIView):
             dropshipper   = dropshipper_membership,
         )
 
-        for item in items_data:
+        for item, price in zip(items_data, resolved_prices):
             OrderItem.objects.create(
                 order             = order,
                 product_id        = item.get('product'),
                 variant_option_id = item.get('variant_option'),
                 product_name      = item.get('product_name', ''),
-                price             = item.get('price', 0),
+                price             = price,
                 quantity          = item.get('quantity', 1),
             )
 
@@ -1052,6 +1094,19 @@ class PublicOrderView(APIView):
         if payment_method not in ('cod', 'chargily'):
             return Response({'detail': 'Mode de paiement invalide.'}, status=400)
 
+        # Prix résolus côté serveur (jamais celui envoyé par le client) avant
+        # toute création — utilisés aussi pour le calcul du code promo, pour
+        # qu'un prix falsifié ne puisse pas non plus fausser la remise.
+        resolved_prices = []
+        for item in items_data:
+            price = _authoritative_item_price(store, item)
+            if price is None:
+                return Response({'detail': 'Un article du panier est introuvable.'}, status=400)
+            resolved_prices.append(price)
+        resolved_items_data = [
+            {**item, 'price': price} for item, price in zip(items_data, resolved_prices)
+        ]
+
         # Code promo : validé et verrouillé (select_for_update) AVANT toute création,
         # pour ne rien laisser en base si le code est invalide, et pour éviter une
         # race condition sur max_uses en cas de commandes simultanées.
@@ -1065,7 +1120,7 @@ class PublicOrderView(APIView):
                 return Response({'detail': 'Code promo invalide.'}, status=400)
             if not promo.is_valid_now():
                 return Response({'detail': "Ce code promo est expiré, inactif ou a atteint son nombre maximum d'utilisations."}, status=400)
-            discount_amount = promo.compute_discount_for_items(items_data)
+            discount_amount = promo.compute_discount_for_items(resolved_items_data)
             if discount_amount <= 0:
                 return Response({'detail': "Ce code promo ne s'applique à aucun article de votre panier."}, status=400)
 
@@ -1084,13 +1139,13 @@ class PublicOrderView(APIView):
             discount_amount = discount_amount,
         )
 
-        for item in items_data:
+        for item, price in zip(items_data, resolved_prices):
             OrderItem.objects.create(
                 order             = order,
                 product_id        = item.get('product'),
                 variant_option_id = item.get('variant_option'),
                 product_name      = item.get('product_name', ''),
-                price             = item.get('price', 0),
+                price             = price,
                 quantity          = item.get('quantity', 1),
             )
 
@@ -1141,6 +1196,18 @@ class ChargilyWebhookView(APIView):
         data        = payload.get('data', {}) or {}
         checkout_id = data.get('id', '')
         metadata    = data.get('metadata') or {}
+
+        if not signature_valid:
+            # Epic 8.6 — faille critique corrigée : la signature était calculée
+            # et journalisée mais jamais appliquée, permettant à quiconque de
+            # forger un faux "checkout.paid" (confirmation de commande ou
+            # upgrade d'abonnement gratuits, sans authentification).
+            PaymentWebhookLog.objects.create(
+                order=None, event_type=event_type, checkout_id=checkout_id,
+                raw_payload=payload, signature_valid=False,
+                status='error', error_message='Signature invalide — requête rejetée.',
+            )
+            return Response(status=403)
 
         if metadata.get('subscription'):
             return self._handle_subscription_webhook(event_type, checkout_id, metadata, payload, signature_valid)
@@ -1322,9 +1389,24 @@ class CallAttemptListView(APIView):
         if not store:
             return None, Response({'detail': 'Accès refusé.'}, status=403)
         try:
-            return store.orders.get(pk=pk), None
+            order = store.orders.get(pk=pk)
         except Order.DoesNotExist:
             return None, Response({'detail': 'Commande introuvable.'}, status=404)
+
+        # Epic 8.6 — auparavant aucun contrôle : n'importe quel membre
+        # d'équipe (y compris un dropshipper) pouvait lire/créer des
+        # tentatives d'appel sur une commande qui ne lui était pas assignée.
+        if not is_owner_or_admin(request):
+            membership = getattr(request.user, 'team_membership', None)
+            is_assigned_confirmateur = (
+                membership and getattr(order, 'assignment', None)
+                and order.assignment.confirmateur_id == membership.id
+            )
+            is_own_dropshipper_order = membership and order.dropshipper_id == membership.id
+            if not (is_assigned_confirmateur or is_own_dropshipper_order):
+                return None, Response({'detail': 'Accès refusé.'}, status=403)
+
+        return order, None
 
     def get(self, request, pk):
         order, err = self._order(request, pk)

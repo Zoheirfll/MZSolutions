@@ -850,6 +850,9 @@ Commande manuelle par un dropshipper : `POST /api/orders/` accepte désormais au
 - Sidebar "Abonnement" activée (n'était qu'un `ComingSoon` avant) — restée volontairement owner/admin uniquement, pas de permission dédiée dans la matrice (décision produit : la facturation reste une donnée sensible, même traitement que la page Permissions elle-même)
 - Testé de bout en bout via `manage.py shell` + requêtes HTTP réelles (mock Chargily : catalogue de paliers, création de checkout, webhook `checkout.paid` simulé upgradant effectivement plan/limite/période) + build frontend
 
+### ✅ Epic 8.6 — Audit de sécurité complet (TERMINÉ — branche `epic-8.6-securite`)
+- Passe de sécurisation transversale (pas liée à une US du cahier des charges) avant mise en production — voir section **Sécurité** ci-dessous pour le détail complet (2 failles critiques, 5 élevées, 3 moyennes, 3 faibles, toutes corrigées et vérifiées par test reproduisant l'attaque).
+
 ### 🔜 Sprint 8 (suite) — Production
 - Mise en production (CI/CD, SSL, domaines)
 
@@ -898,6 +901,42 @@ Commande manuelle par un dropshipper : `POST /api/orders/` accepte désormais au
 | Paiement Chargily | URL API différente en test (`/test/api/v2`) vs live (`/api/v2`) — à vérifier à chaque déploiement |
 | Intégration transporteurs | Architecture complète construite avec clients mockés (`MockCarrierClient`) en attendant les accès API réels Yalidine/ZR Express — permet de livrer le flux métier (connexion compte, confirmation → expédition, tracking) sans bloquer sur des accès externes non obtenus |
 | Design system frontend | Style "Premium SaaS sombre" (Linear/Vercel) centralisé dans `theme.js` — fonds neutres quasi-noirs, bordures hairline, accent violet réservé aux états interactifs |
+
+---
+
+## Sécurité (Epic 8.6 — audit complet, branche `epic-8.6-securite`)
+
+Passe de sécurisation complète menée avant mise en production : 3 agents d'exploration (permissions/IDOR backend, secrets/config/webhooks/uploads, frontend) + vérification manuelle. Chaque correctif ci-dessous a été reproduit en échec puis vérifié corrigé via `manage.py shell` (attaque simulée → bloquée).
+
+### Failles critiques corrigées
+- **Prix de commande falsifiable** — `orders/views.py` : `item.get('price', 0)` venait du client sans recalcul serveur sur `OrderListCreateView.post` **et** `PublicOrderView.post`, permettant à n'importe quel client de payer le montant de son choix (devtools navigateur, aucune connaissance technique requise). Corrigé par `_authoritative_item_price(store, item)` — résout `VariantOption.price` ou `Product.price` (avec remise `active_auto_promotion()` appliquée) **côté serveur**, ignore silencieusement tout `price` client. Le calcul du code promo (`compute_discount_for_items`) utilise désormais aussi les prix résolus, pas les prix bruts du payload.
+- **Signature webhook Chargily jamais vérifiée** — `ChargilyWebhookView.post` calculait `signature_valid` et le journalisait mais ne rejetait jamais une requête à signature invalide, permettant de forger un faux `checkout.paid` (confirmation de commande ou upgrade d'abonnement gratuits, sans authentification). Corrigé : rejet `403` immédiat si `not signature_valid`, avant toute lecture/écriture, tout en continuant à journaliser dans `PaymentWebhookLog`.
+
+### Failles élevées corrigées
+- **Rate limiting absent partout** — ajout de `ScopedRateThrottle` (DRF) avec des scopes nommés dans `REST_FRAMEWORK['DEFAULT_THROTTLE_RATES']` (`login: 10/min`, `register: 5/min`, `otp: 10/min`, `password_reset: 5/min`, `promo: 20/min`, `incoming_webhook: 30/min`), appliqués via `throttle_scope` sur `LoginView`, `RegisterView`, `VerifyEmailView`, `ResendVerificationView`, `PasswordResetRequestView`, `PasswordResetConfirmView`, `GoogleLoginView`, `PublicPromoValidateView`, `PublicIncomingWebhookView`. N'affecte aucune route authentifiée du dashboard (pas de scope = pas de throttle, comportement par défaut de `ScopedRateThrottle`).
+- **Upload de fichiers sans validation** — `core/validators.py` (nouveau) : `validate_image_extension`/`validate_image_size` (whitelist `jpg/jpeg/png/webp/gif`, 5 Mo max) appliqués comme `validators=[...]` sur tous les `ImageField` (`Category`, `ProductImage`, `VariantOption`, `ProductReview` dans `products/models.py` ; `Store.logo` dans `stores/models.py`). ⚠️ Ces validators ne s'appliquent **que** via les serializers DRF (`full_clean()` implicite) — les deux endpoints qui font `Model.objects.create()` directement avec un fichier brut (`ProductImageView.post`, `MediaFileUploadView.post`) appellent explicitement `validate_uploaded_file()` avant création, sinon le validator de champ n'aurait jamais été déclenché.
+- **`ALLOWED_HOSTS = ['*']` + `DEBUG` par défaut `True`** — `DEBUG` par défaut passé à `False` (`config('DEBUG', default=False)` — l'environnement doit désormais explicitement activer `DEBUG=True` dans `.env`, pas l'inverse). `ALLOWED_HOSTS` reste `['*']` **seulement si `DEBUG=True`** (pour ne pas casser les tunnels ngrok utilisés en dev, cf. section Chargily) ; en production, doit être fourni explicitement (`ALLOWED_HOSTS=monsite.com,...` dans `.env`).
+- **`SECRET_KEY` avec repli codé en dur** — supprimé (`config('SECRET_KEY')` sans `default=`) : démarrage en erreur explicite si absent de l'environnement, plutôt qu'un repli silencieux sur une clé connue et versionnée dans le repo.
+- **`api_key` exposé en clair** — `ChannelConnectionSerializer` (`channels/serializers.py`) : `api_key` passé en `write_only`, `api_key_masked` ajouté (même pattern que `api_token_masked` de `CarrierAccountSerializer`, `orders/serializers.py`).
+- **XSS stockée sur la boutique publique** — `StorefrontPagePage.jsx` faisait `dangerouslySetInnerHTML={{ __html: page.content }}` (contenu HTML produit par `RichEditor.jsx`/TipTap) sans aucune sanitisation. Ajout de `frontend/src/lib/sanitize.js` (`DOMPurify`, whitelist de balises alignée sur le CSS `.sf-prose` existant), utilisé avant tout rendu. Seul point d'injection HTML brut dans tout le frontend (vérifié par grep exhaustif).
+
+### Failles moyennes corrigées
+- **`CallAttemptListView` sans contrôle de rôle** — n'importe quel membre d'équipe (y compris un dropshipper) pouvait lire/créer des tentatives d'appel sur une commande qui ne lui était pas assignée. Restreint désormais à owner/admin, au confirmateur assigné (`order.assignment.confirmateur`), ou au dropshipper propriétaire de la commande (`order.dropshipper`).
+- **Cookies/HSTS** — `SECURE_SSL_REDIRECT`, `SESSION_COOKIE_SECURE`, `CSRF_COOKIE_SECURE`, `SECURE_HSTS_SECONDS` (1 an), `SECURE_HSTS_INCLUDE_SUBDOMAINS`, `SECURE_PROXY_SSL_HEADER` — actifs uniquement si `not DEBUG` (jamais en dev local HTTP).
+- **Refresh tokens non révocables** — `rest_framework_simplejwt.token_blacklist` ajouté à `INSTALLED_APPS` (migration appliquée), `BLACKLIST_AFTER_ROTATION: True`. Nouvel endpoint `POST /api/auth/logout/` (`LogoutView`) qui blackliste le refresh token courant — appelé par `AuthContext.logout()` (best-effort, ne bloque jamais la déconnexion locale si l'appel échoue).
+
+### Failles faibles corrigées
+- `VITE_API_URL` absent en build de production : `console.error` explicite au lieu d'un repli silencieux sur `localhost` (`api/axios.js`, `api/publicApi.js`).
+- `lib/pixels.js` : les `pixel_id` sont désormais validés (`/^[A-Za-z0-9_-]+$/`) avant interpolation dans les scripts inline injectés (Facebook/TikTok/GA/GTM) — empêche une évasion de chaîne littérale si un ID malveillant était enregistré.
+- `backend/requirements.txt` généré (`pip freeze`) pour la traçabilité des dépendances — n'existait pas avant.
+
+### Décision produit : stockage JWT en localStorage conservé
+Le stockage des tokens JWT en `localStorage` (plutôt que cookies httpOnly) a été **délibérément conservé** — la migration vers des cookies httpOnly est un chantier d'architecture à part entière (intercepteurs axios, CORS credentials, CSRF, tous les appels API à revoir). Le vecteur d'exploitation réel (XSS stockée sur `StorefrontPagePage.jsx`) a été corrigé à la racine à la place — sans XSS exploitable sur l'origine, le risque localStorage devient théorique. À reconsidérer si un nouveau vecteur XSS apparaît.
+
+### Pistes non traitées dans cette passe (TBD)
+- Migration JWT vers cookies httpOnly (voir décision ci-dessus).
+- Chiffrement au repos des secrets stockés en base (`ChannelConnection.api_secret`, `CarrierAccount.api_token`, `WebhookEndpoint.secret`) — actuellement en clair en base de données (protégés par l'accès DB, pas par un chiffrement applicatif).
+- Scan de dépendances automatisé (`pip-audit`/`npm audit` en CI) — pas de pipeline CI configuré à ce stade du projet.
 
 ---
 

@@ -201,6 +201,15 @@ class MediaFileUploadView(APIView):
         files = request.FILES.getlist('files')
         if not files:
             return Response({'detail': 'Aucun fichier reçu.'}, status=400)
+
+        from django.core.exceptions import ValidationError
+        from core.validators import validate_uploaded_file
+        for f in files:
+            try:
+                validate_uploaded_file(f)
+            except ValidationError as e:
+                return Response({'detail': f"{f.name} : {e.messages[0]}"}, status=400)
+
         created = []
         for f in files:
             mf = MediaFile.objects.create(

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import StorefrontLayout from './StorefrontLayout'
 import publicApi from '../../api/publicApi'
+import { sanitizeHtml } from '../../lib/sanitize'
 
 export default function StorefrontPagePage() {
   const { slug, pageSlug } = useParams()
@@ -43,7 +44,7 @@ export default function StorefrontPagePage() {
             </h1>
             {/* TipTap HTML output — styles inline for cross-theme compat */}
             <div className="sf-prose text-base leading-relaxed" style={{ color: 'var(--sf-text)' }}
-              dangerouslySetInnerHTML={{ __html: page.content }} />
+              dangerouslySetInnerHTML={{ __html: sanitizeHtml(page.content) }} />
           </>
         )}
       </div>

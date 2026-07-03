@@ -70,11 +70,20 @@ function loadGoogleTagManager(containerId) {
   `)
 }
 
+// Epic 8.6 — les identifiants sont interpolés dans des scripts inline
+// (template strings) : sans validation, un pixel_id malveillant contenant
+// des guillemets pourrait s'échapper de la chaîne littérale et injecter du
+// script arbitraire. Les IDs réels de ces 4 plateformes sont toujours
+// alphanumériques (+ tiret/underscore pour GTM), donc une whitelist stricte
+// ne casse aucun cas légitime.
+const SAFE_PIXEL_ID = /^[A-Za-z0-9_-]+$/
+
 /** Charge les scripts pour chaque pixel actif de la boutique (une fois par slug). */
 export function loadPixelScripts(slug, pixels) {
   if (!pixels || pixels.length === 0 || loadedFor === slug) return
   loadedFor = slug
   for (const p of pixels) {
+    if (!SAFE_PIXEL_ID.test(p.pixel_id || '')) continue
     try {
       if (p.pixel_type === 'facebook') loadFacebookPixel(p.pixel_id)
       else if (p.pixel_type === 'tiktok') loadTikTokPixel(p.pixel_id)

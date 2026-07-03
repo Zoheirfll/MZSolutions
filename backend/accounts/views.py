@@ -44,6 +44,7 @@ def _send_verification_email(user, code):
 
 class RegisterView(APIView):
     permission_classes = [AllowAny]
+    throttle_scope = 'register'
 
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
@@ -68,6 +69,7 @@ class RegisterView(APIView):
 
 class VerifyEmailView(APIView):
     permission_classes = [AllowAny]
+    throttle_scope = 'otp'
 
     def post(self, request):
         email = request.data.get('email', '').strip()
@@ -99,6 +101,7 @@ class VerifyEmailView(APIView):
 
 class ResendVerificationView(APIView):
     permission_classes = [AllowAny]
+    throttle_scope = 'otp'
 
     def post(self, request):
         email = request.data.get('email', '').strip()
@@ -120,6 +123,7 @@ class ResendVerificationView(APIView):
 
 class LoginView(APIView):
     permission_classes = [AllowAny]
+    throttle_scope = 'login'
 
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
@@ -147,10 +151,29 @@ class MeView(APIView):
         return Response(UserSerializer(request.user).data)
 
 
+class LogoutView(APIView):
+    """Blackliste le refresh token courant (Epic 8.6) — sans ça, un refresh
+    token volé restait valide jusqu'à sa date d'expiration (7 jours) même
+    après une déconnexion explicite côté client."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        from rest_framework_simplejwt.tokens import RefreshToken
+        from rest_framework_simplejwt.exceptions import TokenError
+        refresh = request.data.get('refresh')
+        if refresh:
+            try:
+                RefreshToken(refresh).blacklist()
+            except TokenError:
+                pass
+        return Response(status=205)
+
+
 # ── Password reset ──────────────────────────────────────────────────────────
 
 class PasswordResetRequestView(APIView):
     permission_classes = [AllowAny]
+    throttle_scope = 'password_reset'
 
     def post(self, request):
         email = request.data.get('email', '').strip()
@@ -179,6 +202,7 @@ class PasswordResetRequestView(APIView):
 
 class PasswordResetConfirmView(APIView):
     permission_classes = [AllowAny]
+    throttle_scope = 'password_reset'
 
     def post(self, request):
         uid = request.data.get('uid', '')
@@ -264,6 +288,7 @@ class GoogleRegisterView(APIView):
 
 class GoogleLoginView(APIView):
     permission_classes = [AllowAny]
+    throttle_scope = 'login'
 
     def post(self, request):
         access_token = request.data.get('access_token', '')
@@ -277,6 +302,11 @@ class GoogleLoginView(APIView):
         try:
             user = User.objects.get(email=email, is_active=True)
         except User.DoesNotExist:
+            # Pas un vrai risque d'énumération : appeler cet endpoint suppose déjà
+            # de posséder un token Google valide pour cet email précis (donc d'en
+            # être le titulaire) — le 404 ici ne renseigne rien sur un tiers.
+            # Conservé tel quel : le frontend (Auth.jsx) distingue ce 404 pour
+            # proposer directement l'inscription.
             return Response(
                 {'detail': "Aucun compte associé à cet email Google. Veuillez vous inscrire d'abord."},
                 status=status.HTTP_404_NOT_FOUND,

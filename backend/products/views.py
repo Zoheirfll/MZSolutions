@@ -207,6 +207,12 @@ class ProductImageView(APIView):
         image_file = request.FILES.get('image')
         if not image_file:
             return Response({'detail': 'Aucun fichier image.'}, status=400)
+        from django.core.exceptions import ValidationError
+        from core.validators import validate_uploaded_file
+        try:
+            validate_uploaded_file(image_file)
+        except ValidationError as e:
+            return Response({'detail': e.messages[0]}, status=400)
         img = ProductImage.objects.create(
             product=product,
             image=image_file,
@@ -1050,6 +1056,7 @@ class PublicPromoValidateView(APIView):
     """Valide un code promo et calcule la réduction réelle pour le panier fourni
     (respecte le scope produits/catégories du coupon, s'il y en a un)."""
     permission_classes = [AllowAny]
+    throttle_scope = 'promo'
 
     def post(self, request, slug, code):
         store = _get_public_store(slug)
