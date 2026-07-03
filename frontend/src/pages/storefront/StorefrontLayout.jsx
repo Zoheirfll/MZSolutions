@@ -155,10 +155,16 @@ export default function StorefrontLayout({ children, storeOverride }) {
             Propulsé par{' '}
             <span className="font-semibold" style={{ color: 'var(--sf-primary)' }}>MZSolutions</span>.
           </p>
-          <Link to={`/store/${slug}/reclamation`} className="text-xs mt-2 inline-block hover:underline"
-            style={{ color: 'var(--sf-text-muted)' }}>
-            Un problème avec une commande ? Déposer une réclamation
-          </Link>
+          <div className="flex items-center justify-center gap-4 mt-2">
+            <Link to={`/store/${slug}/reclamation`} className="text-xs hover:underline"
+              style={{ color: 'var(--sf-text-muted)' }}>
+              Déposer une réclamation
+            </Link>
+            <Link to={`/store/${slug}/echange`} className="text-xs hover:underline"
+              style={{ color: 'var(--sf-text-muted)' }}>
+              Demander un échange
+            </Link>
+          </div>
         </div>
       </footer>
     </div>

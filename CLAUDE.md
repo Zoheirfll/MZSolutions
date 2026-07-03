@@ -94,9 +94,9 @@ pages/Auth.jsx                  — login/inscription (split layout)
 pages/Dashboard.jsx             — tableau de bord vendeur
 pages/StorePage.jsx             — Ma boutique
 pages/TeamPage.jsx              — gestion équipe
-pages/StockPage.jsx             — alertes stock bas + réglage seuil
+pages/StockPage.jsx             — alertes stock bas + réglage seuil, et inventaire complet paginé/recherchable (tout ce que possède la boutique, pas que le stock bas)
 pages/products/ProductsPage.jsx       — liste produits (pagination, recherche)
-pages/products/ProductFormPage.jsx    — créer/modifier produit (variantes, images, multi-catégories)
+pages/products/ProductFormPage.jsx    — créer/modifier produit (variantes, images, multi-catégories). ⚠️ Le bouton "Ajouter une option" doit toujours envoyer une `value` non vide (le backend rejette `value=''` en 400) — bug déjà rencontré une fois (le clic semblait ne rien faire, erreur avalée silencieusement), corrigé en envoyant `'Nouvelle option'` par défaut
 pages/products/CategoriesPage.jsx     — gestion catégories (Corbeille, pagination, checkboxes)
 pages/products/SuppliersPage.jsx      — CRUD fournisseurs
 pages/products/ReviewsPage.jsx        — modération avis
@@ -118,7 +118,7 @@ pages/customers/AtRiskCustomersPage.jsx   — clients à risque + panneau régla
 pages/customers/BlacklistPage.jsx         — liste noire par boutique, modal "Bloquer un numéro de téléphone" (message + téléphone)
 pages/storefront/StorefrontHomePage.jsx     — page d'accueil boutique publique
 pages/storefront/StorefrontProductsPage.jsx — liste produits publique
-pages/storefront/StorefrontProductPage.jsx  — fiche produit publique (Ajouter au panier / Acheter maintenant)
+pages/storefront/StorefrontProductPage.jsx  — fiche produit publique (Ajouter au panier / Acheter maintenant), bouton "Laisser un avis" (modal note+commentaire, `POST /api/public/reviews/`, modéré par le vendeur avant publication)
 pages/storefront/CheckoutPage.jsx           — tunnel de commande invité (panier, infos client, COD/Chargily), lien "Déposer une réclamation" sur l'écran de confirmation
 pages/storefront/ComplaintFormPage.jsx      — formulaire public de réclamation, sans compte : téléphone (+ n° de commande optionnel) → sujet + description
 pages/storefront/StorefrontLayout.jsx       — layout boutique publique (recherche, icône panier)
@@ -139,6 +139,8 @@ Couleur primaire : `violet-600` (#7c3aed), réservée aux éléments interactifs
 Police : **Plus Jakarta Sans** (chargée via Google Fonts dans `index.html`), taille de base légèrement agrandie via `font-size: 107%` sur `<html>` (`index.css`) pour un rendu plus aéré sans retoucher chaque classe Tailwind.
 
 ⚠️ **Ne jamais utiliser `<select>` natif.** Sur certaines machines Windows, le navigateur ignore tout le CSS (fond, couleur, `appearance: none`, `color-scheme`, `forced-color-adjust`) et affiche le widget OS natif (blanc), cassant le thème sombre. Utiliser systématiquement `components/Select.jsx` (`value`, `onChange(value)`, `options: [{value, label}]`, `variant="dark"|"light"`).
+
+⚠️ **`theme.btn.outline` est un style dark uniquement** (`border-white/12`, `text-gray-300`) — quasi invisible sur fond blanc. Sur les pages **claires** (boutique publique `pages/storefront/`, `Auth.jsx`), utiliser `theme.btn.outline**Light**` à la place (même API, couleurs adaptées fond blanc). Bug déjà rencontré : plusieurs boutons de la boutique publique (`Ajouter au panier`, `Voir les produits`, `Appliquer` code promo) utilisaient `theme.btn.outline` par erreur et paraissaient "délavés"/illisibles.
 
 ---
 
@@ -359,6 +361,34 @@ ComplaintMessage : complaint (FK, related_name='messages')
 ```
 Réclamation client déposée **sans compte** (`PublicComplaintCreateView`, `POST /api/public/complaints/`) : le client fournit `store_slug`, `order_id`, `phone`, `subject`, `description` — la commande doit appartenir à la boutique **et** le téléphone doit correspondre à `Order.phone`, sinon 404 générique (pas de distinction commande inexistante / mauvais téléphone, anti-énumération). À la création, un premier `ComplaintMessage` (message = description, `author=None`, `status='open'`) est créé automatiquement — c'est le point de départ de l'historique des échanges (US-7.1.2). Chaque changement de statut côté vendeur (`ComplaintStatusView`) ou message ajouté (`ComplaintMessageCreateView`) crée une nouvelle ligne `ComplaintMessage` — historique jamais modifié/supprimé, même pattern que `OrderStatusHistory`.
 
+### `orders.ExchangeRequest`
+```
+store (FK), order_item (FK → OrderItem — article livré à échanger)
+replacement_option (FK → VariantOption — variante demandée, doit appartenir au même Product que order_item.product)
+reason (motif client), status : open | approved | rejected
+vendor_note (renseignée à l'approbation/refus)
+created_at, updated_at
+```
+Demande d'échange déposée **sans compte** (US-7.2.1), même principe de vérification double (commande + téléphone) que les réclamations. Flux public en 2 étapes :
+1. `GET /api/public/store/<slug>/order-items/?order_id=&phone=` (`PublicOrderItemsView`) — `order_id` optionnel : si fourni, doit correspondre au téléphone (`Order.phone`) ; si omis, retombe sur la commande la plus récente de ce téléphone (même compromis que `PublicComplaintCreateView`). **Jamais un choix parmi plusieurs commandes** — une seule commande révélée à la fois, pour limiter ce qu'un tiers connaissant juste un téléphone peut voir (une commande récente, pas tout l'historique). Retourne, pour chaque article de cette commande précise, les autres variantes disponibles du même produit.
+2. `POST /api/public/exchanges/` (`PublicExchangeCreateView`) — revérifie la même appartenance avant de créer `ExchangeRequest(status='open')`.
+
+Validation par le vendeur (`ExchangeStatusView`, US-7.2.1 "workflow de validation avant traitement") : transition possible uniquement depuis `status='open'` (protège contre le double traitement). Si `status='approved'`, **dans la même transaction atomique** (US-7.2.2 "impact automatique") :
+- le stock de l'article rendu (`order_item.variant_option` ou `order_item.product` si pas de variante) est **incrémenté** de `order_item.quantity` ;
+- le stock de `replacement_option` est **décrémenté** d'autant ;
+- deux `products.StockMovement` sont créés (`exchange_return` positif, `exchange_issue` négatif), `note=f"Échange #{id}"` — c'est l'historique traçable demandé par l'AC (`ExchangeDetailView` les rattache via `note` plutôt qu'une FK directe, pour ne pas créer de dépendance `products` → `orders`).
+
+### `products.StockMovement`
+```
+store (FK), product (FK), variant_option (FK, nullable — absent si le produit n'a pas de variantes)
+quantity (signé : positif = entrée, négatif = sortie)
+reason : exchange_return | exchange_issue | order_sale (extensible plus tard à d'autres causes)
+note (texte libre, ex. "Échange #12" ou "Commande #45"), created_at
+```
+Premier modèle d'audit de stock du projet — jusqu'ici `Product.stock`/`VariantOption.stock` étaient de simples compteurs sans historique. Immuable une fois créé (jamais modifié/supprimé), même philosophie que `OrderStatusHistory`/`ComplaintMessage`.
+
+**Décrémentation à la commande** : `_deduct_stock_for_order(store, order)` (`backend/orders/views.py`) est appelée à la création d'une commande (`PublicOrderView.post()` **et** `OrderListCreateView.post()` — commande manuelle vendeur), pour chaque `OrderItem` : décrémente `variant_option.stock` (ou `product.stock` si pas de variante), plafonné à 0, et journalise un `StockMovement(reason='order_sale')`. Choix produit : le stock baisse **dès la création** de la commande (pas à la confirmation), pour éviter la survente si deux clients commandent le dernier article simultanément. ⚠️ **Pas de restockage automatique** si une commande est annulée/retournée — TBD, à considérer si besoin.
+
 ---
 
 ## API Endpoints (complets — Sprint 1 à 5)
@@ -405,7 +435,8 @@ Réclamation client déposée **sans compte** (`PublicComplaintCreateView`, `POS
 | PUT/DELETE | `/api/products/<id>/variants/<vid>/` | Oui | Modifier / supprimer variante |
 | POST | `/api/products/<id>/variants/<vid>/options/` | Oui | Ajouter option |
 | PUT/DELETE | `/api/products/<id>/variants/<vid>/options/<oid>/` | Oui | Modifier / supprimer option |
-| GET | `/api/products/low-stock/` | Oui | Articles en stock bas |
+| GET | `/api/products/low-stock/` | Oui | Articles en stock bas (≤ seuil) |
+| GET | `/api/products/inventory/` | Oui | Inventaire complet paginé (`?search=&page=&per_page=`) — tous les produits/variantes avec leur stock, pas seulement ceux sous le seuil |
 | GET/POST | `/api/products/categories/` | Oui | Liste paginée (`?tab=publie\|desactive\|corbeille`) + créer |
 | GET/PUT/DELETE | `/api/products/categories/<id>/` | Oui | Détail / modifier / corbeille (soft delete) / supprimer définitif |
 | POST | `/api/products/categories/<id>/restore/` | Oui | Restaurer depuis corbeille |
@@ -541,8 +572,16 @@ Réclamation client déposée **sans compte** (`PublicComplaintCreateView`, `POS
 - Badge "réclamations ouvertes" dans la sidebar (même pattern que le badge stock bas)
 - Testé de bout en bout via `manage.py shell` (mauvais téléphone rejeté en 404, bon téléphone crée la réclamation + message initial, changement de statut + ajout de message enrichissent bien l'historique, endpoint liste n'accepte pas POST)
 
-### 🔜 Sprint 7 (suite) — SAV, Dropshipping & Finances
-- Epic 7.2 — Échanges de produits
+### ✅ Epic 7.2 — Échanges produit (TERMINÉ — branche `epic-7.2-echanges`)
+- **US-7.2.1 — Demande d'échange** : formulaire public sans compte (`ExchangeFormPage.jsx`, route `/store/:slug/echange`) — téléphone (+ n° commande optionnel, fallback commande la plus récente comme les réclamations) → `PublicOrderItemsView` révèle les articles d'**une seule** commande (jamais une liste) avec les variantes de remplacement disponibles du même produit → le client choisit l'article + la nouvelle variante + un motif. Workflow de validation vendeur (`ExchangeStatusView`, statuts `open → approved/rejected`), transition possible uniquement depuis `open` (protège du double traitement)
+- **US-7.2.2 — Impact automatique sur le stock** : dans la même transaction que l'approbation, le stock de l'article rendu est incrémenté, celui du remplacement décrémenté, et 2 `products.StockMovement` sont créés (`exchange_return`/`exchange_issue`) — traçables dans `ExchangeDetailPage.jsx`
+- Modèles `orders.ExchangeRequest` / `products.StockMovement` — voir section Modèles de données
+- Badge "échanges ouverts" dans la sidebar (même pattern que réclamations/stock bas)
+- **Ajouts complémentaires demandés en cours d'epic** : bouton "Laisser un avis" sur la fiche produit publique (modal note+commentaire, `POST /api/public/reviews/`, modéré comme avant) ; page `StockPage.jsx` étendue avec un inventaire complet paginé/recherchable (`GET /api/products/inventory/`), pas seulement le stock bas ; **décrémentation automatique du stock à la création de commande** (`_deduct_stock_for_order`, n'existait nulle part avant — voir section `products.StockMovement`)
+- **Bugs corrigés au passage** : bouton "Ajouter une option" variante envoyait `value=''` (rejeté 400 par le backend, échouait silencieusement) ; plusieurs boutons de la boutique publique utilisaient `theme.btn.outline` (style dark) au lieu de `theme.btn.outlineLight`, quasi invisibles sur fond blanc ; produit avec une variante vide (sans aucune option) invisible du stock bas/inventaire, corrigé en retombant sur `product.stock`
+- Testé de bout en bout via `manage.py shell` (stock ajusté correctement des deux côtés, mouvements tracés, double-approbation bloquée, décrémentation à la commande vérifiée)
+
+### 🔜 Sprint 7 (suite) — Dropshipping & Finances
 - Dropshipping intra-store : revendeur vend les produits du vendeur principal, commissions
 - Module financier
 - Permissions avancées par rôle

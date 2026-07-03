@@ -62,8 +62,10 @@ function VariantBlock({ productId, variant, onDeleted, onUpdated }) {
   }
 
   const addOption = async () => {
-    const { data } = await api.post(`/products/${productId}/variants/${variant.id}/options/`, EMPTY_OPTION)
-    setOptions(o => [...o, data])
+    try {
+      const { data } = await api.post(`/products/${productId}/variants/${variant.id}/options/`, { ...EMPTY_OPTION, value: 'Nouvelle option' })
+      setOptions(o => [...o, data])
+    } catch {}
   }
 
   const updateOption = async (oid, patch) => {

@@ -288,3 +288,25 @@ class ComplaintMessage(models.Model):
 
     def __str__(self):
         return f"Message réclamation #{self.complaint_id}"
+
+
+EXCHANGE_STATUS_CHOICES = [
+    ('open', 'En attente'), ('approved', 'Approuvé'), ('rejected', 'Refusé'),
+]
+
+
+class ExchangeRequest(models.Model):
+    store              = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='exchange_requests')
+    order_item         = models.ForeignKey(OrderItem, on_delete=models.CASCADE, related_name='exchange_requests')
+    replacement_option = models.ForeignKey(VariantOption, on_delete=models.CASCADE, related_name='exchange_requests')
+    reason             = models.TextField()
+    status             = models.CharField(max_length=20, choices=EXCHANGE_STATUS_CHOICES, default='open')
+    vendor_note        = models.TextField(blank=True)
+    created_at         = models.DateTimeField(auto_now_add=True)
+    updated_at         = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Échange #{self.pk} — commande #{self.order_item.order_id}"

@@ -238,3 +238,25 @@ class Promotion(models.Model):
 
     def __str__(self):
         return f"{self.name} — {self.store.name}"
+
+
+STOCK_MOVEMENT_REASONS = [
+    ('exchange_return', 'Retour échange'), ('exchange_issue', 'Sortie échange'),
+    ('order_sale', 'Vente (commande)'),
+]
+
+
+class StockMovement(models.Model):
+    store          = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='stock_movements')
+    product        = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='stock_movements')
+    variant_option = models.ForeignKey(VariantOption, null=True, blank=True, on_delete=models.SET_NULL, related_name='stock_movements')
+    quantity       = models.IntegerField()  # signé : positif = entrée, négatif = sortie
+    reason         = models.CharField(max_length=30, choices=STOCK_MOVEMENT_REASONS)
+    note           = models.CharField(max_length=200, blank=True)
+    created_at     = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.get_reason_display()} {self.quantity:+d} — {self.product.name}"

@@ -356,7 +356,8 @@ class LowStockView(APIView):
         products = store.products.prefetch_related('variants__options').filter(is_active=True)
         for p in products:
             variants = list(p.variants.all())
-            if variants:
+            options  = [opt for v in variants for opt in v.options.all()]
+            if options:
                 for v in variants:
                     for opt in v.options.all():
                         if opt.stock <= threshold:
@@ -368,6 +369,8 @@ class LowStockView(APIView):
                                 'stock':        opt.stock,
                             })
             else:
+                # Pas de variantes, ou des variantes sans aucune option — le stock
+                # se gère alors directement sur le produit.
                 if p.stock <= threshold:
                     results.append({
                         'product_id':   p.id,
@@ -378,6 +381,56 @@ class LowStockView(APIView):
                     })
 
         return Response({'threshold': threshold, 'count': len(results), 'results': results})
+
+
+class InventoryListView(APIView):
+    """Stock complet — tout ce que possède la boutique (pas seulement les
+    articles sous le seuil d'alerte, contrairement à LowStockView)."""
+    permission_classes = [IsAuthenticated, IsOwnerOrAdminForWrites]
+
+    def get(self, request):
+        store = _get_store(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+
+        search = request.query_params.get('search', '').strip()
+        products = store.products.prefetch_related('variants__options').filter(is_active=True)
+        if search:
+            products = products.filter(name__icontains=search)
+
+        results = []
+        for p in products:
+            variants = list(p.variants.all())
+            options  = [opt for v in variants for opt in v.options.all()]
+            if options:
+                for v in variants:
+                    for opt in v.options.all():
+                        results.append({
+                            'product_id':   p.id,
+                            'product_name': p.name,
+                            'variant_name': v.name,
+                            'option_value': opt.value,
+                            'sku':          opt.sku,
+                            'stock':        opt.stock,
+                        })
+            else:
+                # Pas de variantes, ou des variantes sans aucune option — le stock
+                # se gère alors directement sur le produit.
+                results.append({
+                    'product_id':   p.id,
+                    'product_name': p.name,
+                    'variant_name': None,
+                    'option_value': None,
+                    'sku':          p.sku,
+                    'stock':        p.stock,
+                })
+
+        page     = max(1, int(request.query_params.get('page', 1)))
+        per_page = int(request.query_params.get('per_page', 20))
+        total    = len(results)
+        results  = results[(page - 1) * per_page: page * per_page]
+
+        return Response({'count': total, 'page': page, 'per_page': per_page, 'results': results})
 
 
 # ─── Suppliers ───────────────────────────────────────────────────────────────
