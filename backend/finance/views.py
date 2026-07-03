@@ -6,6 +6,7 @@ from rest_framework.views import APIView
 
 from core.permissions import is_owner_or_admin, has_permission
 from orders.models import Order
+from orders.utils import order_channel
 from dropshipping.models import CommissionEntry
 from .models import Cost
 from .serializers import CostSerializer
@@ -94,21 +95,6 @@ def _delivered_orders(store, period_start, period_end):
     return qs
 
 
-def _order_channel(order):
-    """Canal de vente déduit des données existantes (pas de nouveau champ) :
-    dropshipper si Order.dropshipper renseigné, sinon boutique en ligne si la
-    première entrée d'historique n'a pas d'auteur (créée par PublicOrderView,
-    système), sinon vente manuelle (créée par un membre authentifié)."""
-    if order.dropshipper_id:
-        name = f"{order.dropshipper.first_name} {order.dropshipper.last_name}".strip()
-        return f"Dropshipper — {name}" if name else "Dropshipper"
-    history = list(order.history.all())
-    first_entry = history[0] if history else None
-    if first_entry and first_entry.changed_by_id is None:
-        return "Boutique en ligne"
-    return "Vente manuelle"
-
-
 def _line_cost(item):
     if item.variant_option and item.variant_option.cost_price is not None:
         return item.variant_option.cost_price
@@ -140,7 +126,7 @@ class ProfitabilityView(APIView):
             if group_by == 'wilaya':
                 order_key = order.wilaya or '—'
             elif group_by == 'source':
-                order_key = _order_channel(order)
+                order_key = order_channel(order)
             for item in order.items.all():
                 if group_by == 'product':
                     key = item.product.name if item.product else item.product_name

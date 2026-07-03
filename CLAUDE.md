@@ -64,6 +64,7 @@ team/            — TeamMember, invitation token
 products/        — Category, Product, ProductImage, ProductVariant, VariantOption, Supplier, SupplierCredit, SupplierPayment, ProductReview
 orders/          — Order, OrderItem, OrderStatusHistory, OrderAssignment, CallAttempt, FailureReason, PaymentWebhookLog, CarrierAccount
 orders/carriers/ — clients transporteurs (Yalidine, ZR Express) : base.py (BaseCarrierClient, MockCarrierClient), yalidine.py, zr_express.py, get_carrier_client()
+orders/stats_views.py — 8 vues statistiques (Epic 8.1), voir section API Endpoints. `orders/utils.py` expose `parse_period(request)` (contrat période partagé) et `order_channel(order)` (canal de vente, réutilisé aussi par `finance/`)
 dropshipping/    — DropshipperProduct, Commission, CommissionEntry, CommissionPayment (voir Epic 7.3)
 finance/         — Cost, calcul de rentabilité (voir Epic 7.4)
 core/            — app Django générique (utilitaires partagés) : permissions.py (is_owner_or_admin, IsOwnerOrAdminForWrites)
@@ -112,7 +113,16 @@ pages/orders/OrderDetailPage.jsx      — détail commande (changer statut, sél
 pages/orders/OrderFormPage.jsx        — création commande manuelle (vendeur)
 pages/orders/CancellationsPage.jsx    — demandes d'annulation / confirmées
 pages/orders/FailureReasonsPage.jsx   — raisons d'échec d'appel
-pages/orders/ConfirmationRatePage.jsx — taux de confirmation par confirmateur
+pages/orders/ConfirmationRatePage.jsx — taux de confirmation par confirmateur (réutilisée aussi comme "Statistique par confirmateur", Epic 8.1)
+pages/orders/stats/statsShared.jsx    — utilitaires communs aux 8 pages de statistiques (Epic 8.1) : `usePeriod()`/`PeriodFilter` (jour/semaine/mois/personnalisé, même contrat que `ConfirmationRatePage`), `Spinner`, `money()`, `PIE_COLORS`
+pages/orders/stats/GlobalStatsPage.jsx    — StatCards résumé (commandes, taux de confirmation, livrées/retournées/annulées, CA, panier moyen)
+pages/orders/stats/OrdersStatsPage.jsx    — évolution quotidienne (bar chart) + répartition par statut (pie chart), esprit RiseCart
+pages/orders/stats/ReturnsStatsPage.jsx   — StatCards + évolution quotidienne des retours
+pages/orders/stats/FailuresStatsPage.jsx  — répartition des échecs d'appel par `FailureReason`
+pages/orders/stats/StockSalesStatsPage.jsx — unités vendues par produit (agrégat `StockMovement reason='order_sale'`)
+pages/orders/stats/ProductsStatsPage.jsx  — par produit : commandes, confirmées, meilleure wilaya, meilleure source
+pages/orders/stats/WilayaStatsPage.jsx    — par wilaya : commandes, confirmées, revenu
+pages/orders/stats/SourceStatsPage.jsx    — par source (canal de vente) : pie chart + tableau commandes/confirmées/revenu
 pages/orders/ComplaintsPage.jsx       — liste réclamations (filtres statut, recherche)
 pages/orders/ComplaintDetailPage.jsx  — détail réclamation : description, historique des échanges en timeline, changement de statut + note, ajout de message
 pages/ParametresLivraisonPage.jsx     — comptes transporteurs (Yalidine/ZR Express) : onglets "Sociétés de livraison" (cartes) / "Mes Sociétés de livraison" (tableau : toggle statut, copier clé/jeton API, badge défaut)
@@ -200,7 +210,7 @@ wilaya, commune, address (extras dropshipper)
 store (FK), role : admin | confirmateur | dropshipper
 permission (clé du catalogue fixe), enabled
 ```
-Système de permissions **par rôle** (pas par membre individuel — décision produit, plus simple à gérer et suffisant pour "chaque rôle a son layout"). Seuls les **overrides explicites** sont stockés (`unique_together (store, role, permission)`) — l'absence de ligne retombe sur `team.models.DEFAULT_PERMISSIONS[role]`, qui reflète le comportement codé en dur avant cette epic (confirmateur très restreint, dropshipper voit produits/clients/stock mais pas team/finances/dropshipping). Catalogue fixe dans `team.models.PERMISSION_CATALOG` (`orders_view`, `orders_manage`, `complaints_view`, `exchanges_view`, `products_view`, `purchase_prices_view`, `clients_view`, `stock_view`, `store_view`, `shipping_settings_view`, `dropshipping_view`, `finances_view`, `team_view`).
+Système de permissions **par rôle** (pas par membre individuel — décision produit, plus simple à gérer et suffisant pour "chaque rôle a son layout"). Seuls les **overrides explicites** sont stockés (`unique_together (store, role, permission)`) — l'absence de ligne retombe sur `team.models.DEFAULT_PERMISSIONS[role]`, qui reflète le comportement codé en dur avant cette epic (confirmateur très restreint, dropshipper voit produits/clients/stock mais pas team/finances/dropshipping). Catalogue fixe dans `team.models.PERMISSION_CATALOG` (`orders_view`, `orders_manage`, `complaints_view`, `exchanges_view`, `products_view`, `purchase_prices_view`, `clients_view`, `stock_view`, `store_view`, `shipping_settings_view`, `dropshipping_view`, `finances_view`, `team_view`, `stats_view` — ce dernier ajouté par l'Epic 8.1, même défaut que l'ancien placeholder désactivé : caché pour confirmateur/dropshipper).
 
 **Portée volontairement limitée à la lecture** : ce système ne gate que la *visibilité* (sidebar) et 2 endpoints réels côté serveur — jamais les actions d'écriture (créer/modifier/supprimer restent `is_owner_or_admin` partout, inchangé). Deux enforcements serveur concrets :
 - `purchase_prices_view` : `cost_price` retiré de `ProductSerializer`/`VariantOptionSerializer` (`to_representation`) si absent — donnée jamais gatée avant cette epic
@@ -533,6 +543,14 @@ Dans les deux cas, seules les commandes **actuellement** au statut `delivered` c
 | POST | `/api/orders/<id>/status/` | Oui | Changer statut + note → log `OrderStatusHistory`. Accepte `carrier_id` optionnel ; si nouveau statut = `confirmed`, crée automatiquement une expédition (mockée) via le transporteur par défaut ou celui précisé — réponse enrichie de `carrier_warning` si aucun transporteur actif |
 | GET | `/api/orders/stats/` | Oui | Compteurs par statut |
 | GET | `/api/orders/stats/confirmation/` | Oui | Taux de confirmation (période, par confirmateur) |
+| GET | `/api/orders/stats/orders/` | Oui (owner/admin ou `stats_view`) | Statistiques commandes — évolution quotidienne + répartition par statut (`?period=day\|week\|month\|custom&date_from=&date_to=`) |
+| GET | `/api/orders/stats/returns/` | Oui (owner/admin ou `stats_view`) | Statistiques retours — total, taux de retour, évolution quotidienne |
+| GET | `/api/orders/stats/failures/` | Oui (owner/admin ou `stats_view`) | Statistiques des échecs d'appel par `FailureReason` |
+| GET | `/api/orders/stats/stock-sales/` | Oui (owner/admin ou `stats_view`) | Unités vendues par produit sur la période (agrégat `StockMovement reason='order_sale'`) |
+| GET | `/api/orders/stats/products/` | Oui (owner/admin ou `stats_view`) | Par produit : commandes, confirmées, meilleure wilaya, meilleure source |
+| GET | `/api/orders/stats/wilayas/` | Oui (owner/admin ou `stats_view`) | Par wilaya : commandes, confirmées, revenu |
+| GET | `/api/orders/stats/sources/` | Oui (owner/admin ou `stats_view`) | Par source (canal de vente) : commandes, confirmées, revenu |
+| GET | `/api/orders/stats/global/` | Oui (owner/admin ou `stats_view`) | Vue d'ensemble : commandes, taux de confirmation, livrées/retournées/annulées, CA, panier moyen |
 | GET/PUT | `/api/orders/<id>/assignment/` | Oui | Voir / réassigner confirmateur |
 | GET/POST | `/api/orders/<id>/call-attempts/` | Oui | Log d'appel détaillé (legacy, stats) |
 | DELETE | `/api/orders/<id>/call-attempts/<cid>/` | Oui | Supprimer tentative |
@@ -703,7 +721,15 @@ Commande manuelle par un dropshipper : `POST /api/orders/` accepte désormais au
 - `PermissionsPage.jsx` (owner/admin, `/dashboard/equipe/permissions`) — matrice de toggles, sauvegarde immédiate par case via `POST /api/team/permissions/`
 - Testé de bout en bout via `manage.py shell` + requêtes HTTP réelles (permissions par défaut d'un confirmateur, `cost_price` masqué/visible selon le rôle, 403 puis 200 sur Finances après octroi de `finances_view`, écriture toujours bloquée malgré l'octroi de la vue, matrice elle-même inaccessible à un non-admin) + build frontend
 
-### 🔜 Sprint 8 — Abonnements, Shopify Sync & Production
+### ✅ Epic 8.1 — Statistiques complètes (TERMINÉ — branche `epic-8.1-statistiques`)
+- **US-8.1.1 — Tableau de bord statistique** : 8 pages sous un nouveau menu "Statistiques" (remplace l'ancien placeholder désactivé) — Statistiques globales, Statistiques commandes (bar quotidien + pie par statut), Statistique retours, Statistique des échecs (par `FailureReason`), Statistique vente de stock (par produit, via `StockMovement`), Statistiques des produits (meilleure wilaya/source), Statistique par confirmateur (réutilise `ConfirmationRatePage` existante), Statistiques par wilaya, Statistiques des sources (pie + tableau)
+- **Filtrage par période partout** : même contrat que `ConfirmationRatePage` (`?period=day|week|month|custom&date_from=&date_to=`), factorisé dans `orders/utils.py::parse_period()` et côté frontend dans `pages/orders/stats/statsShared.jsx::usePeriod()`/`PeriodFilter`
+- **"Source" (canal de vente)** factorisée dans `orders/utils.py::order_channel()` — déplacée depuis `finance/views.py` (qui l'importe désormais) pour devenir la version canonique partagée, plutôt que deux implémentations dupliquées
+- Nouvelle permission `stats_view` dans le catalogue Epic 7.5, même défaut que l'ancien comportement codé en dur (masqué pour confirmateur/dropshipper) ; les 8 endpoints + `ConfirmationRateView` acceptent `is_owner_or_admin(request) OR has_permission(request, 'stats_view')`
+- ⚠️ **Bug rencontré et corrigé pendant le développement** : `usePeriod()` retournait une fonction `queryString` recréée à chaque rendu (non mémoïsée) — cassait la dépendance `useCallback` des pages appelantes et provoquait une **boucle de fetch infinie** (spinner bloqué indéfiniment sur "Chargement…", API martelée en continu). Corrigé en mémoïsant `queryString` avec `useCallback([period, dateFrom, dateTo])` dans `statsShared.jsx` — un seul correctif a réparé les 8 pages d'un coup puisqu'elles partagent toutes ce hook
+- Testé de bout en bout via `manage.py shell` + requêtes HTTP réelles sur les 8 endpoints (commandes/retours/échecs/vente de stock/produits/wilayas/sources/global) + build frontend
+
+### 🔜 Sprint 8 (suite) — Canaux de vente, marketing, webhooks, abonnement
 - Plans d'abonnement : Starter / Pro / Business (limites TBD)
 - Intégration **Shopify** bidirectionnelle
 - Intégration **Meta Commerce** (Facebook/Instagram shop)

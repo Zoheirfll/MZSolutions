@@ -53,6 +53,14 @@ import DropshipperDetailPage from './pages/dropshipping/DropshipperDetailPage'
 import DropshipperMyProductsPage from './pages/dropshipping/DropshipperMyProductsPage'
 import DropshipperMyEarningsPage from './pages/dropshipping/DropshipperMyEarningsPage'
 import CostsPage from './pages/finance/CostsPage'
+import GlobalStatsPage from './pages/orders/stats/GlobalStatsPage'
+import OrdersStatsPage from './pages/orders/stats/OrdersStatsPage'
+import ReturnsStatsPage from './pages/orders/stats/ReturnsStatsPage'
+import FailuresStatsPage from './pages/orders/stats/FailuresStatsPage'
+import StockSalesStatsPage from './pages/orders/stats/StockSalesStatsPage'
+import ProductsStatsPage from './pages/orders/stats/ProductsStatsPage'
+import WilayaStatsPage from './pages/orders/stats/WilayaStatsPage'
+import SourceStatsPage from './pages/orders/stats/SourceStatsPage'
 import ProfitabilityPage from './pages/finance/ProfitabilityPage'
 
 function PD({ children }) {
@@ -121,7 +129,15 @@ function App() {
           <Route path="/dashboard/finances/couts"             element={<PD><CostsPage /></PD>} />
           <Route path="/dashboard/finances/rentabilite"       element={<PD><ProfitabilityPage /></PD>} />
           <Route path="/dashboard/expeditions"               element={<PD><ComingSoon title="Expéditions & Retours" /></PD>} />
-          <Route path="/dashboard/stats"                     element={<PD><ComingSoon title="Statistiques" /></PD>} />
+          <Route path="/dashboard/stats"                     element={<PD><GlobalStatsPage /></PD>} />
+          <Route path="/dashboard/stats/commandes"           element={<PD><OrdersStatsPage /></PD>} />
+          <Route path="/dashboard/stats/retours"             element={<PD><ReturnsStatsPage /></PD>} />
+          <Route path="/dashboard/stats/echecs"              element={<PD><FailuresStatsPage /></PD>} />
+          <Route path="/dashboard/stats/vente-stock"         element={<PD><StockSalesStatsPage /></PD>} />
+          <Route path="/dashboard/stats/produits"            element={<PD><ProductsStatsPage /></PD>} />
+          <Route path="/dashboard/stats/confirmateurs"       element={<PD><ConfirmationRatePage /></PD>} />
+          <Route path="/dashboard/stats/wilayas"             element={<PD><WilayaStatsPage /></PD>} />
+          <Route path="/dashboard/stats/sources"             element={<PD><SourceStatsPage /></PD>} />
           <Route path="/dashboard/equipe"                    element={<PD><TeamPage /></PD>} />
           <Route path="/dashboard/equipe/permissions"        element={<PD><PermissionsPage /></PD>} />
           <Route path="/dashboard/abonnement"                element={<PD><ComingSoon title="Abonnement" /></PD>} />

@@ -101,6 +101,7 @@ export default function DashboardLayout({ children, title }) {
     annulation:   location.pathname.startsWith('/dashboard/commandes/annulations'),
     clients:      location.pathname.startsWith('/dashboard/clients'),
     finances:     location.pathname.startsWith('/dashboard/finances'),
+    stats:        location.pathname.startsWith('/dashboard/stats'),
   })
   const [lowStockCount, setLowStockCount] = useState(0)
   const [openComplaintsCount, setOpenComplaintsCount] = useState(0)
@@ -364,8 +365,33 @@ export default function DashboardLayout({ children, title }) {
               )}
               {can('shipping_settings_view') && <li>{disabled(ICONS.shipping, 'Expéditions')}</li>}
               {can('stock_view') && <li>{mainLink('/dashboard/stock', ICONS.stock, 'Stock & Inventaire', false, lowStockCount)}</li>}
-              {!['confirmateur', 'dropshipper'].includes(teamRole) && (
-                <li>{disabled(ICONS.stats, 'Statistiques')}</li>
+              {can('stats_view') && (
+                <li>
+                  <button
+                    onClick={() => setExpanded(e => ({ ...e, stats: !e.stats }))}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
+                      location.pathname.startsWith('/dashboard/stats') ? 'bg-white/6 text-gray-100 font-medium' : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.stats}</span>Statistiques</span>
+                    <svg className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${expanded.stats ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                  {expanded.stats && (
+                    <ul className="mt-0.5 ml-5 space-y-0.5 border-l pl-3" style={{ borderColor: theme.dark.border }}>
+                      <li>{link('/dashboard/stats', 'Statistiques globales', true)}</li>
+                      <li>{link('/dashboard/stats/commandes', 'Statistiques commandes')}</li>
+                      <li>{link('/dashboard/stats/retours', 'Statistique retours')}</li>
+                      <li>{link('/dashboard/stats/echecs', 'Statistique des échecs')}</li>
+                      <li>{link('/dashboard/stats/vente-stock', 'Statistique vente de stock')}</li>
+                      <li>{link('/dashboard/stats/produits', 'Statistiques des produits')}</li>
+                      <li>{link('/dashboard/stats/confirmateurs', 'Statistique par confirmateur')}</li>
+                      <li>{link('/dashboard/stats/wilayas', 'Statistiques par wilaya')}</li>
+                      <li>{link('/dashboard/stats/sources', 'Statistiques des sources')}</li>
+                    </ul>
+                  )}
+                </li>
               )}
             </ul>
           </div>

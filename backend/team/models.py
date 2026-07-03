@@ -57,6 +57,7 @@ PERMISSION_CATALOG = [
     ('dropshipping_view',      'Voir le dropshipping (vue vendeur — liste des dropshippers, soldes)'),
     ('finances_view',          'Voir les finances (coûts, rentabilité)'),
     ('team_view',               "Voir la gestion d'équipe"),
+    ('stats_view',             'Voir les statistiques complètes'),
 ]
 
 ROLES_WITH_PERMISSIONS = ['admin', 'confirmateur', 'dropshipper']
@@ -73,7 +74,7 @@ DEFAULT_PERMISSIONS = {
         'products_view': False, 'purchase_prices_view': False,
         'clients_view': False, 'stock_view': False, 'store_view': False,
         'shipping_settings_view': False, 'dropshipping_view': False,
-        'finances_view': False, 'team_view': False,
+        'finances_view': False, 'team_view': False, 'stats_view': False,
     },
     'dropshipper': {
         'orders_view': True, 'orders_manage': True,
@@ -81,7 +82,7 @@ DEFAULT_PERMISSIONS = {
         'products_view': True, 'purchase_prices_view': False,
         'clients_view': True, 'stock_view': True, 'store_view': True,
         'shipping_settings_view': True, 'dropshipping_view': False,
-        'finances_view': False, 'team_view': False,
+        'finances_view': False, 'team_view': False, 'stats_view': False,
     },
 }
 
