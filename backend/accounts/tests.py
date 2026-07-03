@@ -237,3 +237,67 @@ class GoogleAuthTests(TestCase):
         mock_get.return_value = MagicMock(ok=False)
         resp = self.client.post('/api/auth/google/login/', {'access_token': 'bad'}, format='json')
         self.assertEqual(resp.status_code, 400)
+
+    @patch('accounts.views.http_requests.get')
+    def test_google_register_rejects_duplicate_email(self, mock_get):
+        make_owner(email='taken@test.com')
+        mock_get.return_value = MagicMock(ok=True, json=lambda: {
+            'sub': 'g999', 'email': 'taken@test.com', 'given_name': 'G', 'family_name': 'U',
+        })
+        resp = self.client.post('/api/auth/google/register/', {
+            'access_token': 'fake', 'store_name': 'Dup Shop', 'store_slug': 'dup-shop',
+        }, format='json')
+        self.assertEqual(resp.status_code, 409)
+
+    @patch('accounts.views.http_requests.get')
+    def test_google_register_rejects_duplicate_slug(self, mock_get):
+        make_owner(store_slug='already-taken')
+        mock_get.return_value = MagicMock(ok=True, json=lambda: {
+            'sub': 'g888', 'email': 'freshgoogle@test.com', 'given_name': 'G', 'family_name': 'U',
+        })
+        resp = self.client.post('/api/auth/google/register/', {
+            'access_token': 'fake', 'store_name': 'Shop', 'store_slug': 'already-taken',
+        }, format='json')
+        self.assertEqual(resp.status_code, 400)
+
+
+class PasswordResetConfirmEdgeCaseTests(TestCase):
+    def setUp(self):
+        clear_throttle_cache()
+        self.client = APIClient()
+        self.owner, _ = make_owner(email='resetedge@test.com')
+
+    def test_invalid_uid_rejected(self):
+        from django.contrib.auth.tokens import PasswordResetTokenGenerator
+        token = PasswordResetTokenGenerator().make_token(self.owner)
+        resp = self.client.post('/api/auth/password-reset/confirm/', {
+            'uid': 'not-a-valid-uid', 'token': token, 'new_password': 'BrandNewPass123',
+        }, format='json')
+        self.assertEqual(resp.status_code, 400)
+
+    def test_token_for_different_user_rejected(self):
+        from django.contrib.auth.tokens import PasswordResetTokenGenerator
+        from django.utils.http import urlsafe_base64_encode
+        from django.utils.encoding import force_bytes
+        other_owner, _ = make_owner(email='otherreset@test.com')
+        uid = urlsafe_base64_encode(force_bytes(self.owner.pk))
+        # Token generated for a *different* user must not validate self.owner's uid
+        token = PasswordResetTokenGenerator().make_token(other_owner)
+        resp = self.client.post('/api/auth/password-reset/confirm/', {
+            'uid': uid, 'token': token, 'new_password': 'BrandNewPass123',
+        }, format='json')
+        self.assertEqual(resp.status_code, 400)
+
+    def test_token_invalidated_after_password_already_changed(self):
+        from django.contrib.auth.tokens import PasswordResetTokenGenerator
+        from django.utils.http import urlsafe_base64_encode
+        from django.utils.encoding import force_bytes
+        uid = urlsafe_base64_encode(force_bytes(self.owner.pk))
+        token = PasswordResetTokenGenerator().make_token(self.owner)
+        # Le mot de passe change entre-temps (ex: reset déjà utilisé une première fois)
+        self.owner.set_password('AlreadyChanged123')
+        self.owner.save()
+        resp = self.client.post('/api/auth/password-reset/confirm/', {
+            'uid': uid, 'token': token, 'new_password': 'BrandNewPass123',
+        }, format='json')
+        self.assertEqual(resp.status_code, 400)

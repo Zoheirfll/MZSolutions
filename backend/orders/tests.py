@@ -1,14 +1,16 @@
 import json
+from datetime import date, timedelta
 from decimal import Decimal
 from unittest.mock import patch
 
 from django.test import TestCase, Client as PublicClient
 from accounts.models import User
 from stores.models import Store, SubscriptionQuota
-from products.models import Product, Category, Promotion
+from products.models import Product, Category, Promotion, ProductVariant, VariantOption
+from team.models import RolePermission
 from orders.models import (
     CarrierAccount, Order, OrderItem, OrderStatusHistory, FailureReason, CallAttempt,
-    BlacklistedPhone, Complaint, ExchangeRequest,
+    BlacklistedPhone, Complaint, ExchangeRequest, OrderAssignment,
 )
 from core.test_utils import make_owner, make_team_member, auth_client
 
@@ -314,3 +316,325 @@ class ExchangePublicFlowTests(TestCase):
         client = auth_client(self.owner)
         resp = client.post(f'/api/orders/exchanges/{exchange.id}/status/', {'status': 'rejected'}, format='json')
         self.assertEqual(resp.status_code, 400)
+
+
+class StatsViewsPermissionTests(TestCase):
+    """Un seul test représentatif de la permission par endpoint stats,
+    plus GlobalStatsView en détail (partage StatsPermissionMixin)."""
+    def setUp(self):
+        self.owner, self.store = make_owner()
+
+    def _urls(self):
+        return [
+            '/api/orders/stats/orders/', '/api/orders/stats/returns/', '/api/orders/stats/failures/',
+            '/api/orders/stats/stock-sales/', '/api/orders/stats/products/', '/api/orders/stats/wilayas/',
+            '/api/orders/stats/sources/', '/api/orders/stats/global/', '/api/orders/stats/confirmation/',
+        ]
+
+    def test_confirmateur_without_permission_forbidden_on_all_stats_endpoints(self):
+        conf_user, _ = make_team_member(self.store, 'confirmateur')
+        client = auth_client(conf_user)
+        for url in self._urls():
+            resp = client.get(url)
+            self.assertEqual(resp.status_code, 403, url)
+
+    def test_owner_allowed_on_all_stats_endpoints(self):
+        client = auth_client(self.owner)
+        for url in self._urls():
+            resp = client.get(url)
+            self.assertEqual(resp.status_code, 200, url)
+
+    def test_confirmateur_granted_stats_view_permission_allowed(self):
+        conf_user, _ = make_team_member(self.store, 'confirmateur')
+        RolePermission.objects.create(store=self.store, role='confirmateur', permission='stats_view', enabled=True)
+        client = auth_client(conf_user)
+        resp = client.get('/api/orders/stats/global/')
+        self.assertEqual(resp.status_code, 200)
+
+
+class GlobalStatsDataTests(TestCase):
+    def setUp(self):
+        self.owner, self.store = make_owner()
+
+    def test_computes_confirmation_rate_and_revenue(self):
+        today = date.today()
+        Order.objects.create(store=self.store, first_name='A', phone='1', wilaya='Alger', status='delivered', total=Decimal('1000'))
+        Order.objects.create(store=self.store, first_name='B', phone='2', wilaya='Alger', status='delivered', total=Decimal('2000'))
+        Order.objects.create(store=self.store, first_name='C', phone='3', wilaya='Alger', status='cancelled')
+        Order.objects.create(store=self.store, first_name='D', phone='4', wilaya='Alger', status='pending')  # non "processed"
+
+        client = auth_client(self.owner)
+        resp = client.get('/api/orders/stats/global/?period=day')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['total_orders'], 4)
+        self.assertEqual(resp.data['delivered_count'], 2)
+        self.assertEqual(resp.data['cancelled_count'], 1)
+        # processed = delivered(2) + cancelled(1) = 3 ; confirmed = 2 -> 66.7%
+        self.assertEqual(resp.data['confirmation_rate'], 66.7)
+        self.assertEqual(resp.data['revenue'], Decimal('3000'))
+        self.assertEqual(resp.data['avg_basket'], Decimal('1500.00'))
+
+    def test_period_day_excludes_older_orders(self):
+        old_order = Order.objects.create(store=self.store, first_name='Old', phone='9', wilaya='Alger', status='delivered', total=Decimal('500'))
+        Order.objects.filter(pk=old_order.pk).update(created_at=date.today() - timedelta(days=10))
+
+        client = auth_client(self.owner)
+        resp = client.get('/api/orders/stats/global/?period=day')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['total_orders'], 0)
+
+    def test_custom_period_invalid_dates_rejected(self):
+        client = auth_client(self.owner)
+        resp = client.get('/api/orders/stats/global/?period=custom&date_from=notadate&date_to=2026-01-01')
+        self.assertEqual(resp.status_code, 400)
+
+
+class SourceAndWilayaStatsTests(TestCase):
+    def setUp(self):
+        self.owner, self.store = make_owner()
+
+    def test_source_stats_distinguishes_manual_vs_online_channel(self):
+        # "Vente manuelle" : créée par un membre authentifié (owner) via l'API
+        product = Product.objects.create(store=self.store, name='P', price=Decimal('1000'), stock=10)
+        client = auth_client(self.owner)
+        client.post('/api/orders/', {
+            'first_name': 'Manual', 'phone': '0600', 'wilaya': 'Oran',
+            'items': [{'product': product.id, 'price': 1, 'quantity': 1}],
+        }, format='json')
+        # "Boutique en ligne" : créée via le checkout public (system, changed_by=None)
+        PublicClient().post('/api/public/orders/', {
+            'store_slug': self.store.slug, 'first_name': 'Online', 'phone': '0611', 'wilaya': 'Alger',
+            'items': [{'product': product.id, 'price': 1, 'quantity': 1}],
+        }, content_type='application/json')
+
+        resp = client.get('/api/orders/stats/sources/?period=day')
+        self.assertEqual(resp.status_code, 200)
+        sources = {r['source'] for r in resp.data['results']}
+        self.assertIn('Vente manuelle', sources)
+        self.assertIn('Boutique en ligne', sources)
+
+    def test_wilaya_stats_groups_and_sums_revenue(self):
+        Order.objects.create(store=self.store, first_name='A', phone='1', wilaya='Alger', status='delivered', total=Decimal('1000'))
+        Order.objects.create(store=self.store, first_name='B', phone='2', wilaya='Alger', status='delivered', total=Decimal('500'))
+        Order.objects.create(store=self.store, first_name='C', phone='3', wilaya='Oran', status='pending')
+
+        client = auth_client(self.owner)
+        resp = client.get('/api/orders/stats/wilayas/?period=day')
+        self.assertEqual(resp.status_code, 200)
+        by_wilaya = {r['wilaya']: r for r in resp.data['results']}
+        self.assertEqual(by_wilaya['Alger']['orders_count'], 2)
+        self.assertEqual(by_wilaya['Alger']['revenue'], Decimal('1500'))
+        self.assertEqual(by_wilaya['Oran']['confirmed_count'], 0)
+
+
+class StockSalesStatsTests(TestCase):
+    def test_units_sold_reflects_stock_movements(self):
+        owner, store = make_owner()
+        product = Product.objects.create(store=store, name='P', price=Decimal('1000'), stock=10)
+        client = auth_client(owner)
+        client.post('/api/orders/', {
+            'first_name': 'C', 'phone': '0600', 'wilaya': 'Oran',
+            'items': [{'product': product.id, 'price': 1, 'quantity': 3}],
+        }, format='json')
+
+        resp = client.get('/api/orders/stats/stock-sales/?period=day')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(resp.data['results']), 1)
+        self.assertEqual(resp.data['results'][0]['units_sold'], 3)
+
+
+class ConfirmationRateViewTests(TestCase):
+    def setUp(self):
+        self.owner, self.store = make_owner()
+
+    def test_rate_by_confirmateur(self):
+        conf_user, conf_member = make_team_member(self.store, 'confirmateur')
+        order1 = Order.objects.create(store=self.store, first_name='A', phone='1', wilaya='Alger', status='confirmed')
+        order2 = Order.objects.create(store=self.store, first_name='B', phone='2', wilaya='Alger', status='cancelled')
+        OrderAssignment.objects.create(order=order1, confirmateur=conf_member)
+        OrderAssignment.objects.create(order=order2, confirmateur=conf_member)
+
+        client = auth_client(self.owner)
+        resp = client.get('/api/orders/stats/confirmation/?period=day')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['total_confirmed'], 1)
+        self.assertEqual(resp.data['total_processed'], 2)
+        self.assertEqual(len(resp.data['by_confirmateur']), 1)
+        self.assertEqual(resp.data['by_confirmateur'][0]['confirmed'], 1)
+
+
+class CancellationTransitionTests(TestCase):
+    def setUp(self):
+        self.owner, self.store = make_owner()
+        self.order = Order.objects.create(store=self.store, first_name='C', phone='0600', wilaya='Alger', status='confirmed')
+
+    def test_cancel_requested_then_cancelled(self):
+        client = auth_client(self.owner)
+        resp = client.post(f'/api/orders/{self.order.id}/status/', {'status': 'cancel_requested'}, format='json')
+        self.assertEqual(resp.status_code, 200)
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, 'cancel_requested')
+
+        resp2 = client.post(f'/api/orders/{self.order.id}/status/', {'status': 'cancelled', 'note': 'confirmé annulation'}, format='json')
+        self.assertEqual(resp2.status_code, 200)
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, 'cancelled')
+        self.assertTrue(OrderStatusHistory.objects.filter(order=self.order, status='cancelled').exists())
+
+    def test_cancelled_order_visible_in_returns_stats_as_cancel_requested(self):
+        # cancel_requested compté séparément de returned dans ReturnsStatsView
+        client = auth_client(self.owner)
+        client.post(f'/api/orders/{self.order.id}/status/', {'status': 'cancel_requested'}, format='json')
+        resp = client.get('/api/orders/stats/returns/?period=day')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['cancel_requested_count'], 1)
+        self.assertEqual(resp.data['returned_count'], 0)
+
+
+class FailureReasonCRUDTests(TestCase):
+    def setUp(self):
+        self.owner, self.store = make_owner()
+
+    def test_create_list_update_delete(self):
+        client = auth_client(self.owner)
+        resp = client.post('/api/orders/failure-reasons/', {'label': 'Ne répond pas'}, format='json')
+        self.assertEqual(resp.status_code, 201)
+        reason_id = resp.data['id']
+
+        resp2 = client.get('/api/orders/failure-reasons/')
+        self.assertEqual(resp2.status_code, 200)
+        self.assertEqual(len(resp2.data), 1)
+
+        resp3 = client.put(f'/api/orders/failure-reasons/{reason_id}/', {'label': 'Injoignable'}, format='json')
+        self.assertEqual(resp3.status_code, 200)
+        self.assertEqual(resp3.data['label'], 'Injoignable')
+
+        resp4 = client.delete(f'/api/orders/failure-reasons/{reason_id}/')
+        self.assertEqual(resp4.status_code, 204)
+        self.assertFalse(FailureReason.objects.filter(id=reason_id).exists())
+
+    def test_confirmateur_cannot_create_or_modify(self):
+        conf_user, _ = make_team_member(self.store, 'confirmateur')
+        client = auth_client(conf_user)
+        resp = client.post('/api/orders/failure-reasons/', {'label': 'X'}, format='json')
+        self.assertEqual(resp.status_code, 403)
+
+        reason = FailureReason.objects.create(store=self.store, label='Existing')
+        resp2 = client.put(f'/api/orders/failure-reasons/{reason.id}/', {'label': 'Hacked'}, format='json')
+        self.assertEqual(resp2.status_code, 403)
+        resp3 = client.delete(f'/api/orders/failure-reasons/{reason.id}/')
+        self.assertEqual(resp3.status_code, 403)
+
+    def test_confirmateur_can_read(self):
+        FailureReason.objects.create(store=self.store, label='Existing')
+        conf_user, _ = make_team_member(self.store, 'confirmateur')
+        client = auth_client(conf_user)
+        resp = client.get('/api/orders/failure-reasons/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(resp.data), 1)
+
+
+class PublicOrderItemsViewTests(TestCase):
+    def setUp(self):
+        self.owner, self.store = make_owner()
+        self.product = Product.objects.create(store=self.store, name='Shoe', price=Decimal('3000'))
+        self.variant = ProductVariant.objects.create(product=self.product, name='Taille')
+        self.opt40 = VariantOption.objects.create(variant=self.variant, value='40', is_active=True)
+        self.opt42 = VariantOption.objects.create(variant=self.variant, value='42', is_active=True)
+
+    def _order(self, phone, days_ago=0):
+        order = Order.objects.create(store=self.store, first_name='C', phone=phone, wilaya='Alger')
+        if days_ago:
+            Order.objects.filter(pk=order.pk).update(created_at=date.today() - timedelta(days=days_ago))
+            order.refresh_from_db()
+        return order
+
+    def test_wrong_phone_generic_404(self):
+        order = self._order('0555000000')
+        OrderItem.objects.create(order=order, product=self.product, variant_option=self.opt40,
+                                  product_name='Shoe', price=Decimal('3000'), quantity=1)
+        resp = self.client.get(f'/api/public/store/{self.store.slug}/order-items/', {'order_id': order.id, 'phone': '0000000000'})
+        self.assertEqual(resp.status_code, 404)
+
+    def test_missing_phone_rejected(self):
+        resp = self.client.get(f'/api/public/store/{self.store.slug}/order-items/', {})
+        self.assertEqual(resp.status_code, 400)
+
+    def test_order_id_omitted_falls_back_to_most_recent_order(self):
+        old_order = self._order('0555111111', days_ago=5)
+        OrderItem.objects.create(order=old_order, product=self.product, variant_option=self.opt40,
+                                  product_name='Shoe', price=Decimal('3000'), quantity=1)
+        recent_order = self._order('0555111111', days_ago=0)
+        OrderItem.objects.create(order=recent_order, product=self.product, variant_option=self.opt42,
+                                  product_name='Shoe', price=Decimal('3000'), quantity=1)
+
+        resp = self.client.get(f'/api/public/store/{self.store.slug}/order-items/', {'phone': '0555111111'})
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()['order_id'], recent_order.id)
+
+    def test_no_available_replacement_when_only_option_already_owned(self):
+        # Un seul produit avec une seule variante active : celle déjà commandée -> aucune alternative
+        solo_product = Product.objects.create(store=self.store, name='Solo', price=Decimal('1000'))
+        variant = ProductVariant.objects.create(product=solo_product, name='Couleur')
+        only_opt = VariantOption.objects.create(variant=variant, value='Rouge', is_active=True)
+        order = self._order('0555222222')
+        OrderItem.objects.create(order=order, product=solo_product, variant_option=only_opt,
+                                  product_name='Solo', price=Decimal('1000'), quantity=1)
+
+        resp = self.client.get(f'/api/public/store/{self.store.slug}/order-items/', {'order_id': order.id, 'phone': '0555222222'})
+        self.assertEqual(resp.status_code, 200)
+        items = resp.json()['items']
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0]['replacement_options'], [])
+
+
+class PublicExchangeCreateViewTests(TestCase):
+    def setUp(self):
+        self.owner, self.store = make_owner()
+        self.product = Product.objects.create(store=self.store, name='Shoe', price=Decimal('3000'))
+        self.variant = ProductVariant.objects.create(product=self.product, name='Taille')
+        self.opt40 = VariantOption.objects.create(variant=self.variant, value='40', stock=1)
+        self.opt42 = VariantOption.objects.create(variant=self.variant, value='42', stock=1)
+        self.order = Order.objects.create(store=self.store, first_name='C', phone='0555333333', wilaya='Alger')
+        self.item = OrderItem.objects.create(order=self.order, product=self.product, variant_option=self.opt40,
+                                              product_name='Shoe', price=Decimal('3000'), quantity=1)
+
+    def test_missing_fields_rejected(self):
+        resp = self.client.post('/api/public/exchanges/', {
+            'store_slug': self.store.slug, 'phone': '0555333333',
+        }, content_type='application/json')
+        self.assertEqual(resp.status_code, 400)
+
+    def test_wrong_phone_generic_404(self):
+        resp = self.client.post('/api/public/exchanges/', {
+            'store_slug': self.store.slug, 'order_id': self.order.id, 'phone': '0000000000',
+            'order_item_id': self.item.id, 'replacement_option_id': self.opt42.id, 'reason': 'x',
+        }, content_type='application/json')
+        self.assertEqual(resp.status_code, 404)
+
+    def test_replacement_from_other_product_rejected(self):
+        other_product = Product.objects.create(store=self.store, name='Other', price=Decimal('100'))
+        other_variant = ProductVariant.objects.create(product=other_product, name='Couleur')
+        other_opt = VariantOption.objects.create(variant=other_variant, value='Bleu', stock=1)
+        resp = self.client.post('/api/public/exchanges/', {
+            'store_slug': self.store.slug, 'order_id': self.order.id, 'phone': '0555333333',
+            'order_item_id': self.item.id, 'replacement_option_id': other_opt.id, 'reason': 'x',
+        }, content_type='application/json')
+        self.assertEqual(resp.status_code, 400)
+        self.assertFalse(ExchangeRequest.objects.exists())
+
+    def test_valid_request_creates_open_exchange(self):
+        resp = self.client.post('/api/public/exchanges/', {
+            'store_slug': self.store.slug, 'order_id': self.order.id, 'phone': '0555333333',
+            'order_item_id': self.item.id, 'replacement_option_id': self.opt42.id, 'reason': 'Trop petit',
+        }, content_type='application/json')
+        self.assertEqual(resp.status_code, 201)
+        exchange = ExchangeRequest.objects.get()
+        self.assertEqual(exchange.status, 'open')
+
+    def test_order_id_omitted_falls_back_to_most_recent(self):
+        resp = self.client.post('/api/public/exchanges/', {
+            'store_slug': self.store.slug, 'phone': '0555333333',
+            'order_item_id': self.item.id, 'replacement_option_id': self.opt42.id, 'reason': 'x',
+        }, content_type='application/json')
+        self.assertEqual(resp.status_code, 201)
