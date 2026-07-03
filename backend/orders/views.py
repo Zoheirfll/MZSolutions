@@ -103,6 +103,43 @@ def _sync_commission_for_order(store, order, new_status):
         CommissionEntry.objects.filter(order_item__order=order).delete()
 
 
+STATUS_TO_WEBHOOK_EVENT = {
+    'confirmed': 'order.confirmed',
+    'shipped':   'order.shipped',
+    'delivered': 'order.delivered',
+    'cancelled': 'order.cancelled',
+    'returned':  'order.returned',
+}
+
+
+def _order_webhook_payload(order):
+    return {
+        'order_id':  order.id,
+        'status':    order.status,
+        'first_name': order.first_name,
+        'last_name':  order.last_name,
+        'phone':      order.phone,
+        'wilaya':     order.wilaya,
+        'commune':    order.commune,
+        'total':      str(order.total),
+        'payment_method': order.payment_method,
+        'items': [
+            {'product_name': i.product_name, 'quantity': i.quantity, 'price': str(i.price)}
+            for i in order.items.all()
+        ],
+    }
+
+
+def _fire_order_webhook(store, order, event):
+    """Notifie les webhooks sortants configurés (Epic 8.4 US-8.4.1).
+    Best-effort : ne doit jamais faire échouer le flux de commande."""
+    try:
+        from webhooks.dispatch import fire_event
+        fire_event(store, event, _order_webhook_payload(order))
+    except Exception:
+        pass
+
+
 class OrderListCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -212,6 +249,7 @@ class OrderListCreateView(APIView):
         OrderStatusHistory.objects.create(order=order, status='pending', changed_by=request.user)
         assign_order_round_robin(order)
         _deduct_stock_for_order(store, order)
+        _fire_order_webhook(store, order, 'order.created')
 
         if quota:
             quota.orders_used += 1
@@ -288,6 +326,8 @@ class OrderStatusView(APIView):
 
         carrier_warning = self._maybe_create_shipment(request, store, order, new_status)
         _sync_commission_for_order(store, order, new_status)
+        if new_status in STATUS_TO_WEBHOOK_EVENT:
+            _fire_order_webhook(store, order, STATUS_TO_WEBHOOK_EVENT[new_status])
 
         data = OrderDetailSerializer(order).data
         if carrier_warning:
@@ -1058,6 +1098,7 @@ class PublicOrderView(APIView):
         OrderStatusHistory.objects.create(order=order, status='pending')
         assign_order_round_robin(order)
         _deduct_stock_for_order(store, order)
+        _fire_order_webhook(store, order, 'order.created')
 
         if promo:
             promo.uses_count += 1
@@ -1138,6 +1179,8 @@ class ChargilyWebhookView(APIView):
                     quota.save(update_fields=['orders_used'])
                 except Exception:
                     pass
+                _fire_order_webhook(order.store, order, 'order.paid')
+                _fire_order_webhook(order.store, order, 'order.confirmed')
                 log.status = 'processed'
                 log.save(update_fields=['status'])
 

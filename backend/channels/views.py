@@ -3,7 +3,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from core.permissions import is_owner_or_admin
+from core.permissions import is_owner_or_admin, has_permission
 from .clients import get_channel_client
 from .models import ChannelConnection, ChannelSyncLog, CHANNEL_CHOICES
 from .serializers import ChannelConnectionSerializer, ChannelSyncLogSerializer
@@ -26,7 +26,7 @@ class ChannelConnectionListCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        if not is_owner_or_admin(request):
+        if not (is_owner_or_admin(request) or has_permission(request, 'channels_view')):
             return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
         store = _get_store(request)
         if not store:
@@ -134,7 +134,7 @@ class ChannelSyncLogListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        if not is_owner_or_admin(request):
+        if not (is_owner_or_admin(request) or has_permission(request, 'channels_view')):
             return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
         store = _get_store(request)
         if not store:

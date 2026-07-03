@@ -58,6 +58,9 @@ PERMISSION_CATALOG = [
     ('finances_view',          'Voir les finances (coûts, rentabilité)'),
     ('team_view',               "Voir la gestion d'équipe"),
     ('stats_view',             'Voir les statistiques complètes'),
+    ('channels_view',          'Voir les canaux de vente (Shopify, Google Sheets, Meta Commerce)'),
+    ('marketing_view',         'Voir la configuration marketing (pixels)'),
+    ('webhooks_view',          'Voir les webhooks'),
 ]
 
 ROLES_WITH_PERMISSIONS = ['admin', 'confirmateur', 'dropshipper']
@@ -75,6 +78,7 @@ DEFAULT_PERMISSIONS = {
         'clients_view': False, 'stock_view': False, 'store_view': False,
         'shipping_settings_view': False, 'dropshipping_view': False,
         'finances_view': False, 'team_view': False, 'stats_view': False,
+        'channels_view': False, 'marketing_view': False, 'webhooks_view': False,
     },
     'dropshipper': {
         'orders_view': True, 'orders_manage': True,
@@ -83,6 +87,7 @@ DEFAULT_PERMISSIONS = {
         'clients_view': True, 'stock_view': True, 'store_view': True,
         'shipping_settings_view': True, 'dropshipping_view': False,
         'finances_view': False, 'team_view': False, 'stats_view': False,
+        'channels_view': False, 'marketing_view': False, 'webhooks_view': False,
     },
 }
 

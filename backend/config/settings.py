@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     'dropshipping',
     'finance',
     'channels',
+    'webhooks',
 ]
 
 MIDDLEWARE = [
