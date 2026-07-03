@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import api from '../api/axios'
+import Logo from './Logo'
 import { theme } from '../theme'
 
 const ICONS = {
@@ -28,6 +29,11 @@ const ICONS = {
   shipping: (
     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 16.5V9a1 1 0 011-1h9v8.5M3 16.5h1.5m8.5 0h4m-4 0V8m4 8.5H21m-4.5 0a1.75 1.75 0 11-3.5 0 1.75 1.75 0 013.5 0zM7.5 16.5a1.75 1.75 0 11-3.5 0 1.75 1.75 0 013.5 0zM13 11h4l3 3.5v2h-1" />
+    </svg>
+  ),
+  complaints: (
+    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
     </svg>
   ),
   stock: (
@@ -85,10 +91,12 @@ export default function DashboardLayout({ children, title }) {
     clients:      location.pathname.startsWith('/dashboard/clients'),
   })
   const [lowStockCount, setLowStockCount] = useState(0)
+  const [openComplaintsCount, setOpenComplaintsCount] = useState(0)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
   useEffect(() => {
     api.get('/products/low-stock/').then(({ data }) => setLowStockCount(data.count)).catch(() => {})
+    api.get('/orders/complaints/?status=open&per_page=1').then(({ data }) => setOpenComplaintsCount(data.count)).catch(() => {})
   }, [])
 
   const handleLogout = () => { logout(); navigate('/auth') }
@@ -167,10 +175,8 @@ export default function DashboardLayout({ children, title }) {
 
         {/* Logo */}
         <div className="px-5 py-5 border-b flex items-center justify-between" style={{ borderColor: theme.dark.border }}>
-          <div className="min-w-0 flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-violet-600">
-              <span className="text-white text-xs font-bold">MZ</span>
-            </div>
+          <div className="min-w-0 flex items-center gap-2.5">
+            <Logo className="w-11 h-auto shrink-0 text-violet-400" />
             <div className="min-w-0">
               <p className="text-base font-semibold text-gray-100 tracking-tight leading-none">MZSolutions</p>
               <p className="text-xs mt-1.5 truncate" style={{ color: theme.dark.muted }}>
@@ -241,6 +247,8 @@ export default function DashboardLayout({ children, title }) {
                   </ul>
                 )}
               </li>
+
+              <li>{mainLink('/dashboard/reclamations', ICONS.complaints, 'Réclamations', false, openComplaintsCount)}</li>
 
               {/* Produits & Catégories — masqué pour confirmateur */}
               {teamRole !== 'confirmateur' && (

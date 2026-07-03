@@ -28,6 +28,8 @@ import OrderDetailPage from './pages/orders/OrderDetailPage'
 import FailureReasonsPage from './pages/orders/FailureReasonsPage'
 import ConfirmationRatePage from './pages/orders/ConfirmationRatePage'
 import AbandonedCartsPage from './pages/orders/AbandonedCartsPage'
+import ComplaintsPage from './pages/orders/ComplaintsPage'
+import ComplaintDetailPage from './pages/orders/ComplaintDetailPage'
 import ClientsPage from './pages/customers/ClientsPage'
 import AtRiskCustomersPage from './pages/customers/AtRiskCustomersPage'
 import BlacklistPage from './pages/customers/BlacklistPage'
@@ -41,6 +43,7 @@ import StorefrontPagePage from './pages/storefront/StorefrontPagePage'
 import StorefrontProductsPage from './pages/storefront/StorefrontProductsPage'
 import StorefrontProductPage from './pages/storefront/StorefrontProductPage'
 import CheckoutPage from './pages/storefront/CheckoutPage'
+import ComplaintFormPage from './pages/storefront/ComplaintFormPage'
 
 function PD({ children }) {
   return <PrivateRoute>{children}</PrivateRoute>
@@ -57,6 +60,7 @@ function App() {
           <Route path="/store/:slug/products"              element={<StorefrontProductsPage />} />
           <Route path="/store/:slug/products/:productId"   element={<StorefrontProductPage />} />
           <Route path="/store/:slug/checkout"              element={<CheckoutPage />} />
+          <Route path="/store/:slug/reclamation"           element={<ComplaintFormPage />} />
           <Route path="/store/:slug/pages/:pageSlug"      element={<StorefrontPagePage />} />
 
           <Route path="/auth"             element={<Auth />} />
@@ -92,6 +96,8 @@ function App() {
           <Route path="/dashboard/commandes/paniers-abandonnes"           element={<PD><AbandonedCartsPage /></PD>} />
           <Route path="/dashboard/commandes/annulations/demandes"       element={<PD><CancellationsPage mode="requests" /></PD>} />
           <Route path="/dashboard/commandes/annulations/confirmees"     element={<PD><CancellationsPage mode="confirmed" /></PD>} />
+          <Route path="/dashboard/reclamations"                          element={<PD><ComplaintsPage /></PD>} />
+          <Route path="/dashboard/reclamations/:id"                      element={<PD><ComplaintDetailPage /></PD>} />
           <Route path="/dashboard/clients"                   element={<PD><ClientsPage /></PD>} />
           <Route path="/dashboard/clients/risque"            element={<PD><AtRiskCustomersPage /></PD>} />
           <Route path="/dashboard/clients/liste-noire"        element={<PD><BlacklistPage /></PD>} />

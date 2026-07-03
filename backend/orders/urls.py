@@ -8,6 +8,7 @@ from .views import (
     AbandonedCartListView,
     ClientListView, CustomerRiskToggleView,
     BlacklistListCreateView, BlacklistDetailView,
+    ComplaintListView, ComplaintDetailView, ComplaintStatusView, ComplaintMessageCreateView,
 )
 
 urlpatterns = [
@@ -16,6 +17,10 @@ urlpatterns = [
     path('clients/<str:phone>/risk/',             CustomerRiskToggleView.as_view()),
     path('blacklist/',                            BlacklistListCreateView.as_view()),
     path('blacklist/<int:pk>/',                   BlacklistDetailView.as_view()),
+    path('complaints/',                           ComplaintListView.as_view()),
+    path('complaints/<int:pk>/',                  ComplaintDetailView.as_view()),
+    path('complaints/<int:pk>/status/',           ComplaintStatusView.as_view()),
+    path('complaints/<int:pk>/messages/',         ComplaintMessageCreateView.as_view()),
     path('',                                      OrderListCreateView.as_view()),
     path('stats/',                                OrderStatsView.as_view()),
     path('stats/confirmation/',                   ConfirmationRateView.as_view()),

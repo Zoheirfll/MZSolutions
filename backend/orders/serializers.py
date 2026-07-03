@@ -3,7 +3,7 @@ from .models import (
     Order, OrderItem, OrderStatusHistory, STATUS_CHOICES,
     OrderAssignment, FailureReason, CallAttempt, CALL_STATUS_CHOICES,
     PAYMENT_METHOD_CHOICES, AbandonedCart, CarrierAccount, CARRIER_CHOICES,
-    BlacklistedPhone,
+    BlacklistedPhone, Complaint, ComplaintMessage, COMPLAINT_STATUS_CHOICES,
 )
 
 
@@ -165,3 +165,52 @@ class BlacklistedPhoneSerializer(serializers.ModelSerializer):
         model  = BlacklistedPhone
         fields = ['id', 'phone', 'message', 'blocked_attempts', 'last_attempt_at', 'created_at']
         read_only_fields = ['id', 'blocked_attempts', 'last_attempt_at', 'created_at']
+
+
+class ComplaintMessageSerializer(serializers.ModelSerializer):
+    author_name  = serializers.SerializerMethodField()
+    status_label = serializers.SerializerMethodField()
+
+    class Meta:
+        model  = ComplaintMessage
+        fields = ['id', 'message', 'status', 'status_label', 'author_name', 'created_at']
+
+    def get_author_name(self, obj):
+        if obj.author:
+            return f"{obj.author.first_name} {obj.author.last_name}".strip() or obj.author.email
+        return 'Client'
+
+    def get_status_label(self, obj):
+        return dict(COMPLAINT_STATUS_CHOICES).get(obj.status, obj.status) if obj.status else None
+
+
+class ComplaintSerializer(serializers.ModelSerializer):
+    status_label   = serializers.SerializerMethodField()
+    order_display  = serializers.SerializerMethodField()
+    order_phone    = serializers.SerializerMethodField()
+    messages_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model  = Complaint
+        fields = ['id', 'order', 'order_display', 'order_phone', 'subject', 'description',
+                  'status', 'status_label', 'messages_count', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def get_status_label(self, obj):
+        return dict(COMPLAINT_STATUS_CHOICES).get(obj.status, obj.status)
+
+    def get_order_display(self, obj):
+        return f"#{obj.order_id} — {obj.order.first_name} {obj.order.last_name}".strip()
+
+    def get_order_phone(self, obj):
+        return obj.order.phone
+
+    def get_messages_count(self, obj):
+        return obj.messages.count()
+
+
+class ComplaintDetailSerializer(ComplaintSerializer):
+    messages = ComplaintMessageSerializer(many=True, read_only=True)
+
+    class Meta(ComplaintSerializer.Meta):
+        fields = ComplaintSerializer.Meta.fields + ['messages']

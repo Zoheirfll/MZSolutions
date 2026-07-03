@@ -253,3 +253,38 @@ class BlacklistedPhone(models.Model):
 
     def __str__(self):
         return f"Blacklist {self.phone} — {self.store.name}"
+
+
+COMPLAINT_STATUS_CHOICES = [
+    ('open', 'Ouverte'), ('in_progress', 'En cours'), ('resolved', 'Résolue'),
+]
+
+
+class Complaint(models.Model):
+    store       = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='complaints')
+    order       = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='complaints')
+    subject     = models.CharField(max_length=200)
+    description = models.TextField()
+    status      = models.CharField(max_length=20, choices=COMPLAINT_STATUS_CHOICES, default='open')
+    created_at  = models.DateTimeField(auto_now_add=True)
+    updated_at  = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Réclamation #{self.pk} — commande #{self.order_id}"
+
+
+class ComplaintMessage(models.Model):
+    complaint  = models.ForeignKey(Complaint, on_delete=models.CASCADE, related_name='messages')
+    message    = models.TextField(blank=True)
+    status     = models.CharField(max_length=20, choices=COMPLAINT_STATUS_CHOICES, blank=True)
+    author     = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f"Message réclamation #{self.complaint_id}"

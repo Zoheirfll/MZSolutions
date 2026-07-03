@@ -177,6 +177,9 @@ export default function CheckoutPage() {
           <Link to={`/store/${slug}/products`} className={theme.btn.primary}>
             Continuer mes achats
           </Link>
+          <p className="text-xs text-gray-400 mt-6">
+            Un problème avec votre commande ? <Link to={`/store/${slug}/reclamation?order=${confirmedId}`} className="text-violet-600 hover:underline">Déposer une réclamation</Link>
+          </p>
         </div>
       </StorefrontLayout>
     )
