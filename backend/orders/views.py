@@ -15,7 +15,7 @@ from .serializers import OrderSerializer, OrderDetailSerializer, OrderAssignment
 from .utils import assign_order_round_robin
 from . import chargily
 from .carriers import get_carrier_client
-from core.permissions import IsOwnerOrAdminForWrites, is_owner_or_admin
+from core.permissions import IsOwnerOrAdminForWrites, is_owner_or_admin, has_permission
 
 
 def _get_store(request):
@@ -877,7 +877,7 @@ class ConfirmationRateView(APIView):
     PROCESSED_STATUSES = ['no_answer_1', 'no_answer_2', 'no_answer_3', 'confirmed', 'shipped', 'delivered', 'returned', 'cancelled']
 
     def get(self, request):
-        if not is_owner_or_admin(request):
+        if not (is_owner_or_admin(request) or has_permission(request, 'stats_view')):
             return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
         store = _get_store(request)
         if not store:
