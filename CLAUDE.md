@@ -69,6 +69,7 @@ dropshipping/    — DropshipperProduct, Commission, CommissionEntry, Commission
 finance/         — Cost, calcul de rentabilité (voir Epic 7.4)
 channels/        — ChannelConnection, ChannelSyncLog, clients Shopify/Google Sheets mockés (voir Epic 8.2)
 channels/clients/ — architecture client de canal (base.py BaseChannelClient/MockChannelClient, shopify.py, google_sheets.py, get_channel_client()) — même principe que orders/carriers/
+webhooks/        — WebhookEndpoint, WebhookLog, IncomingWebhookKey, dispatch.py (fire_event, réel — pas mocké) (voir Epic 8.4)
 core/            — app Django générique (utilitaires partagés) : permissions.py (is_owner_or_admin, IsOwnerOrAdminForWrites)
 ```
 
@@ -100,8 +101,9 @@ pages/Dashboard.jsx             — tableau de bord vendeur
 pages/StorePage.jsx             — Ma boutique
 pages/TeamPage.jsx              — gestion équipe
 pages/PermissionsPage.jsx       — (owner/admin) matrice de permissions par rôle (Epic 7.5), toggles en direct via `POST /api/team/permissions/`
-pages/SalesChannelsPage.jsx     — (owner/admin) Epic 8.2 : onglets Boutiques e-commerce (Shopify)/Google Sheets (connexion + sync push/pull manuels, mockés)/Meta Commerce (URL du flux catalogue réel à copier dans Meta Commerce Manager), journal de synchronisation
-pages/MarketingPixelsPage.jsx   — (owner/admin) Epic 8.3 : onglets Facebook Pixel/Facebook Catalog (renvoie vers le flux Meta Commerce existant)/TikTok Pixel/Google Tag Manager/Google Analytics — ajout/suppression d'identifiants, plusieurs par type
+pages/SalesChannelsPage.jsx     — (owner/admin, ou `channels_view` accordée) Epic 8.2 : onglets Boutiques e-commerce (Shopify)/Google Sheets (connexion + sync push/pull manuels, mockés)/Meta Commerce (URL du flux catalogue réel à copier dans Meta Commerce Manager), journal de synchronisation
+pages/MarketingPixelsPage.jsx   — (owner/admin, ou `marketing_view` accordée) Epic 8.3 : onglets Facebook Pixel/Facebook Catalog (renvoie vers le flux Meta Commerce existant)/TikTok Pixel/Google Tag Manager/Google Analytics — ajout/suppression d'identifiants, plusieurs par type
+pages/WebhooksPage.jsx          — (owner/admin, ou `webhooks_view` accordée) Epic 8.4 : tableau des endpoints sortants (statut, échecs, dernier déclenchement), modal d'ajout avec cases à cocher d'événements, section webhook entrant (URL + régénération de clé), journal unifié
 lib/pixels.js                   — injection des scripts de pixels marketing (Facebook/TikTok/GA/GTM) sur le storefront public + `trackEvent()` pour les événements standards (Epic 8.3)
 pages/StockPage.jsx             — alertes stock bas + réglage seuil, et inventaire complet paginé/recherchable (tout ce que possède la boutique, pas que le stock bas)
 pages/products/ProductsPage.jsx       — liste produits (pagination, recherche)
@@ -229,7 +231,7 @@ wilaya, commune, address (extras dropshipper)
 store (FK), role : admin | confirmateur | dropshipper
 permission (clé du catalogue fixe), enabled
 ```
-Système de permissions **par rôle** (pas par membre individuel — décision produit, plus simple à gérer et suffisant pour "chaque rôle a son layout"). Seuls les **overrides explicites** sont stockés (`unique_together (store, role, permission)`) — l'absence de ligne retombe sur `team.models.DEFAULT_PERMISSIONS[role]`, qui reflète le comportement codé en dur avant cette epic (confirmateur très restreint, dropshipper voit produits/clients/stock mais pas team/finances/dropshipping). Catalogue fixe dans `team.models.PERMISSION_CATALOG` (`orders_view`, `orders_manage`, `complaints_view`, `exchanges_view`, `products_view`, `purchase_prices_view`, `clients_view`, `stock_view`, `store_view`, `shipping_settings_view`, `dropshipping_view`, `finances_view`, `team_view`, `stats_view` — ce dernier ajouté par l'Epic 8.1, même défaut que l'ancien placeholder désactivé : caché pour confirmateur/dropshipper).
+Système de permissions **par rôle** (pas par membre individuel — décision produit, plus simple à gérer et suffisant pour "chaque rôle a son layout"). Seuls les **overrides explicites** sont stockés (`unique_together (store, role, permission)`) — l'absence de ligne retombe sur `team.models.DEFAULT_PERMISSIONS[role]`, qui reflète le comportement codé en dur avant cette epic (confirmateur très restreint, dropshipper voit produits/clients/stock mais pas team/finances/dropshipping). Catalogue fixe dans `team.models.PERMISSION_CATALOG` (`orders_view`, `orders_manage`, `complaints_view`, `exchanges_view`, `products_view`, `purchase_prices_view`, `clients_view`, `stock_view`, `store_view`, `shipping_settings_view`, `dropshipping_view`, `finances_view`, `team_view`, `stats_view`, `channels_view`, `marketing_view`, `webhooks_view` — les quatre derniers ajoutés au fil des Epics 8.1 à 8.4, toujours masqués par défaut pour confirmateur/dropshipper). ⚠️ Piège rencontré deux fois (Epics 8.1 et 8.4) : ajouter une nouvelle section owner/admin à la sidebar sans l'intégrer à la matrice de permissions dès le départ (codée en dur `!teamRole || teamRole === 'admin'` à la place) — toujours passer par `can('xxx_view')` côté frontend et `has_permission(request, 'xxx_view')` côté backend pour toute nouvelle section, jamais un check de rôle direct.
 
 **Portée volontairement limitée à la lecture** : ce système ne gate que la *visibilité* (sidebar) et 2 endpoints réels côté serveur — jamais les actions d'écriture (créer/modifier/supprimer restent `is_owner_or_admin` partout, inchangé). Deux enforcements serveur concrets :
 - `purchase_prices_view` : `cost_price` retiré de `ProductSerializer`/`VariantOptionSerializer` (`to_representation`) si absent — donnée jamais gatée avant cette epic
@@ -506,6 +508,26 @@ Architecture complète construite avec des clients **mockés** (`channels/client
 
 **Meta Commerce (US-8.2.2)** traité différemment de Shopify/Google : exposer un flux catalogue ne nécessite **aucune clé API côté vendeur** — Meta vient lire une URL publique périodiquement. `PublicCatalogFeedView` (`GET /api/public/store/<slug>/catalog.xml`, `products/views.py`) génère un flux RSS 2.0 réel avec l'espace de noms `g:` (même schéma que Google Merchant Center, standard partagé avec Meta Catalog) — id, titre, description, lien, image, disponibilité (basée sur `total_stock`/`allow_out_of_stock`), prix (`active_auto_promotion()` appliqué si actif), condition, marque. Cette brique est **réelle et fonctionnelle**, contrairement à Shopify/Google Sheets. L'URL est affichée à copier dans `SalesChannelsPage.jsx` (onglet Meta Commerce).
 
+### `webhooks.WebhookEndpoint` / `webhooks.WebhookLog` / `webhooks.IncomingWebhookKey` (Epic 8.4)
+```
+WebhookEndpoint : store (FK), name, url
+  events (JSONField, liste de clés — vide = tous les événements)
+  secret (généré auto, HMAC-SHA256 du corps envoyé dans le header X-MZ-Signature)
+  is_active, consecutive_failures, last_triggered_at, created_at
+
+WebhookLog : store (FK), endpoint (FK, nullable), direction : outbound | inbound
+  event, payload (JSONField), status_code, status : success | error, message, created_at
+
+IncomingWebhookKey : store (OneToOne), key (généré auto), is_active, created_at
+```
+Contrairement aux canaux de vente de l'Epic 8.2, les webhooks sont **entièrement réels dès cette epic** — pas d'appel à une API tierce nécessitant des identifiants, juste des requêtes HTTP standard vers une URL choisie par le vendeur.
+
+**US-8.4.1 — Sortants** : `webhooks/dispatch.py::fire_event(store, event, payload)` — notifie tous les `WebhookEndpoint` actifs de la boutique abonnés à l'événement (liste `events` vide = abonné à tout), signe le corps en HMAC-SHA256 si un secret est défini, et journalise systématiquement dans `WebhookLog` (succès ou échec, code HTTP, message). **Pause automatique** après `MAX_CONSECUTIVE_FAILURES = 20` échecs consécutifs (`is_active=False`), remis à zéro à chaque succès ou à la réactivation manuelle — évite de marteler indéfiniment une URL morte. Événements déclenchés (`orders/views.py`, catalogue fixe `WEBHOOK_EVENT_CHOICES`) : `order.created` (création, dashboard et boutique publique), `order.confirmed`/`order.shipped`/`order.delivered`/`order.cancelled`/`order.returned` (changement de statut, `OrderStatusView.post`), `order.paid` + `order.confirmed` (webhook Chargily `checkout.paid`). Best-effort partout (`_fire_order_webhook`, `try/except`) — ne bloque jamais le flux de commande. ⚠️ Envoi **synchrone** dans la requête HTTP (pas de file d'attente Celery/RQ dans le projet) — timeout 5s par endpoint ; TBD si ça devient un problème de latence avec beaucoup d'endpoints configurés.
+
+**US-8.4.2 — Entrants** : `IncomingWebhookKey` (une par boutique, générée automatiquement au premier accès via `get_or_create`), authentification par clé dans le chemin de l'URL (`POST /api/public/webhooks/incoming/<key>/`, `PublicIncomingWebhookView`) — même principe qu'un webhook entrant Slack simplifié, pratique pour Zapier/Make/n8n qui collent juste une URL sans configuration d'en-têtes personnalisés. Chaque réception journalisée dans `WebhookLog(direction='inbound')`, clé invalide → 403 sans rien journaliser. Rotation possible (`POST` sur le même endpoint, invalide l'ancienne URL).
+
+`WebhooksPage.jsx` (owner/admin) — tableau des endpoints sortants (statut, compteur d'échecs, dernier déclenchement), modal d'ajout avec cases à cocher d'événements, section webhook entrant (URL à copier + régénération), journal unifié sortant/entrant.
+
 ---
 
 ## API Endpoints (complets — Sprint 1 à 5)
@@ -643,6 +665,16 @@ Commande manuelle par un dropshipper : `POST /api/orders/` accepte désormais au
 | PUT/DELETE | `/api/channels/connections/<id>/` | Oui (owner/admin) | Modifier / déconnecter |
 | POST | `/api/channels/connections/<id>/sync/` | Oui (owner/admin) | Déclenche une synchronisation manuelle (`direction: push\|pull`), journalisée dans `ChannelSyncLog`, met à jour `last_synced_at` |
 | GET | `/api/channels/logs/` | Oui (owner/admin) | Journal de synchronisation (`?channel=`, 100 dernières entrées) |
+
+### Webhooks (Epic 8.4)
+| Méthode | URL | Auth | Description |
+|---|---|---|---|
+| GET | `/api/webhooks/events/` | Oui | Catalogue des événements disponibles (pour peupler le formulaire) |
+| GET/POST | `/api/webhooks/endpoints/` | Oui (owner/admin) | Liste des endpoints sortants / créer (`name`, `url`, `events`, `is_active`) |
+| PUT/DELETE | `/api/webhooks/endpoints/<id>/` | Oui (owner/admin) | Modifier / supprimer un endpoint |
+| GET | `/api/webhooks/logs/` | Oui (owner/admin) | Journal unifié sortant/entrant (`?direction=outbound\|inbound`, 100 dernières entrées) |
+| GET/POST | `/api/webhooks/incoming-key/` | Oui (owner/admin) | Voir la clé entrante (créée au premier accès) / régénérer (rotation) |
+| POST | `/api/public/webhooks/incoming/<key>/` | Non (clé dans l'URL) | Point d'entrée pour outils externes (Zapier/Make/n8n) — journalise dans `WebhookLog(direction='inbound')`, 403 si clé invalide/inactive |
 
 ---
 
@@ -790,9 +822,16 @@ Commande manuelle par un dropshipper : `POST /api/orders/` accepte désormais au
 - Sidebar : "Marketing" (owner/admin, à côté de "Canaux de vente")
 - Testé de bout en bout via `manage.py shell` + requêtes HTTP réelles (création/liste/suppression de pixels, exposition publique filtrée sur `is_active`) + build frontend
 
-### 🔜 Sprint 8 (suite) — Webhooks, abonnement, production
+### ✅ Epic 8.4 — Webhooks (TERMINÉ — branche `epic-8.4-webhooks`)
+- **US-8.4.1 — Webhooks sortants** : `WebhookEndpoint` (URL, événements ciblés, secret HMAC auto-généré), `webhooks/dispatch.py::fire_event()` notifie chaque endpoint abonné, journalise dans `WebhookLog` (AC), et **pause automatiquement** un endpoint après 20 échecs consécutifs. Déclenché depuis `orders/views.py` : `order.created`, `order.confirmed/shipped/delivered/cancelled/returned` (changement de statut), `order.paid` (webhook Chargily). Entièrement réel — pas d'API tierce à mocker, juste des requêtes HTTP standard
+- **US-8.4.2 — Webhooks entrants** : `IncomingWebhookKey` par boutique, authentification par clé dans le chemin de l'URL (`POST /api/public/webhooks/incoming/<key>/`), pratique pour Zapier/Make/n8n. Chaque réception journalisée dans le même `WebhookLog` (`direction='inbound'`)
+- Nouvelle app Django `webhooks/` (même choix d'isolation que `channels/`/`finance/`)
+- **Correction de permissions au passage** : les pages Canaux de vente (Epic 8.2), Marketing (Epic 8.3) et la nouvelle page Webhooks avaient été codées en dur `owner/admin uniquement`, sans passer par la matrice de permissions de l'Epic 7.5 — corrigé en ajoutant `channels_view`/`marketing_view`/`webhooks_view` au catalogue et en réécrivant les checks (`can()` frontend, `has_permission()` backend). `PixelConfigListCreateView`/`PixelConfigDetailView` (stores) étaient même plus permissifs que prévu (`IsOwnerOrAdminForWrites` laissait passer n'importe quel membre en lecture) — resserré à `is_owner_or_admin OR has_permission('marketing_view')`
+- Sidebar : "Webhooks" (piloté par permission, plus par rôle codé en dur)
+- Testé de bout en bout via `manage.py shell` + requêtes HTTP réelles (dispatch mocké en succès/échec, pause auto après 20 échecs, clé entrante valide/invalide, et le nouveau système de permissions : 403 par défaut pour confirmateur sur les 3 features, 200 après octroi via la matrice) + build frontend
+
+### 🔜 Sprint 8 (suite) — Abonnement, production
 - Plans d'abonnement : Starter / Pro / Business (limites TBD)
-- Webhooks sortants (événements boutique vers systèmes tiers)
 - Mise en production (CI/CD, SSL, domaines)
 
 ---

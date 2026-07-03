@@ -6,7 +6,7 @@ from rest_framework.views import APIView
 from .models import Store, StoreSettings, StorePage, MediaFolder, MediaFile, PixelConfig, PIXEL_TYPE_CHOICES
 from .serializers import (StoreSerializer, SubscriptionQuotaSerializer, StoreSettingsSerializer,
                            StorePageSerializer, MediaFolderSerializer, MediaFileSerializer, PixelConfigSerializer)
-from core.permissions import IsOwnerOrAdminForWrites
+from core.permissions import IsOwnerOrAdminForWrites, is_owner_or_admin, has_permission
 
 
 class MyStoreView(APIView):
@@ -233,9 +233,11 @@ class MediaFileDeleteView(APIView):
 # ─── Pixels marketing (Epic 8.3) ──────────────────────────────────────────────
 
 class PixelConfigListCreateView(APIView):
-    permission_classes = [IsAuthenticated, IsOwnerOrAdminForWrites]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        if not (is_owner_or_admin(request) or has_permission(request, 'marketing_view')):
+            return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
         store = _get_store_from_request(request)
         if not store:
             return Response({'detail': 'Accès refusé.'}, status=403)
@@ -246,6 +248,8 @@ class PixelConfigListCreateView(APIView):
         return Response(PixelConfigSerializer(qs, many=True).data)
 
     def post(self, request):
+        if not is_owner_or_admin(request):
+            return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
         store = _get_store_from_request(request)
         if not store:
             return Response({'detail': 'Accès refusé.'}, status=403)
@@ -258,9 +262,11 @@ class PixelConfigListCreateView(APIView):
 
 
 class PixelConfigDetailView(APIView):
-    permission_classes = [IsAuthenticated, IsOwnerOrAdminForWrites]
+    permission_classes = [IsAuthenticated]
 
     def _get(self, request, pk):
+        if not is_owner_or_admin(request):
+            return None, Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
         store = _get_store_from_request(request)
         if not store:
             return None, Response({'detail': 'Accès refusé.'}, status=403)
