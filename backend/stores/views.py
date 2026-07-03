@@ -3,9 +3,10 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Store, StoreSettings, StorePage, MediaFolder, MediaFile, PixelConfig, PIXEL_TYPE_CHOICES
+from .models import Store, StoreSettings, StorePage, MediaFolder, MediaFile, PixelConfig, PIXEL_TYPE_CHOICES, SubscriptionPlan
 from .serializers import (StoreSerializer, SubscriptionQuotaSerializer, StoreSettingsSerializer,
-                           StorePageSerializer, MediaFolderSerializer, MediaFileSerializer, PixelConfigSerializer)
+                           StorePageSerializer, MediaFolderSerializer, MediaFileSerializer, PixelConfigSerializer,
+                           SubscriptionPlanSerializer)
 from core.permissions import IsOwnerOrAdminForWrites, is_owner_or_admin, has_permission
 
 
@@ -288,3 +289,46 @@ class PixelConfigDetailView(APIView):
         if err: return err
         pixel.delete()
         return Response(status=204)
+
+
+# ─── Abonnement (Epic 8.5) ────────────────────────────────────────────────────
+
+class SubscriptionPlanListView(APIView):
+    """Catalogue public (authentifié) des paliers d'abonnement (US-8.5.1)."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        plans = SubscriptionPlan.objects.filter(is_active=True)
+        return Response(SubscriptionPlanSerializer(plans, many=True).data)
+
+
+class SubscribeView(APIView):
+    """Crée un checkout Chargily pour le palier choisi — le quota n'est mis à
+    jour qu'au webhook checkout.paid (paiement réel confirmé), pas ici."""
+    permission_classes = [IsAuthenticated, IsOwnerOrAdminForWrites]
+
+    def post(self, request):
+        store = _get_store_from_request(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+
+        try:
+            plan = SubscriptionPlan.objects.get(id=request.data.get('plan_id'), is_active=True)
+        except SubscriptionPlan.DoesNotExist:
+            return Response({'detail': 'Palier introuvable.'}, status=404)
+
+        billing_cycle = request.data.get('billing_cycle', 'monthly')
+        if billing_cycle not in ('monthly', 'yearly'):
+            return Response({'detail': "billing_cycle doit être 'monthly' ou 'yearly'."}, status=400)
+
+        amount = plan.price_for(billing_cycle)
+        if amount <= 0:
+            return Response({'detail': "Ce palier n'a pas de montant à payer."}, status=400)
+
+        from orders import chargily
+        try:
+            checkout_id, payment_link = chargily.create_subscription_checkout(store, amount, plan.id, billing_cycle)
+        except chargily.ChargilyError as e:
+            return Response({'detail': f"Erreur Chargily : {e}"}, status=502)
+
+        return Response({'payment_url': payment_link, 'checkout_id': checkout_id})

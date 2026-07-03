@@ -27,11 +27,40 @@ def _trial_end():
     return timezone.now() + timedelta(days=30)
 
 
+BILLING_CYCLE_CHOICES = [('monthly', 'Mensuel'), ('yearly', 'Annuel')]
+
+
+class SubscriptionPlan(models.Model):
+    """Palier d'abonnement (Epic 8.5 US-8.5.1) — catalogue global, pas par
+    boutique. Limites/prix volontairement en base (pas codés en dur) pour
+    rester ajustables sans déploiement, l'AC précisant explicitement que les
+    valeurs exactes sont TBD."""
+    name           = models.CharField(max_length=50)
+    orders_limit   = models.PositiveIntegerField(null=True, blank=True, help_text="Vide = illimité")
+    price_monthly  = models.DecimalField(max_digits=10, decimal_places=2)
+    price_yearly   = models.DecimalField(max_digits=10, decimal_places=2)
+    features       = models.JSONField(default=list, help_text="Liste de textes affichés sous le palier")
+    is_active      = models.BooleanField(default=True)
+    order          = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['order']
+
+    def price_for(self, billing_cycle):
+        return self.price_yearly if billing_cycle == 'yearly' else self.price_monthly
+
+    def __str__(self):
+        return self.name
+
+
 class SubscriptionQuota(models.Model):
     store = models.OneToOneField(Store, on_delete=models.CASCADE, related_name='quota')
     orders_limit = models.PositiveIntegerField(default=50)
     orders_used = models.PositiveIntegerField(default=0)
     trial_ends_at = models.DateTimeField(default=_trial_end)
+    plan           = models.ForeignKey(SubscriptionPlan, null=True, blank=True, on_delete=models.SET_NULL, related_name='subscribers')
+    billing_cycle  = models.CharField(max_length=10, choices=BILLING_CYCLE_CHOICES, blank=True)
+    period_end     = models.DateTimeField(null=True, blank=True, help_text="Fin de la période payée en cours (abonnement actif seulement)")
 
     @property
     def orders_remaining(self):
@@ -39,7 +68,11 @@ class SubscriptionQuota(models.Model):
 
     @property
     def is_trial_active(self):
-        return timezone.now() < self.trial_ends_at
+        return self.plan_id is None and timezone.now() < self.trial_ends_at
+
+    @property
+    def is_subscription_active(self):
+        return self.plan_id is not None and self.period_end and timezone.now() < self.period_end
 
     def __str__(self):
         return f"Quota {self.store.name}"

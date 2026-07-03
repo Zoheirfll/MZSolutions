@@ -1140,6 +1140,10 @@ class ChargilyWebhookView(APIView):
         event_type  = payload.get('type', '')
         data        = payload.get('data', {}) or {}
         checkout_id = data.get('id', '')
+        metadata    = data.get('metadata') or {}
+
+        if metadata.get('subscription'):
+            return self._handle_subscription_webhook(event_type, checkout_id, metadata, payload, signature_valid)
 
         order = None
         if checkout_id:
@@ -1211,6 +1215,53 @@ class ChargilyWebhookView(APIView):
                 log.error_message = f"Type d'événement non géré : {event_type}"
                 log.save(update_fields=['status', 'error_message'])
 
+        except Exception as e:
+            log.status = 'error'
+            log.error_message = str(e)
+            log.save(update_fields=['status', 'error_message'])
+
+        return Response(status=200)
+
+    def _handle_subscription_webhook(self, event_type, checkout_id, metadata, payload, signature_valid):
+        """Traite un checkout.paid pour un abonnement (Epic 8.5 US-8.5.1) —
+        upgrade le quota de la boutique (nouveau plan, nouvelle limite,
+        période payée). Toujours 200 + journalisé, même en erreur, même
+        philosophie que le flux commande."""
+        from stores.models import Store, SubscriptionPlan
+        from datetime import timedelta
+
+        store = Store.objects.filter(id=metadata.get('store_id')).first()
+        log = PaymentWebhookLog.objects.create(
+            order=None, event_type=event_type, checkout_id=checkout_id,
+            raw_payload=payload, signature_valid=signature_valid, status='received',
+        )
+        if not store:
+            log.status = 'error'
+            log.error_message = 'Boutique introuvable pour cet abonnement.'
+            log.save(update_fields=['status', 'error_message'])
+            return Response(status=200)
+
+        try:
+            if event_type == 'checkout.paid':
+                plan = SubscriptionPlan.objects.filter(id=metadata.get('plan_id')).first()
+                billing_cycle = metadata.get('billing_cycle', 'monthly')
+                if plan:
+                    quota = store.quota
+                    quota.plan = plan
+                    quota.billing_cycle = billing_cycle
+                    quota.orders_limit = plan.orders_limit if plan.orders_limit is not None else 10**9
+                    quota.orders_used = 0
+                    days = 365 if billing_cycle == 'yearly' else 30
+                    quota.period_end = timezone.now() + timedelta(days=days)
+                    quota.save(update_fields=['plan', 'billing_cycle', 'orders_limit', 'orders_used', 'period_end'])
+                    log.status = 'processed'
+                else:
+                    log.status = 'error'
+                    log.error_message = 'Palier introuvable pour cet abonnement.'
+                log.save(update_fields=['status', 'error_message'])
+            else:
+                log.status = 'processed'
+                log.save(update_fields=['status'])
         except Exception as e:
             log.status = 'error'
             log.error_message = str(e)

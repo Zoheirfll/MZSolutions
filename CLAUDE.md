@@ -104,6 +104,7 @@ pages/PermissionsPage.jsx       — (owner/admin) matrice de permissions par rô
 pages/SalesChannelsPage.jsx     — (owner/admin, ou `channels_view` accordée) Epic 8.2 : onglets Boutiques e-commerce (Shopify)/Google Sheets (connexion + sync push/pull manuels, mockés)/Meta Commerce (URL du flux catalogue réel à copier dans Meta Commerce Manager), journal de synchronisation
 pages/MarketingPixelsPage.jsx   — (owner/admin, ou `marketing_view` accordée) Epic 8.3 : onglets Facebook Pixel/Facebook Catalog (renvoie vers le flux Meta Commerce existant)/TikTok Pixel/Google Tag Manager/Google Analytics — ajout/suppression d'identifiants, plusieurs par type
 pages/WebhooksPage.jsx          — (owner/admin, ou `webhooks_view` accordée) Epic 8.4 : tableau des endpoints sortants (statut, échecs, dernier déclenchement), modal d'ajout avec cases à cocher d'événements, section webhook entrant (URL + régénération de clé), journal unifié
+pages/SubscriptionPage.jsx      — (owner/admin uniquement, comme la matrice de permissions — pas de permission dédiée, décision produit : la facturation reste sensible) Epic 8.5 : toggle mensuel/annuel, 3 cartes de paliers, "Commencer" redirige vers le checkout Chargily
 lib/pixels.js                   — injection des scripts de pixels marketing (Facebook/TikTok/GA/GTM) sur le storefront public + `trackEvent()` pour les événements standards (Epic 8.3)
 pages/StockPage.jsx             — alertes stock bas + réglage seuil, et inventaire complet paginé/recherchable (tout ce que possède la boutique, pas que le stock bas)
 pages/products/ProductsPage.jsx       — liste produits (pagination, recherche)
@@ -192,8 +193,19 @@ is_active, created_at
 store (OneToOne → Store)
 orders_limit (default 50), orders_used (default 0)
 trial_ends_at (default now + 30 jours)
-[computed] orders_remaining, is_trial_active
+plan (FK → SubscriptionPlan, nullable — null = encore en essai), billing_cycle : monthly | yearly
+period_end (fin de la période payée en cours, nullable)
+[computed] orders_remaining, is_trial_active (plan_id est null ET dans la fenêtre d'essai), is_subscription_active
 ```
+
+### `stores.SubscriptionPlan` (Epic 8.5)
+```
+name, orders_limit (nullable = illimité)
+price_monthly, price_yearly, features (JSONField, liste de textes affichés), is_active, order
+```
+Catalogue global de paliers (US-8.5.1) — **en base, pas codé en dur**, l'AC précisant explicitement que les limites/prix exacts restent TBD (facilement ajustables sans déploiement). Semé par une migration de données (`stores/migrations/0009_seed_subscription_plans.py`) avec des valeurs de départ raisonnables pour le marché algérien (Starter 300 commandes/1500 DA, Pro 1000 commandes/4500 DA, Business illimité/9000 DA, prix mensuels) — à ajuster librement depuis l'admin Django, aucune de ces valeurs n'est une décision produit figée.
+
+**Paiement réel via Chargily** (`SubscribeView`, `POST /api/stores/me/subscribe/`) — contrairement à Shopify/Google Sheets (Epic 8.2, mockés), la souscription déclenche un vrai checkout Chargily (déjà intégré et fonctionnel pour les commandes) via `orders/chargily.py::create_subscription_checkout()`, généralisée à partir de `create_checkout(order)` pour accepter un montant + une boutique sans commande. Le quota n'est mis à jour **qu'au webhook `checkout.paid`** (paiement réellement confirmé), jamais à la création du checkout — `ChargilyWebhookView._handle_subscription_webhook()` distingue les webhooks d'abonnement des webhooks de commande via `metadata.subscription` (même endpoint webhook, `/api/public/webhooks/chargily/`, branché en tout début de `post()` avant la logique historique liée aux commandes pour ne rien casser). Upgrade : nouveau `plan`, `orders_limit` du palier, `orders_used` remis à zéro, `period_end` = +30 jours (mensuel) ou +365 jours (annuel).
 
 ### `stores.StoreSettings`
 ```
@@ -556,6 +568,8 @@ Contrairement aux canaux de vente de l'Epic 8.2, les webhooks sont **entièremen
 | PUT/DELETE | `/api/stores/me/carriers/<id>/` | Oui | Modifier (dont `is_default`, `is_active`) / supprimer un compte |
 | GET/POST | `/api/stores/me/pixels/` | Oui | Epic 8.3 — pixels marketing (`?pixel_type=`) — lister / ajouter (`pixel_type`, `pixel_id`, `label`) |
 | PUT/DELETE | `/api/stores/me/pixels/<id>/` | Oui | Modifier / supprimer un pixel |
+| GET | `/api/stores/plans/` | Oui | Epic 8.5 — catalogue des paliers d'abonnement actifs |
+| POST | `/api/stores/me/subscribe/` | Oui (owner/admin) | Crée un checkout Chargily pour le palier choisi (`plan_id`, `billing_cycle`), renvoie `payment_url` — le quota n'est mis à jour qu'au webhook `checkout.paid` |
 
 ### Équipe
 | Méthode | URL | Auth | Description |
@@ -830,8 +844,13 @@ Commande manuelle par un dropshipper : `POST /api/orders/` accepte désormais au
 - Sidebar : "Webhooks" (piloté par permission, plus par rôle codé en dur)
 - Testé de bout en bout via `manage.py shell` + requêtes HTTP réelles (dispatch mocké en succès/échec, pause auto après 20 échecs, clé entrante valide/invalide, et le nouveau système de permissions : 403 par défaut pour confirmateur sur les 3 features, 200 après octroi via la matrice) + build frontend
 
-### 🔜 Sprint 8 (suite) — Abonnement, production
-- Plans d'abonnement : Starter / Pro / Business (limites TBD)
+### ✅ Epic 8.5 — Abonnement et monétisation (TERMINÉ — branche `epic-8.5-abonnement`)
+- **US-8.5.1 — Paliers tarifaires** : `SubscriptionPlan` (Starter/Pro/Business) en base plutôt que codés en dur — limites/prix exacts explicitement TBD dans l'AC, semés via migration de données avec des valeurs de départ ajustables sans déploiement. Paiement **réel** via Chargily (déjà intégré pour les commandes) : `create_subscription_checkout()` généralise `create_checkout(order)` pour accepter boutique + montant sans commande ; le quota n'est upgradé qu'au webhook `checkout.paid` confirmé (jamais à la simple création du checkout), `ChargilyWebhookView` distingue commande/abonnement via `metadata.subscription`. `SubscriptionPage.jsx` — toggle mensuel/annuel, cartes de paliers, "Commencer" redirige vers le paiement Chargily
+- **US-8.5.2 — Suivi du quota d'essai** : le bandeau quota existait déjà sur `Dashboard.jsx` (commandes restantes, jours d'essai, barre de progression) mais seulement sur cette page. Ajout d'une **alerte visuelle persistante** dans `DashboardLayout.jsx` (owner/admin), visible sur tout le dashboard pendant l'essai gratuit (jamais si un abonnement payant est actif), déclenchée à ≥80% du quota consommé ou ≤3 jours restants — avec lien direct vers `/dashboard/abonnement`
+- Sidebar "Abonnement" activée (n'était qu'un `ComingSoon` avant) — restée volontairement owner/admin uniquement, pas de permission dédiée dans la matrice (décision produit : la facturation reste une donnée sensible, même traitement que la page Permissions elle-même)
+- Testé de bout en bout via `manage.py shell` + requêtes HTTP réelles (mock Chargily : catalogue de paliers, création de checkout, webhook `checkout.paid` simulé upgradant effectivement plan/limite/période) + build frontend
+
+### 🔜 Sprint 8 (suite) — Production
 - Mise en production (CI/CD, SSL, domaines)
 
 ---
