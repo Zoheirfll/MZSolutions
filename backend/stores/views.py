@@ -3,9 +3,9 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Store, StoreSettings, StorePage, MediaFolder, MediaFile
+from .models import Store, StoreSettings, StorePage, MediaFolder, MediaFile, PixelConfig, PIXEL_TYPE_CHOICES
 from .serializers import (StoreSerializer, SubscriptionQuotaSerializer, StoreSettingsSerializer,
-                           StorePageSerializer, MediaFolderSerializer, MediaFileSerializer)
+                           StorePageSerializer, MediaFolderSerializer, MediaFileSerializer, PixelConfigSerializer)
 from core.permissions import IsOwnerOrAdminForWrites
 
 
@@ -227,4 +227,58 @@ class MediaFileDeleteView(APIView):
             return Response({'detail': 'Fichier introuvable.'}, status=404)
         mf.file.delete(save=False)
         mf.delete()
+        return Response(status=204)
+
+
+# ─── Pixels marketing (Epic 8.3) ──────────────────────────────────────────────
+
+class PixelConfigListCreateView(APIView):
+    permission_classes = [IsAuthenticated, IsOwnerOrAdminForWrites]
+
+    def get(self, request):
+        store = _get_store_from_request(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        qs = store.pixels.all()
+        pixel_type = request.query_params.get('pixel_type')
+        if pixel_type:
+            qs = qs.filter(pixel_type=pixel_type)
+        return Response(PixelConfigSerializer(qs, many=True).data)
+
+    def post(self, request):
+        store = _get_store_from_request(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        if request.data.get('pixel_type') not in dict(PIXEL_TYPE_CHOICES):
+            return Response({'detail': f"pixel_type invalide. Valeurs : {list(dict(PIXEL_TYPE_CHOICES))}"}, status=400)
+        serializer = PixelConfigSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(store=store)
+        return Response(serializer.data, status=201)
+
+
+class PixelConfigDetailView(APIView):
+    permission_classes = [IsAuthenticated, IsOwnerOrAdminForWrites]
+
+    def _get(self, request, pk):
+        store = _get_store_from_request(request)
+        if not store:
+            return None, Response({'detail': 'Accès refusé.'}, status=403)
+        try:
+            return store.pixels.get(pk=pk), None
+        except PixelConfig.DoesNotExist:
+            return None, Response({'detail': 'Pixel introuvable.'}, status=404)
+
+    def put(self, request, pk):
+        pixel, err = self._get(request, pk)
+        if err: return err
+        serializer = PixelConfigSerializer(pixel, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+    def delete(self, request, pk):
+        pixel, err = self._get(request, pk)
+        if err: return err
+        pixel.delete()
         return Response(status=204)

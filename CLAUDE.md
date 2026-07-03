@@ -101,6 +101,8 @@ pages/StorePage.jsx             — Ma boutique
 pages/TeamPage.jsx              — gestion équipe
 pages/PermissionsPage.jsx       — (owner/admin) matrice de permissions par rôle (Epic 7.5), toggles en direct via `POST /api/team/permissions/`
 pages/SalesChannelsPage.jsx     — (owner/admin) Epic 8.2 : onglets Boutiques e-commerce (Shopify)/Google Sheets (connexion + sync push/pull manuels, mockés)/Meta Commerce (URL du flux catalogue réel à copier dans Meta Commerce Manager), journal de synchronisation
+pages/MarketingPixelsPage.jsx   — (owner/admin) Epic 8.3 : onglets Facebook Pixel/Facebook Catalog (renvoie vers le flux Meta Commerce existant)/TikTok Pixel/Google Tag Manager/Google Analytics — ajout/suppression d'identifiants, plusieurs par type
+lib/pixels.js                   — injection des scripts de pixels marketing (Facebook/TikTok/GA/GTM) sur le storefront public + `trackEvent()` pour les événements standards (Epic 8.3)
 pages/StockPage.jsx             — alertes stock bas + réglage seuil, et inventaire complet paginé/recherchable (tout ce que possède la boutique, pas que le stock bas)
 pages/products/ProductsPage.jsx       — liste produits (pagination, recherche)
 pages/products/ProductFormPage.jsx    — créer/modifier produit (variantes, images, multi-catégories). ⚠️ Le bouton "Ajouter une option" doit toujours envoyer une `value` non vide (le backend rejette `value=''` en 400) — bug déjà rencontré une fois (le clic semblait ne rien faire, erreur avalée silencieusement), corrigé en envoyant `'Nouvelle option'` par défaut
@@ -198,6 +200,20 @@ low_stock_threshold (default 5)
 risk_threshold_orders (default 3) — nb commandes cancelled/returned déclenchant le risque auto
 risk_period_days (default 90) — fenêtre glissante pour le calcul du risque
 ```
+
+### `stores.PixelConfig` (Epic 8.3)
+```
+store (FK), pixel_type : facebook | tiktok | google_analytics | google_tag_manager
+pixel_id, label (optionnel), is_active, created_at
+```
+Identifiants de pixels marketing saisis par le vendeur (US-8.3.1). Plusieurs entrées possibles par type (ex: deux comptes publicitaires Facebook), pas de contrainte unique. Contrairement aux canaux de vente de l'Epic 8.2, **aucune clé API serveur n'est nécessaire** — ce sont de purs identifiants injectés dans des scripts client qui communiquent directement avec chaque plateforme depuis le navigateur, donc **entièrement fonctionnel dès cette epic**, pas de mock. Le catalogue Facebook (Meta Commerce) n'a pas d'entrée ici, c'est le flux `/api/public/store/<slug>/catalog.xml` de l'Epic 8.2 (aucun identifiant à saisir) — `MarketingPixelsPage.jsx` renvoie simplement vers cette même URL sous l'onglet "Facebook Catalog", pas de logique dupliquée.
+
+**Exposition publique** : `PublicStoreView` (`GET /api/public/store/<slug>/`) inclut désormais `pixels: [{pixel_type, pixel_id}, ...]` (uniquement `is_active=True`) — c'est ce que le storefront utilise pour savoir quels scripts charger.
+
+**Injection et événements standards (US-8.3.2, `frontend/src/lib/pixels.js`)** :
+- `loadPixelScripts(slug, pixels)` — injecte les scripts officiels (Facebook Pixel, TikTok Pixel, gtag.js pour Google Analytics, GTM) une seule fois par boutique, appelée depuis `StorefrontLayout.jsx` après le fetch de la boutique
+- `trackEvent(eventName, params)` — mappe nos noms internes (`PageView`, `AddToCart`, `InitiateCheckout`, `Purchase`) vers le nom attendu par chaque plateforme (conventions différentes : Facebook/TikTok en PascalCase, GA4 en snake_case) et pousse l'événement à chaque script chargé
+- Déclenché en temps réel à l'action client : `PageView` à chaque changement de route dans `StorefrontLayout.jsx` ; `AddToCart` dans `handleAddToCart`/`handleBuyNow` de `StorefrontProductPage.jsx` ; `InitiateCheckout` au montage de `CheckoutPage.jsx` si le panier n'est pas vide ; `Purchase` juste après la création réussie de la commande (avant la redirection Chargily le cas échéant, pour ne pas perdre l'attribution)
 
 ### `team.TeamMember`
 ```
@@ -516,6 +532,8 @@ Architecture complète construite avec des clients **mockés** (`channels/client
 | GET/PUT | `/api/stores/me/settings/` | Oui | Paramètres (low_stock_threshold) |
 | GET/POST | `/api/stores/me/carriers/` | Oui | Comptes transporteurs (Yalidine/ZR Express) — lister / créer |
 | PUT/DELETE | `/api/stores/me/carriers/<id>/` | Oui | Modifier (dont `is_default`, `is_active`) / supprimer un compte |
+| GET/POST | `/api/stores/me/pixels/` | Oui | Epic 8.3 — pixels marketing (`?pixel_type=`) — lister / ajouter (`pixel_type`, `pixel_id`, `label`) |
+| PUT/DELETE | `/api/stores/me/pixels/<id>/` | Oui | Modifier / supprimer un pixel |
 
 ### Équipe
 | Méthode | URL | Auth | Description |
@@ -765,9 +783,16 @@ Commande manuelle par un dropshipper : `POST /api/orders/` accepte désormais au
 - Sidebar : "Canaux de vente" (owner/admin uniquement, comme "Permissions par rôle")
 - Testé de bout en bout via `manage.py shell` + requêtes HTTP réelles (connexion, sync push/pull manuels avec journal, hook automatique de sync stock à la création de commande, flux XML catalogue avec vraies données produit)
 
-### 🔜 Sprint 8 (suite) — Marketing, webhooks, abonnement
+### ✅ Epic 8.3 — Marketing et pixels (TERMINÉ — branche `epic-8.3-marketing-pixels`)
+- **US-8.3.1 — Configuration des pixels** : `stores.PixelConfig` (Facebook/TikTok/Google Analytics/Google Tag Manager), plusieurs identifiants possibles par type, configurés par boutique via `MarketingPixelsPage.jsx` (onglets, comme la référence RiseCart). L'onglet "Facebook Catalog" ne duplique rien — il renvoie vers le flux Meta Commerce déjà construit à l'Epic 8.2
+- **US-8.3.2 — Envoi des événements standards** : contrairement à Shopify/Google Sheets (Epic 8.2, mockés faute d'accès API), cette intégration **ne nécessite aucune clé API serveur** — ce sont des scripts client qui parlent directement à chaque plateforme depuis le navigateur, donc **implémenté réellement et fonctionnel** dès cette epic. `lib/pixels.js` injecte les scripts officiels (une fois par boutique) et expose `trackEvent()`, qui mappe nos noms d'événements internes vers la convention de chaque plateforme (PascalCase Facebook/TikTok vs snake_case GA4). Événements déclenchés en temps réel : `PageView` (changement de route), `AddToCart` (ajout panier/achat immédiat), `InitiateCheckout` (arrivée sur le tunnel), `Purchase` (commande créée avec succès, avant la redirection Chargily le cas échéant)
+- `PublicStoreView` expose désormais `pixels: [{pixel_type, pixel_id}]` (actifs uniquement) pour que le storefront sache quoi charger
+- Sidebar : "Marketing" (owner/admin, à côté de "Canaux de vente")
+- Testé de bout en bout via `manage.py shell` + requêtes HTTP réelles (création/liste/suppression de pixels, exposition publique filtrée sur `is_active`) + build frontend
+
+### 🔜 Sprint 8 (suite) — Webhooks, abonnement, production
 - Plans d'abonnement : Starter / Pro / Business (limites TBD)
-- Pixels Meta/Google Analytics, publicités Facebook Leads
+- Webhooks sortants (événements boutique vers systèmes tiers)
 - Mise en production (CI/CD, SSL, domaines)
 
 ---

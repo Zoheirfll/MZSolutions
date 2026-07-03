@@ -4,6 +4,7 @@ import StorefrontLayout from './StorefrontLayout'
 import Select from '../../components/Select'
 import publicApi from '../../api/publicApi'
 import { useCart } from '../../context/CartContext'
+import { trackEvent } from '../../lib/pixels'
 import { WILAYAS } from '../../data/wilayas'
 import { theme } from '../../theme'
 
@@ -94,6 +95,17 @@ export default function CheckoutPage() {
   const discountAmount = appliedPromo ? Number(appliedPromo.discount_amount) : 0
   const total = subtotal - discountAmount
 
+  // InitiateCheckout (US-8.3.2) — une fois par arrivée sur le tunnel avec un panier non vide
+  useEffect(() => {
+    if (cartItems.length > 0) {
+      trackEvent('InitiateCheckout', {
+        value: subtotal, currency: 'DZD', num_items: cartItems.length,
+        content_ids: cartItems.map(i => i.product),
+      })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const applyPromo = async () => {
     if (!promoCode.trim()) return
     setCheckingPromo(true)
@@ -148,6 +160,10 @@ export default function CheckoutPage() {
         payment_method: paymentMethod,
         items: cartItems.map(({ _key, image_url, ...i }) => i),
         promo_code: appliedPromo?.code || undefined,
+      })
+      trackEvent('Purchase', {
+        value: total, currency: 'DZD', order_id: data.id,
+        content_ids: cartItems.map(i => i.product), num_items: cartItems.length,
       })
       if (data.payment_url) {
         clearCart(slug)

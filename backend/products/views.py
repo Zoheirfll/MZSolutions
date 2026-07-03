@@ -831,6 +831,7 @@ class PublicStoreView(APIView):
             theme = {'template': 'violet', 'primary': '', 'secondary': '', 'font': 'inter'}
             menu_items = []
         pages = list(store.pages.filter(is_published=True).values('id', 'title', 'slug', 'page_type', 'order'))
+        pixels = list(store.pixels.filter(is_active=True).values('pixel_type', 'pixel_id'))
         return Response({
             'name':        store.name,
             'slug':        store.slug,
@@ -841,6 +842,7 @@ class PublicStoreView(APIView):
             'theme':       theme,
             'menu_items':  menu_items,
             'pages':       pages,
+            'pixels':      pixels,
         })
 
 
