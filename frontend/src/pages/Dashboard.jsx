@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { Package, CheckCircle2, Truck, Clock, PackageCheck, RotateCcw, XCircle, ExternalLink, LineChart } from 'lucide-react'
 import DashboardLayout from '../components/DashboardLayout'
@@ -19,6 +20,7 @@ const STAT_DEFS = [
 
 export default function Dashboard() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [quota, setQuota] = useState(null)
   const [stats, setStats] = useState(null)
   const [chartData, setChartData] = useState([])
@@ -102,7 +104,7 @@ export default function Dashboard() {
                 <span className={`w-1.5 h-1.5 rounded-full ${quota.is_trial_active ? 'bg-emerald-400' : 'bg-red-400'}`} />
                 {quota.is_trial_active ? 'Essai actif' : 'Expiré'}
               </span>
-              <button className={theme.btn.primary}>Mettre à niveau</button>
+              <button onClick={() => navigate('/dashboard/abonnement')} className={theme.btn.primary}>Mettre à niveau</button>
             </div>
           </div>
         </div>

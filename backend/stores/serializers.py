@@ -1,5 +1,12 @@
 from rest_framework import serializers
-from .models import Store, SubscriptionQuota, StoreSettings, StorePage, MediaFolder, MediaFile, PixelConfig, PIXEL_TYPE_CHOICES
+from .models import (Store, SubscriptionQuota, SubscriptionPlan, StoreSettings, StorePage,
+                      MediaFolder, MediaFile, PixelConfig, PIXEL_TYPE_CHOICES)
+
+
+class SubscriptionPlanSerializer(serializers.ModelSerializer):
+    class Meta:
+        model  = SubscriptionPlan
+        fields = ['id', 'name', 'orders_limit', 'price_monthly', 'price_yearly', 'features', 'order']
 
 
 class PixelConfigSerializer(serializers.ModelSerializer):
@@ -17,10 +24,13 @@ class PixelConfigSerializer(serializers.ModelSerializer):
 class SubscriptionQuotaSerializer(serializers.ModelSerializer):
     orders_remaining = serializers.ReadOnlyField()
     is_trial_active = serializers.ReadOnlyField()
+    is_subscription_active = serializers.ReadOnlyField()
+    plan = SubscriptionPlanSerializer(read_only=True)
 
     class Meta:
         model = SubscriptionQuota
-        fields = ['orders_limit', 'orders_used', 'orders_remaining', 'trial_ends_at', 'is_trial_active']
+        fields = ['orders_limit', 'orders_used', 'orders_remaining', 'trial_ends_at', 'is_trial_active',
+                  'plan', 'billing_cycle', 'period_end', 'is_subscription_active']
 
 
 class StoreSettingsSerializer(serializers.ModelSerializer):

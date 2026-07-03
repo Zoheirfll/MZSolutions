@@ -11,6 +11,7 @@ import PermissionsPage from './pages/PermissionsPage'
 import SalesChannelsPage from './pages/SalesChannelsPage'
 import MarketingPixelsPage from './pages/MarketingPixelsPage'
 import WebhooksPage from './pages/WebhooksPage'
+import SubscriptionPage from './pages/SubscriptionPage'
 import AcceptInvitation from './pages/AcceptInvitation'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
@@ -146,7 +147,7 @@ function App() {
           <Route path="/dashboard/stats/sources"             element={<PD><SourceStatsPage /></PD>} />
           <Route path="/dashboard/equipe"                    element={<PD><TeamPage /></PD>} />
           <Route path="/dashboard/equipe/permissions"        element={<PD><PermissionsPage /></PD>} />
-          <Route path="/dashboard/abonnement"                element={<PD><ComingSoon title="Abonnement" /></PD>} />
+          <Route path="/dashboard/abonnement"                element={<PD><SubscriptionPage /></PD>} />
 
           <Route path="*" element={<Navigate to="/auth" replace />} />
         </Routes>

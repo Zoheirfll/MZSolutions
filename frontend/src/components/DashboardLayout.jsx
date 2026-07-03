@@ -122,12 +122,20 @@ export default function DashboardLayout({ children, title }) {
   const [openComplaintsCount, setOpenComplaintsCount] = useState(0)
   const [openExchangesCount, setOpenExchangesCount] = useState(0)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
+  const [quota, setQuota] = useState(null)
 
   useEffect(() => {
     api.get('/products/low-stock/').then(({ data }) => setLowStockCount(data.count)).catch(() => {})
     api.get('/orders/complaints/?status=open&per_page=1').then(({ data }) => setOpenComplaintsCount(data.count)).catch(() => {})
     api.get('/orders/exchanges/?status=open&per_page=1').then(({ data }) => setOpenExchangesCount(data.count)).catch(() => {})
+    api.get('/stores/me/quota/').then(({ data }) => setQuota(data)).catch(() => {})
   }, [])
+
+  // Alerte visuelle à l'approche de la limite (US-8.5.2) — essai gratuit
+  // uniquement (un abonnement payant actif n'affiche pas cette alerte).
+  const daysLeft = quota ? Math.max(0, Math.ceil((new Date(quota.trial_ends_at) - new Date()) / 86400000)) : null
+  const usedPct  = quota && quota.orders_limit ? Math.round((quota.orders_used / quota.orders_limit) * 100) : 0
+  const showQuotaAlert = quota && !quota.plan && (usedPct >= 80 || (daysLeft !== null && daysLeft <= 3))
 
   const handleLogout = () => { logout(); navigate('/auth') }
   const initials = `${user?.first_name?.[0] ?? ''}${user?.last_name?.[0] ?? ''}`.toUpperCase()
@@ -445,8 +453,8 @@ export default function DashboardLayout({ children, title }) {
                 {(!teamRole || teamRole === 'admin') && (
                   <li>{mainLink('/dashboard/equipe/permissions', ICONS.team, 'Permissions par rôle')}</li>
                 )}
-                {!['confirmateur', 'dropshipper'].includes(teamRole) && (
-                  <li>{disabled(ICONS.subscription, 'Abonnement')}</li>
+                {(!teamRole || teamRole === 'admin') && (
+                  <li>{mainLink('/dashboard/abonnement', ICONS.subscription, 'Abonnement')}</li>
                 )}
               </ul>
             </div>
@@ -510,6 +518,22 @@ export default function DashboardLayout({ children, title }) {
             </a>
           </div>
         </header>
+        {showQuotaAlert && (!teamRole || teamRole === 'admin') && (
+          <div className="flex items-center justify-between gap-3 px-5 sm:px-8 py-2.5 text-sm shrink-0"
+            style={{ background: '#3b0f0f', borderBottom: '1px solid #7f1d1d' }}>
+            <span className="text-red-200">
+              {usedPct >= 80 && daysLeft !== null && daysLeft <= 3
+                ? `Essai gratuit : ${quota.orders_remaining} commande${quota.orders_remaining !== 1 ? 's' : ''} restante${quota.orders_remaining !== 1 ? 's' : ''}, se termine dans ${daysLeft} jour${daysLeft !== 1 ? 's' : ''}.`
+                : usedPct >= 80
+                ? `Essai gratuit : plus que ${quota.orders_remaining} commande${quota.orders_remaining !== 1 ? 's' : ''} sur ${quota.orders_limit}.`
+                : `Essai gratuit : se termine dans ${daysLeft} jour${daysLeft !== 1 ? 's' : ''}.`}
+            </span>
+            <button onClick={() => navigate('/dashboard/abonnement')}
+              className="px-3 py-1 rounded-lg text-xs font-semibold bg-white text-red-900 hover:bg-red-100 transition cursor-pointer shrink-0">
+              Mettre à niveau
+            </button>
+          </div>
+        )}
         <main className="flex-1 overflow-y-auto overflow-x-hidden p-5 sm:p-8">{children}</main>
       </div>
     </div>
