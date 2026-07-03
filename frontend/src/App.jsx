@@ -51,6 +51,8 @@ import DropshippersPage from './pages/dropshipping/DropshippersPage'
 import DropshipperDetailPage from './pages/dropshipping/DropshipperDetailPage'
 import DropshipperMyProductsPage from './pages/dropshipping/DropshipperMyProductsPage'
 import DropshipperMyEarningsPage from './pages/dropshipping/DropshipperMyEarningsPage'
+import CostsPage from './pages/finance/CostsPage'
+import ProfitabilityPage from './pages/finance/ProfitabilityPage'
 
 function PD({ children }) {
   return <PrivateRoute>{children}</PrivateRoute>
@@ -115,6 +117,8 @@ function App() {
           <Route path="/dashboard/dropshipping/:id"           element={<PD><DropshipperDetailPage /></PD>} />
           <Route path="/dashboard/mes-produits"               element={<PD><DropshipperMyProductsPage /></PD>} />
           <Route path="/dashboard/mes-commissions"            element={<PD><DropshipperMyEarningsPage /></PD>} />
+          <Route path="/dashboard/finances/couts"             element={<PD><CostsPage /></PD>} />
+          <Route path="/dashboard/finances/rentabilite"       element={<PD><ProfitabilityPage /></PD>} />
           <Route path="/dashboard/expeditions"               element={<PD><ComingSoon title="Expéditions & Retours" /></PD>} />
           <Route path="/dashboard/stats"                     element={<PD><ComingSoon title="Statistiques" /></PD>} />
           <Route path="/dashboard/equipe"                    element={<PD><TeamPage /></PD>} />
