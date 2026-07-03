@@ -96,6 +96,7 @@ pages/Auth.jsx                  — login/inscription (split layout)
 pages/Dashboard.jsx             — tableau de bord vendeur
 pages/StorePage.jsx             — Ma boutique
 pages/TeamPage.jsx              — gestion équipe
+pages/PermissionsPage.jsx       — (owner/admin) matrice de permissions par rôle (Epic 7.5), toggles en direct via `POST /api/team/permissions/`
 pages/StockPage.jsx             — alertes stock bas + réglage seuil, et inventaire complet paginé/recherchable (tout ce que possède la boutique, pas que le stock bas)
 pages/products/ProductsPage.jsx       — liste produits (pagination, recherche)
 pages/products/ProductFormPage.jsx    — créer/modifier produit (variantes, images, multi-catégories). ⚠️ Le bouton "Ajouter une option" doit toujours envoyer une `value` non vide (le backend rejette `value=''` en 400) — bug déjà rencontré une fois (le clic semblait ne rien faire, erreur avalée silencieusement), corrigé en envoyant `'Nouvelle option'` par défaut
@@ -193,6 +194,19 @@ first_name, last_name, email, phone
 invite_token (auto-généré), is_active, invited_at, activated_at
 wilaya, commune, address (extras dropshipper)
 ```
+
+### `team.RolePermission` (Epic 7.5)
+```
+store (FK), role : admin | confirmateur | dropshipper
+permission (clé du catalogue fixe), enabled
+```
+Système de permissions **par rôle** (pas par membre individuel — décision produit, plus simple à gérer et suffisant pour "chaque rôle a son layout"). Seuls les **overrides explicites** sont stockés (`unique_together (store, role, permission)`) — l'absence de ligne retombe sur `team.models.DEFAULT_PERMISSIONS[role]`, qui reflète le comportement codé en dur avant cette epic (confirmateur très restreint, dropshipper voit produits/clients/stock mais pas team/finances/dropshipping). Catalogue fixe dans `team.models.PERMISSION_CATALOG` (`orders_view`, `orders_manage`, `complaints_view`, `exchanges_view`, `products_view`, `purchase_prices_view`, `clients_view`, `stock_view`, `store_view`, `shipping_settings_view`, `dropshipping_view`, `finances_view`, `team_view`).
+
+**Portée volontairement limitée à la lecture** : ce système ne gate que la *visibilité* (sidebar) et 2 endpoints réels côté serveur — jamais les actions d'écriture (créer/modifier/supprimer restent `is_owner_or_admin` partout, inchangé). Deux enforcements serveur concrets :
+- `purchase_prices_view` : `cost_price` retiré de `ProductSerializer`/`VariantOptionSerializer` (`to_representation`) si absent — donnée jamais gatée avant cette epic
+- `dropshipping_view` / `finances_view` : `DropshipperListView.get`/`DropshipperDetailView.get` et `CostListCreateView.get`/`ProfitabilityView.get`/`ProfitabilitySummaryView.get` acceptent `is_owner_or_admin(request) OR has_permission(request, key)` — permet au vendeur d'élever un confirmateur/dropshipper en lecture seule sur ces sections normalement owner/admin-only
+
+`core.permissions.has_permission(request, key)` / `get_effective_permissions(request)` — l'owner (pas de `team_membership`) a toujours accès total, non configurable. `UserSerializer` (`/api/auth/me/`) expose `permissions: {clé: bool}` calculées côté serveur pour l'utilisateur courant — le frontend (`DashboardLayout.jsx`) pilote désormais la sidebar via `user.permissions` plutôt que des conditions `teamRole === '...'` codées en dur (celles-ci subsistent uniquement pour ce qui est lié à l'identité, pas configurable : pages propres au dropshipper, qui gère l'équipe).
 
 ### `products.Category`
 ```
@@ -481,6 +495,7 @@ Dans les deux cas, seules les commandes **actuellement** au statut `delivered` c
 | GET | `/api/team/members/` | Oui | Liste membres (`?role=`) |
 | PUT/DELETE | `/api/team/members/<id>/` | Oui | Modifier rôle / désactiver |
 | GET/POST | `/api/team/accept-invitation/` | Non | Vérifie token / active compte |
+| GET/POST | `/api/team/permissions/` | Oui (owner/admin) | Matrice de permissions par rôle (Epic 7.5) — GET catalogue+valeurs effectives, POST upsert un toggle (`role`, `permission`, `enabled`) |
 
 ### Produits
 | Méthode | URL | Auth | Description |
@@ -680,8 +695,13 @@ Commande manuelle par un dropshipper : `POST /api/orders/` accepte désormais au
 - Sidebar : section "Finances" (owner/admin uniquement) → Rentabilité / Coûts
 - Testé de bout en bout via `manage.py shell` + requêtes HTTP réelles (3 commandes livrées sur 3 canaux différents, coûts operational/marketing, vérification des totaux revenus/coût produit/commission/coûts/profit net et des ventilations par produit et par source) + build frontend
 
-### 🔜 Sprint 7 (suite) — Permissions
-- Permissions avancées par rôle
+### ✅ Epic 7.5 — Permissions avancées par rôle (TERMINÉ — branche `epic-7.5-permissions`)
+- Matrice de permissions **par rôle** (admin/confirmateur/dropshipper), pas par membre individuel (décision produit : "chaque rôle a son layout", plus simple à gérer). `team.RolePermission` stocke uniquement les overrides ; `team.models.DEFAULT_PERMISSIONS` reflète le comportement précédent (codé en dur avant cette epic) comme valeur par défaut
+- Catalogue fixe de 12 permissions (`team.models.PERMISSION_CATALOG`) couvrant les sections principales de la sidebar + une nouveauté : `purchase_prices_view` (les prix d'achat/coûts n'étaient gatés nulle part avant)
+- **Portée volontairement limitée à la lecture** — les actions d'écriture (créer/modifier/supprimer) restent réservées owner/admin partout, inchangé (`is_owner_or_admin`). Deux enforcements serveur réels : `cost_price` retiré de `ProductSerializer`/`VariantOptionSerializer` sans `purchase_prices_view` ; `dropshipping_view`/`finances_view` permettent d'élever un confirmateur/dropshipper en lecture seule sur les vues Dropshipping/Finances normalement owner/admin-only (`is_owner_or_admin(request) OR has_permission(request, key)`)
+- `UserSerializer` (`/api/auth/me/`) expose `permissions: {clé: bool}` — `DashboardLayout.jsx` refactorisé pour piloter la sidebar via `user.permissions` plutôt que des `teamRole === '...'` codés en dur (ce qui reste identitaire — pages propres au dropshipper, qui gère l'équipe — n'est pas passé par le catalogue)
+- `PermissionsPage.jsx` (owner/admin, `/dashboard/equipe/permissions`) — matrice de toggles, sauvegarde immédiate par case via `POST /api/team/permissions/`
+- Testé de bout en bout via `manage.py shell` + requêtes HTTP réelles (permissions par défaut d'un confirmateur, `cost_price` masqué/visible selon le rôle, 403 puis 200 sur Finances après octroi de `finances_view`, écriture toujours bloquée malgré l'octroi de la vue, matrice elle-même inaccessible à un non-admin) + build frontend
 
 ### 🔜 Sprint 8 — Abonnements, Shopify Sync & Production
 - Plans d'abonnement : Starter / Pro / Business (limites TBD)

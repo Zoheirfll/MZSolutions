@@ -8,6 +8,17 @@ def _abs_url(request, file_field):
     return None
 
 
+def _can_view_purchase_prices(context):
+    """Masque cost_price (prix d'achat) si l'utilisateur n'a pas la
+    permission 'purchase_prices_view' (Epic 7.5) — donnée sensible jamais
+    gatée avant cette epic."""
+    request = context.get('request')
+    if not request:
+        return True
+    from core.permissions import has_permission
+    return has_permission(request, 'purchase_prices_view')
+
+
 class CategorySerializer(serializers.ModelSerializer):
     children_count = serializers.SerializerMethodField()
     image_url      = serializers.SerializerMethodField()
@@ -43,6 +54,12 @@ class VariantOptionSerializer(serializers.ModelSerializer):
         fields = ['id', 'value', 'price', 'cost_price', 'stock', 'sku',
                   'image', 'image_url', 'allow_out_of_stock', 'is_active', 'order']
         read_only_fields = ['id']
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if not _can_view_purchase_prices(self.context):
+            data.pop('cost_price', None)
+        return data
 
     def get_image_url(self, obj):
         return _abs_url(self.context.get('request'), obj.image)
@@ -183,6 +200,12 @@ class ProductSerializer(serializers.ModelSerializer):
 
     def get_total_stock(self, obj):
         return obj.total_stock
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if not _can_view_purchase_prices(self.context):
+            data.pop('cost_price', None)
+        return data
 
     def validate(self, data):
         store    = self.context.get('store')

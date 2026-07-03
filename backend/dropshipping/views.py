@@ -4,7 +4,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from core.permissions import is_owner_or_admin
+from core.permissions import is_owner_or_admin, has_permission
 from products.models import Product
 from team.models import TeamMember
 from .models import DropshipperProduct, Commission, CommissionEntry, CommissionPayment
@@ -170,7 +170,7 @@ class DropshipperListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        if not is_owner_or_admin(request):
+        if not (is_owner_or_admin(request) or has_permission(request, 'dropshipping_view')):
             return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
         store = _get_store(request)
         members = store.team_members.filter(role='dropshipper', is_active=True)
@@ -200,7 +200,7 @@ class DropshipperDetailView(APIView):
             if str(membership.pk) != str(pk):
                 return None, None, Response({'detail': 'Accès refusé.'}, status=403)
             return store, membership, None
-        if is_owner_or_admin(request):
+        if is_owner_or_admin(request) or has_permission(request, 'dropshipping_view'):
             try:
                 return store, store.team_members.get(pk=pk, role='dropshipper'), None
             except TeamMember.DoesNotExist:
