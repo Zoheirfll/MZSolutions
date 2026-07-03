@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Category, Product, ProductImage, ProductVariant, VariantOption, Supplier, SupplierCredit, SupplierPayment, ProductReview
+from .models import Category, Product, ProductImage, ProductVariant, VariantOption, Supplier, SupplierCredit, SupplierPayment, ProductReview, Promotion
 
 
 def _abs_url(request, file_field):
@@ -144,6 +144,7 @@ class ProductSerializer(serializers.ModelSerializer):
     supplier_name  = serializers.SerializerMethodField()
     sold_count     = serializers.SerializerMethodField()
     total_stock    = serializers.SerializerMethodField()
+    active_promotion = serializers.SerializerMethodField()
 
     class Meta:
         model  = Product
@@ -153,11 +154,24 @@ class ProductSerializer(serializers.ModelSerializer):
             'categories', 'category_names', 'supplier', 'supplier_name',
             'free_shipping', 'allow_out_of_stock', 'drop_shipping',
             'is_active', 'created_at', 'images', 'variants', 'sold_count',
+            'active_promotion',
         ]
         read_only_fields = ['id', 'created_at']
 
     def get_category_names(self, obj):
         return [c.name for c in obj.categories.all()]
+
+    def get_active_promotion(self, obj):
+        promo = obj.active_auto_promotion()
+        if not promo:
+            return None
+        discounted_price = obj.price - promo.compute_discount(obj.price)
+        return {
+            'name': promo.name,
+            'discount_type': promo.discount_type,
+            'discount_value': str(promo.discount_value),
+            'discounted_price': str(discounted_price),
+        }
 
     def get_supplier_name(self, obj):
         if obj.supplier:
@@ -180,4 +194,50 @@ class ProductSerializer(serializers.ModelSerializer):
                 qs = qs.exclude(pk=instance.pk)
             if qs.exists():
                 raise serializers.ValidationError({'sku': 'Ce SKU est déjà utilisé dans cette boutique.'})
+        return data
+
+
+class PromotionSerializer(serializers.ModelSerializer):
+    products   = serializers.PrimaryKeyRelatedField(many=True, queryset=Product.objects.all(), required=False)
+    categories = serializers.PrimaryKeyRelatedField(many=True, queryset=Category.objects.all(), required=False)
+    product_names   = serializers.SerializerMethodField()
+    category_names  = serializers.SerializerMethodField()
+
+    class Meta:
+        model  = Promotion
+        fields = ['id', 'name', 'kind', 'code', 'discount_type', 'discount_value',
+                  'starts_at', 'ends_at', 'max_uses', 'uses_count', 'is_active',
+                  'products', 'product_names', 'categories', 'category_names', 'created_at']
+        read_only_fields = ['id', 'uses_count', 'created_at']
+
+    def get_product_names(self, obj):
+        return [p.name for p in obj.products.all()]
+
+    def get_category_names(self, obj):
+        return [c.name for c in obj.categories.all()]
+
+    def validate(self, data):
+        kind = data.get('kind', getattr(self.instance, 'kind', None))
+        code = data.get('code', getattr(self.instance, 'code', ''))
+        products   = data.get('products',   getattr(self.instance, 'products',   None))
+        categories = data.get('categories', getattr(self.instance, 'categories', None))
+
+        if kind == 'code':
+            if not code:
+                raise serializers.ValidationError({'code': 'Le code est requis pour un code promo.'})
+            data['code'] = code.strip().upper()
+        elif kind == 'auto':
+            has_products   = products.exists() if hasattr(products, 'exists') else bool(products)
+            has_categories = categories.exists() if hasattr(categories, 'exists') else bool(categories)
+            if not has_products and not has_categories:
+                raise serializers.ValidationError('Sélectionnez au moins un produit ou une catégorie pour une offre automatique.')
+
+        store    = self.context.get('store')
+        instance = self.instance
+        if store and kind == 'code' and data.get('code'):
+            qs = Promotion.objects.filter(store=store, kind='code', code=data['code'])
+            if instance:
+                qs = qs.exclude(pk=instance.pk)
+            if qs.exists():
+                raise serializers.ValidationError({'code': 'Ce code est déjà utilisé dans cette boutique.'})
         return data

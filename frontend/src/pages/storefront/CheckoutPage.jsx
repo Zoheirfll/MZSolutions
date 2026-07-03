@@ -85,7 +85,37 @@ export default function CheckoutPage() {
   const [saving,        setSaving]        = useState(false)
   const [error,         setError]         = useState('')
   const [confirmedId,   setConfirmedId]   = useState(null)
+  const [promoCode,     setPromoCode]     = useState('')
+  const [appliedPromo,  setAppliedPromo]  = useState(null)
+  const [promoError,    setPromoError]    = useState('')
+  const [checkingPromo, setCheckingPromo] = useState(false)
   const abandonedTimerRef = useRef(null)
+
+  const discountAmount = appliedPromo ? Number(appliedPromo.discount_amount) : 0
+  const total = subtotal - discountAmount
+
+  const applyPromo = async () => {
+    if (!promoCode.trim()) return
+    setCheckingPromo(true)
+    setPromoError('')
+    try {
+      const { data } = await publicApi.post(`/store/${slug}/promo/${encodeURIComponent(promoCode.trim())}/`, {
+        items: cartItems.map(({ _key, image_url, ...i }) => i),
+      })
+      setAppliedPromo(data)
+    } catch (err) {
+      setAppliedPromo(null)
+      setPromoError(err.response?.data?.detail || 'Code promo invalide.')
+    } finally {
+      setCheckingPromo(false)
+    }
+  }
+
+  const removePromo = () => {
+    setAppliedPromo(null)
+    setPromoCode('')
+    setPromoError('')
+  }
 
   // Debounce : sauvegarde le panier abandonné 2s après que le téléphone est rempli
   useEffect(() => {
@@ -117,6 +147,7 @@ export default function CheckoutPage() {
         note,
         payment_method: paymentMethod,
         items: cartItems.map(({ _key, image_url, ...i }) => i),
+        promo_code: appliedPromo?.code || undefined,
       })
       if (data.payment_url) {
         clearCart(slug)
@@ -281,14 +312,44 @@ export default function CheckoutPage() {
           <div className="w-full lg:w-72 shrink-0 lg:sticky lg:top-24">
             <div className={theme.panel}>
               <h2 className="font-semibold text-gray-900 mb-4 text-center">Résumé</h2>
+
+              {/* Code promo */}
+              <div className="mb-4">
+                {appliedPromo ? (
+                  <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-200">
+                    <span className="text-sm text-emerald-700 font-medium">Code {appliedPromo.code} appliqué</span>
+                    <button type="button" onClick={removePromo} className="text-xs text-emerald-600 hover:text-emerald-800 underline cursor-pointer">Retirer</button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <input
+                      value={promoCode}
+                      onChange={e => setPromoCode(e.target.value.toUpperCase())}
+                      placeholder="Code promo"
+                      className={`${theme.input} flex-1`}
+                    />
+                    <button type="button" onClick={applyPromo} disabled={checkingPromo || !promoCode.trim()} className={`${theme.btn.outline} shrink-0 disabled:opacity-50`}>
+                      {checkingPromo ? '…' : 'Appliquer'}
+                    </button>
+                  </div>
+                )}
+                {promoError && <p className={theme.errorText}>{promoError}</p>}
+              </div>
+
               <div className="space-y-2 mb-4 text-sm">
                 <div className="flex justify-between">
                   <span className="text-gray-500">Sous-total</span>
                   <span className="text-gray-900">{subtotal.toLocaleString('fr-DZ')} DZD</span>
                 </div>
+                {discountAmount > 0 && (
+                  <div className="flex justify-between text-emerald-600">
+                    <span>Réduction</span>
+                    <span>-{discountAmount.toLocaleString('fr-DZ')} DZD</span>
+                  </div>
+                )}
                 <div className="border-t border-gray-100 pt-2 mt-2 flex justify-between font-semibold">
                   <span>Total</span>
-                  <span className="text-violet-700">{subtotal.toLocaleString('fr-DZ')} DZD</span>
+                  <span className="text-violet-700">{total.toLocaleString('fr-DZ')} DZD</span>
                 </div>
               </div>
 

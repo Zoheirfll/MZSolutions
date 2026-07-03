@@ -19,6 +19,8 @@ import SuppliersPage from './pages/products/SuppliersPage'
 import SupplierCreditPage from './pages/products/SupplierCreditPage'
 import SupplierPaymentPage from './pages/products/SupplierPaymentPage'
 import ReviewsPage from './pages/products/ReviewsPage'
+import CouponsPage from './pages/products/CouponsPage'
+import AutoPromotionsPage from './pages/products/AutoPromotionsPage'
 import OrdersPage from './pages/orders/OrdersPage'
 import OrderFormPage from './pages/orders/OrderFormPage'
 import CancellationsPage from './pages/orders/CancellationsPage'
@@ -77,6 +79,8 @@ function App() {
           <Route path="/dashboard/produits/fournisseurs/credits"    element={<PD><SupplierCreditPage /></PD>} />
           <Route path="/dashboard/produits/fournisseurs/versements"  element={<PD><SupplierPaymentPage /></PD>} />
           <Route path="/dashboard/produits/avis"             element={<PD><ReviewsPage /></PD>} />
+          <Route path="/dashboard/produits/promotions/coupons" element={<PD><CouponsPage /></PD>} />
+          <Route path="/dashboard/produits/promotions/auto"    element={<PD><AutoPromotionsPage /></PD>} />
           <Route path="/dashboard/commandes"                 element={<PD><OrdersPage /></PD>} />
           <Route path="/dashboard/commandes/nouvelle"                    element={<PD><OrderFormPage /></PD>} />
           <Route path="/dashboard/commandes/raisons-echec"                element={<PD><FailureReasonsPage /></PD>} />

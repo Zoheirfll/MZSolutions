@@ -217,13 +217,20 @@ export default function StorefrontProductPage() {
             {/* Prix */}
             <div className="flex items-baseline gap-3 mb-5">
               <span className="text-3xl font-bold text-violet-700">{Number(displayPrice).toLocaleString('fr-DZ')} DZD</span>
-              {product.compare_price && (
-                <span className="text-lg text-gray-400 line-through">{Number(product.compare_price).toLocaleString('fr-DZ')} DZD</span>
-              )}
-              {product.compare_price && (
-                <span className={theme.badge.danger}>
-                  -{Math.round((1 - product.price / product.compare_price) * 100)}%
-                </span>
+              {product.original_price ? (
+                <>
+                  <span className="text-lg text-gray-400 line-through">{Number(product.original_price).toLocaleString('fr-DZ')} DZD</span>
+                  <span className={theme.badge.danger}>
+                    -{Math.round((1 - product.price / product.original_price) * 100)}%
+                  </span>
+                </>
+              ) : product.compare_price && (
+                <>
+                  <span className="text-lg text-gray-400 line-through">{Number(product.compare_price).toLocaleString('fr-DZ')} DZD</span>
+                  <span className={theme.badge.danger}>
+                    -{Math.round((1 - product.price / product.compare_price) * 100)}%
+                  </span>
+                </>
               )}
             </div>
 

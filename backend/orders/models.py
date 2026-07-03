@@ -81,6 +81,8 @@ class Order(models.Model):
     subtotal      = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     shipping_cost = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     total         = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    promo_code       = models.CharField(max_length=30, blank=True)
+    discount_amount  = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     delivery_type = models.CharField(max_length=20, choices=DELIVERY_CHOICES, blank=True)
     payment_method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES, default='cod')
     chargily_checkout_id   = models.CharField(max_length=100, blank=True, db_index=True)
@@ -102,7 +104,7 @@ class Order(models.Model):
 
     def recalculate(self):
         self.subtotal = sum(i.price * i.quantity for i in self.items.all())
-        self.total    = self.subtotal + self.shipping_cost
+        self.total    = max(self.subtotal - self.discount_amount, 0) + self.shipping_cost
         self.save(update_fields=['subtotal', 'total'])
 
 

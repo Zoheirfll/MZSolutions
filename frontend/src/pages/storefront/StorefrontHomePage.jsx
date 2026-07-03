@@ -22,8 +22,9 @@ function TruckIcon(props) {
 }
 
 function ProductCard({ product, slug }) {
-  const discount = product.compare_price
-    ? Math.round((1 - product.price / product.compare_price) * 100)
+  const strikePrice = product.original_price || product.compare_price
+  const discount = strikePrice
+    ? Math.round((1 - product.price / strikePrice) * 100)
     : null
 
   return (
@@ -55,8 +56,8 @@ function ProductCard({ product, slug }) {
         <p className="text-sm font-semibold truncate transition-colors" style={{ color: 'var(--sf-text)' }}>{product.name}</p>
         <div className="flex items-baseline gap-2 mt-1.5">
           <span className="font-bold text-base" style={{ color: 'var(--sf-primary)' }}>{Number(product.price).toLocaleString('fr-DZ')} DA</span>
-          {product.compare_price && (
-            <span className="text-xs line-through" style={{ color: 'var(--sf-text-muted)' }}>{Number(product.compare_price).toLocaleString('fr-DZ')}</span>
+          {strikePrice && (
+            <span className="text-xs line-through" style={{ color: 'var(--sf-text-muted)' }}>{Number(strikePrice).toLocaleString('fr-DZ')}</span>
           )}
         </div>
       </div>

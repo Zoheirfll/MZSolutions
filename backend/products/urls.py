@@ -11,6 +11,7 @@ from .views import (
     SupplierBalanceView,
     AllCreditsView, AllPaymentsView,
     ProductReviewListView, ProductReviewDetailView, PublicReviewView,
+    PromotionListCreateView, PromotionDetailView,
 )
 
 urlpatterns = [
@@ -56,4 +57,8 @@ urlpatterns = [
     # Reviews
     path('reviews/',                                       ProductReviewListView.as_view()),
     path('reviews/<int:pk>/',                              ProductReviewDetailView.as_view()),
+
+    # Promotions
+    path('promotions/',                                    PromotionListCreateView.as_view()),
+    path('promotions/<int:pk>/',                           PromotionDetailView.as_view()),
 ]
