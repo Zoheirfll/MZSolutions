@@ -154,6 +154,56 @@ class SubscribeTests(TestCase):
         self.assertEqual(self.store.quota.plan_id, self.plan.id)
         self.assertEqual(self.store.quota.orders_limit, 1000)
 
+    def test_subscribe_invalid_plan_id_404(self):
+        client = auth_client(self.owner)
+        resp = client.post('/api/stores/me/subscribe/', {'plan_id': 999999, 'billing_cycle': 'monthly'}, format='json')
+        self.assertEqual(resp.status_code, 404)
+
+    def test_subscribe_invalid_billing_cycle_400(self):
+        client = auth_client(self.owner)
+        resp = client.post('/api/stores/me/subscribe/', {'plan_id': self.plan.id, 'billing_cycle': 'weekly'}, format='json')
+        self.assertEqual(resp.status_code, 400)
+
+    def test_monthly_upgrade_sets_period_end_30_days(self):
+        import json
+        from django.test import Client as PublicClient
+        from django.utils import timezone
+        c = PublicClient()
+        payload = {
+            'type': 'checkout.paid',
+            'data': {'id': 'chk_monthly', 'metadata': {
+                'subscription': True, 'store_id': self.store.id, 'plan_id': self.plan.id, 'billing_cycle': 'monthly',
+            }},
+        }
+        before = timezone.now()
+        with patch('orders.chargily.verify_webhook_signature', return_value=True):
+            resp = c.post('/api/public/webhooks/chargily/', data=json.dumps(payload), content_type='application/json')
+        self.assertEqual(resp.status_code, 200)
+        self.store.quota.refresh_from_db()
+        self.assertEqual(self.store.quota.billing_cycle, 'monthly')
+        delta = self.store.quota.period_end - before
+        self.assertTrue(28 <= delta.days <= 31, delta.days)
+
+    def test_yearly_upgrade_sets_period_end_365_days(self):
+        import json
+        from django.test import Client as PublicClient
+        from django.utils import timezone
+        c = PublicClient()
+        payload = {
+            'type': 'checkout.paid',
+            'data': {'id': 'chk_yearly', 'metadata': {
+                'subscription': True, 'store_id': self.store.id, 'plan_id': self.plan.id, 'billing_cycle': 'yearly',
+            }},
+        }
+        before = timezone.now()
+        with patch('orders.chargily.verify_webhook_signature', return_value=True):
+            resp = c.post('/api/public/webhooks/chargily/', data=json.dumps(payload), content_type='application/json')
+        self.assertEqual(resp.status_code, 200)
+        self.store.quota.refresh_from_db()
+        self.assertEqual(self.store.quota.billing_cycle, 'yearly')
+        delta = self.store.quota.period_end - before
+        self.assertTrue(363 <= delta.days <= 366, delta.days)
+
     def test_forged_webhook_without_valid_signature_does_not_upgrade(self):
         import json
         from django.test import Client as PublicClient
