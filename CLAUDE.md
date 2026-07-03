@@ -65,6 +65,7 @@ products/        — Category, Product, ProductImage, ProductVariant, VariantOpt
 orders/          — Order, OrderItem, OrderStatusHistory, OrderAssignment, CallAttempt, FailureReason, PaymentWebhookLog, CarrierAccount
 orders/carriers/ — clients transporteurs (Yalidine, ZR Express) : base.py (BaseCarrierClient, MockCarrierClient), yalidine.py, zr_express.py, get_carrier_client()
 dropshipping/    — DropshipperProduct, Commission, CommissionEntry, CommissionPayment (voir Epic 7.3)
+finance/         — Cost, calcul de rentabilité (voir Epic 7.4)
 core/            — app Django générique (utilitaires partagés) : permissions.py (is_owner_or_admin, IsOwnerOrAdminForWrites)
 ```
 
@@ -121,6 +122,8 @@ pages/dropshipping/DropshippersPage.jsx           — (owner/admin) liste des dr
 pages/dropshipping/DropshipperDetailPage.jsx      — (owner/admin) config commission par produit sélectionné (%/fixe), historique commissions + paiements, bouton "Marquer comme payé"
 pages/dropshipping/DropshipperMyProductsPage.jsx  — (dropshipper) sélection de produits du catalogue à revendre (Ajouter/Retirer)
 pages/dropshipping/DropshipperMyEarningsPage.jsx  — (dropshipper) solde propre en lecture seule + historique commissions/paiements reçus
+pages/finance/CostsPage.jsx           — (owner/admin) CRUD coûts opérationnels/marketing, saisie par période (label libre, montant, dates début/fin)
+pages/finance/ProfitabilityPage.jsx   — (owner/admin) résumé global (revenus/coûts/profit net sur une période) + tableau détaillé par produit/wilaya/source
 pages/storefront/StorefrontHomePage.jsx     — page d'accueil boutique publique
 pages/storefront/StorefrontProductsPage.jsx — liste produits publique
 pages/storefront/StorefrontProductPage.jsx  — fiche produit publique (Ajouter au panier / Acheter maintenant), bouton "Laisser un avis" (modal note+commentaire, `POST /api/public/reviews/`, modéré par le vendeur avant publication)
@@ -427,6 +430,23 @@ amount, note, paid_at
 ```
 Paiement du solde d'un dropshipper (US-7.3.4, `DropshipperPayView`) — **remet le solde à zéro implicitement** : le solde n'est jamais stocké, il est recalculé à chaque lecture (`sum(CommissionEntry.amount) - sum(CommissionPayment.amount)`, même philosophie que `CustomerRisk.is_risky`). `DropshipperPayView.post()` crée un paiement du montant exact du solde courant — impossible de payer un montant partiel ou arbitraire pour l'instant (choix simple, US ne demande pas de paiement partiel).
 
+### `finance.Cost`
+```
+store (FK)
+category : operational | marketing
+label (texte libre, ex: "Facebook Ads", "Loyer local")
+amount, period_start, period_end (date), note, created_at
+```
+Coût saisi manuellement par le vendeur (US-7.4.1). Deux catégories fixes seulement (pas de CRUD de catégories séparé, même compromis simplicité que `Supplier`/`FailureReason`) — le `label` libre permet de préciser le sous-type. `period_start`/`period_end` définissent la période couverte par ce coût (ex: un coût "Facebook Ads" de 15 000 DA pour tout le mois de juillet).
+
+**Calcul de rentabilité (US-7.4.2, `backend/finance/views.py`)** — décision produit : **pas de répartition arbitraire** des coûts opérationnels/marketing sur un produit/wilaya/source précis (aucune clé de répartition fiable n'existe). Deux vues séparées :
+- `ProfitabilityView` (`GET /api/finance/profitability/?group_by=product|wilaya|source`) — uniquement les coûts **directement attribuables** : coût produit (`Product.cost_price`/`VariantOption.cost_price`) et commission dropshipper (`dropshipping.CommissionEntry`). `profit = revenu − coût_produit − commission`.
+- `ProfitabilitySummaryView` (`GET /api/finance/profitability/summary/`) — rentabilité globale de la période, incluant en plus les `Cost` opérationnels/marketing dont la période chevauche celle demandée. `net_profit = revenu − coût_produit − commission − coût_opérationnel − coût_marketing`.
+
+Dans les deux cas, seules les commandes **actuellement** au statut `delivered` comptent (`_delivered_orders`), filtrées sur la date de la dernière transition vers `delivered` dans `OrderStatusHistory` (`Max('history__changed_at', filter=Q(history__status='delivered'))`) — pas `created_at`. Une commande livrée puis retournée sort naturellement du calcul (`status != 'delivered'`), cohérent avec la réversion de commission de l'Epic 7.3.
+
+**"Source" = canal de vente**, déduit des données existantes sans nouveau champ (`_order_channel`) : `Order.dropshipper` renseigné → "Dropshipper — {nom}" ; sinon première entrée `OrderStatusHistory` sans auteur (`changed_by=None`, créée par `PublicOrderView`) → "Boutique en ligne" ; sinon → "Vente manuelle" (créée par owner/admin/dropshipper authentifié).
+
 ---
 
 ## API Endpoints (complets — Sprint 1 à 5)
@@ -524,6 +544,14 @@ Paiement du solde d'un dropshipper (US-7.3.4, `DropshipperPayView`) — **remet 
 | POST | `/api/dropshipping/dropshippers/<id>/pay/` | Oui (owner/admin) | Marque le solde courant comme payé (crée un `CommissionPayment` du montant exact du solde, remet le solde à 0) |
 
 Commande manuelle par un dropshipper : `POST /api/orders/` accepte désormais aussi le rôle `dropshipper` (pas seulement owner/admin), avec vérification serveur que chaque `product` de `items` fait partie de sa sélection (`DropshipperProduct`), et `Order.dropshipper` renseigné automatiquement. `GET /api/orders/` filtre aussi les résultats à ses propres ventes pour ce rôle (même pattern que le filtre confirmateur → assignation).
+
+### Finances (Epic 7.4)
+| Méthode | URL | Auth | Description |
+|---|---|---|---|
+| GET/POST | `/api/finance/costs/` | Oui (owner/admin) | Liste (`?category=&period_start=&period_end=`, chevauchement de période) / création d'un coût opérationnel ou marketing |
+| PUT/DELETE | `/api/finance/costs/<id>/` | Oui (owner/admin) | Modifier / supprimer un coût |
+| GET | `/api/finance/profitability/` | Oui (owner/admin) | Rentabilité détaillée (`?group_by=product\|wilaya\|source&period_start=&period_end=`) — coûts directement attribuables uniquement (produit + commission) |
+| GET | `/api/finance/profitability/summary/` | Oui (owner/admin) | Rentabilité globale de la période (`?period_start=&period_end=`) — inclut aussi les coûts opérationnels/marketing |
 
 ### Boutique publique & Checkout invité
 | Méthode | URL | Auth | Description |
@@ -643,8 +671,16 @@ Commande manuelle par un dropshipper : `POST /api/orders/` accepte désormais au
 - `UserSerializer` (`/api/auth/me/`) expose désormais `team_member_id`, nécessaire au dropshipper pour retrouver son propre solde
 - Testé de bout en bout via `manage.py shell` (calcul de commission %, idempotence sur double passage à `delivered`, réversion sur `returned`, paiement soldant le solde à zéro) + build frontend
 
-### 🔜 Sprint 7 (suite) — Finances
-- Module financier
+### ✅ Epic 7.4 — Finances et rentabilité (TERMINÉ — branche `epic-7.4-finances`)
+- **US-7.4.1 — Saisie des coûts** : `finance.Cost` — deux catégories fixes (`operational`/`marketing`) + `label` libre pour préciser le sous-type (ex: "Facebook Ads", "Loyer local"), saisi par période (`period_start`/`period_end`). Pas de CRUD de catégories séparé (décision produit, cohérent avec `Supplier`/`FailureReason`). `CostsPage.jsx` — filtres par catégorie, modal d'ajout, suppression
+- **US-7.4.2 — Calcul automatique de la rentabilité** : décision produit — **pas de répartition arbitraire** des coûts opérationnels/marketing sur un produit/wilaya/source (aucune clé fiable). Deux vues séparées : `ProfitabilityView` (par produit/wilaya/source, coûts directement attribuables uniquement : coût produit + commission dropshipper) et `ProfitabilitySummaryView` (rentabilité globale de la période, incluant en plus les coûts opérationnels/marketing saisis). Seules les commandes **actuellement** `delivered` comptent, filtrées sur la date de la dernière transition vers ce statut (pas `created_at`) — une commande livrée puis retournée sort naturellement du calcul, cohérent avec la réversion de commission de l'Epic 7.3
+- **"Source" = canal de vente**, déduit sans nouveau champ (`_order_channel`) : dropshipper (`Order.dropshipper`) / boutique en ligne (première entrée d'historique sans auteur) / vente manuelle (créée par un membre authentifié)
+- `ProfitabilityPage.jsx` — sélecteur de période, StatCards du résumé global (revenus/coût produit/commission/coût opérationnel/coût marketing/profit net), tableau détaillé avec bascule produit/wilaya/source
+- Nouvelle app Django `finance/` (même choix d'isolation que `dropshipping/`)
+- Sidebar : section "Finances" (owner/admin uniquement) → Rentabilité / Coûts
+- Testé de bout en bout via `manage.py shell` + requêtes HTTP réelles (3 commandes livrées sur 3 canaux différents, coûts operational/marketing, vérification des totaux revenus/coût produit/commission/coûts/profit net et des ventilations par produit et par source) + build frontend
+
+### 🔜 Sprint 7 (suite) — Permissions
 - Permissions avancées par rôle
 
 ### 🔜 Sprint 8 — Abonnements, Shopify Sync & Production
