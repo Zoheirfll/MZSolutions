@@ -44,12 +44,16 @@ export const theme = {
   input:
     'w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 outline-none ' +
     'placeholder:text-gray-400 focus:border-violet-500 focus:ring-2 focus:ring-violet-100 ' +
-    'transition-all duration-150 bg-white disabled:bg-gray-50 disabled:text-gray-400',
+    // Opts back into light native popups (select dropdown) on this light-themed
+    // input, overriding the site-wide `color-scheme: dark` set in index.css.
+    'transition-all duration-150 bg-white disabled:bg-gray-50 disabled:text-gray-400 [color-scheme:light]',
 
   inputDark:
     'w-full px-3.5 py-2.5 rounded-lg text-sm text-gray-200 outline-none bg-white/4 border border-white/10 ' +
     'placeholder:text-gray-600 focus:border-violet-500/60 focus:ring-2 focus:ring-violet-500/15 ' +
-    'transition-all duration-150',
+    // [color-scheme:dark] makes native popups (select dropdown, date/time
+    // pickers) render dark instead of the browser's default light chrome.
+    'transition-all duration-150 [color-scheme:dark]',
 
   label: 'block text-sm font-medium text-gray-700 mb-1.5',
   labelDark: 'block text-xs font-medium uppercase tracking-wide text-gray-500 mb-1.5',

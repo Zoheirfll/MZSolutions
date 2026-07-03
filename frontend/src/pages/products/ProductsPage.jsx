@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import DashboardLayout from '../../components/DashboardLayout'
+import Select from '../../components/Select'
 import api from '../../api/axios'
 import { theme } from '../../theme'
 
@@ -197,14 +198,13 @@ export default function ProductsPage() {
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-4">
         <div className="flex items-center gap-2 text-xs text-gray-500">
           <span>Lignes par page :</span>
-          <select
+          <Select
             value={perPage}
-            onChange={e => { setPerPage(Number(e.target.value)); setPage(1) }}
-            className="px-2 py-1 rounded border text-gray-300 text-xs cursor-pointer"
-            style={{ background: theme.dark.card, borderColor: theme.dark.border }}
-          >
-            {PER_PAGE_OPTIONS.map(n => <option key={n} value={n}>{n}</option>)}
-          </select>
+            onChange={v => { setPerPage(Number(v)); setPage(1) }}
+            options={PER_PAGE_OPTIONS.map(n => ({ value: n, label: n }))}
+            className="px-2 py-1 rounded border text-gray-300 text-xs"
+            style={{ background: theme.dark.card, borderColor: theme.dark.border, minWidth: 64 }}
+          />
           <span>{data.count} produit{data.count !== 1 ? 's' : ''}</span>
         </div>
         <div className="flex items-center gap-1">

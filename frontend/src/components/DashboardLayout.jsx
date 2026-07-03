@@ -147,7 +147,7 @@ export default function DashboardLayout({ children, title }) {
   const prodActive = location.pathname.startsWith('/dashboard/produits')
 
   return (
-    <div className="flex h-dvh overflow-hidden" style={{ background: theme.dark.app }}>
+    <div className="flex h-dvh overflow-hidden" style={{ background: theme.dark.app, colorScheme: 'dark' }}>
 
       {/* ── Mobile overlay ── */}
       {mobileNavOpen && (
@@ -159,20 +159,20 @@ export default function DashboardLayout({ children, title }) {
 
       {/* ── Sidebar ── */}
       <aside
-        className={`w-64 sm:w-60 shrink-0 flex flex-col border-r overflow-y-auto fixed lg:static inset-y-0 left-0 z-40
+        className={`w-72 sm:w-64 shrink-0 flex flex-col border-r overflow-y-auto fixed lg:static inset-y-0 left-0 z-40
           transition-transform duration-300 ease-in-out
           ${mobileNavOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
         style={{ background: theme.dark.sidebar, borderColor: theme.dark.border }}>
 
         {/* Logo */}
-        <div className="px-4 py-4 border-b flex items-center justify-between" style={{ borderColor: theme.dark.border }}>
-          <div className="min-w-0 flex items-center gap-2.5">
-            <div className="w-6.5 h-6.5 rounded-md flex items-center justify-center shrink-0 bg-violet-600">
-              <span className="text-white text-[11px] font-bold">MZ</span>
+        <div className="px-5 py-5 border-b flex items-center justify-between" style={{ borderColor: theme.dark.border }}>
+          <div className="min-w-0 flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-violet-600">
+              <span className="text-white text-xs font-bold">MZ</span>
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-gray-100 tracking-tight leading-none">MZSolutions</p>
-              <p className="text-xs mt-1 truncate" style={{ color: theme.dark.muted }}>
+              <p className="text-base font-semibold text-gray-100 tracking-tight leading-none">MZSolutions</p>
+              <p className="text-xs mt-1.5 truncate" style={{ color: theme.dark.muted }}>
                 {user?.store_name ?? user?.email}
               </p>
             </div>
@@ -186,7 +186,7 @@ export default function DashboardLayout({ children, title }) {
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 px-3 py-4 space-y-5">
+        <nav className="flex-1 px-3.5 py-5 space-y-6">
 
           {/* E-COMMERCE */}
           <div>
@@ -320,7 +320,7 @@ export default function DashboardLayout({ children, title }) {
         </nav>
 
         {/* User bottom */}
-        <div className="px-4 py-4 border-t" style={{ borderColor: theme.dark.border }}>
+        <div className="px-5 py-5 border-t" style={{ borderColor: theme.dark.border }}>
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full bg-violet-700 text-white flex items-center justify-center text-xs font-bold shrink-0">
               {initials}
@@ -339,7 +339,7 @@ export default function DashboardLayout({ children, title }) {
 
       {/* ── Main area ── */}
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
-        <header className="flex items-center justify-between gap-2 px-4 sm:px-6 py-3.5 border-b shrink-0"
+        <header className="flex items-center justify-between gap-2 px-5 sm:px-8 py-4 border-b shrink-0"
           style={{ background: theme.dark.app, borderColor: theme.dark.border }}>
           <div className="flex items-center gap-2 min-w-0">
             <button
@@ -348,7 +348,7 @@ export default function DashboardLayout({ children, title }) {
             >
               {ICONS.menu}
             </button>
-            <h1 className="text-sm sm:text-base font-semibold text-gray-200 truncate">{title}</h1>
+            <h1 className="text-base sm:text-lg font-semibold text-gray-200 truncate">{title}</h1>
           </div>
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             {/* Cloche stock bas */}
@@ -376,7 +376,7 @@ export default function DashboardLayout({ children, title }) {
             </a>
           </div>
         </header>
-        <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6">{children}</main>
+        <main className="flex-1 overflow-y-auto overflow-x-hidden p-5 sm:p-8">{children}</main>
       </div>
     </div>
   )

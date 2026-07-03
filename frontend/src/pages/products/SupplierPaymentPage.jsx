@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
+import Select from '../../components/Select'
 import api from '../../api/axios'
 import { theme } from '../../theme'
 
@@ -8,7 +9,7 @@ function AddModal({ suppliers, onClose, onSaved }) {
   const [saving, setSaving] = useState(false)
   const [errors, setErrors] = useState({})
 
-  const inputCls = `w-full px-3.5 py-2.5 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 transition`
+  const inputCls = `w-full px-3.5 py-2.5 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 transition [color-scheme:dark]`
   const bdrStyle = { borderColor: theme.dark.border }
 
   const submit = async e => {
@@ -38,10 +39,14 @@ function AddModal({ suppliers, onClose, onSaved }) {
         <form onSubmit={submit} className="space-y-4">
           <div>
             <label className="block text-xs text-gray-400 mb-1.5">Fournisseur *</label>
-            <select value={form.supplier} onChange={e => setForm(f => ({ ...f, supplier: e.target.value }))} required className={inputCls} style={{ ...bdrStyle, background: theme.dark.sidebar }}>
-              <option value="">Sélectionner un fournisseur</option>
-              {suppliers.map(s => <option key={s.id} value={s.id}>{s.first_name} {s.last_name}</option>)}
-            </select>
+            <Select
+              value={form.supplier}
+              onChange={v => setForm(f => ({ ...f, supplier: v }))}
+              options={suppliers.map(s => ({ value: s.id, label: `${s.first_name} ${s.last_name}` }))}
+              placeholder="Sélectionner un fournisseur"
+              className={inputCls}
+              style={{ ...bdrStyle, background: theme.dark.sidebar }}
+            />
             {errors.supplier && <p className="text-red-400 text-xs mt-1">{errors.supplier}</p>}
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -122,15 +127,14 @@ export default function SupplierPaymentPage() {
 
       {/* Filtres + actions */}
       <div className="flex items-center justify-between mb-5">
-        <select
+        <Select
           value={filterSup}
-          onChange={e => setFilterSup(e.target.value)}
+          onChange={setFilterSup}
+          options={suppliers.map(s => ({ value: s.id, label: `${s.first_name} ${s.last_name}` }))}
+          placeholder="Tous les fournisseurs"
           className="px-3 py-2 rounded-lg border text-sm text-gray-200 outline-none focus:border-violet-500 transition"
           style={{ background: theme.dark.card, borderColor: theme.dark.border, minWidth: 200 }}
-        >
-          <option value="">Tous les fournisseurs</option>
-          {suppliers.map(s => <option key={s.id} value={s.id}>{s.first_name} {s.last_name}</option>)}
-        </select>
+        />
         <button onClick={() => setModal(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white bg-violet-600 hover:bg-violet-500 transition">
           Ajouter un versement +
         </button>

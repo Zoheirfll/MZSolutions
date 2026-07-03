@@ -11,9 +11,9 @@ const PERIODS = [
 ]
 
 function rateBadge(rate) {
-  if (rate >= 70) return 'bg-emerald-900/30 text-emerald-400'
-  if (rate >= 40) return 'bg-amber-900/30 text-amber-400'
-  return 'bg-red-900/30 text-red-400'
+  if (rate >= 70) return theme.badge.success
+  if (rate >= 40) return theme.badge.warning
+  return theme.badge.danger
 }
 
 function rateColor(rate) {
@@ -186,7 +186,7 @@ export default function ConfirmationRatePage() {
                     <td className="px-5 py-3.5 text-center text-gray-300">{c.processed}</td>
                     <td className="px-5 py-3.5 text-center text-emerald-400 font-medium">{c.confirmed}</td>
                     <td className="px-5 py-3.5 text-center">
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${rateBadge(c.rate)}`}>
+                      <span className={rateBadge(c.rate)}>
                         {c.rate}%
                       </span>
                     </td>

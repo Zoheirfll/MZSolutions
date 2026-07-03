@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import DashboardLayout from '../../components/DashboardLayout'
+import StatusBadge from '../../components/StatusBadge'
+import Select from '../../components/Select'
 import api from '../../api/axios'
 import { theme } from '../../theme'
 import { useAuth } from '../../context/AuthContext'
@@ -157,7 +159,7 @@ export default function OrderDetailPage() {
     } catch {} finally { setSavingAssign(false) }
   }
 
-  const inputCls = 'w-full px-3.5 py-2.5 rounded-xl border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 transition'
+  const inputCls = 'w-full px-3.5 py-2.5 rounded-xl border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 transition [color-scheme:dark]'
   const bdrStyle = { borderColor: theme.dark.border }
 
   if (loading) return (
@@ -184,9 +186,7 @@ export default function OrderDetailPage() {
           <Icon path={ICONS.back} className="w-4 h-4" />
           Retour aux commandes
         </button>
-        <span className={`px-3 py-1.5 rounded-full text-xs font-semibold ${STATUS_COLORS[order.status] || STATUS_FALLBACK}`}>
-          {order.status_label}
-        </span>
+        <StatusBadge status={order.status} label={order.status_label} />
       </div>
 
       <div className="flex flex-col lg:flex-row gap-5 items-start">
@@ -310,14 +310,16 @@ export default function OrderDetailPage() {
               </div>
               <h3 className="text-sm font-semibold text-gray-200">Changer le statut</h3>
             </div>
-            <select value={newStatus} onChange={e => setNewStatus(e.target.value)} className={inputCls + ' mb-2'} style={{ ...bdrStyle, background: theme.dark.sidebar }}>
-              {STATUS_CHOICES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-            </select>
+            <Select value={newStatus} onChange={setNewStatus} options={STATUS_CHOICES} className={inputCls + ' mb-2'} style={{ ...bdrStyle, background: theme.dark.sidebar }} />
             {newStatus === 'confirmed' && carrierAccounts.length > 1 && (
-              <select value={selectedCarrierId} onChange={e => setSelectedCarrierId(e.target.value)} className={inputCls + ' mb-2'} style={{ ...bdrStyle, background: theme.dark.sidebar }}>
-                <option value="">Transporteur par défaut de la boutique</option>
-                {carrierAccounts.map(a => <option key={a.id} value={a.id}>{a.carrier_label}</option>)}
-              </select>
+              <Select
+                value={selectedCarrierId}
+                onChange={setSelectedCarrierId}
+                options={carrierAccounts.map(a => ({ value: a.id, label: a.carrier_label }))}
+                placeholder="Transporteur par défaut de la boutique"
+                className={inputCls + ' mb-2'}
+                style={{ ...bdrStyle, background: theme.dark.sidebar }}
+              />
             )}
             <textarea value={statusNote} onChange={e => setStatusNote(e.target.value)} rows={2} className={`${inputCls} resize-none mb-3`} style={bdrStyle} placeholder="Note (optionnel)" />
             <button onClick={changeStatus} disabled={savingStatus || newStatus === order.status} className={theme.btn.primary + ' w-full'}>
@@ -346,10 +348,14 @@ export default function OrderDetailPage() {
             </div>
             {!isConfirmateur && (
               <>
-                <select value={newConfirmateur} onChange={e => setNewConfirmateur(e.target.value)} className={inputCls + ' mb-2'} style={{ ...bdrStyle, background: theme.dark.sidebar }}>
-                  <option value="">Choisir un confirmateur</option>
-                  {confirmateurs.map(c => <option key={c.id} value={c.id}>{c.first_name} {c.last_name}</option>)}
-                </select>
+                <Select
+                  value={newConfirmateur}
+                  onChange={setNewConfirmateur}
+                  options={confirmateurs.map(c => ({ value: c.id, label: `${c.first_name} ${c.last_name}` }))}
+                  placeholder="Choisir un confirmateur"
+                  className={inputCls + ' mb-2'}
+                  style={{ ...bdrStyle, background: theme.dark.sidebar }}
+                />
                 <button onClick={saveAssignment} disabled={savingAssign || !newConfirmateur} className={theme.btn.primary + ' w-full'}>
                   {savingAssign ? '…' : 'Assigner'}
                 </button>

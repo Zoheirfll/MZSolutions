@@ -71,6 +71,10 @@ context/AuthContext.jsx         — état auth global (user, login, logout, regi
 theme.js                        — couleurs et classes Tailwind centralisées
 components/DashboardLayout.jsx  — layout dashboard (sidebar, topbar, badge stock)
 components/PrivateRoute.jsx     — protection des routes
+components/Select.jsx           — dropdown custom (remplace TOUT <select> natif, voir note ci-dessous)
+components/StatCard.jsx         — carte KPI réutilisable (theme.stat.*, icône lucide-react)
+components/StatusBadge.jsx      — badge de statut commande, mapping centralisé (remplace les couleurs inline dupliquées par page)
+components/EmptyState.jsx       — état vide réutilisable (icône + titre + description)
 pages/Auth.jsx                  — login/inscription (split layout)
 pages/Dashboard.jsx             — tableau de bord vendeur
 pages/StorePage.jsx             — Ma boutique
@@ -108,6 +112,10 @@ import { theme } from '../theme'
 // theme.dark.app / sidebar / card / border / muted
 ```
 Couleur primaire : `violet-600` (#7c3aed), réservée aux éléments interactifs/actifs (pas de fond violet saturé décoratif). Fonds quasi-noirs neutres (`#08090a`/`#0a0b0c`/`#0d0e10`), bordures fines "hairline" neutres (pas de teinte violette dans les bordures), rayons resserrés (`rounded-lg`/`rounded-xl`, pas `2xl`), boutons plats sans glow/shadow coloré, badges avec `ring-1 ring-inset` plutôt que fond saturé plein. Gradient hero (page marketing uniquement) : `#2e1065 → #6d28d9 → #7c3aed`.
+
+Police : **Plus Jakarta Sans** (chargée via Google Fonts dans `index.html`), taille de base légèrement agrandie via `font-size: 107%` sur `<html>` (`index.css`) pour un rendu plus aéré sans retoucher chaque classe Tailwind.
+
+⚠️ **Ne jamais utiliser `<select>` natif.** Sur certaines machines Windows, le navigateur ignore tout le CSS (fond, couleur, `appearance: none`, `color-scheme`, `forced-color-adjust`) et affiche le widget OS natif (blanc), cassant le thème sombre. Utiliser systématiquement `components/Select.jsx` (`value`, `onChange(value)`, `options: [{value, label}]`, `variant="dark"|"light"`).
 
 ---
 

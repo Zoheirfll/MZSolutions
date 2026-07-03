@@ -42,7 +42,7 @@ function ReasonModal({ reason, onClose, onSaved }) {
   const [saving, setSaving] = useState(false)
   const [errors, setErrors] = useState({})
 
-  const inputCls = 'w-full px-3.5 py-2.5 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 transition'
+  const inputCls = 'w-full px-3.5 py-2.5 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 transition [color-scheme:dark]'
   const bdrStyle = { borderColor: theme.dark.border }
 
   const submit = async e => {

@@ -99,9 +99,7 @@ export default function StockPage() {
                 <td className="px-4 py-3 text-gray-400">{item.variant_name || '—'}</td>
                 <td className="px-4 py-3 text-gray-400">{item.option_value || '—'}</td>
                 <td className="px-4 py-3">
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                    item.stock === 0 ? 'bg-red-900/30 text-red-400' : 'bg-amber-900/30 text-amber-400'
-                  }`}>
+                  <span className={item.stock === 0 ? theme.badge.danger : theme.badge.warning}>
                     {item.stock === 0 ? 'Épuisé' : `${item.stock} restant${item.stock > 1 ? 's' : ''}`}
                   </span>
                 </td>

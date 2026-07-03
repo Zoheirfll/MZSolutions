@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import DashboardLayout from '../../components/DashboardLayout'
+import Select from '../../components/Select'
 import api from '../../api/axios'
 import { theme } from '../../theme'
 
@@ -149,14 +150,13 @@ export default function CancellationsPage({ mode }) {
       <div className="flex items-center justify-between text-sm" style={{ color: theme.dark.muted }}>
         <p>{data.count} commande{data.count !== 1 ? 's' : ''}</p>
         <div className="flex items-center gap-3">
-          <label className="flex items-center gap-2 text-xs">
+          <div className="flex items-center gap-2 text-xs">
             Lignes par page :
-            <select value={perPage} onChange={e => { setPerPage(Number(e.target.value)); setPage(1) }}
+            <Select value={perPage} onChange={v => { setPerPage(Number(v)); setPage(1) }}
+              options={PER_PAGE_OPTIONS.map(n => ({ value: n, label: n }))}
               className="px-2 py-1 rounded-lg border text-gray-300 text-xs"
-              style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-              {PER_PAGE_OPTIONS.map(n => <option key={n} value={n}>{n}</option>)}
-            </select>
-          </label>
+              style={{ background: theme.dark.card, borderColor: theme.dark.border, minWidth: 64 }} />
+          </div>
           <div className="flex items-center gap-1">
             <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-2 py-1 rounded disabled:opacity-30 hover:bg-white/5 flex items-center justify-center">
               <ChevronLeftIcon />

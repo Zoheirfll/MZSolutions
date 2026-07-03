@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import DashboardLayout from '../../components/DashboardLayout'
+import StatusBadge from '../../components/StatusBadge'
+import Select from '../../components/Select'
 import api from '../../api/axios'
 import { theme } from '../../theme'
 import { WILAYAS } from '../../data/wilayas'
@@ -17,23 +19,6 @@ const STATUS_OPTIONS = [
   { value: 'returned',    label: 'Retournée' },
   { value: 'cancelled',   label: 'Annulée' },
 ]
-
-// Mapping statut → badge (variantes sombres alignées sur theme.badge) :
-// success (emerald) = confirmée/expédiée/livrée · warning (amber) = en attente / tentatives d'appel
-// danger (red) = retournée/annulée · neutral = fallback
-const STATUS_COLORS = {
-  pending:          'bg-amber-900/30 text-amber-400',
-  no_answer_1:      'bg-amber-900/30 text-amber-400',
-  no_answer_2:      'bg-amber-900/30 text-amber-400',
-  no_answer_3:      'bg-amber-900/30 text-amber-400',
-  confirmed:        'bg-emerald-900/30 text-emerald-400',
-  shipped:          'bg-emerald-900/30 text-emerald-400',
-  delivered:        'bg-emerald-900/30 text-emerald-400',
-  returned:         'bg-red-900/30 text-red-400',
-  cancel_requested: 'bg-red-900/30 text-red-400',
-  cancelled:        'bg-red-900/30 text-red-400',
-}
-const STATUS_FALLBACK = 'bg-gray-800 text-gray-400'
 
 const PER_PAGE_OPTIONS = [10, 25, 50]
 
@@ -89,7 +74,7 @@ function QuickEditModal({ order, onClose, onSaved }) {
   const [commune, setCommune] = useState(order.commune || '')
   const [saving,  setSaving]  = useState(false)
 
-  const inputCls = 'w-full px-3 py-2 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 transition'
+  const inputCls = 'w-full px-3 py-2 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 transition [color-scheme:dark]'
   const bdrStyle = { borderColor: theme.dark.border, background: theme.dark.sidebar }
 
   const handleSave = async () => {
@@ -121,10 +106,14 @@ function QuickEditModal({ order, onClose, onSaved }) {
           </div>
           <div>
             <label className="block text-xs mb-1.5" style={{ color: theme.dark.muted }}>Sélectionner un nouveau statut</label>
-            <select value={status} onChange={e => setStatus(e.target.value)} className={inputCls} style={bdrStyle}>
-              <option value="">— Choisir —</option>
-              {STATUS_OPTIONS.filter(s => s.value).map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-            </select>
+            <Select
+              value={status}
+              onChange={setStatus}
+              options={STATUS_OPTIONS.filter(s => s.value)}
+              placeholder="— Choisir —"
+              className={inputCls}
+              style={bdrStyle}
+            />
           </div>
         </div>
 
@@ -136,10 +125,14 @@ function QuickEditModal({ order, onClose, onSaved }) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
           <div>
             <label className="block text-xs mb-1.5" style={{ color: theme.dark.muted }}>Wilaya</label>
-            <select value={wilaya} onChange={e => setWilaya(e.target.value)} className={inputCls} style={bdrStyle}>
-              <option value="">Choisissez une Wilaya</option>
-              {WILAYAS.map(w => <option key={w.id} value={w.name}>{w.id} — {w.name}</option>)}
-            </select>
+            <Select
+              value={wilaya}
+              onChange={setWilaya}
+              options={WILAYAS.map(w => ({ value: w.name, label: `${w.id} — ${w.name}` }))}
+              placeholder="Choisissez une Wilaya"
+              className={inputCls}
+              style={bdrStyle}
+            />
           </div>
           <div>
             <label className="block text-xs mb-1.5" style={{ color: theme.dark.muted }}>Commune</label>
@@ -189,8 +182,8 @@ function HistoryModal({ orderId, onClose }) {
                 {order.history.map(h => (
                   <div key={h.id}>
                     <p className="text-xs" style={{ color: theme.dark.muted }}>{new Date(h.changed_at).toLocaleString('fr-DZ')}</p>
-                    <span className={`inline-block mt-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[h.status] || STATUS_FALLBACK}`}>
-                      {h.status_label}
+                    <span className="inline-block mt-1">
+                      <StatusBadge status={h.status} label={h.status_label} />
                     </span>
                     {h.note && <p className="text-xs text-gray-400 mt-1">{h.note}</p>}
                   </div>
@@ -257,14 +250,13 @@ export default function OrdersPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-5 gap-3 flex-wrap">
         <div className="flex items-center gap-3 flex-wrap w-full sm:w-auto">
-          <select
+          <Select
             value={statusF}
-            onChange={e => setStatusF(e.target.value)}
+            onChange={setStatusF}
+            options={STATUS_OPTIONS}
             className="px-3 py-2 rounded-lg border text-sm text-gray-200 outline-none w-full sm:w-auto"
             style={{ background: theme.dark.card, borderColor: theme.dark.border, minWidth: 200 }}
-          >
-            {STATUS_OPTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-          </select>
+          />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
@@ -341,11 +333,8 @@ export default function OrdersPage() {
                 <td className="px-4 py-3 text-gray-300">{o.wilaya}</td>
                 <td className="px-4 py-3 text-gray-200 font-semibold">{Number(o.total).toLocaleString('fr-DZ')} DZD</td>
                 <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
-                  <button
-                    onClick={() => setQuickEdit(o)}
-                    className={`px-2.5 py-0.5 rounded-full text-xs font-medium hover:opacity-80 transition ${STATUS_COLORS[o.status] || STATUS_FALLBACK}`}
-                  >
-                    {o.status_label}
+                  <button onClick={() => setQuickEdit(o)} className="hover:opacity-80 transition">
+                    <StatusBadge status={o.status} label={o.status_label} />
                   </button>
                 </td>
                 <td className="px-4 py-3 text-gray-400">{o.commune || '—'}</td>
@@ -365,14 +354,13 @@ export default function OrdersPage() {
       <div className="flex items-center justify-between mt-4 text-sm" style={{ color: theme.dark.muted }}>
         <p>{selected.size} de {data.count} sélectionné</p>
         <div className="flex items-center gap-3">
-          <label className="flex items-center gap-2 text-xs">
+          <div className="flex items-center gap-2 text-xs">
             Lignes par page :
-            <select value={perPage} onChange={e => { setPerPage(Number(e.target.value)); setPage(1) }}
+            <Select value={perPage} onChange={v => { setPerPage(Number(v)); setPage(1) }}
+              options={PER_PAGE_OPTIONS.map(n => ({ value: n, label: n }))}
               className="px-2 py-1 rounded-lg border text-gray-300 text-xs"
-              style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-              {PER_PAGE_OPTIONS.map(n => <option key={n} value={n}>{n}</option>)}
-            </select>
-          </label>
+              style={{ background: theme.dark.card, borderColor: theme.dark.border, minWidth: 64 }} />
+          </div>
           <div className="flex items-center gap-1">
             <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-2 py-1 rounded disabled:opacity-30 hover:bg-white/5 flex items-center justify-center">
               <ChevronLeftIcon />

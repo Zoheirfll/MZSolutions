@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import DashboardLayout from '../components/DashboardLayout'
+import Select from '../components/Select'
 import api from '../api/axios'
 import { theme } from '../theme'
 import { WILAYAS } from '../data/wilayas'
@@ -40,7 +41,7 @@ function Modal({ role, onClose, onSaved }) {
     }
   }
 
-  const inputCls = `w-full px-3.5 py-2.5 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 transition`
+  const inputCls = `w-full px-3.5 py-2.5 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 transition [color-scheme:dark]`
   const bdrStyle = { borderColor: theme.dark.border }
 
   return (
@@ -83,10 +84,12 @@ function Modal({ role, onClose, onSaved }) {
           {role === 'admin' && (
             <div>
               <label className="block text-xs text-gray-400 mb-1">Rôle</label>
-              <select name="role" value={form.role} onChange={change} className={inputCls} style={{ ...bdrStyle, background: theme.dark.sidebar }}>
-                <option value="admin">Admin</option>
-                <option value="confirmateur">Confirmateur</option>
-              </select>
+              <Select
+                value={form.role}
+                onChange={v => setForm(f => ({ ...f, role: v }))}
+                options={[{ value: 'admin', label: 'Admin' }, { value: 'confirmateur', label: 'Confirmateur' }]}
+                className={inputCls}
+              />
             </div>
           )}
 
@@ -95,10 +98,13 @@ function Modal({ role, onClose, onSaved }) {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs text-gray-400 mb-1">Wilaya</label>
-                  <select name="wilaya" value={form.wilaya} onChange={change} className={inputCls} style={{ ...bdrStyle, background: theme.dark.sidebar }}>
-                    <option value="">Choisissez une Wilaya</option>
-                    {WILAYAS.map(w => <option key={w.id} value={w.name}>{w.id} — {w.name}</option>)}
-                  </select>
+                  <Select
+                    value={form.wilaya}
+                    onChange={v => setForm(f => ({ ...f, wilaya: v }))}
+                    options={WILAYAS.map(w => ({ value: w.name, label: `${w.id} — ${w.name}` }))}
+                    placeholder="Choisissez une Wilaya"
+                    className={inputCls}
+                  />
                 </div>
                 <div>
                   <label className="block text-xs text-gray-400 mb-1">Commune</label>
@@ -165,7 +171,7 @@ function MembersTable({ members, onToggle }) {
                 </span>
               </td>
               <td className="py-3 pr-4">
-                <span className={`text-xs px-2 py-0.5 rounded-full ${m.is_active ? 'bg-emerald-900/30 text-emerald-400' : 'bg-amber-900/30 text-amber-400'}`}>
+                <span className={m.is_active ? theme.badge.success : theme.badge.warning}>
                   {m.is_active ? 'Actif' : 'En attente'}
                 </span>
               </td>

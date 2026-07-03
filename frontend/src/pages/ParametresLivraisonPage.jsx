@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import DashboardLayout from '../components/DashboardLayout'
+import Select from '../components/Select'
 import api from '../api/axios'
 import { theme } from '../theme'
 import { WILAYAS } from '../data/wilayas'
@@ -198,19 +199,19 @@ export default function ParametresLivraisonPage() {
       )}
 
       {tab === 'connected' && (
-        <div className={theme.table.wrap}>
+        <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border, background: theme.dark.card }}>
           <table className="w-full text-sm">
-            <thead className={theme.table.head}>
-              <tr>
-                <th className="px-4 py-3 text-left">ID</th>
-                <th className="px-4 py-3 text-left">Société</th>
-                <th className="px-4 py-3 text-left">Ville de départ</th>
-                <th className="px-4 py-3 text-left">Statut</th>
-                <th className="px-4 py-3 text-left">Clé API</th>
-                <th className="px-4 py-3 text-left">Jeton API</th>
-                <th className="px-4 py-3 text-left">Défaut</th>
-                <th className="px-4 py-3 text-left">Créé à</th>
-                <th className="px-4 py-3 text-right">Actions</th>
+            <thead style={{ background: theme.dark.sidebar }}>
+              <tr className="text-left text-xs" style={{ color: theme.dark.muted }}>
+                <th className="px-4 py-3 text-left font-medium">ID</th>
+                <th className="px-4 py-3 text-left font-medium">Société</th>
+                <th className="px-4 py-3 text-left font-medium">Ville de départ</th>
+                <th className="px-4 py-3 text-left font-medium">Statut</th>
+                <th className="px-4 py-3 text-left font-medium">Clé API</th>
+                <th className="px-4 py-3 text-left font-medium">Jeton API</th>
+                <th className="px-4 py-3 text-left font-medium">Défaut</th>
+                <th className="px-4 py-3 text-left font-medium">Créé à</th>
+                <th className="px-4 py-3 text-right font-medium">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -298,10 +299,13 @@ export default function ParametresLivraisonPage() {
               </div>
             </div>
             <label className={theme.labelDark}>Sélectionnez la ville de départ</label>
-            <select value={departureWilaya} onChange={e => setDepartureWilaya(e.target.value)} className={theme.inputDark + ' mb-3 cursor-pointer'}>
-              <option value="">Sélectionnez la ville de départ</option>
-              {WILAYAS.map(w => <option key={w.id} value={w.name}>{w.name}</option>)}
-            </select>
+            <Select
+              value={departureWilaya}
+              onChange={setDepartureWilaya}
+              options={WILAYAS.map(w => ({ value: w.name, label: w.name }))}
+              placeholder="Sélectionnez la ville de départ"
+              className={theme.inputDark + ' mb-3'}
+            />
             <label className={theme.labelDark}>Name</label>
             <input value={name} onChange={e => setName(e.target.value)} placeholder="Entrez le nom de l'entreprise" className={theme.inputDark + ' mb-3'} />
             <label className={theme.labelDark}>Entrez votre clé API</label>

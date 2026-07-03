@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
+import Select from '../../components/Select'
 import api from '../../api/axios'
 import { theme } from '../../theme'
 
@@ -120,7 +121,7 @@ function AddModal({ onClose, onSaved }) {
     p.name.toLowerCase().includes(search.toLowerCase())
   )
 
-  const inputCls = 'w-full px-3.5 py-2.5 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 transition'
+  const inputCls = 'w-full px-3.5 py-2.5 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 transition [color-scheme:dark]'
   const bdrStyle = { borderColor: theme.dark.border }
 
   const submit = async e => {
@@ -386,17 +387,16 @@ export default function ReviewsPage() {
       <div className="flex items-center justify-between mt-4 text-sm" style={{ color: theme.dark.muted }}>
         <p>{selected.size} de {total} sélectionné</p>
         <div className="flex items-center gap-3">
-          <label className="flex items-center gap-2 text-xs">
+          <div className="flex items-center gap-2 text-xs">
             Lignes par page :
-            <select
+            <Select
               value={perPage}
-              onChange={e => { setPerPage(Number(e.target.value)); setPage(1) }}
+              onChange={v => { setPerPage(Number(v)); setPage(1) }}
+              options={PER_PAGE_OPTIONS.map(n => ({ value: n, label: n }))}
               className="px-2 py-1 rounded-lg border text-gray-300 text-xs"
-              style={{ background: theme.dark.card, borderColor: theme.dark.border }}
-            >
-              {PER_PAGE_OPTIONS.map(n => <option key={n} value={n}>{n}</option>)}
-            </select>
-          </label>
+              style={{ background: theme.dark.card, borderColor: theme.dark.border, minWidth: 64 }}
+            />
+          </div>
           <div className="flex items-center gap-1">
             <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
               className="px-2.5 py-1 rounded text-xs disabled:opacity-30 hover:bg-white/5 transition">←</button>

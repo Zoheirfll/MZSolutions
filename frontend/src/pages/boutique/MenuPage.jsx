@@ -3,6 +3,7 @@ import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from 
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import DashboardLayout from '../../components/DashboardLayout'
+import Select from '../../components/Select'
 import api from '../../api/axios'
 import { useAuth } from '../../context/AuthContext'
 import { theme } from '../../theme'
@@ -53,14 +54,13 @@ function SortableItem({ item, onUpdate, onRemove, pages, slug }) {
 
       {/* URL/target */}
       {item.type === 'page' ? (
-        <select value={item.page_slug || ''} onChange={e => {
-          const pg = pages.find(p => p.slug === e.target.value)
-          onUpdate({ ...item, page_slug: e.target.value, url: `/store/${slug}/pages/${e.target.value}`, label: item.label || pg?.title || '' })
-        }} className="text-xs rounded-lg border px-2 py-1 outline-none w-36 shrink-0"
-          style={{ background: theme.dark.app, borderColor: theme.dark.border, color: 'var(--sf-text-muted, #6b7280)' }}>
-          <option value="">-- Choisir page --</option>
-          {pages.map(p => <option key={p.slug} value={p.slug}>{p.title}</option>)}
-        </select>
+        <Select value={item.page_slug || ''} onChange={v => {
+          const pg = pages.find(p => p.slug === v)
+          onUpdate({ ...item, page_slug: v, url: `/store/${slug}/pages/${v}`, label: item.label || pg?.title || '' })
+        }} options={pages.map(p => ({ value: p.slug, label: p.title }))}
+          placeholder="-- Choisir page --"
+          className="text-xs rounded-lg border px-2 py-1 outline-none w-36 shrink-0"
+          style={{ background: theme.dark.app, borderColor: theme.dark.border, color: 'var(--sf-text-muted, #6b7280)' }} />
       ) : (
         <input value={item.url} onChange={e => onUpdate({ ...item, url: e.target.value })}
           className="text-xs rounded-lg border px-2 py-1.5 outline-none w-48 shrink-0 font-mono"

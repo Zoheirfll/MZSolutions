@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import StorefrontLayout from './StorefrontLayout'
+import Select from '../../components/Select'
 import publicApi from '../../api/publicApi'
 import { useCart } from '../../context/CartContext'
 import { WILAYAS } from '../../data/wilayas'
@@ -236,10 +237,13 @@ export default function CheckoutPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className={theme.label}>Wilaya *</label>
-                    <select value={client.wilaya} onChange={e => setClient(c => ({ ...c, wilaya: e.target.value }))} required className={theme.input}>
-                      <option value="">Sélectionner…</option>
-                      {WILAYAS.map(w => <option key={w.id} value={w.name}>{w.id} — {w.name}</option>)}
-                    </select>
+                    <Select
+                      value={client.wilaya}
+                      onChange={v => setClient(c => ({ ...c, wilaya: v }))}
+                      options={WILAYAS.map(w => ({ value: w.name, label: `${w.id} — ${w.name}` }))}
+                      className={theme.input}
+                      variant="light"
+                    />
                   </div>
                   <div>
                     <label className={theme.label}>Commune</label>

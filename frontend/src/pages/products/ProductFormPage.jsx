@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import DashboardLayout from '../../components/DashboardLayout'
+import Select from '../../components/Select'
 import api from '../../api/axios'
 import { theme } from '../../theme'
 
@@ -41,7 +42,7 @@ function VariantBlock({ productId, variant, onDeleted, onUpdated }) {
   const [saving, setSaving]     = useState(false)
   const optImgRefs              = useRef({})
 
-  const inputCls = `w-full px-3 py-2 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 transition`
+  const inputCls = `w-full px-3 py-2 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 transition [color-scheme:dark]`
   const bdrStyle = { borderColor: theme.dark.border }
 
   const saveVariant = async () => {
@@ -351,7 +352,7 @@ export default function ProductFormPage() {
     setVariants(data)
   }
 
-  const inputCls = `w-full px-3.5 py-2.5 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 transition`
+  const inputCls = `w-full px-3.5 py-2.5 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 transition [color-scheme:dark]`
   const bdrStyle = { borderColor: theme.dark.border }
 
   return (
@@ -448,10 +449,14 @@ export default function ProductFormPage() {
                   </div>
                   <div>
                     <label className="block text-xs text-gray-400 mb-1.5">Fournisseur</label>
-                    <select name="supplier" value={form.supplier} onChange={change} className={inputCls} style={{ ...bdrStyle, background: theme.dark.sidebar }}>
-                      <option value="">Aucun fournisseur</option>
-                      {suppliers.map(s => <option key={s.id} value={s.id}>{s.first_name} {s.last_name}</option>)}
-                    </select>
+                    <Select
+                      value={form.supplier}
+                      onChange={v => setForm(f => ({ ...f, supplier: v }))}
+                      options={suppliers.map(s => ({ value: s.id, label: `${s.first_name} ${s.last_name}` }))}
+                      placeholder="Aucun fournisseur"
+                      className={inputCls}
+                      style={{ ...bdrStyle, background: theme.dark.sidebar }}
+                    />
                   </div>
                 </div>
 

@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import DashboardLayout from '../../components/DashboardLayout'
+import Select from '../../components/Select'
 import api from '../../api/axios'
 import { theme } from '../../theme'
 import { WILAYAS } from '../../data/wilayas'
@@ -94,7 +95,7 @@ export default function OrderFormPage() {
     }
   }
 
-  const inputCls = 'w-full px-3.5 py-2.5 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 transition'
+  const inputCls = 'w-full px-3.5 py-2.5 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 transition [color-scheme:dark]'
   const bdrStyle = { borderColor: theme.dark.border }
 
   return (
@@ -226,10 +227,14 @@ export default function OrderFormPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs text-gray-400 mb-1.5">Wilaya *</label>
-                <select value={client.wilaya} onChange={e => setClient(c => ({ ...c, wilaya: e.target.value }))} className={inputCls} style={{ ...bdrStyle, background: theme.dark.sidebar }}>
-                  <option value="">Choisissez une Wilaya</option>
-                  {WILAYAS.map(w => <option key={w.id} value={w.name}>{w.id} — {w.name}</option>)}
-                </select>
+                <Select
+                  value={client.wilaya}
+                  onChange={v => setClient(c => ({ ...c, wilaya: v }))}
+                  options={WILAYAS.map(w => ({ value: w.name, label: `${w.id} — ${w.name}` }))}
+                  placeholder="Choisissez une Wilaya"
+                  className={inputCls}
+                  style={{ ...bdrStyle, background: theme.dark.sidebar }}
+                />
                 {errors.wilaya && <p className="text-red-400 text-xs mt-1">{errors.wilaya}</p>}
               </div>
               <div>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import DashboardLayout from '../../components/DashboardLayout'
 import RichEditor from '../../components/RichEditor'
+import Select from '../../components/Select'
 import api from '../../api/axios'
 import { theme } from '../../theme'
 
@@ -90,10 +91,8 @@ export default function PageFormPage() {
             </div>
             <div>
               <label className={theme.labelDark}>Type</label>
-              <select value={form.page_type} onChange={e => setForm(f => ({ ...f, page_type: e.target.value }))}
-                className={theme.inputDark}>
-                {PAGE_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-              </select>
+              <Select value={form.page_type} onChange={v => setForm(f => ({ ...f, page_type: v }))}
+                options={PAGE_TYPES} className={theme.inputDark} />
             </div>
           </div>
 

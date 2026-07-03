@@ -1,6 +1,43 @@
 @import "tailwindcss";
 
+@theme {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+html {
+  /* Bumps every rem-based Tailwind utility (text-*, p-*, gap-*, rounded-*)
+     up ~7% at once, so the whole app reads bigger/airier without touching
+     every className. */
+  font-size: 107%;
+  /* Native form controls (select popups, scrollbars, date pickers) render
+     dark by default; the storefront light pages opt back out locally. */
+  color-scheme: dark;
+}
+
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+/* Without `appearance: none`, Windows/Chrome ignores all authored CSS
+   (background, color, border) on <select> and falls back to the native
+   white Win32 combobox for both the closed box and the open popup — this
+   is what was actually causing the white dropdowns, not color-scheme. */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239a9ca3' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1rem;
+  padding-right: 2.25rem;
+  /* Stops Windows "forced colors" (high-contrast) mode from overriding the
+     select's background/text color even after appearance: none. */
+  forced-color-adjust: none;
 }

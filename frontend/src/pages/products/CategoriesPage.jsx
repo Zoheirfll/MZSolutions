@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
+import Select from '../../components/Select'
 import api from '../../api/axios'
 import { theme } from '../../theme'
 
@@ -98,7 +99,7 @@ function Modal({ cat, parentOptions, onClose, onSaved }) {
   const [image, setImage]   = useState(null)
   const [saving, setSaving] = useState(false)
 
-  const inputCls = `w-full px-3.5 py-2.5 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 transition`
+  const inputCls = `w-full px-3.5 py-2.5 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 transition [color-scheme:dark]`
   const bdrStyle = { borderColor: theme.dark.border }
 
   const submit = async e => {
@@ -134,12 +135,14 @@ function Modal({ cat, parentOptions, onClose, onSaved }) {
           </div>
           <div>
             <label className="block text-xs text-gray-400 mb-1.5">Catégorie parente (optionnel)</label>
-            <select value={form.parent} onChange={e => setForm(f => ({ ...f, parent: e.target.value }))} className={inputCls} style={{ ...bdrStyle, background: theme.dark.sidebar }}>
-              <option value="">Aucune (catégorie racine)</option>
-              {parentOptions.filter(p => p.id !== cat?.id).map(p => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </select>
+            <Select
+              value={form.parent}
+              onChange={v => setForm(f => ({ ...f, parent: v }))}
+              options={parentOptions.filter(p => p.id !== cat?.id).map(p => ({ value: p.id, label: p.name }))}
+              placeholder="Aucune (catégorie racine)"
+              className={inputCls}
+              style={{ ...bdrStyle, background: theme.dark.sidebar }}
+            />
           </div>
           <div>
             <label className="block text-xs text-gray-400 mb-1.5">Image</label>
@@ -356,14 +359,13 @@ export default function CategoriesPage() {
           )}
           <div className="flex items-center gap-2">
             <span>Lignes par page :</span>
-            <select
+            <Select
               value={perPage}
-              onChange={e => { setPerPage(Number(e.target.value)); setPage(1) }}
-              className="px-2 py-1 rounded border text-gray-300 text-xs cursor-pointer"
-              style={{ background: theme.dark.card, borderColor: theme.dark.border }}
-            >
-              {PER_PAGE_OPTS.map(n => <option key={n} value={n}>{n}</option>)}
-            </select>
+              onChange={v => { setPerPage(Number(v)); setPage(1) }}
+              options={PER_PAGE_OPTS.map(n => ({ value: n, label: n }))}
+              className="px-2 py-1 rounded border text-gray-300 text-xs"
+              style={{ background: theme.dark.card, borderColor: theme.dark.border, minWidth: 64 }}
+            />
           </div>
         </div>
 

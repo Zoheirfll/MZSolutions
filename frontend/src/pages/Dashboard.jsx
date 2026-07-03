@@ -1,84 +1,67 @@
 import { useEffect, useState } from 'react'
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { Package, CheckCircle2, Truck, Clock, PackageCheck, RotateCcw, XCircle, ExternalLink, LineChart } from 'lucide-react'
 import DashboardLayout from '../components/DashboardLayout'
+import StatCard from '../components/StatCard'
 import { useAuth } from '../context/AuthContext'
 import api from '../api/axios'
 import { theme } from '../theme'
 
-const STATS = [
-  { label: 'Commandes réelles', sub: 'sur total',    color: '#a78bfa', glow: '#7c3aed22',
-    icon: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg> },
-  { label: 'Confirmées',        sub: 'confirmées',   color: '#34d399', glow: '#05966922',
-    icon: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> },
-  { label: 'Expédiées',         sub: 'expédiées',    color: '#38bdf8', glow: '#0891b222',
-    icon: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10l2 2h1m0 0h7m-7 0v2a1 1 0 002 0v-2m0 0h5m5-8h-3v6h3m-3 2a1 1 0 102 0 1 1 0 00-2 0zm-9 2a1 1 0 102 0 1 1 0 00-2 0z"/></svg> },
-  { label: 'En cours',          sub: 'acheminement', color: '#fbbf24', glow: '#d9770622',
-    icon: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> },
-  { label: 'Livrées',           sub: 'livrées',      color: '#4ade80', glow: '#16a34a22',
-    icon: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg> },
-  { label: 'Retours',           sub: 'retournées',   color: '#f87171', glow: '#dc262622',
-    icon: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg> },
-  { label: 'Annulées',          sub: 'annulées',     color: '#94a3b8', glow: '#6b728022',
-    icon: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> },
+const STAT_DEFS = [
+  { key: 'total',       label: 'Commandes réelles', sub: 'sur total',      color: 'violet', icon: Package },
+  { key: 'confirmed',   label: 'Confirmées',        sub: 'confirmées',     color: 'green',  icon: CheckCircle2 },
+  { key: 'shipped',     label: 'Expédiées',         sub: 'expédiées',      color: 'blue',   icon: Truck },
+  { key: 'pending',     label: 'En attente',        sub: 'en attente',     color: 'orange', icon: Clock },
+  { key: 'delivered',   label: 'Livrées',           sub: 'livrées',        color: 'green',  icon: PackageCheck },
+  { key: 'returned',    label: 'Retours',           sub: 'retournées',     color: 'red',    icon: RotateCcw },
+  { key: 'cancelled',   label: 'Annulées',          sub: 'annulées',       color: 'red',    icon: XCircle },
 ]
-
-function StatCard({ label, sub, color, glow, icon }) {
-  return (
-    <div className="relative rounded-2xl p-5 border overflow-hidden group transition-all duration-300 hover:-translate-y-0.5 cursor-default"
-      style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded-2xl"
-        style={{ background: `radial-gradient(circle at 20% 50%, ${glow}, transparent 70%)` }} />
-      <div className="absolute top-0 left-0 right-0 h-[2px] rounded-t-2xl opacity-70" style={{ background: color }} />
-
-      <div className="relative flex items-start justify-between mb-3">
-        <p className="text-xs font-medium" style={{ color: theme.dark.mutedLight }}>{label}</p>
-        <span className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-          style={{ background: `${color}18`, color }}>
-          {icon}
-        </span>
-      </div>
-      <div className="relative flex items-end justify-between">
-        <span className="text-4xl font-bold tracking-tight" style={{ color }}>0</span>
-        <span className="text-[10px] font-medium px-2 py-0.5 rounded-full mb-1"
-          style={{ background: `${color}18`, color }}>
-          {sub}
-        </span>
-      </div>
-      <div className="relative mt-4 flex items-center gap-2">
-        <div className="flex-1 h-1 rounded-full" style={{ background: theme.dark.border }}>
-          <div className="h-full w-0 rounded-full" style={{ background: color }} />
-        </div>
-        <span className="text-[10px]" style={{ color: theme.dark.muted }}>↗ 0%</span>
-      </div>
-    </div>
-  )
-}
 
 export default function Dashboard() {
   const { user } = useAuth()
   const [quota, setQuota] = useState(null)
+  const [stats, setStats] = useState(null)
+  const [chartData, setChartData] = useState([])
 
   useEffect(() => {
     api.get('/stores/me/quota/').then(({ data }) => setQuota(data)).catch(() => {})
+    api.get('/orders/stats/').then(({ data }) => setStats(data)).catch(() => {})
+    api.get('/orders/?per_page=200').then(({ data }) => {
+      const orders = data.results || []
+      const days = Array.from({ length: 15 }).map((_, i) => {
+        const d = new Date()
+        d.setDate(d.getDate() - (14 - i))
+        return d
+      })
+      const points = days.map(d => {
+        const key = d.toISOString().slice(0, 10)
+        const count = orders.filter(o => (o.created_at || '').slice(0, 10) === key).length
+        return { date: d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }), commandes: count }
+      })
+      setChartData(points)
+    }).catch(() => {})
   }, [])
 
   const usedPct = quota ? Math.round((quota.orders_used / quota.orders_limit) * 100) : 0
   const daysLeft = quota ? Math.max(0, Math.ceil((new Date(quota.trial_ends_at) - new Date()) / 86400000)) : 0
 
+  const statValue = (key) => stats ? (key === 'total' ? stats.total : stats[key]?.count ?? 0) : 0
+
   return (
     <DashboardLayout title="Tableau de bord">
       {/* Welcome */}
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-7 flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-gray-100">
+          <h2 className="text-2xl font-bold text-gray-100">
             Bonjour, <span className="text-violet-400">{user?.first_name}</span>
           </h2>
-          <p className="text-sm mt-0.5" style={{ color: theme.dark.muted }}>
+          <p className="text-sm mt-1" style={{ color: theme.dark.muted }}>
             {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
           </p>
         </div>
         <a href={user?.store_slug ? `/store/${user.store_slug}` : '#'} target="_blank" rel="noreferrer"
           className={theme.btn.outline + ' hidden sm:inline-flex text-xs'}>
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+          <ExternalLink className="w-3.5 h-3.5" strokeWidth={2} />
           Voir ma boutique
         </a>
       </div>
@@ -126,26 +109,40 @@ export default function Dashboard() {
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-        {STATS.slice(0, 3).map(s => <StatCard key={s.label} {...s} />)}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-5">
+        {STAT_DEFS.slice(0, 3).map(s => (
+          <StatCard key={s.key} label={s.label} sub={s.sub} color={s.color} icon={s.icon} value={statValue(s.key)} />
+        ))}
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        {STATS.slice(3).map(s => <StatCard key={s.label} {...s} />)}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-7">
+        {STAT_DEFS.slice(3).map(s => (
+          <StatCard key={s.key} label={s.label} sub={s.sub} color={s.color} icon={s.icon} value={statValue(s.key)} />
+        ))}
       </div>
 
-      {/* Chart placeholder */}
-      <div className="rounded-2xl border p-8 flex items-center justify-center"
-        style={{ background: theme.dark.card, borderColor: theme.dark.border, minHeight: 200 }}>
-        <div className="text-center">
-          <div className="w-12 h-12 rounded-2xl mx-auto mb-4 flex items-center justify-center"
-            style={{ background: '#7c3aed18', border: `1px solid #7c3aed30` }}>
-            <svg className="w-6 h-6 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 3v18h18M7 15l4-4 3 3 5-6" />
-            </svg>
-          </div>
-          <p className="text-gray-400 text-sm font-medium">Graphiques disponibles prochainement</p>
-          <p className="text-xs mt-1" style={{ color: theme.dark.muted }}>Livraisons · Revenus · Confirmation · KPI</p>
+      {/* Chart */}
+      <div className="rounded-2xl border p-5 sm:p-6"
+        style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
+        <div className="flex items-center gap-2 mb-4">
+          <LineChart className="w-4 h-4 text-violet-400" strokeWidth={2} />
+          <p className="text-sm font-semibold text-gray-200">Commandes — 15 derniers jours</p>
         </div>
+        <ResponsiveContainer width="100%" height={240}>
+          <AreaChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+            <defs>
+              <linearGradient id="ordersGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.4} />
+                <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke={theme.dark.border} vertical={false} />
+            <XAxis dataKey="date" tick={{ fill: theme.dark.muted, fontSize: 11 }} axisLine={false} tickLine={false} />
+            <YAxis allowDecimals={false} tick={{ fill: theme.dark.muted, fontSize: 11 }} axisLine={false} tickLine={false} />
+            <Tooltip contentStyle={{ background: theme.dark.sidebar, border: `1px solid ${theme.dark.border}`, borderRadius: 8, fontSize: 12 }}
+              labelStyle={{ color: theme.dark.mutedLight }} />
+            <Area type="monotone" dataKey="commandes" stroke="#8b5cf6" strokeWidth={2} fill="url(#ordersGradient)" />
+          </AreaChart>
+        </ResponsiveContainer>
       </div>
     </DashboardLayout>
   )
