@@ -6,10 +6,16 @@ from .views import (
     CallAttemptListView, CallAttemptDetailView,
     FailureReasonListView, FailureReasonDetailView,
     AbandonedCartListView,
+    ClientListView, CustomerRiskToggleView,
+    BlacklistListCreateView, BlacklistDetailView,
 )
 
 urlpatterns = [
     path('abandoned-carts/',                       AbandonedCartListView.as_view()),
+    path('clients/',                              ClientListView.as_view()),
+    path('clients/<str:phone>/risk/',             CustomerRiskToggleView.as_view()),
+    path('blacklist/',                            BlacklistListCreateView.as_view()),
+    path('blacklist/<int:pk>/',                   BlacklistDetailView.as_view()),
     path('',                                      OrderListCreateView.as_view()),
     path('stats/',                                OrderStatsView.as_view()),
     path('stats/confirmation/',                   ConfirmationRateView.as_view()),

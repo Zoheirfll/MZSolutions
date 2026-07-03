@@ -3,15 +3,15 @@ from decimal import Decimal
 from datetime import date, timedelta
 from django.core.mail import send_mail
 from django.db import transaction
-from django.db.models import Q, Count, Case, When, IntegerField
+from django.db.models import Q, Count, Case, When, IntegerField, Max, Min
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
 
 from django.utils import timezone
-from .models import Order, OrderItem, OrderStatusHistory, STATUS_CHOICES, OrderAssignment, FailureReason, CallAttempt, CALL_STATUS_CHOICES, PaymentWebhookLog, AbandonedCart, CarrierAccount, CARRIER_CHOICES
-from .serializers import OrderSerializer, OrderDetailSerializer, OrderAssignmentSerializer, FailureReasonSerializer, CallAttemptSerializer, AbandonedCartSerializer, CarrierAccountSerializer
+from .models import Order, OrderItem, OrderStatusHistory, STATUS_CHOICES, OrderAssignment, FailureReason, CallAttempt, CALL_STATUS_CHOICES, PaymentWebhookLog, AbandonedCart, CarrierAccount, CARRIER_CHOICES, CustomerRisk, BlacklistedPhone
+from .serializers import OrderSerializer, OrderDetailSerializer, OrderAssignmentSerializer, FailureReasonSerializer, CallAttemptSerializer, AbandonedCartSerializer, CarrierAccountSerializer, BlacklistedPhoneSerializer
 from .utils import assign_order_round_robin
 from . import chargily
 from .carriers import get_carrier_client
@@ -306,6 +306,139 @@ class OrderStatsView(APIView):
         return Response(result)
 
 
+# ─── Clients (agrégés à la volée depuis Order, pas de modèle Customer) ────────
+
+RISK_STATUSES = ['cancelled', 'returned']
+
+
+class ClientListView(APIView):
+    """Liste des clients agrégée par téléphone. ?risk_only=1 filtre sur le
+    risque (auto : commandes cancelled/returned sur la période dépassant le
+    seuil de StoreSettings, OU manuel via CustomerRisk.manual_risk)."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        store = _get_store(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+
+        settings_obj = getattr(store, 'settings', None)
+        threshold = settings_obj.risk_threshold_orders if settings_obj else 3
+        period_days = settings_obj.risk_period_days if settings_obj else 90
+        cutoff = timezone.now() - timedelta(days=period_days)
+
+        qs = store.orders.all()
+        search = request.query_params.get('search', '').strip()
+        if search:
+            qs = qs.filter(
+                Q(phone__icontains=search) |
+                Q(first_name__icontains=search) |
+                Q(last_name__icontains=search)
+            )
+
+        aggregated = qs.values('phone').annotate(
+            first_name=Max('first_name'),
+            last_name=Max('last_name'),
+            email=Max('customer_email'),
+            wilaya=Max('wilaya'),
+            commune=Max('commune'),
+            orders_count=Count('id'),
+            risky_count=Count('id', filter=Q(status__in=RISK_STATUSES, created_at__gte=cutoff)),
+            created_at=Min('created_at'),
+        ).order_by('-created_at')
+
+        manual_risk_phones = set(
+            CustomerRisk.objects.filter(store=store, manual_risk=True).values_list('phone', flat=True)
+        )
+
+        results = []
+        for row in aggregated:
+            is_risky = row['risky_count'] >= threshold or row['phone'] in manual_risk_phones
+            if request.query_params.get('risk_only') and not is_risky:
+                continue
+            results.append({
+                'phone':          row['phone'],
+                'first_name':     row['first_name'],
+                'last_name':      row['last_name'],
+                'email':          row['email'],
+                'wilaya':         row['wilaya'],
+                'commune':        row['commune'],
+                'orders_count':   row['orders_count'],
+                'risky_count':    row['risky_count'],
+                'is_risky':       is_risky,
+                'manual_risk':    row['phone'] in manual_risk_phones,
+                'created_at':     row['created_at'],
+            })
+
+        page     = max(1, int(request.query_params.get('page', 1)))
+        per_page = int(request.query_params.get('per_page', 10))
+        total    = len(results)
+        results  = results[(page - 1) * per_page: page * per_page]
+
+        return Response({'count': total, 'page': page, 'per_page': per_page, 'results': results})
+
+
+class CustomerRiskToggleView(APIView):
+    permission_classes = [IsAuthenticated, IsOwnerOrAdminForWrites]
+
+    def post(self, request, phone):
+        store = _get_store(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        risk, _ = CustomerRisk.objects.get_or_create(store=store, phone=phone)
+        risk.manual_risk = not risk.manual_risk
+        risk.note = request.data.get('note', risk.note)
+        risk.save(update_fields=['manual_risk', 'note', 'updated_at'])
+        return Response({'phone': phone, 'manual_risk': risk.manual_risk})
+
+
+class BlacklistListCreateView(APIView):
+    permission_classes = [IsAuthenticated, IsOwnerOrAdminForWrites]
+
+    def get(self, request):
+        store = _get_store(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        qs = store.blacklisted_phones.all()
+        return Response(BlacklistedPhoneSerializer(qs, many=True).data)
+
+    def post(self, request):
+        store = _get_store(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        s = BlacklistedPhoneSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        s.save(store=store)
+        return Response(s.data, status=status.HTTP_201_CREATED)
+
+
+class BlacklistDetailView(APIView):
+    permission_classes = [IsAuthenticated, IsOwnerOrAdminForWrites]
+
+    def _get(self, request, pk):
+        store = _get_store(request)
+        if not store:
+            return None, Response({'detail': 'Accès refusé.'}, status=403)
+        try:
+            return store.blacklisted_phones.get(pk=pk), None
+        except BlacklistedPhone.DoesNotExist:
+            return None, Response({'detail': 'Entrée introuvable.'}, status=404)
+
+    def put(self, request, pk):
+        entry, err = self._get(request, pk)
+        if err: return err
+        s = BlacklistedPhoneSerializer(entry, data=request.data, partial=True)
+        s.is_valid(raise_exception=True)
+        s.save()
+        return Response(s.data)
+
+    def delete(self, request, pk):
+        entry, err = self._get(request, pk)
+        if err: return err
+        entry.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
 class ConfirmationRateView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -403,6 +536,14 @@ class PublicOrderView(APIView):
             store = Store.objects.get(slug=store_slug, is_active=True)
         except Store.DoesNotExist:
             return Response({'detail': 'Boutique introuvable.'}, status=404)
+
+        phone_input = request.data.get('phone', '')
+        blocked = store.blacklisted_phones.filter(phone=phone_input).first()
+        if blocked:
+            blocked.blocked_attempts += 1
+            blocked.last_attempt_at = timezone.now()
+            blocked.save(update_fields=['blocked_attempts', 'last_attempt_at'])
+            return Response({'detail': blocked.message or 'Commande refusée.'}, status=403)
 
         try:
             quota = store.quota
