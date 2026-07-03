@@ -53,6 +53,35 @@ def _deduct_stock_for_order(store, order):
             )
 
 
+def _sync_commission_for_order(store, order, new_status):
+    """Calcule la commission du dropshipper uniquement quand la commande passe
+    à 'delivered' (une entrée par article, idempotent) ; supprime les entrées
+    déjà calculées si la commande repasse en 'returned'/'cancelled' — pour ne
+    jamais rémunérer une commande annulée ou retournée."""
+    if not order.dropshipper_id:
+        return
+    from dropshipping.models import Commission, CommissionEntry
+
+    if new_status == 'delivered':
+        commissions = {
+            c.product_id: c
+            for c in Commission.objects.filter(store=store, dropshipper_id=order.dropshipper_id)
+        }
+        for item in order.items.select_related('product').all():
+            if not item.product_id or item.product_id not in commissions:
+                continue
+            if CommissionEntry.objects.filter(order_item=item).exists():
+                continue
+            commission = commissions[item.product_id]
+            CommissionEntry.objects.create(
+                store=store, dropshipper_id=order.dropshipper_id, order_item=item,
+                product_id=item.product_id,
+                amount=commission.compute_amount(item.price, item.quantity),
+            )
+    elif new_status in ('returned', 'cancelled'):
+        CommissionEntry.objects.filter(order_item__order=order).delete()
+
+
 class OrderListCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -63,11 +92,13 @@ class OrderListCreateView(APIView):
 
         qs = store.orders.prefetch_related('items').all()
 
-        # Confirmateur : seulement ses commandes assignées
+        # Confirmateur : seulement ses commandes assignées. Dropshipper : seulement ses ventes.
         try:
             membership = request.user.team_membership
             if membership.role == 'confirmateur':
                 qs = qs.filter(assignment__confirmateur=membership)
+            elif membership.role == 'dropshipper':
+                qs = qs.filter(dropshipper=membership)
         except Exception:
             pass
 
@@ -97,8 +128,16 @@ class OrderListCreateView(APIView):
 
     @transaction.atomic
     def post(self, request):
-        if not is_owner_or_admin(request):
-            return Response({'detail': 'Création réservée au propriétaire ou administrateur.'}, status=403)
+        dropshipper_membership = None
+        try:
+            membership = request.user.team_membership
+            if membership.role == 'dropshipper':
+                dropshipper_membership = membership
+        except Exception:
+            pass
+
+        if not is_owner_or_admin(request) and not dropshipper_membership:
+            return Response({'detail': 'Création réservée au propriétaire, administrateur ou dropshipper.'}, status=403)
         store = _get_store(request)
         if not store:
             return Response({'detail': 'Accès refusé.'}, status=403)
@@ -114,6 +153,16 @@ class OrderListCreateView(APIView):
         if not items_data:
             return Response({'detail': 'La commande doit contenir au moins un article.'}, status=400)
 
+        if dropshipper_membership:
+            from dropshipping.models import DropshipperProduct
+            allowed_product_ids = set(
+                DropshipperProduct.objects.filter(dropshipper=dropshipper_membership)
+                .values_list('product_id', flat=True)
+            )
+            for item in items_data:
+                if item.get('product') not in allowed_product_ids:
+                    return Response({'detail': "Cet article ne fait pas partie de vos produits sélectionnés."}, status=403)
+
         order = Order.objects.create(
             store         = store,
             first_name    = request.data.get('first_name', ''),
@@ -125,6 +174,7 @@ class OrderListCreateView(APIView):
             shipping_cost = request.data.get('shipping_cost', 0),
             delivery_type = request.data.get('delivery_type', ''),
             note          = request.data.get('note', ''),
+            dropshipper   = dropshipper_membership,
         )
 
         for item in items_data:
@@ -216,6 +266,7 @@ class OrderStatusView(APIView):
         )
 
         carrier_warning = self._maybe_create_shipment(request, store, order, new_status)
+        _sync_commission_for_order(store, order, new_status)
 
         data = OrderDetailSerializer(order).data
         if carrier_warning:

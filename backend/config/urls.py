@@ -19,6 +19,7 @@ urlpatterns = [
     path('api/team/',     include('team.urls')),
     path('api/products/', include('products.urls')),
     path('api/orders/',   include('orders.urls')),
+    path('api/dropshipping/', include('dropshipping.urls')),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token-refresh'),
     path('api/public/reviews/', __import__('products.views', fromlist=['PublicReviewView']).PublicReviewView.as_view()),
     path('api/public/orders/',  __import__('orders.views',   fromlist=['PublicOrderView']).PublicOrderView.as_view()),

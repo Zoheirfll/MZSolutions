@@ -93,6 +93,7 @@ class Order(models.Model):
     carrier_tracking_number      = models.CharField(max_length=100, blank=True)
     carrier_status               = models.CharField(max_length=50, blank=True)
     carrier_shipment_created_at  = models.DateTimeField(null=True, blank=True)
+    dropshipper   = models.ForeignKey('team.TeamMember', null=True, blank=True, on_delete=models.SET_NULL, related_name='dropshipper_orders')
     created_at    = models.DateTimeField(auto_now_add=True)
     updated_at    = models.DateTimeField(auto_now=True)
 

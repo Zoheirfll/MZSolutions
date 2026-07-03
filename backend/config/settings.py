@@ -26,6 +26,7 @@ INSTALLED_APPS = [
     'team',
     'products',
     'orders',
+    'dropshipping',
 ]
 
 MIDDLEWARE = [
