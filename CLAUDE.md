@@ -5,6 +5,19 @@
 
 ---
 
+## Workflow de développement par Epic
+
+Chaque epic envoyée par l'utilisateur suit ce cycle, sans qu'il soit nécessaire de le redemander :
+
+1. **Créer une branche** nommée d'après l'epic (ex. `epic-livraison-yalidine`), à partir de `main` à jour.
+2. **Travailler l'epic** jusqu'à ce qu'elle soit complète et peaufinée (pas de demi-mesure — build/tests vérifiés avant de considérer terminé).
+3. **Mettre à jour `CLAUDE.md`** systématiquement à la fin (nouveaux modèles, endpoints, composants, conventions, décisions techniques, sprint concerné).
+4. **Commit + push** de la branche.
+5. **Retour sur `main`** (merge ou PR selon ce que demande l'utilisateur au moment venu — à confirmer avant tout merge vers `main`).
+6. Passer à l'epic suivante.
+
+---
+
 ## Projet
 
 **MZSolutions** — Plateforme SaaS e-commerce multi-vendeur pour le marché algérien.
