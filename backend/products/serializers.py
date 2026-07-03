@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Category, Product, ProductImage, ProductVariant, VariantOption, Supplier, SupplierCredit, SupplierPayment, ProductReview, Promotion
+from .models import Category, Product, ProductImage, ProductVariant, VariantOption, Supplier, SupplierCredit, SupplierPayment, ProductReview, Promotion, StockMovement
 
 
 def _abs_url(request, file_field):
@@ -241,3 +241,23 @@ class PromotionSerializer(serializers.ModelSerializer):
             if qs.exists():
                 raise serializers.ValidationError({'code': 'Ce code est déjà utilisé dans cette boutique.'})
         return data
+
+
+class StockMovementSerializer(serializers.ModelSerializer):
+    reason_label = serializers.SerializerMethodField()
+    product_name = serializers.SerializerMethodField()
+    option_value = serializers.SerializerMethodField()
+
+    class Meta:
+        model  = StockMovement
+        fields = ['id', 'product', 'product_name', 'variant_option', 'option_value',
+                  'quantity', 'reason', 'reason_label', 'note', 'created_at']
+
+    def get_reason_label(self, obj):
+        return obj.get_reason_display()
+
+    def get_product_name(self, obj):
+        return obj.product.name
+
+    def get_option_value(self, obj):
+        return obj.variant_option.value if obj.variant_option else None

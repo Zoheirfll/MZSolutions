@@ -60,13 +60,78 @@ function BoltIcon(props) {
   )
 }
 
-function StarRating({ rating, size = 'text-base' }) {
+function StarRating({ rating, size = 'text-base', onChange }) {
   return (
     <span className={size}>
       {[1, 2, 3, 4, 5].map(i => (
-        <span key={i} className={i <= rating ? 'text-amber-400' : 'text-gray-300'}>★</span>
+        <span
+          key={i}
+          onClick={onChange ? () => onChange(i) : undefined}
+          className={`${i <= rating ? 'text-amber-400' : 'text-gray-300'} ${onChange ? 'cursor-pointer' : ''}`}
+        >★</span>
       ))}
     </span>
+  )
+}
+
+function ReviewFormModal({ slug, productId, onClose, onSubmitted }) {
+  const [form, setForm] = useState({ first_name: '', last_name: '', email: '', rating: 5, comment: '' })
+  const [saving, setSaving] = useState(false)
+  const [error, setError]   = useState('')
+
+  const submit = async e => {
+    e.preventDefault()
+    setSaving(true)
+    setError('')
+    try {
+      await publicApi.post('/reviews/', { store_slug: slug, product: productId, ...form })
+      onSubmitted()
+    } catch (err) {
+      setError(err.response?.data?.detail || "Une erreur est survenue lors de l'envoi.")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: 'rgba(0,0,0,0.5)' }}>
+      <div className="w-full max-w-md rounded-2xl bg-white p-6">
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="font-semibold text-gray-900">Laisser un avis</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 transition cursor-pointer">
+            <XIcon className="w-5 h-5" />
+          </button>
+        </div>
+        <form onSubmit={submit} className="space-y-4">
+          <div>
+            <label className={theme.label}>Note</label>
+            <StarRating rating={form.rating} size="text-2xl" onChange={r => setForm(f => ({ ...f, rating: r }))} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={theme.label}>Prénom *</label>
+              <input value={form.first_name} onChange={e => setForm(f => ({ ...f, first_name: e.target.value }))} required className={theme.input} />
+            </div>
+            <div>
+              <label className={theme.label}>Nom</label>
+              <input value={form.last_name} onChange={e => setForm(f => ({ ...f, last_name: e.target.value }))} className={theme.input} />
+            </div>
+          </div>
+          <div>
+            <label className={theme.label}>Email (optionnel)</label>
+            <input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} className={theme.input} />
+          </div>
+          <div>
+            <label className={theme.label}>Commentaire</label>
+            <textarea value={form.comment} onChange={e => setForm(f => ({ ...f, comment: e.target.value }))} rows={3} className={theme.input} placeholder="Votre expérience avec ce produit…" />
+          </div>
+          {error && <p className={theme.errorText}>{error}</p>}
+          <button type="submit" disabled={saving} className={`${theme.btn.primary} w-full`}>
+            {saving ? 'Envoi…' : "Envoyer l'avis"}
+          </button>
+        </form>
+      </div>
+    </div>
   )
 }
 
@@ -79,6 +144,8 @@ export default function StorefrontProductPage() {
   const [activeImage,   setActiveImage]   = useState(null)
   const [selectedOpts,  setSelectedOpts]  = useState({})
   const [added,         setAdded]         = useState(false)
+  const [reviewModalOpen, setReviewModalOpen] = useState(false)
+  const [reviewSent,      setReviewSent]      = useState(false)
 
   useEffect(() => {
     setLoading(true)
@@ -278,7 +345,7 @@ export default function StorefrontProductPage() {
               <button
                 onClick={handleAddToCart}
                 disabled={!inStock}
-                className={`${theme.btn.outline} flex-1 py-3.5 text-base`}
+                className={`${theme.btn.outlineLight} flex-1 py-3.5 text-base`}
               >
                 <CartIcon className="w-4 h-4" />
                 {added ? <><CheckIcon className="w-4 h-4" /> Ajouté</> : 'Ajouter au panier'}
@@ -304,11 +371,19 @@ export default function StorefrontProductPage() {
         </div>
 
         {/* Avis */}
-        {product.reviews.length > 0 && (
-          <div className="mt-12 pt-8 border-t border-gray-100">
-            <h2 className="text-xl font-bold text-gray-900 mb-6">
-              Avis clients <span className="text-gray-400 font-normal text-base">({product.reviews_count})</span>
+        <div className="mt-12 pt-8 border-t border-gray-100">
+          <div className="flex items-center justify-between flex-wrap gap-3 mb-6">
+            <h2 className="text-xl font-bold text-gray-900">
+              Avis clients {product.reviews.length > 0 && <span className="text-gray-400 font-normal text-base">({product.reviews_count})</span>}
             </h2>
+            <button onClick={() => setReviewModalOpen(true)} className={theme.btn.outlineLight}>
+              Laisser un avis
+            </button>
+          </div>
+
+          {product.reviews.length === 0 ? (
+            <p className="text-sm text-gray-500">Aucun avis pour l'instant. Soyez le premier à en laisser un !</p>
+          ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {product.reviews.map(r => (
                 <div key={r.id} className={`${theme.card} p-4`}>
@@ -326,9 +401,31 @@ export default function StorefrontProductPage() {
                 </div>
               ))}
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
+
+      {reviewModalOpen && (
+        <ReviewFormModal
+          slug={slug}
+          productId={product.id}
+          onClose={() => setReviewModalOpen(false)}
+          onSubmitted={() => { setReviewModalOpen(false); setReviewSent(true) }}
+        />
+      )}
+
+      {reviewSent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: 'rgba(0,0,0,0.5)' }}>
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-center">
+            <div className={`${theme.badge.success} inline-flex! w-14! h-14! rounded-full! p-0! items-center justify-center mb-3`}>
+              <CheckIcon className="w-7 h-7" />
+            </div>
+            <h3 className="font-semibold text-gray-900 mb-1">Merci pour votre avis !</h3>
+            <p className="text-sm text-gray-500 mb-5">Il sera publié après modération par le vendeur.</p>
+            <button onClick={() => setReviewSent(false)} className={`${theme.btn.primary} w-full`}>Fermer</button>
+          </div>
+        </div>
+      )}
     </StorefrontLayout>
   )
 }

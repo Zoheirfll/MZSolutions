@@ -191,7 +191,7 @@ export default function CheckoutPage() {
         <div className={theme.emptyState}>
           <CartIcon className="w-12 h-12 text-gray-300 mb-3" />
           <p className="mb-4">Votre panier est vide.</p>
-          <Link to={`/store/${slug}/products`} className={theme.btn.outline}>
+          <Link to={`/store/${slug}/products`} className={theme.btn.outlineLight}>
             Voir les produits
           </Link>
         </div>
@@ -331,7 +331,7 @@ export default function CheckoutPage() {
                       placeholder="Code promo"
                       className={`${theme.input} flex-1`}
                     />
-                    <button type="button" onClick={applyPromo} disabled={checkingPromo || !promoCode.trim()} className={`${theme.btn.outline} shrink-0 disabled:opacity-50`}>
+                    <button type="button" onClick={applyPromo} disabled={checkingPromo || !promoCode.trim()} className={`${theme.btn.outlineLight} shrink-0 disabled:opacity-50`}>
                       {checkingPromo ? '…' : 'Appliquer'}
                     </button>
                   </div>

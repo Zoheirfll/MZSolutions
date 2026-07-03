@@ -9,6 +9,7 @@ from .views import (
     ClientListView, CustomerRiskToggleView,
     BlacklistListCreateView, BlacklistDetailView,
     ComplaintListView, ComplaintDetailView, ComplaintStatusView, ComplaintMessageCreateView,
+    ExchangeListView, ExchangeDetailView, ExchangeStatusView,
 )
 
 urlpatterns = [
@@ -21,6 +22,9 @@ urlpatterns = [
     path('complaints/<int:pk>/',                  ComplaintDetailView.as_view()),
     path('complaints/<int:pk>/status/',           ComplaintStatusView.as_view()),
     path('complaints/<int:pk>/messages/',         ComplaintMessageCreateView.as_view()),
+    path('exchanges/',                            ExchangeListView.as_view()),
+    path('exchanges/<int:pk>/',                   ExchangeDetailView.as_view()),
+    path('exchanges/<int:pk>/status/',            ExchangeStatusView.as_view()),
     path('',                                      OrderListCreateView.as_view()),
     path('stats/',                                OrderStatsView.as_view()),
     path('stats/confirmation/',                   ConfirmationRateView.as_view()),

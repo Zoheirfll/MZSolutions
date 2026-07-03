@@ -23,6 +23,7 @@ urlpatterns = [
     path('api/public/reviews/', __import__('products.views', fromlist=['PublicReviewView']).PublicReviewView.as_view()),
     path('api/public/orders/',  __import__('orders.views',   fromlist=['PublicOrderView']).PublicOrderView.as_view()),
     path('api/public/complaints/', __import__('orders.views', fromlist=['PublicComplaintCreateView']).PublicComplaintCreateView.as_view()),
+    path('api/public/exchanges/', __import__('orders.views', fromlist=['PublicExchangeCreateView']).PublicExchangeCreateView.as_view()),
     path('api/public/webhooks/chargily/', __import__('orders.views', fromlist=['ChargilyWebhookView']).ChargilyWebhookView.as_view()),
     path('api/public/abandoned-carts/', __import__('orders.views', fromlist=['PublicAbandonedCartView']).PublicAbandonedCartView.as_view()),
     path('api/public/abandoned-carts/recover/', __import__('orders.views', fromlist=['PublicMarkCartRecoveredView']).PublicMarkCartRecoveredView.as_view()),

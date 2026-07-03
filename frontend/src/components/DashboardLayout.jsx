@@ -36,6 +36,11 @@ const ICONS = {
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
     </svg>
   ),
+  exchange: (
+    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7h13l-3-3m3 3-3 3M20 17H7l3 3m-3-3 3-3" />
+    </svg>
+  ),
   stock: (
     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 17l6-6 4 4 8-8m0 0h-5m5 0v5" />
@@ -92,11 +97,13 @@ export default function DashboardLayout({ children, title }) {
   })
   const [lowStockCount, setLowStockCount] = useState(0)
   const [openComplaintsCount, setOpenComplaintsCount] = useState(0)
+  const [openExchangesCount, setOpenExchangesCount] = useState(0)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
   useEffect(() => {
     api.get('/products/low-stock/').then(({ data }) => setLowStockCount(data.count)).catch(() => {})
     api.get('/orders/complaints/?status=open&per_page=1').then(({ data }) => setOpenComplaintsCount(data.count)).catch(() => {})
+    api.get('/orders/exchanges/?status=open&per_page=1').then(({ data }) => setOpenExchangesCount(data.count)).catch(() => {})
   }, [])
 
   const handleLogout = () => { logout(); navigate('/auth') }
@@ -249,6 +256,7 @@ export default function DashboardLayout({ children, title }) {
               </li>
 
               <li>{mainLink('/dashboard/reclamations', ICONS.complaints, 'Réclamations', false, openComplaintsCount)}</li>
+              <li>{mainLink('/dashboard/echanges', ICONS.exchange, 'Échanges', false, openExchangesCount)}</li>
 
               {/* Produits & Catégories — masqué pour confirmateur */}
               {teamRole !== 'confirmateur' && (

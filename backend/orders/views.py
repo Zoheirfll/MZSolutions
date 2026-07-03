@@ -10,8 +10,8 @@ from rest_framework.views import APIView
 from rest_framework import status
 
 from django.utils import timezone
-from .models import Order, OrderItem, OrderStatusHistory, STATUS_CHOICES, OrderAssignment, FailureReason, CallAttempt, CALL_STATUS_CHOICES, PaymentWebhookLog, AbandonedCart, CarrierAccount, CARRIER_CHOICES, CustomerRisk, BlacklistedPhone, Complaint, ComplaintMessage, COMPLAINT_STATUS_CHOICES
-from .serializers import OrderSerializer, OrderDetailSerializer, OrderAssignmentSerializer, FailureReasonSerializer, CallAttemptSerializer, AbandonedCartSerializer, CarrierAccountSerializer, BlacklistedPhoneSerializer, ComplaintSerializer, ComplaintDetailSerializer
+from .models import Order, OrderItem, OrderStatusHistory, STATUS_CHOICES, OrderAssignment, FailureReason, CallAttempt, CALL_STATUS_CHOICES, PaymentWebhookLog, AbandonedCart, CarrierAccount, CARRIER_CHOICES, CustomerRisk, BlacklistedPhone, Complaint, ComplaintMessage, COMPLAINT_STATUS_CHOICES, ExchangeRequest, EXCHANGE_STATUS_CHOICES
+from .serializers import OrderSerializer, OrderDetailSerializer, OrderAssignmentSerializer, FailureReasonSerializer, CallAttemptSerializer, AbandonedCartSerializer, CarrierAccountSerializer, BlacklistedPhoneSerializer, ComplaintSerializer, ComplaintDetailSerializer, ExchangeRequestSerializer
 from .utils import assign_order_round_robin
 from . import chargily
 from .carriers import get_carrier_client
@@ -27,6 +27,30 @@ def _get_store(request):
         return request.user.team_membership.store
     except Exception:
         return None
+
+
+def _deduct_stock_for_order(store, order):
+    """Décrémente le stock de chaque article à la création de la commande
+    (évite la survente si deux clients commandent le dernier article en même
+    temps) et journalise un StockMovement par ligne, traçable comme pour les
+    échanges."""
+    from products.models import StockMovement
+    for item in order.items.select_related('product', 'variant_option').all():
+        if item.variant_option:
+            opt = item.variant_option
+            opt.stock = max(opt.stock - item.quantity, 0)
+            opt.save(update_fields=['stock'])
+            StockMovement.objects.create(
+                store=store, product=item.product, variant_option=opt,
+                quantity=-item.quantity, reason='order_sale', note=f"Commande #{order.id}",
+            )
+        elif item.product:
+            item.product.stock = max(item.product.stock - item.quantity, 0)
+            item.product.save(update_fields=['stock'])
+            StockMovement.objects.create(
+                store=store, product=item.product, variant_option=None,
+                quantity=-item.quantity, reason='order_sale', note=f"Commande #{order.id}",
+            )
 
 
 class OrderListCreateView(APIView):
@@ -116,6 +140,7 @@ class OrderListCreateView(APIView):
         order.recalculate()
         OrderStatusHistory.objects.create(order=order, status='pending', changed_by=request.user)
         assign_order_round_robin(order)
+        _deduct_stock_for_order(store, order)
 
         if quota:
             quota.orders_used += 1
@@ -589,6 +614,211 @@ class PublicComplaintCreateView(APIView):
         return Response({'id': complaint.id, 'detail': 'Réclamation envoyée.'}, status=status.HTTP_201_CREATED)
 
 
+# ─── Échanges produit ──────────────────────────────────────────────────────────
+
+class ExchangeListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        store = _get_store(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+
+        qs = store.exchange_requests.select_related('order_item__order', 'replacement_option').all()
+
+        status_filter = request.query_params.get('status')
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+
+        page     = max(1, int(request.query_params.get('page', 1)))
+        per_page = int(request.query_params.get('per_page', 10))
+        total    = qs.count()
+        qs       = qs[(page - 1) * per_page: page * per_page]
+
+        return Response({
+            'count':    total,
+            'page':     page,
+            'per_page': per_page,
+            'results':  ExchangeRequestSerializer(qs, many=True).data,
+        })
+
+
+class ExchangeDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        store = _get_store(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        try:
+            exchange = store.exchange_requests.select_related('order_item__order', 'replacement_option').get(pk=pk)
+        except ExchangeRequest.DoesNotExist:
+            return Response({'detail': 'Échange introuvable.'}, status=404)
+
+        from products.serializers import StockMovementSerializer
+        movements = store.stock_movements.filter(note=f"Échange #{exchange.id}")
+
+        data = ExchangeRequestSerializer(exchange).data
+        data['stock_movements'] = StockMovementSerializer(movements, many=True).data
+        return Response(data)
+
+
+class ExchangeStatusView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @transaction.atomic
+    def post(self, request, pk):
+        store = _get_store(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        try:
+            exchange = store.exchange_requests.select_for_update().select_related('order_item', 'replacement_option').get(pk=pk)
+        except ExchangeRequest.DoesNotExist:
+            return Response({'detail': 'Échange introuvable.'}, status=404)
+
+        new_status = request.data.get('status')
+        valid = [s[0] for s in EXCHANGE_STATUS_CHOICES]
+        if new_status not in valid:
+            return Response({'detail': f'Statut invalide. Valeurs : {valid}'}, status=400)
+
+        if exchange.status != 'open':
+            return Response({'detail': 'Cette demande a déjà été traitée.'}, status=400)
+
+        exchange.status = new_status
+        exchange.vendor_note = request.data.get('note', '')
+        exchange.save(update_fields=['status', 'vendor_note', 'updated_at'])
+
+        if new_status == 'approved':
+            from products.models import StockMovement
+            item = exchange.order_item
+            original_option = item.variant_option
+            replacement = exchange.replacement_option
+
+            if original_option:
+                original_option.stock += item.quantity
+                original_option.save(update_fields=['stock'])
+            elif item.product:
+                item.product.stock += item.quantity
+                item.product.save(update_fields=['stock'])
+
+            replacement.stock = max(replacement.stock - item.quantity, 0)
+            replacement.save(update_fields=['stock'])
+
+            note = f"Échange #{exchange.id}"
+            StockMovement.objects.create(
+                store=store, product=item.product, variant_option=original_option,
+                quantity=item.quantity, reason='exchange_return', note=note,
+            )
+            StockMovement.objects.create(
+                store=store, product=replacement.variant.product, variant_option=replacement,
+                quantity=-item.quantity, reason='exchange_issue', note=note,
+            )
+
+        return Response(ExchangeRequestSerializer(exchange).data)
+
+
+def _get_public_store_for_exchanges(slug):
+    from stores.models import Store
+    try:
+        return Store.objects.get(slug=slug, is_active=True)
+    except Store.DoesNotExist:
+        return None
+
+
+class PublicExchangeCreateView(APIView):
+    """Même principe de vérification que PublicComplaintCreateView : la commande
+    doit appartenir à la boutique et le téléphone doit correspondre, avant de
+    pouvoir référencer un article précis de cette commande."""
+    permission_classes = [AllowAny]
+
+    @transaction.atomic
+    def post(self, request):
+        store_slug = request.data.get('store_slug')
+        if not store_slug:
+            return Response({'detail': 'store_slug requis.'}, status=400)
+        store = _get_public_store_for_exchanges(store_slug)
+        if not store:
+            return Response({'detail': 'Boutique introuvable.'}, status=404)
+
+        order_id              = request.data.get('order_id')
+        phone                 = (request.data.get('phone') or '').strip()
+        order_item_id         = request.data.get('order_item_id')
+        replacement_option_id = request.data.get('replacement_option_id')
+        reason                = (request.data.get('reason') or '').strip()
+
+        if not phone or not order_item_id or not replacement_option_id or not reason:
+            return Response({'detail': 'Tous les champs sont requis.'}, status=400)
+
+        if order_id:
+            order = store.orders.filter(pk=order_id, phone=phone).first()
+        else:
+            order = store.orders.filter(phone=phone).order_by('-created_at').first()
+        if not order:
+            return Response({'detail': 'Commande introuvable — vérifiez le numéro de commande et le téléphone.'}, status=404)
+
+        order_item = order.items.filter(pk=order_item_id).first()
+        if not order_item or not order_item.product:
+            return Response({'detail': 'Article introuvable pour cette commande.'}, status=404)
+
+        from products.models import VariantOption
+        replacement = VariantOption.objects.filter(pk=replacement_option_id, variant__product=order_item.product).first()
+        if not replacement:
+            return Response({'detail': 'Variante de remplacement invalide pour ce produit.'}, status=400)
+
+        exchange = ExchangeRequest.objects.create(
+            store=store, order_item=order_item, replacement_option=replacement, reason=reason,
+        )
+        return Response({'id': exchange.id, 'detail': 'Demande d\'échange envoyée.'}, status=status.HTTP_201_CREATED)
+
+
+class PublicOrderItemsView(APIView):
+    """Retourne les articles d'UNE commande précise, jamais une recherche
+    ouverte. Si order_id est fourni, il doit correspondre au téléphone. Si le
+    client ne connaît pas son numéro de commande, on retombe sur SA commande
+    la plus récente (comme PublicComplaintCreateView) — jamais un choix parmi
+    plusieurs commandes, pour limiter ce qu'un tiers connaissant le téléphone
+    peut voir à une seule commande récente plutôt qu'à tout l'historique."""
+    permission_classes = [AllowAny]
+
+    def get(self, request, slug):
+        store = _get_public_store_for_exchanges(slug)
+        if not store:
+            return Response({'detail': 'Boutique introuvable.'}, status=404)
+
+        order_id = request.query_params.get('order_id')
+        phone    = (request.query_params.get('phone') or '').strip()
+        if not phone:
+            return Response({'detail': 'Téléphone requis.'}, status=400)
+
+        qs = store.orders.prefetch_related('items__product__variants__options')
+        if order_id:
+            order = qs.filter(pk=order_id, phone=phone).first()
+        else:
+            order = qs.filter(phone=phone).order_by('-created_at').first()
+        if not order:
+            return Response({'detail': 'Commande introuvable — vérifiez le numéro de commande et le téléphone.'}, status=404)
+
+        items = []
+        for item in order.items.all():
+            if not item.product:
+                continue
+            options = []
+            for variant in item.product.variants.all():
+                for opt in variant.options.filter(is_active=True):
+                    if item.variant_option_id and opt.id == item.variant_option_id:
+                        continue
+                    options.append({'id': opt.id, 'value': opt.value, 'variant_name': variant.name})
+            items.append({
+                'id':                 item.id,
+                'product_name':       item.product_name,
+                'current_option':     item.variant_option.value if item.variant_option else None,
+                'quantity':           item.quantity,
+                'replacement_options': options,
+            })
+
+        return Response({'order_id': order.id, 'items': items})
+
+
 class ConfirmationRateView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -755,6 +985,7 @@ class PublicOrderView(APIView):
         order.recalculate()
         OrderStatusHistory.objects.create(order=order, status='pending')
         assign_order_round_robin(order)
+        _deduct_stock_for_order(store, order)
 
         if promo:
             promo.uses_count += 1

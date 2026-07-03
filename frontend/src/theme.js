@@ -21,6 +21,14 @@ export const theme = {
     outline:
       'inline-flex items-center justify-center gap-2 border border-white/12 text-gray-300 hover:bg-white/5 hover:border-white/20 ' +
       'active:bg-white/8 rounded-lg transition-colors duration-150 cursor-pointer px-3.5 py-2 text-sm font-medium ' +
+      'disabled:opacity-40 disabled:pointer-events-none ' +
+      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400',
+    // Variante claire de "outline" — pour les pages fond blanc (boutique publique).
+    // "outline" seul (fond blanc/gris translucide) est illisible sur fond blanc.
+    outlineLight:
+      'inline-flex items-center justify-center gap-2 border border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 ' +
+      'active:bg-gray-100 rounded-lg transition-colors duration-150 cursor-pointer px-3.5 py-2 text-sm font-medium ' +
+      'disabled:opacity-40 disabled:pointer-events-none ' +
       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400',
     ghost:
       'inline-flex items-center justify-center gap-2 text-gray-400 hover:text-gray-200 hover:bg-white/5 active:bg-white/8 ' +

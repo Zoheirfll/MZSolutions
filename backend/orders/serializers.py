@@ -4,6 +4,7 @@ from .models import (
     OrderAssignment, FailureReason, CallAttempt, CALL_STATUS_CHOICES,
     PAYMENT_METHOD_CHOICES, AbandonedCart, CarrierAccount, CARRIER_CHOICES,
     BlacklistedPhone, Complaint, ComplaintMessage, COMPLAINT_STATUS_CHOICES,
+    ExchangeRequest, EXCHANGE_STATUS_CHOICES,
 )
 
 
@@ -214,3 +215,38 @@ class ComplaintDetailSerializer(ComplaintSerializer):
 
     class Meta(ComplaintSerializer.Meta):
         fields = ComplaintSerializer.Meta.fields + ['messages']
+
+
+class ExchangeRequestSerializer(serializers.ModelSerializer):
+    status_label       = serializers.SerializerMethodField()
+    order               = serializers.SerializerMethodField()
+    order_display      = serializers.SerializerMethodField()
+    order_phone        = serializers.SerializerMethodField()
+    original_product   = serializers.SerializerMethodField()
+    replacement_value  = serializers.SerializerMethodField()
+
+    class Meta:
+        model  = ExchangeRequest
+        fields = ['id', 'order_item', 'order', 'order_display', 'order_phone', 'original_product',
+                  'replacement_option', 'replacement_value', 'reason', 'status', 'status_label',
+                  'vendor_note', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def get_status_label(self, obj):
+        return dict(EXCHANGE_STATUS_CHOICES).get(obj.status, obj.status)
+
+    def get_order(self, obj):
+        return obj.order_item.order_id
+
+    def get_order_display(self, obj):
+        order = obj.order_item.order
+        return f"#{order.id} — {order.first_name} {order.last_name}".strip()
+
+    def get_order_phone(self, obj):
+        return obj.order_item.order.phone
+
+    def get_original_product(self, obj):
+        return obj.order_item.product_name
+
+    def get_replacement_value(self, obj):
+        return obj.replacement_option.value
