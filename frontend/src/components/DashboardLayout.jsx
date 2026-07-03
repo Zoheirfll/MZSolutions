@@ -279,6 +279,8 @@ export default function DashboardLayout({ children, title }) {
                         )}
                       </li>
                       <li>{link('/dashboard/produits/avis', 'Avis')}</li>
+                      <li>{link('/dashboard/produits/promotions/coupons', 'Coupons')}</li>
+                      <li>{link('/dashboard/produits/promotions/auto', 'Réductions automatiques')}</li>
                     </ul>
                   )}
                 </li>

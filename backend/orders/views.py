@@ -1,4 +1,5 @@
 import json
+from decimal import Decimal
 from datetime import date, timedelta
 from django.core.mail import send_mail
 from django.db import transaction
@@ -394,6 +395,7 @@ class PublicOrderView(APIView):
     @transaction.atomic
     def post(self, request):
         from stores.models import Store
+        from products.models import Promotion
         store_slug = request.data.get('store_slug')
         if not store_slug:
             return Response({'detail': 'store_slug requis.'}, status=400)
@@ -417,6 +419,24 @@ class PublicOrderView(APIView):
         if payment_method not in ('cod', 'chargily'):
             return Response({'detail': 'Mode de paiement invalide.'}, status=400)
 
+        # Code promo : validé et verrouillé (select_for_update) AVANT toute création,
+        # pour ne rien laisser en base si le code est invalide, et pour éviter une
+        # race condition sur max_uses en cas de commandes simultanées.
+        promo = None
+        discount_amount = 0
+        promo_code_input = (request.data.get('promo_code') or '').strip().upper()
+        if promo_code_input:
+            try:
+                promo = Promotion.objects.select_for_update().get(store=store, kind='code', code=promo_code_input)
+            except Promotion.DoesNotExist:
+                return Response({'detail': 'Code promo invalide.'}, status=400)
+            if not promo.is_valid_now():
+                return Response({'detail': "Ce code promo est expiré, inactif ou a atteint son nombre maximum d'utilisations."}, status=400)
+            computed_subtotal = sum(
+                Decimal(str(item.get('price', 0))) * int(item.get('quantity', 1)) for item in items_data
+            )
+            discount_amount = promo.compute_discount(computed_subtotal)
+
         order = Order.objects.create(
             store         = store,
             first_name    = request.data.get('first_name', ''),
@@ -428,6 +448,8 @@ class PublicOrderView(APIView):
             shipping_cost = request.data.get('shipping_cost', 0),
             payment_method = payment_method,
             note          = request.data.get('note', ''),
+            promo_code      = promo.code if promo else '',
+            discount_amount = discount_amount,
         )
 
         for item in items_data:
@@ -443,6 +465,10 @@ class PublicOrderView(APIView):
         order.recalculate()
         OrderStatusHistory.objects.create(order=order, status='pending')
         assign_order_round_robin(order)
+
+        if promo:
+            promo.uses_count += 1
+            promo.save(update_fields=['uses_count'])
 
         payment_url = None
         detail = 'Commande reçue.'

@@ -4,12 +4,12 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
 
-from .models import Category, Product, ProductImage, ProductVariant, VariantOption, Supplier, SupplierCredit, SupplierPayment, ProductReview
+from .models import Category, Product, ProductImage, ProductVariant, VariantOption, Supplier, SupplierCredit, SupplierPayment, ProductReview, Promotion
 from .serializers import (
     CategorySerializer, ProductSerializer, ProductImageSerializer,
     ProductVariantSerializer, VariantOptionSerializer,
     SupplierSerializer, SupplierCreditSerializer, SupplierPaymentSerializer,
-    ProductReviewSerializer,
+    ProductReviewSerializer, PromotionSerializer,
 )
 from core.permissions import get_store as _get_store, IsOwnerOrAdminForWrites
 
@@ -434,6 +434,63 @@ class SupplierDetailView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+# ─── Promotions ───────────────────────────────────────────────────────────────
+
+class PromotionListCreateView(APIView):
+    permission_classes = [IsAuthenticated, IsOwnerOrAdminForWrites]
+
+    def get(self, request):
+        store = _get_store(request)
+        if not store:
+            return Response({'detail': 'Aucune boutique.'}, status=403)
+        qs = store.promotions.all().order_by('-created_at')
+        kind = request.query_params.get('kind')
+        if kind in ('code', 'auto'):
+            qs = qs.filter(kind=kind)
+        return Response(PromotionSerializer(qs, many=True).data)
+
+    def post(self, request):
+        store = _get_store(request)
+        if not store:
+            return Response({'detail': 'Aucune boutique.'}, status=403)
+        s = PromotionSerializer(data=request.data, context={'store': store})
+        s.is_valid(raise_exception=True)
+        s.save(store=store)
+        return Response(s.data, status=status.HTTP_201_CREATED)
+
+
+class PromotionDetailView(APIView):
+    permission_classes = [IsAuthenticated, IsOwnerOrAdminForWrites]
+
+    def _get(self, request, pk):
+        store = _get_store(request)
+        if not store:
+            return None, Response({'detail': 'Accès refusé.'}, status=403)
+        try:
+            return store.promotions.get(pk=pk), None
+        except Promotion.DoesNotExist:
+            return None, Response({'detail': 'Promotion introuvable.'}, status=404)
+
+    def get(self, request, pk):
+        promo, err = self._get(request, pk)
+        if err: return err
+        return Response(PromotionSerializer(promo).data)
+
+    def put(self, request, pk):
+        promo, err = self._get(request, pk)
+        if err: return err
+        s = PromotionSerializer(promo, data=request.data, partial=True, context={'store': promo.store})
+        s.is_valid(raise_exception=True)
+        s.save()
+        return Response(s.data)
+
+    def delete(self, request, pk):
+        promo, err = self._get(request, pk)
+        if err: return err
+        promo.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
 # ─── Supplier Credits & Payments ─────────────────────────────────────────────
 
 class SupplierCreditView(APIView):
@@ -797,6 +854,18 @@ class PublicProductListView(APIView):
         return Response({'count': total, 'page': page, 'per_page': per_page, 'results': results})
 
 
+def _active_auto_promo_for(product):
+    """Première offre automatique valide ciblant ce produit (directement ou via une de ses catégories)."""
+    category_ids = list(product.categories.values_list('id', flat=True))
+    promos = product.store.promotions.filter(kind='auto', is_active=True).filter(
+        Q(products=product) | Q(categories__in=category_ids)
+    ).distinct()
+    for promo in promos:
+        if promo.is_valid_now():
+            return promo
+    return None
+
+
 class PublicProductDetailView(APIView):
     permission_classes = [AllowAny]
 
@@ -847,11 +916,20 @@ class PublicProductDetailView(APIView):
         if reviews:
             avg_rating = round(sum(r['rating'] for r in reviews) / len(reviews), 1)
 
+        promo = _active_auto_promo_for(product)
+        display_price = product.price
+        original_price = None
+        if promo:
+            discount = promo.compute_discount(product.price)
+            display_price = product.price - discount
+            original_price = product.price
+
         return Response({
             'id':              product.id,
             'name':            product.name,
             'description':     product.description,
-            'price':           str(product.price),
+            'price':           str(display_price),
+            'original_price':  str(original_price) if original_price is not None else None,
             'compare_price':   str(product.compare_price) if product.compare_price else None,
             'stock':           product.stock,
             'free_shipping':   product.free_shipping,
@@ -862,6 +940,26 @@ class PublicProductDetailView(APIView):
             'reviews':         reviews,
             'avg_rating':      avg_rating,
             'reviews_count':   len(reviews),
+        })
+
+
+class PublicPromoValidateView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, slug, code):
+        store = _get_public_store(slug)
+        if not store:
+            return Response({'detail': 'Boutique introuvable.'}, status=404)
+        try:
+            promo = store.promotions.get(kind='code', code=code.strip().upper())
+        except Promotion.DoesNotExist:
+            return Response({'detail': 'Code promo introuvable.'}, status=404)
+        if not promo.is_valid_now():
+            return Response({'detail': 'Ce code promo est expiré, inactif ou a atteint son nombre maximum d\'utilisations.'}, status=400)
+        return Response({
+            'code':           promo.code,
+            'discount_type':  promo.discount_type,
+            'discount_value': str(promo.discount_value),
         })
 
 

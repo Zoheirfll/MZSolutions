@@ -147,3 +147,55 @@ class ProductReview(models.Model):
 
     def __str__(self):
         return f"Avis {self.first_name} {self.last_name} — {self.product.name}"
+
+
+class Promotion(models.Model):
+    KIND_CHOICES = [('code', 'Code promo'), ('auto', 'Automatique')]
+    DISCOUNT_TYPES = [('percentage', 'Pourcentage'), ('fixed', 'Montant fixe')]
+
+    store          = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='promotions')
+    name           = models.CharField(max_length=100)
+    kind           = models.CharField(max_length=10, choices=KIND_CHOICES)
+    code           = models.CharField(max_length=30, blank=True)  # requis si kind='code'
+    discount_type  = models.CharField(max_length=10, choices=DISCOUNT_TYPES)
+    discount_value = models.DecimalField(max_digits=10, decimal_places=2)
+    starts_at      = models.DateTimeField(null=True, blank=True)
+    ends_at        = models.DateTimeField(null=True, blank=True)
+    max_uses       = models.PositiveIntegerField(null=True, blank=True)  # kind='code' uniquement
+    uses_count     = models.PositiveIntegerField(default=0)
+    is_active      = models.BooleanField(default=True)
+    products       = models.ManyToManyField(Product, blank=True, related_name='promotions')
+    categories     = models.ManyToManyField(Category, blank=True, related_name='promotions')
+    created_at     = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['store', 'code'],
+                condition=models.Q(kind='code'),
+                name='unique_store_promo_code',
+            )
+        ]
+
+    def is_valid_now(self):
+        now = timezone.now()
+        if not self.is_active:
+            return False
+        if self.starts_at and now < self.starts_at:
+            return False
+        if self.ends_at and now > self.ends_at:
+            return False
+        if self.kind == 'code' and self.max_uses is not None and self.uses_count >= self.max_uses:
+            return False
+        return True
+
+    def compute_discount(self, base_amount):
+        base_amount = max(base_amount, 0)
+        if self.discount_type == 'percentage':
+            discount = base_amount * self.discount_value / 100
+        else:
+            discount = self.discount_value
+        return min(discount, base_amount)
+
+    def __str__(self):
+        return f"{self.name} — {self.store.name}"
