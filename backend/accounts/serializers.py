@@ -9,14 +9,15 @@ from stores.models import Store, SubscriptionQuota
 
 
 class UserSerializer(serializers.ModelSerializer):
-    store_slug  = serializers.SerializerMethodField()
-    store_name  = serializers.SerializerMethodField()
-    team_role   = serializers.SerializerMethodField()
+    store_slug     = serializers.SerializerMethodField()
+    store_name     = serializers.SerializerMethodField()
+    team_role      = serializers.SerializerMethodField()
+    team_member_id = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = ['id', 'email', 'first_name', 'last_name', 'phone',
-                  'store_slug', 'store_name', 'team_role', 'is_email_verified']
+                  'store_slug', 'store_name', 'team_role', 'team_member_id', 'is_email_verified']
 
     def get_store_slug(self, obj):
         try:
@@ -41,6 +42,12 @@ class UserSerializer(serializers.ModelSerializer):
     def get_team_role(self, obj):
         try:
             return obj.team_membership.role
+        except Exception:
+            return None
+
+    def get_team_member_id(self, obj):
+        try:
+            return obj.team_membership.id
         except Exception:
             return None
 

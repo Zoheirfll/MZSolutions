@@ -64,6 +64,7 @@ team/            — TeamMember, invitation token
 products/        — Category, Product, ProductImage, ProductVariant, VariantOption, Supplier, SupplierCredit, SupplierPayment, ProductReview
 orders/          — Order, OrderItem, OrderStatusHistory, OrderAssignment, CallAttempt, FailureReason, PaymentWebhookLog, CarrierAccount
 orders/carriers/ — clients transporteurs (Yalidine, ZR Express) : base.py (BaseCarrierClient, MockCarrierClient), yalidine.py, zr_express.py, get_carrier_client()
+dropshipping/    — DropshipperProduct, Commission, CommissionEntry, CommissionPayment (voir Epic 7.3)
 core/            — app Django générique (utilitaires partagés) : permissions.py (is_owner_or_admin, IsOwnerOrAdminForWrites)
 ```
 
@@ -116,6 +117,10 @@ pages/ParametresLivraisonPage.jsx     — comptes transporteurs (Yalidine/ZR Exp
 pages/customers/ClientsPage.jsx           — liste clients agrégée par téléphone (nom, email, tél, nb commandes, wilaya, commune, badge risque)
 pages/customers/AtRiskCustomersPage.jsx   — clients à risque + panneau réglages (seuil/période), bouton marquer/démarquer manuellement
 pages/customers/BlacklistPage.jsx         — liste noire par boutique, modal "Bloquer un numéro de téléphone" (message + téléphone)
+pages/dropshipping/DropshippersPage.jsx           — (owner/admin) liste des dropshippers actifs, solde (gagné/payé/à payer), lien vers le détail
+pages/dropshipping/DropshipperDetailPage.jsx      — (owner/admin) config commission par produit sélectionné (%/fixe), historique commissions + paiements, bouton "Marquer comme payé"
+pages/dropshipping/DropshipperMyProductsPage.jsx  — (dropshipper) sélection de produits du catalogue à revendre (Ajouter/Retirer)
+pages/dropshipping/DropshipperMyEarningsPage.jsx  — (dropshipper) solde propre en lecture seule + historique commissions/paiements reçus
 pages/storefront/StorefrontHomePage.jsx     — page d'accueil boutique publique
 pages/storefront/StorefrontProductsPage.jsx — liste produits publique
 pages/storefront/StorefrontProductPage.jsx  — fiche produit publique (Ajouter au panier / Acheter maintenant), bouton "Laisser un avis" (modal note+commentaire, `POST /api/public/reviews/`, modéré par le vendeur avant publication)
@@ -389,6 +394,39 @@ Premier modèle d'audit de stock du projet — jusqu'ici `Product.stock`/`Varian
 
 **Décrémentation à la commande** : `_deduct_stock_for_order(store, order)` (`backend/orders/views.py`) est appelée à la création d'une commande (`PublicOrderView.post()` **et** `OrderListCreateView.post()` — commande manuelle vendeur), pour chaque `OrderItem` : décrémente `variant_option.stock` (ou `product.stock` si pas de variante), plafonné à 0, et journalise un `StockMovement(reason='order_sale')`. Choix produit : le stock baisse **dès la création** de la commande (pas à la confirmation), pour éviter la survente si deux clients commandent le dernier article simultanément. ⚠️ **Pas de restockage automatique** si une commande est annulée/retournée — TBD, à considérer si besoin.
 
+### `orders.Order.dropshipper` (FK → `team.TeamMember`, nullable)
+Ajouté pour Epic 7.3 — identifie le dropshipper qui a réalisé la vente (`None` pour une commande normale du vendeur). Renseigné automatiquement à la création si l'utilisateur authentifié est un `TeamMember` de rôle `dropshipper` (`OrderListCreateView.post()`).
+
+### `dropshipping.DropshipperProduct`
+```
+store (FK), dropshipper (FK → team.TeamMember, role='dropshipper'), product (FK → products.Product)
+created_at
+```
+Sélection de produits du catalogue du vendeur principal qu'un dropshipper choisit de revendre (US-7.3.1). **Le dropshipper ne gère pas de stock propre** — c'est uniquement une sélection, le stock consommé à la commande reste celui du produit du vendeur (`_deduct_stock_for_order`). Contrainte unique `(dropshipper, product)`.
+
+### `dropshipping.Commission`
+```
+store (FK), dropshipper (FK), product (FK)
+commission_type : percentage | fixed
+value
+created_at, updated_at
+```
+Commission configurée par le vendeur pour une combinaison produit × dropshipper (US-7.3.2), upsert via `update_or_create` sur `(dropshipper, product)`. `compute_amount(unit_price, quantity)` : `percentage` = % du montant de la ligne (prix unitaire × quantité) ; `fixed` = montant fixe **par unité vendue** (cohérent avec le prix unitaire de `OrderItem`).
+
+### `dropshipping.CommissionEntry`
+```
+store (FK), dropshipper (FK), order_item (OneToOne → orders.OrderItem), product (FK, nullable)
+amount, created_at
+```
+Commission calculée pour un article de commande — immuable, une entrée par `OrderItem` (le `OneToOneField` garantit l'idempotence : pas de double calcul si le statut repasse plusieurs fois à `delivered`). Créée uniquement quand la commande passe au statut **`delivered`** (US-7.3.3, `_sync_commission_for_order` dans `backend/orders/views.py`, appelée depuis `OrderStatusView.post()`), et **supprimée** si la commande repasse en `returned`/`cancelled` — pour ne jamais rémunérer une commande annulée ou retournée (relit l'AC "uniquement lorsque la commande est livrée"). Seuls les produits ayant une `Commission` configurée pour ce dropshipper génèrent une entrée (sinon ignoré silencieusement).
+
+### `dropshipping.CommissionPayment`
+```
+store (FK), dropshipper (FK)
+amount, note, paid_at
+```
+Paiement du solde d'un dropshipper (US-7.3.4, `DropshipperPayView`) — **remet le solde à zéro implicitement** : le solde n'est jamais stocké, il est recalculé à chaque lecture (`sum(CommissionEntry.amount) - sum(CommissionPayment.amount)`, même philosophie que `CustomerRisk.is_risky`). `DropshipperPayView.post()` crée un paiement du montant exact du solde courant — impossible de payer un montant partiel ou arbitraire pour l'instant (choix simple, US ne demande pas de paiement partiel).
+
 ---
 
 ## API Endpoints (complets — Sprint 1 à 5)
@@ -473,6 +511,19 @@ Premier modèle d'audit de stock du projet — jusqu'ici `Product.stock`/`Varian
 | GET | `/api/orders/complaints/<id>/` | Oui | Détail + historique des échanges (`messages`) |
 | POST | `/api/orders/complaints/<id>/status/` | Oui | Change le statut (`open\|in_progress\|resolved`) + note → log `ComplaintMessage` |
 | POST | `/api/orders/complaints/<id>/messages/` | Oui | Ajoute un message sans changer le statut |
+
+### Dropshipping & Commissions (Epic 7.3)
+| Méthode | URL | Auth | Description |
+|---|---|---|---|
+| GET/POST | `/api/dropshipping/products/` | Oui | Sélection de produits d'un dropshipper (le sien) ; owner/admin via `?dropshipper=<id>` |
+| DELETE | `/api/dropshipping/products/<id>/` | Oui | Retire un produit de la sélection (le dropshipper lui-même, ou owner/admin) |
+| GET/POST | `/api/dropshipping/commissions/` | Oui (owner/admin) | Liste (`?dropshipper=<id>`) / configure une commission produit × dropshipper (upsert) |
+| PUT/DELETE | `/api/dropshipping/commissions/<id>/` | Oui (owner/admin) | Modifier / supprimer une commission |
+| GET | `/api/dropshipping/dropshippers/` | Oui (owner/admin) | Liste des dropshippers actifs avec solde (gagné/payé/à payer) |
+| GET | `/api/dropshipping/dropshippers/<id>/` | Oui | Détail solde + historique commissions/paiements — owner/admin pour n'importe quel dropshipper, ou le dropshipper pour ses propres données |
+| POST | `/api/dropshipping/dropshippers/<id>/pay/` | Oui (owner/admin) | Marque le solde courant comme payé (crée un `CommissionPayment` du montant exact du solde, remet le solde à 0) |
+
+Commande manuelle par un dropshipper : `POST /api/orders/` accepte désormais aussi le rôle `dropshipper` (pas seulement owner/admin), avec vérification serveur que chaque `product` de `items` fait partie de sa sélection (`DropshipperProduct`), et `Order.dropshipper` renseigné automatiquement. `GET /api/orders/` filtre aussi les résultats à ses propres ventes pour ce rôle (même pattern que le filtre confirmateur → assignation).
 
 ### Boutique publique & Checkout invité
 | Méthode | URL | Auth | Description |
@@ -581,8 +632,18 @@ Premier modèle d'audit de stock du projet — jusqu'ici `Product.stock`/`Varian
 - **Bugs corrigés au passage** : bouton "Ajouter une option" variante envoyait `value=''` (rejeté 400 par le backend, échouait silencieusement) ; plusieurs boutons de la boutique publique utilisaient `theme.btn.outline` (style dark) au lieu de `theme.btn.outlineLight`, quasi invisibles sur fond blanc ; produit avec une variante vide (sans aucune option) invisible du stock bas/inventaire, corrigé en retombant sur `product.stock`
 - Testé de bout en bout via `manage.py shell` (stock ajusté correctement des deux côtés, mouvements tracés, double-approbation bloquée, décrémentation à la commande vérifiée)
 
-### 🔜 Sprint 7 (suite) — Dropshipping & Finances
-- Dropshipping intra-store : revendeur vend les produits du vendeur principal, commissions
+### ✅ Epic 7.3 — Dropshipping et commissions (TERMINÉ — branche `epic-7.3-dropshipping`)
+- **US-7.3.1 — Sélection de produits** : `DropshipperProduct` — le dropshipper choisit dans le catalogue du vendeur principal les produits à revendre (`DropshipperMyProductsPage.jsx`, recherche + toggle Ajouter/Retirer). Pas de stock propre, acté : le stock consommé reste celui du produit vendeur
+- **US-7.3.2 — Configuration des commissions** : `Commission` (`dropshipper` × `product`, `commission_type` percentage/fixed) configurée par le vendeur (`DropshipperDetailPage.jsx`, un formulaire inline par produit sélectionné). `fixed` = montant par unité vendue, cohérent avec le prix unitaire des `OrderItem`
+- **US-7.3.3 — Calcul automatique** : `_sync_commission_for_order` (`backend/orders/views.py`, appelée depuis `OrderStatusView.post()`) crée un `CommissionEntry` par `OrderItem` **uniquement** quand la commande passe à `delivered` (idempotent via `OneToOneField(order_item)`), et les **supprime** si la commande repasse en `returned`/`cancelled` — jamais de commission sur une commande annulée/retournée, y compris si elle avait déjà été livrée puis retournée
+- **US-7.3.4 — Paiement de commission** : `CommissionPayment`, solde jamais stocké (recalculé à la lecture : gagné − payé, même philosophie que `CustomerRisk`), `DropshipperPayView` crée un paiement du montant exact du solde courant et l'historise (`DropshipperDetailPage.jsx` côté vendeur, `DropshipperMyEarningsPage.jsx` en lecture seule côté dropshipper)
+- **Commande manuelle par le dropshipper** : `POST /api/orders/` étendu au rôle `dropshipper` (jusqu'ici réservé owner/admin), restreint côté serveur aux produits de sa sélection, `Order.dropshipper` auto-renseigné ; `GET /api/orders/` filtré à ses propres ventes (même pattern que le filtre confirmateur). `OrderFormPage.jsx` adapté pour ne proposer que les produits sélectionnés au dropshipper
+- Nouvelle app Django `dropshipping/` (séparée de `orders`/`products` pour éviter les dépendances circulaires, même choix que `products.StockMovement` en son temps)
+- Sidebar : "Dropshipping" (owner/admin) pointant vers la liste des dropshippers + solde ; "Mes produits"/"Mes commissions" pour le rôle `dropshipper`
+- `UserSerializer` (`/api/auth/me/`) expose désormais `team_member_id`, nécessaire au dropshipper pour retrouver son propre solde
+- Testé de bout en bout via `manage.py shell` (calcul de commission %, idempotence sur double passage à `delivered`, réversion sur `returned`, paiement soldant le solde à zéro) + build frontend
+
+### 🔜 Sprint 7 (suite) — Finances
 - Module financier
 - Permissions avancées par rôle
 

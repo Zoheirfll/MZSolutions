@@ -5,6 +5,7 @@ import Select from '../../components/Select'
 import api from '../../api/axios'
 import { theme } from '../../theme'
 import { WILAYAS } from '../../data/wilayas'
+import { useAuth } from '../../context/AuthContext'
 
 const DELIVERY_OPTIONS = [
   { value: 'store',     label: 'Vendu depuis le magasin' },
@@ -20,6 +21,8 @@ const EMPTY_CLIENT = {
 
 export default function OrderFormPage() {
   const navigate = useNavigate()
+  const { user } = useAuth()
+  const isDropshipper = user?.team_role === 'dropshipper'
   const [client,       setClient]       = useState(EMPTY_CLIENT)
   const [cartItems,    setCartItems]    = useState([])
   const [shippingCost, setShippingCost] = useState(0)
@@ -32,23 +35,36 @@ export default function OrderFormPage() {
   const [search,    setSearch]    = useState('')
   const [products,  setProducts]  = useState([])
   const [searching, setSearching] = useState(false)
+  const [allowedProductIds, setAllowedProductIds] = useState(null)
   const searchTimer = useRef(null)
+
+  useEffect(() => {
+    if (isDropshipper) {
+      api.get('/dropshipping/products/')
+        .then(({ data }) => setAllowedProductIds(new Set(data.map(d => d.product))))
+        .catch(() => setAllowedProductIds(new Set()))
+    }
+  }, [isDropshipper])
 
   useEffect(() => {
     clearTimeout(searchTimer.current)
     if (!search.trim()) { setProducts([]); return }
+    if (isDropshipper && !allowedProductIds) { return }
     setSearching(true)
     searchTimer.current = setTimeout(() => {
       api.get(`/products/?search=${encodeURIComponent(search)}&per_page=8`)
-        .then(({ data }) => setProducts(data.results ?? []))
+        .then(({ data }) => {
+          const results = data.results ?? []
+          setProducts(isDropshipper ? results.filter(p => allowedProductIds.has(p.id)) : results)
+        })
         .catch(() => {})
         .finally(() => setSearching(false))
     }, 350)
     return () => clearTimeout(searchTimer.current)
-  }, [search])
+  }, [search, isDropshipper, allowedProductIds])
 
   const addProduct = (p, variantOption = null) => {
-    const price = variantOption ? Number(variantOption.price) : Number(p.price)
+    const price = variantOption ? Number(variantOption.price || p.price) : Number(p.price)
     const key   = variantOption ? `v${variantOption.id}` : `p${p.id}`
     setCartItems(prev => {
       const exists = prev.find(i => i._key === key)

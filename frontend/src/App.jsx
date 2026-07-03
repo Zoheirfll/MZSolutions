@@ -47,6 +47,10 @@ import StorefrontProductPage from './pages/storefront/StorefrontProductPage'
 import CheckoutPage from './pages/storefront/CheckoutPage'
 import ComplaintFormPage from './pages/storefront/ComplaintFormPage'
 import ExchangeFormPage from './pages/storefront/ExchangeFormPage'
+import DropshippersPage from './pages/dropshipping/DropshippersPage'
+import DropshipperDetailPage from './pages/dropshipping/DropshipperDetailPage'
+import DropshipperMyProductsPage from './pages/dropshipping/DropshipperMyProductsPage'
+import DropshipperMyEarningsPage from './pages/dropshipping/DropshipperMyEarningsPage'
 
 function PD({ children }) {
   return <PrivateRoute>{children}</PrivateRoute>
@@ -107,6 +111,10 @@ function App() {
           <Route path="/dashboard/clients"                   element={<PD><ClientsPage /></PD>} />
           <Route path="/dashboard/clients/risque"            element={<PD><AtRiskCustomersPage /></PD>} />
           <Route path="/dashboard/clients/liste-noire"        element={<PD><BlacklistPage /></PD>} />
+          <Route path="/dashboard/dropshipping"               element={<PD><DropshippersPage /></PD>} />
+          <Route path="/dashboard/dropshipping/:id"           element={<PD><DropshipperDetailPage /></PD>} />
+          <Route path="/dashboard/mes-produits"               element={<PD><DropshipperMyProductsPage /></PD>} />
+          <Route path="/dashboard/mes-commissions"            element={<PD><DropshipperMyEarningsPage /></PD>} />
           <Route path="/dashboard/expeditions"               element={<PD><ComingSoon title="Expéditions & Retours" /></PD>} />
           <Route path="/dashboard/stats"                     element={<PD><ComingSoon title="Statistiques" /></PD>} />
           <Route path="/dashboard/equipe"                    element={<PD><TeamPage /></PD>} />
