@@ -1,6 +1,7 @@
 from django.db import models
 from django.utils import timezone
 from stores.models import Store
+from core.validators import validate_image_extension, validate_image_size
 
 
 def _today():
@@ -10,7 +11,8 @@ def _today():
 class Category(models.Model):
     store      = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='categories')
     name       = models.CharField(max_length=100)
-    image      = models.ImageField(upload_to='categories/', blank=True, null=True)
+    image      = models.ImageField(upload_to='categories/', blank=True, null=True,
+                                    validators=[validate_image_extension, validate_image_size])
     parent     = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='children')
     is_active  = models.BooleanField(default=True)
     is_deleted = models.BooleanField(default=False)
@@ -106,7 +108,7 @@ class Product(models.Model):
 
 class ProductImage(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='images')
-    image   = models.ImageField(upload_to='products/')
+    image   = models.ImageField(upload_to='products/', validators=[validate_image_extension, validate_image_size])
     order   = models.PositiveSmallIntegerField(default=0)
 
     class Meta:
@@ -133,7 +135,8 @@ class VariantOption(models.Model):
     cost_price         = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     stock              = models.PositiveIntegerField(default=0)
     sku                = models.CharField(max_length=100, blank=True)
-    image              = models.ImageField(upload_to='variants/', null=True, blank=True)
+    image              = models.ImageField(upload_to='variants/', null=True, blank=True,
+                                            validators=[validate_image_extension, validate_image_size])
     allow_out_of_stock = models.BooleanField(default=False)
     is_active          = models.BooleanField(default=True)
     order              = models.PositiveSmallIntegerField(default=0)
@@ -152,7 +155,8 @@ class ProductReview(models.Model):
     email       = models.EmailField(blank=True)
     rating      = models.PositiveSmallIntegerField()   # 1-5
     comment     = models.TextField(blank=True)
-    image       = models.ImageField(upload_to='reviews/', null=True, blank=True)
+    image       = models.ImageField(upload_to='reviews/', null=True, blank=True,
+                                     validators=[validate_image_extension, validate_image_size])
     is_approved = models.BooleanField(default=False)
     created_at  = models.DateTimeField(auto_now_add=True)
 

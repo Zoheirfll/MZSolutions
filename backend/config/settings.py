@@ -1,14 +1,23 @@
 from pathlib import Path
-from decouple import config
+from decouple import config, Csv
 from datetime import timedelta
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = config('SECRET_KEY', default='django-insecure-^^98=rxj@5_u&s7(g)u%7gfocjo+=vodbr5@er-$tncy$vj#o8')
+# Epic 8.6 — plus de valeur de repli codée en dur : si SECRET_KEY est absent
+# de l'environnement, on veut une erreur explicite au démarrage plutôt que de
+# retomber silencieusement sur une clé connue et versionnée dans le repo
+# (n'importe qui avec un accès au code aurait pu forger cookies de session,
+# tokens de reset de mot de passe, etc.).
+SECRET_KEY = config('SECRET_KEY')
 
-DEBUG = config('DEBUG', default=True, cast=bool)
+DEBUG = config('DEBUG', default=False, cast=bool)
 
-ALLOWED_HOSTS = ['*']
+# En dev (DEBUG=True), on garde la permissivité actuelle pour ne pas casser
+# les tunnels ngrok (domaine qui change à chaque session, cf. section Chargily
+# du CLAUDE.md). En production, ALLOWED_HOSTS doit être explicite dans .env
+# (ex: ALLOWED_HOSTS=monsite.com,www.monsite.com) — jamais de wildcard.
+ALLOWED_HOSTS = ['*'] if DEBUG else config('ALLOWED_HOSTS', cast=Csv())
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -19,6 +28,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
     'core',
     'accounts',
@@ -82,13 +92,28 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
     ),
+    # Rate limiting ciblé (Epic 8.6) — pas de throttle global agressif qui
+    # casserait le dashboard authentifié, seulement sur les endpoints
+    # AllowAny sensibles au brute force (login, OTP, reset, promo, webhook
+    # entrant), via ScopedRateThrottle + throttle_scope sur chaque vue.
+    'DEFAULT_THROTTLE_CLASSES': (
+        'rest_framework.throttling.ScopedRateThrottle',
+    ),
+    'DEFAULT_THROTTLE_RATES': {
+        'login':            '10/min',
+        'register':         '5/min',
+        'otp':              '10/min',
+        'password_reset':   '5/min',
+        'promo':            '20/min',
+        'incoming_webhook': '30/min',
+    },
 }
 
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     'ROTATE_REFRESH_TOKENS': True,
-    'BLACKLIST_AFTER_ROTATION': False,
+    'BLACKLIST_AFTER_ROTATION': True,
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
@@ -101,6 +126,17 @@ CORS_ALLOWED_ORIGIN_REGEXES = [
     r'^https://.*\.ngrok\.io$',
 ]
 CORS_ALLOW_CREDENTIALS = True
+
+# Cookies sécurisés / HSTS (Epic 8.6) — actifs seulement en production, pour
+# ne pas casser le serveur de dev HTTP local (DEBUG=True).
+if not DEBUG:
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},

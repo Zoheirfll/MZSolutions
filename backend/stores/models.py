@@ -2,6 +2,7 @@ from django.db import models
 from django.conf import settings
 from django.utils import timezone
 from datetime import timedelta
+from core.validators import validate_image_extension, validate_image_size
 
 
 class Store(models.Model):
@@ -15,7 +16,8 @@ class Store(models.Model):
     description = models.TextField(blank=True)
     phone = models.CharField(max_length=20, blank=True)
     email = models.EmailField(blank=True)
-    logo = models.ImageField(upload_to='store_logos/', blank=True, null=True)
+    logo = models.ImageField(upload_to='store_logos/', blank=True, null=True,
+                              validators=[validate_image_extension, validate_image_size])
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

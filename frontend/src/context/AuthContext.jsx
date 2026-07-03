@@ -39,6 +39,12 @@ export function AuthProvider({ children }) {
   }
 
   const logout = () => {
+    // Blackliste le refresh token côté serveur (Epic 8.6) — best-effort, ne
+    // doit jamais empêcher la déconnexion locale même si l'appel échoue.
+    const refresh = localStorage.getItem('refresh')
+    if (refresh) {
+      api.post('/auth/logout/', { refresh }).catch(() => {})
+    }
     localStorage.removeItem('access')
     localStorage.removeItem('refresh')
     setUser(null)

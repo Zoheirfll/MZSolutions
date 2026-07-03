@@ -131,6 +131,7 @@ class PublicIncomingWebhookView(APIView):
     clé secrète dans le chemin (même principe qu'un webhook entrant Slack).
     Journalise systématiquement, même en cas de clé invalide, pour visibilité."""
     permission_classes = [AllowAny]
+    throttle_scope = 'incoming_webhook'
 
     def post(self, request, key):
         try:
