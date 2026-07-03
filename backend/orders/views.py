@@ -51,6 +51,27 @@ def _deduct_stock_for_order(store, order):
                 store=store, product=item.product, variant_option=None,
                 quantity=-item.quantity, reason='order_sale', note=f"Commande #{order.id}",
             )
+        if item.product:
+            _sync_stock_to_channels(store, item.product)
+
+
+def _sync_stock_to_channels(store, product):
+    """Pousse le stock mis à jour vers les canaux de vente externes connectés
+    (Epic 8.2 US-8.2.1) — pour éviter la survente sur Shopify/Google Sheets.
+    Best-effort : ne doit jamais faire échouer la création de commande."""
+    try:
+        from channels.models import ChannelConnection, ChannelSyncLog
+        from channels.clients import get_channel_client
+        for connection in ChannelConnection.objects.filter(store=store, is_active=True):
+            client = get_channel_client(connection)
+            result = client.sync_stock(product)
+            ChannelSyncLog.objects.create(
+                store=store, connection=connection, channel=connection.channel,
+                direction='push', status='success' if result.success else 'error',
+                items_synced=result.items_synced, message=result.message,
+            )
+    except Exception:
+        pass
 
 
 def _sync_commission_for_order(store, order, new_status):

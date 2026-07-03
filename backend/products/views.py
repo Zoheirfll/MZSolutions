@@ -916,6 +916,56 @@ class PublicProductListView(APIView):
         return Response({'count': total, 'page': page, 'per_page': per_page, 'results': results})
 
 
+class PublicCatalogFeedView(APIView):
+    """Flux catalogue public au format attendu par Meta Commerce Catalog
+    (RSS 2.0 + espace de noms `g:`, même schéma que Google Merchant Center —
+    Epic 8.2 US-8.2.2). Aucune clé API nécessaire côté vendeur pour cette
+    brique : Meta vient lire cette URL périodiquement (contrairement à
+    Shopify/Google Sheets, mockés en attendant leurs accès API)."""
+    permission_classes = [AllowAny]
+
+    def get(self, request, slug):
+        from django.http import HttpResponse
+        from django.utils.html import escape
+        from django.conf import settings
+
+        store = _get_public_store(slug)
+        if not store:
+            return Response({'detail': 'Boutique introuvable.'}, status=404)
+
+        products = store.products.filter(is_active=True).prefetch_related('images')
+        store_link = f"{settings.FRONTEND_URL}/store/{store.slug}"
+
+        items = []
+        for p in products:
+            first_image = p.images.order_by('order').first()
+            image_url = request.build_absolute_uri(first_image.image.url) if first_image and first_image.image else ''
+            promo = p.active_auto_promotion()
+            price = p.price - promo.compute_discount(p.price) if promo else p.price
+            availability = 'in stock' if p.total_stock > 0 or p.allow_out_of_stock else 'out of stock'
+            items.append(f"""
+  <item>
+    <g:id>{p.id}</g:id>
+    <title>{escape(p.name)}</title>
+    <description>{escape(p.description or p.name)}</description>
+    <link>{store_link}/products/{p.id}</link>
+    <g:image_link>{escape(image_url)}</g:image_link>
+    <g:availability>{availability}</g:availability>
+    <g:price>{price} DZD</g:price>
+    <g:condition>new</g:condition>
+    <g:brand>{escape(store.name)}</g:brand>
+  </item>""")
+
+        xml = f"""<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">
+<channel>
+  <title>{escape(store.name)}</title>
+  <link>{store_link}</link>
+  <description>Catalogue produits — {escape(store.name)}</description>{''.join(items)}
+</channel>
+</rss>"""
+        return HttpResponse(xml, content_type='application/xml; charset=utf-8')
+
 
 class PublicProductDetailView(APIView):
     permission_classes = [AllowAny]

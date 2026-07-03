@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     'orders',
     'dropshipping',
     'finance',
+    'channels',
 ]
 
 MIDDLEWARE = [
