@@ -99,10 +99,10 @@ export default function DashboardLayout({ children, title }) {
       end={exact}
       onClick={() => setMobileNavOpen(false)}
       className={({ isActive }) =>
-        'flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-all duration-200 ' +
+        'flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-colors duration-150 ' +
         (isActive
-          ? 'bg-violet-600/15 text-violet-300 font-medium'
-          : 'text-gray-500 hover:text-gray-300 hover:bg-white/5')
+          ? 'bg-white/6 text-gray-100 font-medium'
+          : 'text-gray-500 hover:text-gray-300 hover:bg-white/4')
       }
     >
       {label}
@@ -115,21 +115,21 @@ export default function DashboardLayout({ children, title }) {
       end={exact}
       onClick={() => setMobileNavOpen(false)}
       className={({ isActive }) =>
-        'relative flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-all duration-200 ' +
+        'relative flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors duration-150 ' +
         (isActive
-          ? 'bg-violet-600/15 text-violet-300 font-medium shadow-sm'
-          : 'text-gray-500 hover:text-gray-300 hover:bg-white/5')
+          ? 'bg-white/6 text-gray-100 font-medium'
+          : 'text-gray-500 hover:text-gray-300 hover:bg-white/4')
       }
     >
       {({ isActive }) => (
         <>
           {isActive && (
-            <span className="absolute left-0 top-1 bottom-1 w-0.5 rounded-full bg-violet-400" />
+            <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-full bg-violet-500" />
           )}
-          <span className="shrink-0">{icon}</span>
+          <span className={`shrink-0 ${isActive ? 'text-violet-400' : ''}`}>{icon}</span>
           <span className="flex-1">{label}</span>
           {badge > 0 && (
-            <span className="w-5 h-5 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center font-bold shrink-0 shadow-sm shadow-red-500/40">
+            <span className="w-5 h-5 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center font-bold shrink-0">
               {badge > 9 ? '9+' : badge}
             </span>
           )}
@@ -165,24 +165,21 @@ export default function DashboardLayout({ children, title }) {
         style={{ background: theme.dark.sidebar, borderColor: theme.dark.border }}>
 
         {/* Logo */}
-        <div className="px-5 py-5 border-b flex items-center justify-between" style={{ borderColor: theme.dark.border }}>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-                style={{ background: 'linear-gradient(135deg, #7c3aed, #a78bfa)' }}>
-                <span className="text-white text-xs font-bold">MZ</span>
-              </div>
-              <span className="text-base font-bold bg-gradient-to-r from-violet-300 to-violet-500 bg-clip-text text-transparent tracking-tight">
-                MZSolutions
-              </span>
+        <div className="px-4 py-4 border-b flex items-center justify-between" style={{ borderColor: theme.dark.border }}>
+          <div className="min-w-0 flex items-center gap-2.5">
+            <div className="w-6.5 h-6.5 rounded-md flex items-center justify-center shrink-0 bg-violet-600">
+              <span className="text-white text-[11px] font-bold">MZ</span>
             </div>
-            <p className="text-xs mt-1.5 truncate pl-0.5" style={{ color: theme.dark.muted }}>
-              {user?.store_name ?? user?.email}
-            </p>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-gray-100 tracking-tight leading-none">MZSolutions</p>
+              <p className="text-xs mt-1 truncate" style={{ color: theme.dark.muted }}>
+                {user?.store_name ?? user?.email}
+              </p>
+            </div>
           </div>
           <button
             onClick={() => setMobileNavOpen(false)}
-            className="lg:hidden shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+            className="lg:hidden shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-colors duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
           >
             {ICONS.close}
           </button>
@@ -202,7 +199,7 @@ export default function DashboardLayout({ children, title }) {
                 <button
                   onClick={() => setExpanded(e => ({ ...e, commandes: !e.commandes }))}
                   className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
-                    location.pathname.startsWith('/dashboard/commandes') ? 'bg-violet-600/20 text-violet-300 font-medium' : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
+                    location.pathname.startsWith('/dashboard/commandes') ? 'bg-white/6 text-gray-100 font-medium' : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
                   }`}
                 >
                   <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.orders}</span>Commandes</span>
@@ -250,7 +247,7 @@ export default function DashboardLayout({ children, title }) {
                   <button
                     onClick={() => setExpanded(e => ({ ...e, produits: !e.produits }))}
                     className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
-                      prodActive ? 'bg-violet-600/20 text-violet-300 font-medium' : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
+                      prodActive ? 'bg-white/6 text-gray-100 font-medium' : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
                     }`}
                   >
                     <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.products}</span>Produits & Catégories</span>
@@ -370,8 +367,7 @@ export default function DashboardLayout({ children, title }) {
             <a
               href={user?.store_slug ? `/store/${user.store_slug}` : '#'}
               target="_blank" rel="noreferrer"
-              className="hidden sm:inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg border text-violet-300 hover:bg-violet-600/10 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
-              style={{ borderColor: '#4c3d8a' }}
+              className="hidden sm:inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg border border-white/12 text-violet-300 hover:bg-white/5 hover:border-white/20 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
             >
               Voir ma boutique
               <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">

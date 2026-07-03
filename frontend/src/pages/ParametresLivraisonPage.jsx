@@ -168,9 +168,9 @@ export default function ParametresLivraisonPage() {
               {CARRIERS.map(c => {
                 const account = accountFor(c.code)
                 return (
-                  <div key={c.code} className="rounded-2xl border p-5 flex flex-col items-center text-center gap-3 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/20"
+                  <div key={c.code} className="rounded-xl border p-5 flex flex-col items-center text-center gap-3 transition-colors duration-150 hover:border-white/20"
                     style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-                    <div className="w-16 h-16 rounded-2xl bg-white flex items-center justify-center text-lg font-bold text-violet-600 shadow">
+                    <div className="w-16 h-16 rounded-xl bg-white flex items-center justify-center text-lg font-bold text-violet-600 shadow">
                       {c.label[0]}
                     </div>
                     <p className="font-semibold text-gray-200">{c.label}</p>
@@ -285,7 +285,7 @@ export default function ParametresLivraisonPage() {
 
       {modalCarrier && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setModalCarrier(null)}>
-          <div className="rounded-2xl border p-6 w-full max-w-sm relative shadow-2xl" style={{ background: theme.dark.card, borderColor: theme.dark.border }} onClick={e => e.stopPropagation()}>
+          <div className="rounded-xl border p-6 w-full max-w-sm relative" style={{ background: theme.dark.card, borderColor: theme.dark.border }} onClick={e => e.stopPropagation()}>
             <button onClick={() => setModalCarrier(null)} className="absolute top-4 right-4 w-7 h-7 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-200 hover:bg-white/10 transition cursor-pointer">
               ✕
             </button>

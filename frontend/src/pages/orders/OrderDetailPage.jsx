@@ -67,7 +67,7 @@ function InfoTile({ icon, label, value, highlight }) {
   return (
     <div className="flex items-start gap-2.5">
       <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
-        style={{ background: 'rgba(124,58,237,0.12)', color: '#a78bfa' }}>
+        style={{ background: 'rgba(255,255,255,0.06)', color: '#a1a1aa' }}>
         <Icon path={icon} className="w-4 h-4" />
       </div>
       <div className="min-w-0">
@@ -80,11 +80,11 @@ function InfoTile({ icon, label, value, highlight }) {
 
 function SectionCard({ icon, title, right, children }) {
   return (
-    <div className="rounded-2xl border p-5" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
+    <div className="rounded-xl border p-5" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <div className="flex items-center gap-2">
           {icon && (
-            <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(124,58,237,0.12)', color: '#a78bfa' }}>
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.06)', color: '#a1a1aa' }}>
               <Icon path={icon} className="w-3.5 h-3.5" />
             </div>
           )}
@@ -195,10 +195,10 @@ export default function OrderDetailPage() {
         <div className="flex-1 w-full space-y-5 min-w-0">
 
           {/* Infos client */}
-          <div className="rounded-2xl border p-5" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
+          <div className="rounded-xl border p-5" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
             <div className="flex items-center gap-3 mb-5">
               <div className="w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold text-white shrink-0"
-                style={{ background: 'linear-gradient(135deg, #7c3aed, #a78bfa)' }}>
+                style={{ background: '#7c3aed' }}>
                 {initials}
               </div>
               <div className="min-w-0">
@@ -219,7 +219,7 @@ export default function OrderDetailPage() {
 
             {order.note && (
               <div className="mt-4 pt-4 border-t flex items-start gap-2.5" style={{ borderColor: theme.dark.border }}>
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'rgba(124,58,237,0.12)', color: '#a78bfa' }}>
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'rgba(255,255,255,0.06)', color: '#a1a1aa' }}>
                   <Icon path={ICONS.note} className="w-4 h-4" />
                 </div>
                 <div>
@@ -303,9 +303,9 @@ export default function OrderDetailPage() {
         <div className="w-full lg:w-72 shrink-0 space-y-4 lg:sticky lg:top-4">
 
           {/* Changer statut */}
-          <div className="rounded-2xl border p-4" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
+          <div className="rounded-xl border p-4" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
             <div className="flex items-center gap-2 mb-3">
-              <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(124,58,237,0.12)', color: '#a78bfa' }}>
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.06)', color: '#a1a1aa' }}>
                 <Icon path={ICONS.status} className="w-3.5 h-3.5" />
               </div>
               <h3 className="text-sm font-semibold text-gray-200">Changer le statut</h3>
@@ -332,9 +332,9 @@ export default function OrderDetailPage() {
           </div>
 
           {/* Assignation — visible pour tous, modifiable uniquement par owner/admin */}
-          <div className="rounded-2xl border p-4" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
+          <div className="rounded-xl border p-4" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
             <div className="flex items-center gap-2 mb-3">
-              <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(124,58,237,0.12)', color: '#a78bfa' }}>
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.06)', color: '#a1a1aa' }}>
                 <Icon path={ICONS.team} className="w-3.5 h-3.5" />
               </div>
               <h3 className="text-sm font-semibold text-gray-200">Confirmateur assigné</h3>
