@@ -67,6 +67,8 @@ orders/carriers/ — clients transporteurs (Yalidine, ZR Express) : base.py (Bas
 orders/stats_views.py — 8 vues statistiques (Epic 8.1), voir section API Endpoints. `orders/utils.py` expose `parse_period(request)` (contrat période partagé) et `order_channel(order)` (canal de vente, réutilisé aussi par `finance/`)
 dropshipping/    — DropshipperProduct, Commission, CommissionEntry, CommissionPayment (voir Epic 7.3)
 finance/         — Cost, calcul de rentabilité (voir Epic 7.4)
+channels/        — ChannelConnection, ChannelSyncLog, clients Shopify/Google Sheets mockés (voir Epic 8.2)
+channels/clients/ — architecture client de canal (base.py BaseChannelClient/MockChannelClient, shopify.py, google_sheets.py, get_channel_client()) — même principe que orders/carriers/
 core/            — app Django générique (utilitaires partagés) : permissions.py (is_owner_or_admin, IsOwnerOrAdminForWrites)
 ```
 
@@ -98,6 +100,7 @@ pages/Dashboard.jsx             — tableau de bord vendeur
 pages/StorePage.jsx             — Ma boutique
 pages/TeamPage.jsx              — gestion équipe
 pages/PermissionsPage.jsx       — (owner/admin) matrice de permissions par rôle (Epic 7.5), toggles en direct via `POST /api/team/permissions/`
+pages/SalesChannelsPage.jsx     — (owner/admin) Epic 8.2 : onglets Boutiques e-commerce (Shopify)/Google Sheets (connexion + sync push/pull manuels, mockés)/Meta Commerce (URL du flux catalogue réel à copier dans Meta Commerce Manager), journal de synchronisation
 pages/StockPage.jsx             — alertes stock bas + réglage seuil, et inventaire complet paginé/recherchable (tout ce que possède la boutique, pas que le stock bas)
 pages/products/ProductsPage.jsx       — liste produits (pagination, recherche)
 pages/products/ProductFormPage.jsx    — créer/modifier produit (variantes, images, multi-catégories). ⚠️ Le bouton "Ajouter une option" doit toujours envoyer une `value` non vide (le backend rejette `value=''` en 400) — bug déjà rencontré une fois (le clic semblait ne rien faire, erreur avalée silencieusement), corrigé en envoyant `'Nouvelle option'` par défaut
@@ -469,7 +472,23 @@ Coût saisi manuellement par le vendeur (US-7.4.1). Deux catégories fixes seule
 
 Dans les deux cas, seules les commandes **actuellement** au statut `delivered` comptent (`_delivered_orders`), filtrées sur la date de la dernière transition vers `delivered` dans `OrderStatusHistory` (`Max('history__changed_at', filter=Q(history__status='delivered'))`) — pas `created_at`. Une commande livrée puis retournée sort naturellement du calcul (`status != 'delivered'`), cohérent avec la réversion de commission de l'Epic 7.3.
 
-**"Source" = canal de vente**, déduit des données existantes sans nouveau champ (`_order_channel`) : `Order.dropshipper` renseigné → "Dropshipper — {nom}" ; sinon première entrée `OrderStatusHistory` sans auteur (`changed_by=None`, créée par `PublicOrderView`) → "Boutique en ligne" ; sinon → "Vente manuelle" (créée par owner/admin/dropshipper authentifié).
+**"Source" = canal de vente**, déduit des données existantes sans nouveau champ (`orders.utils.order_channel()`, canonique depuis l'Epic 8.1) : `Order.dropshipper` renseigné → "Dropshipper — {nom}" ; sinon première entrée `OrderStatusHistory` sans auteur (`changed_by=None`, créée par `PublicOrderView`) → "Boutique en ligne" ; sinon → "Vente manuelle" (créée par owner/admin/dropshipper authentifié).
+
+### `channels.ChannelConnection` / `channels.ChannelSyncLog` (Epic 8.2)
+```
+ChannelConnection : store (FK), channel : shopify | google_sheets
+  shop_url, api_key, api_secret (stockés tels quels, aucune validation réseau pour l'instant)
+  is_active, connected_at, last_synced_at
+  contrainte unique (store, channel) — une seule connexion par canal
+
+ChannelSyncLog : store (FK), connection (FK, nullable), channel, direction : push | pull
+  status : success | error, items_synced, message, started_at
+```
+Architecture complète construite avec des clients **mockés** (`channels/clients/`, `MockChannelClient`), même stratégie que `orders/carriers/` avant l'obtention des accès Yalidine/ZR Express : aucun accès API Shopify Partners ni compte de service Google obtenu à ce stade. `push_products()`/`pull_orders()`/`sync_stock()` ne font aucun appel réseau réel, juste un `ChannelSyncLog` simulé. Pour brancher les vraies API : remplacer le contenu de `shopify.py`/`google_sheets.py`, le reste du système n'a pas besoin de changer.
+
+**Synchronisation automatique du stock** (US-8.2.1 AC "éviter la survente") : `_sync_stock_to_channels(store, product)` (`backend/orders/views.py`) est appelée après chaque décrémentation de stock dans `_deduct_stock_for_order` — pousse (mock) le nouveau stock vers tous les canaux actifs de la boutique et journalise. Best-effort, enveloppée dans un `try/except` qui ne fait jamais échouer la création de commande.
+
+**Meta Commerce (US-8.2.2)** traité différemment de Shopify/Google : exposer un flux catalogue ne nécessite **aucune clé API côté vendeur** — Meta vient lire une URL publique périodiquement. `PublicCatalogFeedView` (`GET /api/public/store/<slug>/catalog.xml`, `products/views.py`) génère un flux RSS 2.0 réel avec l'espace de noms `g:` (même schéma que Google Merchant Center, standard partagé avec Meta Catalog) — id, titre, description, lien, image, disponibilité (basée sur `total_stock`/`allow_out_of_stock`), prix (`active_auto_promotion()` appliqué si actif), condition, marque. Cette brique est **réelle et fonctionnelle**, contrairement à Shopify/Google Sheets. L'URL est affichée à copier dans `SalesChannelsPage.jsx` (onglet Meta Commerce).
 
 ---
 
@@ -597,6 +616,15 @@ Commande manuelle par un dropshipper : `POST /api/orders/` accepte désormais au
 | POST | `/api/public/orders/` | Non | Checkout invité — crée Order + OrderItems, quota vérifié. **Vérifie d'abord `BlacklistedPhone`** : si le `phone` soumis est bloqué pour cette boutique, refuse (403, message du vendeur) avant toute création et incrémente `blocked_attempts`. Accepte `promo_code` optionnel : revalidé et verrouillé côté serveur (`select_for_update`) avant toute création, applique `discount_amount` sur la commande et incrémente `Promotion.uses_count`. Si `payment_method=chargily` : crée un checkout Chargily et renvoie `payment_url` (sinon `null` + détail explicite si l'appel API échoue). Si `cod` : quota incrémenté immédiatement |
 | POST | `/api/public/complaints/` | Non | Dépose une réclamation sans compte (`store_slug`, `order_id`, `phone`, `subject`, `description`) — la commande doit appartenir à la boutique et le téléphone doit correspondre, sinon 404 générique |
 | POST | `/api/public/webhooks/chargily/` | Non (signature HMAC) | Webhook Chargily — `checkout.paid` confirme la commande + incrémente le quota ; `checkout.failed`/`checkout.expired` laisse la commande en attente + email au vendeur (`Store.email`). Toujours 200, toujours journalisé (`PaymentWebhookLog`) |
+| GET | `/api/public/store/<slug>/catalog.xml` | Non | Epic 8.2 — flux catalogue Meta Commerce/Google Merchant (RSS 2.0 + `g:`), réel et fonctionnel, aucune clé API nécessaire |
+
+### Canaux de vente (Epic 8.2)
+| Méthode | URL | Auth | Description |
+|---|---|---|---|
+| GET/POST | `/api/channels/connections/` | Oui (owner/admin) | Liste des connexions / connecte un canal (`channel`, `shop_url`, `api_key`, `api_secret`) — upsert par canal |
+| PUT/DELETE | `/api/channels/connections/<id>/` | Oui (owner/admin) | Modifier / déconnecter |
+| POST | `/api/channels/connections/<id>/sync/` | Oui (owner/admin) | Déclenche une synchronisation manuelle (`direction: push\|pull`), journalisée dans `ChannelSyncLog`, met à jour `last_synced_at` |
+| GET | `/api/channels/logs/` | Oui (owner/admin) | Journal de synchronisation (`?channel=`, 100 dernières entrées) |
 
 ---
 
@@ -729,10 +757,17 @@ Commande manuelle par un dropshipper : `POST /api/orders/` accepte désormais au
 - ⚠️ **Bug rencontré et corrigé pendant le développement** : `usePeriod()` retournait une fonction `queryString` recréée à chaque rendu (non mémoïsée) — cassait la dépendance `useCallback` des pages appelantes et provoquait une **boucle de fetch infinie** (spinner bloqué indéfiniment sur "Chargement…", API martelée en continu). Corrigé en mémoïsant `queryString` avec `useCallback([period, dateFrom, dateTo])` dans `statsShared.jsx` — un seul correctif a réparé les 8 pages d'un coup puisqu'elles partagent toutes ce hook
 - Testé de bout en bout via `manage.py shell` + requêtes HTTP réelles sur les 8 endpoints (commandes/retours/échecs/vente de stock/produits/wilayas/sources/global) + build frontend
 
-### 🔜 Sprint 8 (suite) — Canaux de vente, marketing, webhooks, abonnement
+### ✅ Epic 8.2 — Canaux de vente externes (TERMINÉ — branche `epic-8.2-canaux-vente`)
+- **US-8.2.1 — Synchronisation Shopify** : architecture complète (`channels/` app, `ChannelConnection`, `ChannelSyncLog`) avec client **mocké** (`channels/clients/`, même stratégie que `orders/carriers/` avant obtention des accès transporteurs — aucun accès API Shopify Partners obtenu à ce stade). Push catalogue / pull commandes déclenchables manuellement (`SalesChannelsPage.jsx`), et **stock synchronisé automatiquement** à chaque commande (`_sync_stock_to_channels`, best-effort, ne bloque jamais la création de commande) pour satisfaire l'AC "éviter la survente". Journal de synchronisation consultable et persistant (AC `ChannelSyncLog`)
+- **Google Sheets** : même traitement que Shopify (mocké, pas de compte de service Google obtenu), même UI de connexion/sync/journal, onglet séparé
+- **US-8.2.2 — Meta Commerce** : traité différemment — un flux catalogue ne nécessite **aucune clé API côté vendeur** (Meta lit une URL publique périodiquement), donc **implémenté réellement et fonctionnel** dès cette epic : `GET /api/public/store/<slug>/catalog.xml`, flux RSS 2.0 + espace de noms `g:` (schéma partagé Google Merchant/Meta Catalog). URL affichée à copier dans l'onglet Meta Commerce de `SalesChannelsPage.jsx`
+- Nouvelle app Django `channels/` (séparée pour éviter les dépendances circulaires, même choix que `dropshipping/`/`finance/`)
+- Sidebar : "Canaux de vente" (owner/admin uniquement, comme "Permissions par rôle")
+- Testé de bout en bout via `manage.py shell` + requêtes HTTP réelles (connexion, sync push/pull manuels avec journal, hook automatique de sync stock à la création de commande, flux XML catalogue avec vraies données produit)
+
+### 🔜 Sprint 8 (suite) — Marketing, webhooks, abonnement
 - Plans d'abonnement : Starter / Pro / Business (limites TBD)
-- Intégration **Shopify** bidirectionnelle
-- Intégration **Meta Commerce** (Facebook/Instagram shop)
+- Pixels Meta/Google Analytics, publicités Facebook Leads
 - Mise en production (CI/CD, SSL, domaines)
 
 ---
