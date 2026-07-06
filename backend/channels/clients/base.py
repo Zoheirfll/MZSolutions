@@ -23,6 +23,10 @@ class BaseChannelClient:
         """Récupère les commandes passées sur le canal."""
         raise NotImplementedError
 
+    def pull_products(self):
+        """Importe les produits existants du canal vers le catalogue MZSolutions."""
+        raise NotImplementedError
+
     def sync_stock(self, product):
         """Pousse le stock d'un seul produit — appelé à chaque commande pour
         éviter la survente (US-8.2.1 AC)."""
@@ -43,6 +47,9 @@ class MockChannelClient(BaseChannelClient):
 
     def pull_orders(self):
         return SyncResult(items_synced=0, message="[MOCK] Aucune commande distante à importer (client simulé).")
+
+    def pull_products(self):
+        return SyncResult(items_synced=0, message="[MOCK] Aucun produit distant à importer (client simulé).")
 
     def sync_stock(self, product):
         return SyncResult(items_synced=1, message=f"[MOCK] Stock de « {product.name} » synchronisé.")

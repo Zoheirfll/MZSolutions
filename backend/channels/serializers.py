@@ -12,12 +12,16 @@ class ChannelConnectionSerializer(serializers.ModelSerializer):
     api_key_masked  = serializers.SerializerMethodField()
     api_secret      = serializers.CharField(write_only=True, required=False, allow_blank=True)
     api_secret_set  = serializers.SerializerMethodField()
+    oauth_connected = serializers.SerializerMethodField()
 
     class Meta:
         model  = ChannelConnection
         fields = ['id', 'channel', 'channel_label', 'shop_url', 'api_key', 'api_key_masked',
-                  'api_secret', 'api_secret_set', 'is_active', 'connected_at', 'last_synced_at']
+                  'api_secret', 'api_secret_set', 'oauth_connected', 'is_active', 'connected_at', 'last_synced_at']
         read_only_fields = ['id', 'connected_at', 'last_synced_at']
+
+    def get_oauth_connected(self, obj):
+        return bool(obj.access_token)
 
     def get_channel_label(self, obj):
         return dict(CHANNEL_CHOICES).get(obj.channel, obj.channel)

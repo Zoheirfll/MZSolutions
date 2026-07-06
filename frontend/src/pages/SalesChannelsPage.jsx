@@ -83,7 +83,7 @@ function ConnectModal({ channel, initial, onClose, onSaved }) {
   )
 }
 
-function ChannelCard({ title, description, connection, onConnect, onSync, onDisconnect, syncing }) {
+function ChannelCard({ title, description, connection, onConnect, onSync, onDisconnect, syncing, pullDirection = 'pull', pullLabel = 'Importer les commandes' }) {
   return (
     <div className="rounded-xl border p-5 flex flex-col gap-3" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
       <div>
@@ -94,14 +94,15 @@ function ChannelCard({ title, description, connection, onConnect, onSync, onDisc
         <>
           <div className="text-xs space-y-1" style={{ color: theme.dark.muted }}>
             <p>URL : <span className="text-gray-300">{connection.shop_url || '—'}</span></p>
+            {connection.oauth_connected && <p><span className={theme.badge.success}>Connecté via OAuth</span></p>}
             <p>Dernière synchro : <span className="text-gray-300">{connection.last_synced_at ? new Date(connection.last_synced_at).toLocaleString('fr-DZ') : 'jamais'}</span></p>
           </div>
           <div className="flex gap-2 flex-wrap">
             <button onClick={() => onSync(connection, 'push')} disabled={syncing} className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-violet-600 hover:bg-violet-500 disabled:opacity-60 cursor-pointer transition">
               {syncing ? '…' : 'Pousser le catalogue'}
             </button>
-            <button onClick={() => onSync(connection, 'pull')} disabled={syncing} className="px-3 py-1.5 rounded-lg text-xs font-semibold border text-gray-300 hover:bg-white/5 disabled:opacity-60 cursor-pointer transition" style={{ borderColor: theme.dark.border }}>
-              {syncing ? '…' : 'Importer les commandes'}
+            <button onClick={() => onSync(connection, pullDirection)} disabled={syncing} className="px-3 py-1.5 rounded-lg text-xs font-semibold border text-gray-300 hover:bg-white/5 disabled:opacity-60 cursor-pointer transition" style={{ borderColor: theme.dark.border }}>
+              {syncing ? '…' : pullLabel}
             </button>
             <button onClick={() => onDisconnect(connection)} className="px-3 py-1.5 rounded-lg text-xs font-semibold text-red-400 hover:bg-red-900/20 cursor-pointer transition">
               Déconnecter
@@ -115,6 +116,49 @@ function ChannelCard({ title, description, connection, onConnect, onSync, onDisc
   )
 }
 
+function ShopifyConnectModal({ onClose, onError }) {
+  const [shop, setShop] = useState('')
+  const [connecting, setConnecting] = useState(false)
+  const inputCls = 'w-full px-3.5 py-2.5 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 transition [color-scheme:dark]'
+  const bdrStyle = { borderColor: theme.dark.border }
+
+  const submit = async e => {
+    e.preventDefault()
+    setConnecting(true)
+    try {
+      const { data } = await api.post('/channels/shopify/install/', { shop: shop.trim() })
+      window.location.href = data.authorize_url
+    } catch (err) {
+      onError(err?.response?.data?.detail || "Impossible de démarrer la connexion Shopify.")
+      setConnecting(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
+      <div className="w-full max-w-md rounded-xl border p-6" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
+        <h3 className="font-semibold text-gray-200 mb-1">Connecter Shopify</h3>
+        <p className="text-xs mb-5" style={{ color: theme.dark.muted }}>
+          Vous allez être redirigé vers Shopify pour autoriser MZSolutions à accéder à votre boutique. Aucune information sensible à saisir ici.
+        </p>
+        <form onSubmit={submit} className="space-y-4">
+          <div>
+            <label className="block text-xs text-gray-400 mb-1.5">Domaine de votre boutique Shopify</label>
+            <input value={shop} onChange={e => setShop(e.target.value)} placeholder="monshop.myshopify.com"
+              className={inputCls} style={bdrStyle} required />
+          </div>
+          <div className="flex justify-end gap-3 pt-1">
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-400 hover:text-gray-200 cursor-pointer transition">Fermer</button>
+            <button type="submit" disabled={connecting} className={theme.btn.primary + ' text-sm disabled:opacity-60'}>
+              {connecting ? '…' : 'Continuer vers Shopify'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 export default function SalesChannelsPage() {
   const { user } = useAuth()
   const [tab, setTab] = useState('stores')
@@ -122,7 +166,10 @@ export default function SalesChannelsPage() {
   const [logs, setLogs] = useState([])
   const [loading, setLoading] = useState(true)
   const [modalChannel, setModalChannel] = useState(null)
+  const [shopifyModalOpen, setShopifyModalOpen] = useState(false)
   const [syncingId, setSyncingId] = useState(null)
+  const [notice, setNotice] = useState('')
+  const [noticeError, setNoticeError] = useState(false)
 
   const fetchAll = () => {
     setLoading(true)
@@ -132,7 +179,15 @@ export default function SalesChannelsPage() {
       .finally(() => setLoading(false))
   }
 
-  useEffect(() => { fetchAll() }, [])
+  useEffect(() => {
+    fetchAll()
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('shopify') === 'connected') {
+      setNotice('Boutique Shopify connectée avec succès.')
+      setNoticeError(false)
+      window.history.replaceState({}, '', window.location.pathname)
+    }
+  }, [])
 
   const byChannel = key => connections.find(c => c.channel === key)
 
@@ -160,6 +215,10 @@ export default function SalesChannelsPage() {
         Connectez vos applications et services pour centraliser vos données et vos flux de travail.
       </p>
 
+      {notice && (
+        <div className={(noticeError ? theme.badge.danger : theme.badge.success) + ' block mb-5 px-3.5 py-2.5 rounded-lg text-sm'}>{notice}</div>
+      )}
+
       <div className="flex items-center gap-2 mb-6 flex-wrap">
         {TABS.map(t => (
           <button key={t.value} onClick={() => setTab(t.value)}
@@ -175,9 +234,10 @@ export default function SalesChannelsPage() {
           {tab === 'stores' && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
               <ChannelCard
-                title="Shopify" description="Synchronisez votre boutique Shopify et gérez tout depuis un seul endroit."
-                connection={byChannel('shopify')} onConnect={() => setModalChannel('shopify')}
+                title="Shopify" description="Connectez votre boutique Shopify — les commandes arrivent automatiquement dans MZSolutions."
+                connection={byChannel('shopify')} onConnect={() => setShopifyModalOpen(true)}
                 onSync={handleSync} onDisconnect={handleDisconnect} syncing={syncingId === byChannel('shopify')?.id}
+                pullDirection="pull_products" pullLabel="Importer les produits"
               />
             </div>
           )}
@@ -239,6 +299,9 @@ export default function SalesChannelsPage() {
 
       {modalChannel && (
         <ConnectModal channel={modalChannel} initial={byChannel(modalChannel)} onClose={() => setModalChannel(null)} onSaved={() => { setModalChannel(null); fetchAll() }} />
+      )}
+      {shopifyModalOpen && (
+        <ShopifyConnectModal onClose={() => setShopifyModalOpen(false)} onError={msg => { setNotice(msg); setNoticeError(true) }} />
       )}
     </DashboardLayout>
   )

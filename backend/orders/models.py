@@ -89,6 +89,7 @@ class Order(models.Model):
     chargily_payment_link  = models.URLField(blank=True)
     note           = models.TextField(blank=True)
     customer_email = models.EmailField(blank=True)
+    external_ref   = models.CharField(max_length=100, blank=True, db_index=True, help_text="Identifiant de la commande sur un canal externe (ex: 'shopify:123456') — garantit l'idempotence des imports webhook")
     carrier                      = models.ForeignKey(CarrierAccount, null=True, blank=True, on_delete=models.SET_NULL, related_name='shipments')
     carrier_tracking_number      = models.CharField(max_length=100, blank=True)
     carrier_status               = models.CharField(max_length=50, blank=True)

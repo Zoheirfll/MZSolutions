@@ -8,7 +8,8 @@ CHANNEL_CHOICES = [
 
 DIRECTION_CHOICES = [
     ('push', 'Push (MZSolutions → canal)'),
-    ('pull', 'Pull (canal → MZSolutions)'),
+    ('pull', 'Pull commandes (canal → MZSolutions)'),
+    ('pull_products', 'Pull produits (canal → MZSolutions)'),
 ]
 
 SYNC_STATUS_CHOICES = [
@@ -28,6 +29,8 @@ class ChannelConnection(models.Model):
     shop_url       = models.CharField(max_length=200, blank=True, help_text="Ex: monshop.myshopify.com, ou URL du Google Sheet")
     api_key        = models.CharField(max_length=200, blank=True)
     api_secret     = models.CharField(max_length=200, blank=True)
+    access_token   = models.CharField(max_length=255, blank=True, help_text="Token OAuth obtenu après autorisation par le marchand (Shopify) — jamais renvoyé en clair au frontend")
+    scope           = models.CharField(max_length=500, blank=True)
     is_active      = models.BooleanField(default=True)
     connected_at   = models.DateTimeField(auto_now_add=True)
     last_synced_at = models.DateTimeField(null=True, blank=True)
@@ -46,7 +49,7 @@ class ChannelSyncLog(models.Model):
     store       = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='channel_sync_logs')
     connection  = models.ForeignKey(ChannelConnection, null=True, blank=True, on_delete=models.SET_NULL, related_name='logs')
     channel     = models.CharField(max_length=20, choices=CHANNEL_CHOICES)
-    direction   = models.CharField(max_length=10, choices=DIRECTION_CHOICES)
+    direction   = models.CharField(max_length=20, choices=DIRECTION_CHOICES)
     status      = models.CharField(max_length=10, choices=SYNC_STATUS_CHOICES)
     items_synced = models.PositiveIntegerField(default=0)
     message     = models.TextField(blank=True)

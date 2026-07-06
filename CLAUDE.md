@@ -508,13 +508,33 @@ Dans les deux cas, seules les commandes **actuellement** au statut `delivered` c
 ```
 ChannelConnection : store (FK), channel : shopify | google_sheets
   shop_url, api_key, api_secret (stockés tels quels, aucune validation réseau pour l'instant)
+  access_token, scope (Shopify OAuth — voir ci-dessous, vide si connexion à l'ancienne/mockée)
   is_active, connected_at, last_synced_at
   contrainte unique (store, channel) — une seule connexion par canal
 
-ChannelSyncLog : store (FK), connection (FK, nullable), channel, direction : push | pull
+ChannelSyncLog : store (FK), connection (FK, nullable), channel, direction : push | pull | pull_products
   status : success | error, items_synced, message, started_at
 ```
-Architecture complète construite avec des clients **mockés** (`channels/clients/`, `MockChannelClient`), même stratégie que `orders/carriers/` avant l'obtention des accès Yalidine/ZR Express : aucun accès API Shopify Partners ni compte de service Google obtenu à ce stade. `push_products()`/`pull_orders()`/`sync_stock()` ne font aucun appel réseau réel, juste un `ChannelSyncLog` simulé. Pour brancher les vraies API : remplacer le contenu de `shopify.py`/`google_sheets.py`, le reste du système n'a pas besoin de changer.
+Architecture construite avec des clients **mockés** par défaut (`channels/clients/`, `MockChannelClient`), même stratégie que `orders/carriers/` avant l'obtention des accès. Google Sheets reste entièrement mocké (aucun compte de service Google obtenu). **Shopify a une intégration réelle depuis la connexion OAuth (voir sous-section dédiée ci-dessous)** — `push_products()`/`pull_products()` utilisent la vraie API GraphQL Admin quand `access_token` est renseigné, retombent sur `MockChannelClient` sinon. Pour Google Sheets : remplacer le contenu de `google_sheets.py`, le reste du système n'a pas besoin de changer.
+
+### Intégration Shopify — connexion OAuth self-service (2026-07)
+Contrairement au reste de l'Epic 8.2 (mocké), l'intégration Shopify est **réelle** : un vendeur connecte sa propre boutique Shopify à MZSolutions via un flux OAuth standard, sans jamais transmettre de token manuellement.
+
+- **`backend/channels/shopify_oauth.py`** — helpers du flux : `build_authorize_url()`/`make_state()` (état signé encodant l'id du store, `TimestampSigner`, 10 min de validité — remplace une session puisque Shopify redirige un navigateur brut), `verify_callback_hmac()` (signature des paramètres de requête du callback), `exchange_code_for_token()`, `verify_webhook_hmac()` (signature des webhooks, HMAC-SHA256 base64 du corps brut avec le *client secret de l'app*, pas un secret par boutique), `register_webhooks()` (abonne automatiquement `orders/create`/`orders/updated` juste après la connexion).
+- **`ShopifyInstallView`** (`POST /api/channels/shopify/install/`, owner/admin) — reçoit le domaine `.myshopify.com` saisi par le vendeur (modal `ShopifyConnectModal` dans `SalesChannelsPage.jsx`), renvoie l'URL d'autorisation Shopify vers laquelle le frontend redirige le navigateur.
+- **`ShopifyCallbackView`** (`GET /api/public/channels/shopify/callback/`, public — Shopify redirige un navigateur brut, pas de JWT possible) — vérifie le HMAC et le `state`, échange le `code` contre un `access_token`, upsert `ChannelConnection`, enregistre les webhooks, redirige vers `FRONTEND_URL/dashboard/canaux-vente?shopify=connected`.
+- **`ShopifyOrderWebhookView`** (`POST /api/public/channels/shopify/webhooks/orders/`, public, signature HMAC vérifiée) — reçoit les commandes Shopify **en temps réel** (plus besoin de pull manuel) : matche les articles par SKU (`Product`/`VariantOption`), crée `Order`+`OrderItem`+`OrderStatusHistory`, assigne un confirmateur, déduit le stock, déclenche `order.created`. Idempotent via `Order.external_ref` (`"shopify:{id}"`) — un webhook rejoué (retry Shopify, `orders/updated`) ne recrée pas la commande.
+- **3 webhooks de conformité RGPD obligatoires pour la distribution publique** (`ShopifyCustomersDataRequestView`/`ShopifyCustomersRedactView`/`ShopifyShopRedactView`, `channels/views.py`) : `customers/redact` anonymise les commandes du client concerné (garde la ligne comme historique de vente légitime du marchand, efface nom/téléphone/adresse) ; `shop/redact` supprime la `ChannelConnection` (token/secret) 48h après désinstallation. Configurés côté Shopify via `[webhooks.privacy_compliance]` dans `shopify.app.toml` (app "config as code", pas éditable depuis le Dev Dashboard web pour cette section précise).
+- **Page de politique de confidentialité** (`GET /legal/privacy-policy/`, `config/urls.py::privacy_policy`) — page HTML statique minimale, nécessaire pour la soumission Shopify App Store.
+- `orders.Order.external_ref` (CharField, indexé) — identifiant générique de commande sur un canal externe, garantit l'idempotence des imports webhook (pas spécifique à Shopify, réutilisable pour d'autres canaux).
+- **`ShopifyClient.push_products()`/`pull_products()`** (`channels/clients/shopify.py`) — vraie API GraphQL Admin (`productSet` mutation, nécessite `productOptions`/`optionValues` même pour un produit sans variante — piège rencontré : Shopify rejette `variants` sans `optionValues` non-null). `pull_products()` importe le catalogue Shopify existant vers MZSolutions (upsert par SKU si présent, sinon par nom). `sync_stock()` non implémenté (TODO : nécessite de persister le mapping `inventory_item_id` Shopify par produit).
+
+⚠️ **Contrainte Shopify découverte en pratique — distribution** : le mode de distribution d'une app (Custom vs Public) **ne peut être choisi qu'une seule fois et n'est plus modifiable ensuite**. Deux apps Shopify existent donc :
+- **"MZSolutions"** (`client_id acfcd57e...`) — verrouillée en **Custom Distribution** (test uniquement, nécessite de générer un lien d'installation par domaine boutique depuis le Partner Dashboard — pas self-service)
+- **"MZSolutions Production"** (`client_id cc0b61c...`) — configurée pour la **Public Distribution**, seule à permettre un onboarding self-service (n'importe quel marchand clique "Connecter" sans action manuelle côté MZSolutions), mais nécessite une **review Shopify** (soumission payante : 19 $ US, frais unique, 0% de partage de revenu sauf au-delà de 1M$ US de ventes annuelles générées par l'app — non applicable en pratique) via **Manage submission** (Distribution → Shopify App Store listing). Soumission commencée mais **mise en pause avant paiement** (voir TBD) — le formulaire nécessite de choisir Individual/Organization et d'ajouter un moyen de paiement.
+- Config Shopify gérée en local via **Shopify CLI** (`shopify.app.toml`, dossier `C:\Users\filali\shopify-mzsolutions-config\`, hors du repo Git) — le Dev Dashboard web n'expose pas tous les champs (scopes, redirect URLs, webhooks de conformité RGPD nécessitent `shopify app deploy`).
+- Credentials dans `backend/.env` (jamais commité) : `SHOPIFY_CLIENT_ID`, `SHOPIFY_CLIENT_SECRET`, `SHOPIFY_SCOPES`, `SHOPIFY_API_VERSION` — actuellement ceux de l'app **Production**.
+- Tunnel **ngrok** requis en dev (même contrainte que Chargily) pour que Shopify puisse appeler `redirect_uri`/webhooks — `BACKEND_URL` dans `.env` et les URLs dans `shopify.app.toml` doivent être resynchronisés à chaque nouveau tunnel.
 
 **Synchronisation automatique du stock** (US-8.2.1 AC "éviter la survente") : `_sync_stock_to_channels(store, product)` (`backend/orders/views.py`) est appelée après chaque décrémentation de stock dans `_deduct_stock_for_order` — pousse (mock) le nouveau stock vers tous les canaux actifs de la boutique et journalise. Best-effort, enveloppée dans un `try/except` qui ne fait jamais échouer la création de commande.
 
@@ -677,8 +697,15 @@ Commande manuelle par un dropshipper : `POST /api/orders/` accepte désormais au
 |---|---|---|---|
 | GET/POST | `/api/channels/connections/` | Oui (owner/admin) | Liste des connexions / connecte un canal (`channel`, `shop_url`, `api_key`, `api_secret`) — upsert par canal |
 | PUT/DELETE | `/api/channels/connections/<id>/` | Oui (owner/admin) | Modifier / déconnecter |
-| POST | `/api/channels/connections/<id>/sync/` | Oui (owner/admin) | Déclenche une synchronisation manuelle (`direction: push\|pull`), journalisée dans `ChannelSyncLog`, met à jour `last_synced_at` |
+| POST | `/api/channels/connections/<id>/sync/` | Oui (owner/admin) | Déclenche une synchronisation manuelle (`direction: push\|pull\|pull_products`), journalisée dans `ChannelSyncLog`, met à jour `last_synced_at` |
 | GET | `/api/channels/logs/` | Oui (owner/admin) | Journal de synchronisation (`?channel=`, 100 dernières entrées) |
+| POST | `/api/channels/shopify/install/` | Oui (owner/admin) | Démarre le flux OAuth Shopify — reçoit `shop` (domaine `.myshopify.com`), renvoie `authorize_url` vers laquelle rediriger |
+| GET | `/api/public/channels/shopify/callback/` | Non (HMAC + state signé) | Callback OAuth — Shopify y redirige après autorisation du marchand ; upsert `ChannelConnection`, enregistre les webhooks, redirige vers le dashboard |
+| POST | `/api/public/channels/shopify/webhooks/orders/` | Non (signature HMAC) | Réception temps réel des commandes Shopify (`orders/create`/`orders/updated`) — crée la commande côté MZSolutions, idempotent |
+| POST | `/api/public/channels/shopify/webhooks/customers-data-request/` | Non (signature HMAC) | Webhook de conformité RGPD (obligatoire distribution publique) |
+| POST | `/api/public/channels/shopify/webhooks/customers-redact/` | Non (signature HMAC) | Webhook de conformité RGPD — anonymise les commandes du client concerné |
+| POST | `/api/public/channels/shopify/webhooks/shop-redact/` | Non (signature HMAC) | Webhook de conformité RGPD — supprime la connexion Shopify stockée |
+| GET | `/legal/privacy-policy/` | Non | Page de politique de confidentialité statique (requise pour la review Shopify) |
 
 ### Webhooks (Epic 8.4)
 | Méthode | URL | Auth | Description |
@@ -977,6 +1004,8 @@ Aucune nouvelle dépendance (déjà disponible via `django`/`djangorestframework
 | Modèle Customer / liste noire | Différé — US-5.2.1 mentionne l'identification client par téléphone mais pas de modèle dédié encore |
 | Clés Chargily production | Seules les clés de test sont configurées (`.env` local, non commité) |
 | Accès API Yalidine / ZR Express | Non obtenus — `orders/carriers/` utilise des clients mockés (`MOCK-{carrier}-...`) en attendant. Brancher les vrais clients dans `yalidine.py`/`zr_express.py` dès réception des accès |
+| Soumission Shopify App Store (app "MZSolutions Production") | Formulaire de review commencé (`Register for the Shopify App Store`) mais interrompu avant le paiement des frais uniques (19 $ US) et le choix Individual/Organization — décision utilisateur en attente. Le code est prêt et fonctionnel (OAuth, webhooks temps réel, conformité RGPD) ; seule la distribution publique self-service est bloquée tant que la review n'est pas soumise/approuvée. En attendant, onboarding possible en Custom Distribution (lien d'installation généré manuellement par boutique cliente depuis le Partner Dashboard) |
+| Domaine fixe pour `BACKEND_URL`/redirect Shopify | Dépend actuellement d'un tunnel ngrok (URL change à chaque redémarrage) — à remplacer par un domaine de production stable (voir aussi ligne "Infra de déploiement" ci-dessus), sinon resynchroniser `.env` + `shopify.app.toml` à chaque nouveau tunnel |
 
 ---
 
