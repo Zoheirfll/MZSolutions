@@ -24,6 +24,7 @@ class InviteSerializer(serializers.Serializer):
     wilaya     = serializers.CharField(max_length=60, required=False, allow_blank=True)
     commune    = serializers.CharField(max_length=60, required=False, allow_blank=True)
     address    = serializers.CharField(required=False, allow_blank=True)
+    permissions = serializers.DictField(child=serializers.BooleanField(), required=False)
 
     def validate_email(self, value):
         if User.objects.filter(email=value).exists():

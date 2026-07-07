@@ -56,6 +56,46 @@ class InviteTests(TestCase):
         self.assertEqual(resp.status_code, 400)
 
 
+class InvitePermissionsTests(TestCase):
+    def setUp(self):
+        self.owner, self.store = make_owner()
+
+    def test_invite_without_permissions_creates_no_overrides(self):
+        client = auth_client(self.owner)
+        resp = client.post('/api/team/invite/', {
+            'role': 'confirmateur', 'first_name': 'C', 'last_name': 'F', 'email': 'noperm@test.com',
+        }, format='json')
+        self.assertEqual(resp.status_code, 201)
+        member = TeamMember.objects.get(email='noperm@test.com')
+        self.assertEqual(member.permission_overrides.count(), 0)
+
+    def test_invite_with_permissions_creates_only_diffs_from_role_default(self):
+        client = auth_client(self.owner)
+        # confirmateur default: orders_view=True, finances_view=False (see DEFAULT_PERMISSIONS)
+        resp = client.post('/api/team/invite/', {
+            'role': 'confirmateur', 'first_name': 'C', 'last_name': 'F', 'email': 'withperm@test.com',
+            'permissions': {
+                'orders_view': True,     # matches default -> no override stored
+                'finances_view': True,   # differs from default -> override stored
+            },
+        }, format='json')
+        self.assertEqual(resp.status_code, 201)
+        member = TeamMember.objects.get(email='withperm@test.com')
+        overrides = {o.permission: o.enabled for o in member.permission_overrides.all()}
+        self.assertEqual(overrides, {'finances_view': True})
+
+    def test_new_member_effective_permissions_include_custom_override(self):
+        client = auth_client(self.owner)
+        client.post('/api/team/invite/', {
+            'role': 'confirmateur', 'first_name': 'C', 'last_name': 'F', 'email': 'effective@test.com',
+            'permissions': {'stock_view': True},
+        }, format='json')
+        member = TeamMember.objects.get(email='effective@test.com')
+        from .models import get_effective_permissions
+        perms = get_effective_permissions(self.store, 'confirmateur', member=member)
+        self.assertTrue(perms['stock_view'])
+
+
 class TeamListTests(TestCase):
     def setUp(self):
         self.owner, self.store = make_owner()

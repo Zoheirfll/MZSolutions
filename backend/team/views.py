@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
 
-from .models import TeamMember, RolePermission, PERMISSION_CATALOG, ROLES_WITH_PERMISSIONS, get_effective_permissions
+from .models import TeamMember, RolePermission, TeamMemberPermission, PERMISSION_CATALOG, ROLES_WITH_PERMISSIONS, get_effective_permissions
 from .serializers import InviteSerializer, TeamMemberSerializer, AcceptInvitationSerializer
 from accounts.serializers import get_tokens, UserSerializer
 from core.permissions import IsOwnerOrAdminForWrites, is_owner_or_admin
@@ -47,6 +47,15 @@ class InviteView(APIView):
             commune=d.get('commune', ''),
             address=d.get('address', ''),
         )
+
+        permissions_payload = d.get('permissions')
+        if permissions_payload:
+            role_defaults = get_effective_permissions(store, member.role)
+            for key, value in permissions_payload.items():
+                if key not in dict(PERMISSION_CATALOG):
+                    continue
+                if role_defaults.get(key, False) != value:
+                    TeamMemberPermission.objects.create(member=member, permission=key, enabled=value)
 
         link = f"{settings.FRONTEND_URL}/accept-invitation?token={member.invite_token}"
         role_label = dict(TeamMember.ROLES).get(member.role, member.role)
