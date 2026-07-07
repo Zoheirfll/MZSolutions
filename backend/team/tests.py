@@ -161,3 +161,10 @@ class EffectivePermissionsCascadeTests(TestCase):
     def test_no_member_arg_behaves_like_role_only(self):
         perms = get_effective_permissions(self.store, 'confirmateur')
         self.assertFalse(perms['finances_view'])
+
+    def test_member_override_reflected_in_auth_me(self):
+        from .models import TeamMemberPermission
+        TeamMemberPermission.objects.create(member=self.conf, permission='finances_view', enabled=True)
+        client = auth_client(self.conf_user)
+        resp = client.get('/api/auth/me/')
+        self.assertTrue(resp.data['permissions']['finances_view'])

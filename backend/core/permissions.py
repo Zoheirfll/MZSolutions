@@ -33,10 +33,10 @@ def owner_or_admin_required(request):
 
 
 def get_effective_permissions(request):
-    """Permissions effectives de l'utilisateur pour sa boutique (Epic 7.5).
-    Seul l'owner (role=None) a un accès total implicite non configurable ;
-    admin/confirmateur/dropshipper passent par la matrice `RolePermission`
-    (admin est à True partout par défaut, mais le vendeur peut le resserrer).
+    """Permissions effectives de l'utilisateur pour sa boutique (Epic 7.5 +
+    override par personne). Seul l'owner (role=None) a un accès total
+    implicite non configurable ; admin/confirmateur/dropshipper passent par
+    la cascade `TeamMemberPermission` > `RolePermission` > `DEFAULT_PERMISSIONS`.
     Ce système ne gate que la lecture — les actions d'écriture restent
     protégées séparément par `is_owner_or_admin` (inchangé)."""
     from team.models import get_effective_permissions as _effective, PERMISSION_CATALOG
@@ -46,7 +46,8 @@ def get_effective_permissions(request):
     store = get_store(request)
     if not store:
         return {key: False for key, _ in PERMISSION_CATALOG}
-    return _effective(store, role)
+    member = getattr(request.user, 'team_membership', None)
+    return _effective(store, role, member=member)
 
 
 def has_permission(request, key):
