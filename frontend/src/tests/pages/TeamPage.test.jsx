@@ -92,7 +92,7 @@ describe('TeamPage', () => {
       ],
       roles: ['admin', 'confirmateur', 'dropshipper'],
       matrix: {
-        admin: { orders_view: true, finances_view: true },
+        admin: { orders_view: true, finances_view: false },
         confirmateur: { orders_view: true, finances_view: false },
         dropshipper: { orders_view: true, finances_view: false },
       },
