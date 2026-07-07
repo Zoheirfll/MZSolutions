@@ -28,6 +28,7 @@ import CouponsPage from './pages/products/CouponsPage'
 import AutoPromotionsPage from './pages/products/AutoPromotionsPage'
 import OrdersPage from './pages/orders/OrdersPage'
 import OrderFormPage from './pages/orders/OrderFormPage'
+import ScheduledOrdersPage from './pages/orders/ScheduledOrdersPage'
 import CancellationsPage from './pages/orders/CancellationsPage'
 import OrderDetailPage from './pages/orders/OrderDetailPage'
 import FailureReasonsPage from './pages/orders/FailureReasonsPage'
@@ -113,6 +114,7 @@ function App() {
           <Route path="/dashboard/produits/promotions/auto"    element={<PD><AutoPromotionsPage /></PD>} />
           <Route path="/dashboard/commandes"                 element={<PD><OrdersPage /></PD>} />
           <Route path="/dashboard/commandes/nouvelle"                    element={<PD><OrderFormPage /></PD>} />
+          <Route path="/dashboard/commandes/programmees"                 element={<PD><ScheduledOrdersPage /></PD>} />
           <Route path="/dashboard/commandes/raisons-echec"                element={<PD><FailureReasonsPage /></PD>} />
           <Route path="/dashboard/commandes/taux-confirmation"           element={<PD><ConfirmationRatePage /></PD>} />
           <Route path="/dashboard/commandes/:id"                         element={<PD><OrderDetailPage /></PD>} />

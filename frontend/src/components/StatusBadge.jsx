@@ -3,6 +3,7 @@ import { theme } from '../theme'
 // Mapping statut commande → variante theme.badge (source unique, remplace les
 // couleurs inline dupliquées entre OrdersPage / StockPage / etc.)
 const ORDER_STATUS_VARIANT = {
+  scheduled:        'info',
   pending:          'warning',
   no_answer_1:      'warning',
   no_answer_2:      'warning',
@@ -16,6 +17,7 @@ const ORDER_STATUS_VARIANT = {
 }
 
 const ORDER_STATUS_LABEL = {
+  scheduled:        'Programmée',
   pending:          'En attente',
   no_answer_1:      'Non joignable — 1ère tentative',
   no_answer_2:      'Non joignable — 2ème tentative',

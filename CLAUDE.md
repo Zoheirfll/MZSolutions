@@ -459,6 +459,16 @@ Premier modèle d'audit de stock du projet — jusqu'ici `Product.stock`/`Varian
 ### `orders.Order.dropshipper` (FK → `team.TeamMember`, nullable)
 Ajouté pour Epic 7.3 — identifie le dropshipper qui a réalisé la vente (`None` pour une commande normale du vendeur). Renseigné automatiquement à la création si l'utilisateur authentifié est un `TeamMember` de rôle `dropshipper` (`OrderListCreateView.post()`).
 
+### Commandes programmées — `orders.Order.scheduled_at` + statut `scheduled`
+Permet à un vendeur (owner/admin/dropshipper) de préparer une commande manuelle (`OrderFormPage.jsx`, toggle "Programmer l'envoi") avec une date/heure future à laquelle elle s'active automatiquement — jamais pour le checkout invité (`PublicOrderView`, non concerné).
+
+- `POST /api/orders/` accepte un `scheduled_at` optionnel (ISO 8601, doit être dans le futur) : si fourni, la commande est créée avec `status='scheduled'` **sans** effets de bord (pas de décrément de stock, pas d'assignation round-robin, pas d'incrément de quota, pas de webhook `order.created`) — ces effets sont différés jusqu'à l'activation, pour ne pas immobiliser de stock ni consommer le quota d'essai avant l'envoi réel. Le contrôle de quota atteint (403) est lui aussi sauté à la simple planification.
+- `activate_scheduled_order(store, order, changed_by=None)` (`backend/orders/views.py`) — factorise l'activation (passage à `pending` + tous les effets normalement déclenchés à la création). Appelée par deux chemins :
+  1. **Automatique** : commande management `python manage.py activate_scheduled_orders` (même pattern que `cancel_stale_calls`) — active toutes les commandes `scheduled` dont `scheduled_at` est dépassé. **Non planifiée automatiquement** — à brancher sur le Planificateur de tâches Windows / cron, comme `cancel_stale_calls`.
+  2. **Manuelle anticipée** : `OrderStatusView.post()` détecte une transition hors de `scheduled` (ex. bouton "Envoyer maintenant") et active la commande avant d'appliquer le nouveau statut demandé.
+- `PUT /api/orders/<id>/` accepte la modification de `scheduled_at` tant que la commande est encore `status='scheduled'`.
+- Frontend : `pages/orders/ScheduledOrdersPage.jsx` (`/dashboard/commandes/programmees`, sidebar sous Commandes, gaté par `orders_manage` comme les autres sous-pages) — liste dédiée avec actions "Envoyer maintenant" / "Modifier" (date) / "Annuler" (suppression). `StatusBadge.jsx` et `OrdersPage.jsx` (`STATUS_OPTIONS`) reconnaissent `scheduled` (badge `info`, libellé "Programmée") ; exclu du sélecteur de changement de statut manuel de `QuickEditModal` (une commande programmée ne se "change" pas vers `scheduled`, elle s'y crée directement).
+
 ### `dropshipping.DropshipperProduct`
 ```
 store (FK), dropshipper (FK → team.TeamMember, role='dropshipper'), product (FK → products.Product)
@@ -1002,7 +1012,7 @@ Aucune nouvelle dépendance (déjà disponible via `django`/`djangorestframework
 | Limites exactes plans Starter/Pro/Business | Non décidé — Sprint 8 |
 | Domaine de production final | Non décidé |
 | Infra de déploiement (VPS, Railway, Render...) | Non décidé — Sprint 8 |
-| Planification `cancel_stale_calls` | Commande management prête mais non planifiée (cron/Tâches Windows à configurer) |
+| Planification `cancel_stale_calls` / `activate_scheduled_orders` | Commandes management prêtes mais non planifiées (cron/Tâches Windows à configurer) |
 | Modèle Customer / liste noire | Différé — US-5.2.1 mentionne l'identification client par téléphone mais pas de modèle dédié encore |
 | Clés Chargily production | Seules les clés de test sont configurées (`.env` local, non commité) |
 | Accès API Yalidine / ZR Express | Non obtenus — `orders/carriers/` utilise des clients mockés (`MOCK-{carrier}-...`) en attendant. Brancher les vrais clients dans `yalidine.py`/`zr_express.py` dès réception des accès |

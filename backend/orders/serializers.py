@@ -112,7 +112,7 @@ class OrderSerializer(serializers.ModelSerializer):
             'first_name', 'last_name', 'phone', 'wilaya', 'commune',
             'subtotal', 'shipping_cost', 'total',
             'delivery_type', 'payment_method', 'payment_method_label', 'note',
-            'items_count', 'confirmateur_name', 'created_at',
+            'items_count', 'confirmateur_name', 'created_at', 'scheduled_at',
             'carrier_label', 'carrier_tracking_number', 'carrier_status',
         ]
 

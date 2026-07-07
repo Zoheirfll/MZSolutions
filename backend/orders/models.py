@@ -13,6 +13,7 @@ CALL_STATUS_CHOICES = [
 ]
 
 STATUS_CHOICES = [
+    ('scheduled',   'Programmée'),
     ('pending',     'En attente de confirmation'),
     ('no_answer_1', 'Non joignable — 1ère tentative'),
     ('no_answer_2', 'Non joignable — 2ème tentative'),
@@ -122,6 +123,7 @@ class Order(models.Model):
     carrier_status               = models.CharField(max_length=50, blank=True)
     carrier_shipment_created_at  = models.DateTimeField(null=True, blank=True)
     dropshipper   = models.ForeignKey('team.TeamMember', null=True, blank=True, on_delete=models.SET_NULL, related_name='dropshipper_orders')
+    scheduled_at  = models.DateTimeField(null=True, blank=True, help_text="Date/heure à laquelle une commande 'scheduled' doit être activée automatiquement (voir management command activate_scheduled_orders)")
     created_at    = models.DateTimeField(auto_now_add=True)
     updated_at    = models.DateTimeField(auto_now=True)
 

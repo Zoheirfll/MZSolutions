@@ -30,6 +30,8 @@ export default function OrderFormPage() {
   const [note,         setNote]         = useState('')
   const [saving,       setSaving]       = useState(false)
   const [errors,       setErrors]       = useState({})
+  const [scheduleEnabled, setScheduleEnabled] = useState(false)
+  const [scheduledAt,     setScheduledAt]     = useState('')
 
   // Recherche produit
   const [search,    setSearch]    = useState('')
@@ -102,14 +104,17 @@ export default function OrderFormPage() {
         delivery_type: deliveryType,
         note,
         items: cartItems.map(({ _key, ...i }) => i),
+        ...(scheduleEnabled && scheduledAt ? { scheduled_at: new Date(scheduledAt).toISOString() } : {}),
       })
-      navigate('/dashboard/commandes')
+      navigate(scheduleEnabled && scheduledAt ? '/dashboard/commandes/programmees' : '/dashboard/commandes')
     } catch (err) {
       setErrors(err.response?.data || {})
     } finally {
       setSaving(false)
     }
   }
+
+  const minScheduleValue = new Date(Date.now() + 5 * 60000).toISOString().slice(0, 16)
 
   const inputCls = 'w-full px-3.5 py-2.5 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 transition [color-scheme:dark]'
   const bdrStyle = { borderColor: theme.dark.border }
@@ -291,6 +296,39 @@ export default function OrderFormPage() {
               placeholder="Ajouter une note…"
             />
           </div>
+
+          {/* Programmation */}
+          <div className="rounded-xl border p-5" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
+            <label className="flex items-center gap-3 cursor-pointer select-none mb-3">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={scheduleEnabled}
+                onClick={() => setScheduleEnabled(v => !v)}
+                className="w-10 h-6 rounded-full relative transition-colors shrink-0"
+                style={{ background: scheduleEnabled ? '#7c3aed' : theme.dark.border }}
+              >
+                <span className="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform" style={{ transform: scheduleEnabled ? 'translateX(18px)' : 'translateX(2px)' }} />
+              </button>
+              <span className="font-semibold text-gray-200">Programmer l'envoi</span>
+            </label>
+            {scheduleEnabled && (
+              <>
+                <label className="block text-xs text-gray-400 mb-1.5">Date et heure d'envoi</label>
+                <input
+                  type="datetime-local"
+                  value={scheduledAt}
+                  min={minScheduleValue}
+                  onChange={e => setScheduledAt(e.target.value)}
+                  className={inputCls}
+                  style={bdrStyle}
+                />
+                <p className="text-xs mt-1.5" style={{ color: theme.dark.muted }}>
+                  La commande sera créée avec le statut "Programmée" et activée automatiquement à cette date (stock, quota et assignation appliqués à ce moment-là).
+                </p>
+              </>
+            )}
+          </div>
         </div>
 
         {/* ── Panier (colonne droite fixe) ── */}
@@ -331,7 +369,7 @@ export default function OrderFormPage() {
 
             <button
               onClick={handleSubmit}
-              disabled={saving || cartItems.length === 0 || !client.first_name || !client.phone || !client.wilaya}
+              disabled={saving || cartItems.length === 0 || !client.first_name || !client.phone || !client.wilaya || (scheduleEnabled && !scheduledAt)}
               className="w-full py-3 rounded-lg text-sm font-semibold text-white bg-violet-600 hover:bg-violet-500 transition disabled:opacity-50"
             >
               {saving ? 'Enregistrement…' : 'Enregistrer'}

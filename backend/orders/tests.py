@@ -145,6 +145,104 @@ class AuthenticatedOrderCreationTests(TestCase):
         self.assertEqual(resp.data['count'], 0)
 
 
+class ScheduledOrderTests(TestCase):
+    def setUp(self):
+        self.owner, self.store = make_owner()
+        self.product = Product.objects.create(store=self.store, name='P', price=Decimal('1000'), stock=20)
+        self.client = auth_client(self.owner)
+
+    def _future(self, **kwargs):
+        from django.utils import timezone
+        return (timezone.now() + timedelta(**kwargs)).isoformat()
+
+    def test_creates_scheduled_order_without_side_effects(self):
+        resp = self.client.post('/api/orders/', {
+            'first_name': 'C', 'phone': '0600', 'wilaya': 'Oran',
+            'items': [{'product': self.product.id, 'price': 1, 'quantity': 2}],
+            'scheduled_at': self._future(days=1),
+        }, format='json')
+        self.assertEqual(resp.status_code, 201)
+        order = Order.objects.get(id=resp.data['id'])
+        self.assertEqual(order.status, 'scheduled')
+        self.assertIsNotNone(order.scheduled_at)
+
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.stock, 20)  # pas décrémenté
+        self.store.quota.refresh_from_db()
+        self.assertEqual(self.store.quota.orders_used, 0)  # quota non consommé
+        self.assertFalse(hasattr(order, 'assignment'))
+
+    def test_past_scheduled_at_rejected(self):
+        resp = self.client.post('/api/orders/', {
+            'first_name': 'C', 'phone': '0600', 'wilaya': 'Oran',
+            'items': [{'product': self.product.id, 'price': 1, 'quantity': 1}],
+            'scheduled_at': self._future(days=-1),
+        }, format='json')
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(Order.objects.count(), 0)
+
+    def test_scheduling_bypasses_quota_gate(self):
+        self.store.quota.orders_limit = 0
+        self.store.quota.save()
+        resp = self.client.post('/api/orders/', {
+            'first_name': 'C', 'phone': '0600', 'wilaya': 'Oran',
+            'items': [{'product': self.product.id, 'price': 1, 'quantity': 1}],
+            'scheduled_at': self._future(days=1),
+        }, format='json')
+        self.assertEqual(resp.status_code, 201)
+
+    def test_send_now_activates_order(self):
+        make_team_member(self.store, 'confirmateur')
+        resp = self.client.post('/api/orders/', {
+            'first_name': 'C', 'phone': '0600', 'wilaya': 'Oran',
+            'items': [{'product': self.product.id, 'price': 1, 'quantity': 3}],
+            'scheduled_at': self._future(days=1),
+        }, format='json')
+        order_id = resp.data['id']
+
+        activate_resp = self.client.post(f'/api/orders/{order_id}/status/', {'status': 'pending'}, format='json')
+        self.assertEqual(activate_resp.status_code, 200)
+
+        order = Order.objects.get(id=order_id)
+        self.assertEqual(order.status, 'pending')
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.stock, 17)  # décrémenté à l'activation
+        self.store.quota.refresh_from_db()
+        self.assertEqual(self.store.quota.orders_used, 1)
+        self.assertTrue(hasattr(order, 'assignment'))
+
+    def test_management_command_activates_due_orders(self):
+        from django.core.management import call_command
+        from django.utils import timezone
+        order = Order.objects.create(
+            store=self.store, status='scheduled', scheduled_at=timezone.now() - timedelta(minutes=1),
+            first_name='C', phone='0600', wilaya='Oran',
+        )
+        OrderItem.objects.create(order=order, product=self.product, product_name='P', price=Decimal('1000'), quantity=1)
+        order.recalculate()
+
+        call_command('activate_scheduled_orders')
+
+        order.refresh_from_db()
+        self.assertEqual(order.status, 'pending')
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.stock, 19)
+
+    def test_edit_scheduled_at_before_activation(self):
+        resp = self.client.post('/api/orders/', {
+            'first_name': 'C', 'phone': '0600', 'wilaya': 'Oran',
+            'items': [{'product': self.product.id, 'price': 1, 'quantity': 1}],
+            'scheduled_at': self._future(days=1),
+        }, format='json')
+        order_id = resp.data['id']
+
+        new_date = self._future(days=3)
+        put_resp = self.client.put(f'/api/orders/{order_id}/', {'scheduled_at': new_date}, format='json')
+        self.assertEqual(put_resp.status_code, 200)
+        order = Order.objects.get(id=order_id)
+        self.assertEqual(order.scheduled_at.isoformat(), new_date)
+
+
 class OrderStatusTransitionTests(TestCase):
     def setUp(self):
         self.owner, self.store = make_owner()

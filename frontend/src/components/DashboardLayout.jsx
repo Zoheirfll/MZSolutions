@@ -257,7 +257,7 @@ export default function DashboardLayout({ children, title }) {
                     <li>{link('/dashboard/commandes', 'Toutes les commandes', true)}</li>
                     {!can('orders_manage') ? null : (
                       <>
-                        <li><span className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm cursor-not-allowed opacity-40 text-gray-400">Commandes programmées</span></li>
+                        <li>{link('/dashboard/commandes/programmees', 'Commandes programmées')}</li>
                         <li>{link('/dashboard/commandes/nouvelle', 'Nouvelle commande')}</li>
                         <li>{link('/dashboard/commandes/taux-confirmation', 'Taux de confirmation')}</li>
                         <li>{link('/dashboard/commandes/paniers-abandonnes', 'Paniers abandonnés')}</li>

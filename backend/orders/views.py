@@ -10,6 +10,7 @@ from rest_framework.views import APIView
 from rest_framework import status
 
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from .models import Order, OrderItem, OrderStatusHistory, STATUS_CHOICES, OrderAssignment, FailureReason, CallAttempt, CALL_STATUS_CHOICES, PaymentWebhookLog, AbandonedCart, CarrierAccount, CARRIER_CHOICES, CustomerRisk, BlacklistedPhone, Complaint, ComplaintMessage, COMPLAINT_STATUS_CHOICES, ExchangeRequest, EXCHANGE_STATUS_CHOICES
 from .serializers import OrderSerializer, OrderDetailSerializer, OrderAssignmentSerializer, FailureReasonSerializer, CallAttemptSerializer, AbandonedCartSerializer, CarrierAccountSerializer, BlacklistedPhoneSerializer, ComplaintSerializer, ComplaintDetailSerializer, ExchangeRequestSerializer
 from .utils import assign_order_round_robin
@@ -173,6 +174,30 @@ def _fire_order_webhook(store, order, event):
         pass
 
 
+def activate_scheduled_order(store, order, changed_by=None):
+    """Fait passer une commande 'scheduled' à 'pending' et exécute les effets
+    normalement déclenchés à la création d'une commande (Epic Commandes
+    programmées) : ceux-ci sont volontairement différés jusqu'à l'activation
+    pour ne pas immobiliser du stock ni consommer le quota d'essai avant que
+    la commande ne soit réellement envoyée. Appelée par le management command
+    `activate_scheduled_orders` (échéance passée) et par `OrderStatusView`
+    (activation manuelle anticipée, ex: bouton "Envoyer maintenant")."""
+    order.status = 'pending'
+    order.save(update_fields=['status'])
+    OrderStatusHistory.objects.create(order=order, status='pending', changed_by=changed_by)
+    assign_order_round_robin(order)
+    _deduct_stock_for_order(store, order)
+    _fire_order_webhook(store, order, 'order.created')
+
+    try:
+        quota = store.quota
+        if quota.orders_used < quota.orders_limit:
+            quota.orders_used += 1
+            quota.save(update_fields=['orders_used'])
+    except Exception:
+        pass
+
+
 class OrderListCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -205,6 +230,57 @@ class OrderListCreateView(APIView):
                 Q(phone__icontains=search)
             )
 
+        order_id = request.query_params.get('order_id', '').strip()
+        if order_id:
+            qs = qs.filter(id__icontains=order_id)
+
+        phone = request.query_params.get('phone', '').strip()
+        if phone:
+            qs = qs.filter(phone__icontains=phone)
+
+        wilaya = request.query_params.get('wilaya', '').strip()
+        if wilaya:
+            qs = qs.filter(wilaya=wilaya)
+
+        product = request.query_params.get('product', '').strip()
+        if product:
+            qs = qs.filter(items__product_name__icontains=product).distinct()
+
+        category = request.query_params.get('category', '').strip()
+        if category:
+            qs = qs.filter(items__product__categories__name__icontains=category).distinct()
+
+        confirmateur = request.query_params.get('confirmateur')
+        if confirmateur:
+            qs = qs.filter(assignment__confirmateur_id=confirmateur)
+
+        carrier = request.query_params.get('carrier')
+        if carrier:
+            qs = qs.filter(carrier_id=carrier)
+
+        date_from = request.query_params.get('date_from', '').strip()
+        if date_from:
+            qs = qs.filter(created_at__date__gte=date_from)
+
+        date_to = request.query_params.get('date_to', '').strip()
+        if date_to:
+            qs = qs.filter(created_at__date__lte=date_to)
+
+        if request.query_params.get('duplicates_only') == '1':
+            dup_phones = (
+                store.orders.values('phone')
+                .annotate(n=Count('id'))
+                .filter(n__gt=1)
+                .values_list('phone', flat=True)
+            )
+            qs = qs.filter(phone__in=list(dup_phones))
+
+        ordering_field = request.query_params.get('ordering', 'created_at')
+        if ordering_field not in ('created_at', 'updated_at'):
+            ordering_field = 'created_at'
+        ordering_dir = request.query_params.get('ordering_dir', 'desc')
+        qs = qs.order_by(f"-{ordering_field}" if ordering_dir == 'desc' else ordering_field)
+
         page     = max(1, int(request.query_params.get('page', 1)))
         per_page = int(request.query_params.get('per_page', 10))
         total    = qs.count()
@@ -233,12 +309,27 @@ class OrderListCreateView(APIView):
         if not store:
             return Response({'detail': 'Accès refusé.'}, status=403)
 
-        try:
-            quota = store.quota
-            if quota.orders_used >= quota.orders_limit:
-                return Response({'detail': 'Quota de commandes atteint.'}, status=403)
-        except Exception:
-            quota = None
+        # Une commande programmée ne consomme le quota / stock qu'à son activation
+        # (voir activate_scheduled_order) — pas de blocage quota à la simple planification.
+        scheduled_at = None
+        raw_scheduled_at = request.data.get('scheduled_at')
+        if raw_scheduled_at:
+            scheduled_at = parse_datetime(raw_scheduled_at)
+            if scheduled_at is None:
+                return Response({'detail': 'scheduled_at invalide (format ISO attendu).'}, status=400)
+            if timezone.is_naive(scheduled_at):
+                scheduled_at = timezone.make_aware(scheduled_at)
+            if scheduled_at <= timezone.now():
+                return Response({'detail': 'scheduled_at doit être dans le futur.'}, status=400)
+
+        quota = None
+        if not scheduled_at:
+            try:
+                quota = store.quota
+                if quota.orders_used >= quota.orders_limit:
+                    return Response({'detail': 'Quota de commandes atteint.'}, status=403)
+            except Exception:
+                quota = None
 
         items_data = request.data.get('items', [])
         if not items_data:
@@ -265,6 +356,8 @@ class OrderListCreateView(APIView):
 
         order = Order.objects.create(
             store         = store,
+            status        = 'scheduled' if scheduled_at else 'pending',
+            scheduled_at  = scheduled_at,
             first_name    = request.data.get('first_name', ''),
             last_name     = request.data.get('last_name', ''),
             phone         = request.data.get('phone', ''),
@@ -288,14 +381,20 @@ class OrderListCreateView(APIView):
             )
 
         order.recalculate()
-        OrderStatusHistory.objects.create(order=order, status='pending', changed_by=request.user)
-        assign_order_round_robin(order)
-        _deduct_stock_for_order(store, order)
-        _fire_order_webhook(store, order, 'order.created')
 
-        if quota:
-            quota.orders_used += 1
-            quota.save(update_fields=['orders_used'])
+        if scheduled_at:
+            # Effets de bord (stock, confirmateur, quota, webhook) différés jusqu'à
+            # l'activation — voir activate_scheduled_order.
+            OrderStatusHistory.objects.create(order=order, status='scheduled', changed_by=request.user)
+        else:
+            OrderStatusHistory.objects.create(order=order, status='pending', changed_by=request.user)
+            assign_order_round_robin(order)
+            _deduct_stock_for_order(store, order)
+            _fire_order_webhook(store, order, 'order.created')
+
+            if quota:
+                quota.orders_used += 1
+                quota.save(update_fields=['orders_used'])
 
         return Response(OrderDetailSerializer(order).data, status=status.HTTP_201_CREATED)
 
@@ -327,6 +426,13 @@ class OrderDetailView(APIView):
         for field in allowed:
             if field in request.data:
                 setattr(order, field, request.data[field])
+        if 'scheduled_at' in request.data and order.status == 'scheduled':
+            new_scheduled_at = parse_datetime(request.data['scheduled_at'] or '')
+            if new_scheduled_at is None:
+                return Response({'detail': 'scheduled_at invalide (format ISO attendu).'}, status=400)
+            if timezone.is_naive(new_scheduled_at):
+                new_scheduled_at = timezone.make_aware(new_scheduled_at)
+            order.scheduled_at = new_scheduled_at
         order.save()
         order.recalculate()
         return Response(OrderDetailSerializer(order).data)
@@ -356,6 +462,15 @@ class OrderStatusView(APIView):
         valid = [s[0] for s in STATUS_CHOICES]
         if new_status not in valid:
             return Response({'detail': f'Statut invalide. Valeurs : {valid}'}, status=400)
+
+        # Activation anticipée d'une commande programmée (ex: bouton "Envoyer
+        # maintenant") — applique les effets normalement déclenchés à la création.
+        # Si le statut demandé est justement 'pending', l'activation suffit.
+        if order.status == 'scheduled' and new_status != 'scheduled':
+            activate_scheduled_order(store, order, changed_by=request.user)
+            if new_status == 'pending':
+                return Response(OrderDetailSerializer(order).data)
+            order.refresh_from_db()
 
         order.status = new_status
         order.save(update_fields=['status'])
