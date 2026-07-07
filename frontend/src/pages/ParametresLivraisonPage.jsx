@@ -6,8 +6,35 @@ import { theme } from '../theme'
 import { WILAYAS } from '../data/wilayas'
 
 const CARRIERS = [
-  { code: 'yalidine',   label: 'Yalidine' },
-  { code: 'zr_express', label: 'ZR Express' },
+  { code: 'yalidine',       label: 'Yalidine' },
+  { code: 'zr_express',     label: 'ZR Express' },
+  { code: 'noest',          label: 'Noest' },
+  { code: 'guepex',         label: 'Guepex' },
+  { code: 'maystro',        label: 'Maystro' },
+  { code: 'waslet',         label: 'Waslet' },
+  { code: 'imir',           label: 'Imir' },
+  { code: 'dhd',            label: 'DHD' },
+  { code: 'speedmail',      label: 'SpeedMail' },
+  { code: 'worldexpress',   label: 'Worldexpress' },
+  { code: 'ups',            label: 'UPS' },
+  { code: 'anderson',       label: 'Anderson' },
+  { code: 'ontime',         label: 'OnTime' },
+  { code: 'yalitec',        label: 'Yalitec' },
+  { code: 'assil_delivery', label: 'Assil Delivery' },
+  { code: 'zimou_express',  label: 'Zimou Express' },
+  { code: 'tikjdadelivery', label: 'Tikjdadelivery' },
+  { code: 'ecomdz',         label: 'EcomDz' },
+  { code: 'colireli',       label: 'Colireli' },
+  { code: 'overed',         label: 'Overed' },
+  { code: 'expediachrono',  label: 'Expediachrono' },
+  { code: 'navex',          label: 'Navex' },
+  { code: 'courier48hr',    label: '48HR Courrier Express' },
+  { code: 'pachers',        label: 'Pachers' },
+  { code: 'lynx',           label: 'Lynx' },
+  { code: 'tls',            label: 'TLS' },
+  { code: 'siexpress',      label: 'Siexpress' },
+  { code: 'chronorex',      label: 'Chronorex' },
+  { code: 'mdm',            label: 'MDM' },
 ]
 
 const TABS = [

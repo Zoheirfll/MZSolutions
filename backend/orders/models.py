@@ -40,8 +40,35 @@ PAYMENT_METHOD_CHOICES = [
 ]
 
 CARRIER_CHOICES = [
-    ('yalidine',   'Yalidine'),
-    ('zr_express', 'ZR Express'),
+    ('yalidine',       'Yalidine'),
+    ('zr_express',     'ZR Express'),
+    ('noest',          'Noest'),
+    ('guepex',         'Guepex'),
+    ('maystro',        'Maystro'),
+    ('waslet',         'Waslet'),
+    ('imir',           'Imir'),
+    ('dhd',            'DHD'),
+    ('speedmail',      'SpeedMail'),
+    ('worldexpress',   'Worldexpress'),
+    ('ups',            'UPS'),
+    ('anderson',       'Anderson'),
+    ('ontime',         'OnTime'),
+    ('yalitec',        'Yalitec'),
+    ('assil_delivery', 'Assil Delivery'),
+    ('zimou_express',  'Zimou Express'),
+    ('tikjdadelivery', 'Tikjdadelivery'),
+    ('ecomdz',         'EcomDz'),
+    ('colireli',       'Colireli'),
+    ('overed',         'Overed'),
+    ('expediachrono',  'Expediachrono'),
+    ('navex',          'Navex'),
+    ('courier48hr',    '48HR Courrier Express'),
+    ('pachers',        'Pachers'),
+    ('lynx',           'Lynx'),
+    ('tls',            'TLS'),
+    ('siexpress',      'Siexpress'),
+    ('chronorex',      'Chronorex'),
+    ('mdm',            'MDM'),
 ]
 
 
