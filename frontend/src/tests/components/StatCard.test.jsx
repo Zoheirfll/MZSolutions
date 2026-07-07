@@ -29,4 +29,11 @@ describe('StatCard', () => {
     render(<StatCard label="CA" value="1000 DA" />)
     expect(screen.queryByText(/↗/)).not.toBeInTheDocument()
   })
+
+  it('renders a circular progress ring instead of the icon when ring is provided', () => {
+    render(<StatCard label="Taux" value="1250 confirmées" ring={62} icon={Icon} />)
+    expect(screen.queryByTestId('stat-icon')).not.toBeInTheDocument()
+    expect(screen.getByText('1250 confirmées')).toBeInTheDocument()
+    expect(screen.getByText('62%')).toBeInTheDocument()
+  })
 })
