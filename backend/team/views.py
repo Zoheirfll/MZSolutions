@@ -202,3 +202,52 @@ class RolePermissionsView(APIView):
             defaults={'enabled': enabled},
         )
         return Response({'role': role, 'permissions': get_effective_permissions(store, role)})
+
+
+class TeamMemberPermissionsView(APIView):
+    """Overrides de permissions pour un membre précis (au-dessus de la
+    matrice par rôle) — owner/admin uniquement. GET renvoie le catalogue
+    complet + valeurs effectives + indicateur is_custom ; POST upsert un
+    seul toggle (permission, enabled)."""
+    permission_classes = [IsAuthenticated]
+
+    def _get_member(self, request, pk):
+        if not is_owner_or_admin(request):
+            return None, Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
+        store = _get_store(request)
+        if not store:
+            return None, Response({'detail': 'Accès refusé.'}, status=403)
+        try:
+            return store.team_members.get(pk=pk), None
+        except TeamMember.DoesNotExist:
+            return None, Response({'detail': 'Membre introuvable.'}, status=404)
+
+    def get(self, request, pk):
+        member, err = self._get_member(request, pk)
+        if err:
+            return err
+        store = _get_store(request)
+        effective = get_effective_permissions(store, member.role, member=member)
+        custom_keys = set(TeamMemberPermission.objects.filter(member=member).values_list('permission', flat=True))
+        return Response({
+            'catalog': [
+                {'key': k, 'label': label, 'enabled': effective.get(k, False), 'is_custom': k in custom_keys}
+                for k, label in PERMISSION_CATALOG
+            ],
+        })
+
+    def post(self, request, pk):
+        member, err = self._get_member(request, pk)
+        if err:
+            return err
+        store = _get_store(request)
+        permission = request.data.get('permission')
+        enabled    = bool(request.data.get('enabled'))
+        if permission not in dict(PERMISSION_CATALOG):
+            return Response({'detail': 'Permission inconnue.'}, status=400)
+
+        TeamMemberPermission.objects.update_or_create(
+            member=member, permission=permission,
+            defaults={'enabled': enabled},
+        )
+        return Response({'permissions': get_effective_permissions(store, member.role, member=member)})
