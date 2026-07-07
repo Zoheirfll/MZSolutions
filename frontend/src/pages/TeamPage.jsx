@@ -16,15 +16,35 @@ const ROLE_LABELS = { admin: 'Admin', confirmateur: 'Confirmateur', dropshipper:
 
 const EMPTY_FORM = {
   role: 'admin', first_name: '', last_name: '', email: '', phone: '',
-  wilaya: '', commune: '', address: '',
+  wilaya: '', commune: '', address: '', permissions: {},
 }
 
 function Modal({ role, onClose, onSaved }) {
   const [form, setForm]     = useState({ ...EMPTY_FORM, role })
   const [loading, setLoading] = useState(false)
   const [error, setError]   = useState('')
+  const [catalog, setCatalog] = useState([])
 
   const change = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }))
+
+  useEffect(() => {
+    api.get('/team/permissions/').then(({ data }) => {
+      setCatalog(data.catalog)
+      setForm(f => ({ ...f, permissions: { ...(data.matrix[f.role] || {}) } }))
+    }).catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    if (!catalog.length) return
+    api.get('/team/permissions/').then(({ data }) => {
+      setForm(f => ({ ...f, permissions: { ...(data.matrix[f.role] || {}) } }))
+    }).catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.role])
+
+  const togglePermission = key => setForm(f => ({
+    ...f, permissions: { ...f.permissions, [key]: !f.permissions[key] },
+  }))
 
   const submit = async e => {
     e.preventDefault()
@@ -46,7 +66,7 @@ function Modal({ role, onClose, onSaved }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
-      <div className="w-full max-w-lg rounded-xl border p-6" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
+      <div className="w-full max-w-lg rounded-xl border p-6 max-h-[90vh] overflow-y-auto" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
         <div className="flex items-center justify-between mb-5">
           <h3 className="text-base font-semibold text-gray-200">
             Inviter un {ROLE_LABELS[role]}
@@ -116,6 +136,25 @@ function Modal({ role, onClose, onSaved }) {
                 <input name="address" value={form.address} onChange={change} className={inputCls} style={bdrStyle} placeholder="Adresse complète" />
               </div>
             </>
+          )}
+
+          {catalog.length > 0 && (
+            <div>
+              <label className="block text-xs text-gray-400 mb-2">Permissions</label>
+              <div className="max-h-48 overflow-y-auto rounded-lg border divide-y" style={{ borderColor: theme.dark.border }}>
+                {catalog.map(({ key, label }) => (
+                  <label key={key} className="flex items-center gap-2.5 px-3 py-2 text-sm text-gray-300 cursor-pointer hover:bg-white/5 transition">
+                    <input
+                      type="checkbox"
+                      checked={!!form.permissions[key]}
+                      onChange={() => togglePermission(key)}
+                      className="w-4 h-4 accent-violet-600 cursor-pointer shrink-0"
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+            </div>
           )}
 
           {error && <p className="text-red-400 text-xs">{error}</p>}

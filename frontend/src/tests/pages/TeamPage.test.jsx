@@ -83,6 +83,46 @@ describe('TeamPage', () => {
     expect(await screen.findByText('Invitation envoyée par email.')).toBeInTheDocument()
   })
 
+  it('pre-fills invite permissions from the role matrix and submits edited values', async () => {
+    const user = userEvent.setup()
+    const matrixData = {
+      catalog: [
+        { key: 'orders_view', label: 'Voir les commandes' },
+        { key: 'finances_view', label: 'Voir les finances' },
+      ],
+      roles: ['admin', 'confirmateur', 'dropshipper'],
+      matrix: {
+        admin: { orders_view: true, finances_view: true },
+        confirmateur: { orders_view: true, finances_view: false },
+        dropshipper: { orders_view: true, finances_view: false },
+      },
+    }
+    api.get.mockImplementation((url) => {
+      if (url === '/team/members/?role=admin') return Promise.resolve({ data: ADMINS })
+      if (url === '/team/permissions/') return Promise.resolve({ data: matrixData })
+      return Promise.resolve({ data: { count: 0 } })
+    })
+    api.post.mockResolvedValueOnce({})
+    renderPage()
+
+    await screen.findByText('Karim B')
+    await user.click(screen.getByRole('button', { name: /Ajouter/ }))
+
+    expect(await screen.findByLabelText('Voir les commandes')).toBeChecked()
+    expect(screen.getByLabelText('Voir les finances')).not.toBeChecked()
+
+    await user.click(screen.getByLabelText('Voir les finances'))
+
+    await user.type(screen.getByPlaceholderText('Prénom'), 'Sara')
+    await user.type(screen.getByPlaceholderText('Nom'), 'Z')
+    await user.type(screen.getByPlaceholderText('Email'), 'sara@test.com')
+    await user.click(screen.getByRole('button', { name: "Envoyer l'invitation" }))
+
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith('/team/invite/', expect.objectContaining({
+      permissions: expect.objectContaining({ orders_view: true, finances_view: true }),
+    })))
+  })
+
   it('shows a server error in the invite modal without crashing', async () => {
     const user = userEvent.setup()
     api.get.mockImplementation((url) => {
