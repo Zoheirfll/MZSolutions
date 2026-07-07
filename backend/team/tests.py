@@ -124,3 +124,40 @@ class RolePermissionsMatrixTests(TestCase):
             'role': 'confirmateur', 'permission': 'not_a_real_permission', 'enabled': True,
         }, format='json')
         self.assertEqual(resp.status_code, 400)
+
+
+from .models import TeamMemberPermission, get_effective_permissions
+
+
+class EffectivePermissionsCascadeTests(TestCase):
+    def setUp(self):
+        self.owner, self.store = make_owner()
+        self.conf_user, self.conf = make_team_member(self.store, 'confirmateur')
+
+    def test_defaults_to_role_default_with_no_overrides(self):
+        perms = get_effective_permissions(self.store, 'confirmateur', member=self.conf)
+        self.assertFalse(perms['finances_view'])
+        self.assertTrue(perms['orders_view'])
+
+    def test_role_override_applies_when_no_member_override(self):
+        RolePermission.objects.create(store=self.store, role='confirmateur', permission='finances_view', enabled=True)
+        perms = get_effective_permissions(self.store, 'confirmateur', member=self.conf)
+        self.assertTrue(perms['finances_view'])
+
+    def test_member_override_wins_over_role_override(self):
+        RolePermission.objects.create(store=self.store, role='confirmateur', permission='finances_view', enabled=True)
+        TeamMemberPermission.objects.create(member=self.conf, permission='finances_view', enabled=False)
+        perms = get_effective_permissions(self.store, 'confirmateur', member=self.conf)
+        self.assertFalse(perms['finances_view'])
+
+    def test_member_override_isolated_from_other_members_same_role(self):
+        _, other_conf = make_team_member(self.store, 'confirmateur')
+        TeamMemberPermission.objects.create(member=self.conf, permission='stock_view', enabled=True)
+        perms_conf  = get_effective_permissions(self.store, 'confirmateur', member=self.conf)
+        perms_other = get_effective_permissions(self.store, 'confirmateur', member=other_conf)
+        self.assertTrue(perms_conf['stock_view'])
+        self.assertFalse(perms_other['stock_view'])
+
+    def test_no_member_arg_behaves_like_role_only(self):
+        perms = get_effective_permissions(self.store, 'confirmateur')
+        self.assertFalse(perms['finances_view'])
