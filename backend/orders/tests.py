@@ -559,6 +559,26 @@ class ConfirmationRateViewTests(TestCase):
         self.assertEqual(resp.data['total_processed'], 2)
         self.assertEqual(len(resp.data['by_confirmateur']), 1)
         self.assertEqual(resp.data['by_confirmateur'][0]['confirmed'], 1)
+        self.assertEqual(resp.data['by_confirmateur'][0]['cancelled'], 1)
+        self.assertEqual(resp.data['cancelled_total'], 1)
+        self.assertEqual(len(resp.data['daily']), 1)
+        self.assertEqual(resp.data['daily'][0]['processed'], 2)
+        status_counts = {s['status']: s['count'] for s in resp.data['by_status']}
+        self.assertEqual(status_counts['confirmed'], 1)
+        self.assertEqual(status_counts['cancelled'], 1)
+
+    def test_previous_period_comparison(self):
+        from datetime import timedelta
+        from django.utils import timezone
+        old = Order.objects.create(store=self.store, first_name='Old', phone='9', wilaya='Alger', status='cancelled')
+        old.created_at = timezone.now() - timedelta(days=8)
+        old.save(update_fields=['created_at'])
+        Order.objects.create(store=self.store, first_name='New', phone='8', wilaya='Alger', status='confirmed')
+
+        client = auth_client(self.owner)
+        resp = client.get('/api/orders/stats/confirmation/?period=week')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['previous_rate'], 0.0)
 
 
 class CancellationTransitionTests(TestCase):

@@ -5,7 +5,8 @@ import Select from '../../components/Select'
 import publicApi from '../../api/publicApi'
 import { useCart } from '../../context/CartContext'
 import { trackEvent } from '../../lib/pixels'
-import { WILAYAS } from '../../data/wilayas'
+import { WILAYAS, getWilayaIdByName } from '../../data/wilayas'
+import { getCommunesForWilaya } from '../../data/communes'
 import { theme } from '../../theme'
 
 function CheckIcon(props) {
@@ -289,7 +290,7 @@ export default function CheckoutPage() {
                     <label className={theme.label}>Wilaya *</label>
                     <Select
                       value={client.wilaya}
-                      onChange={v => setClient(c => ({ ...c, wilaya: v }))}
+                      onChange={v => setClient(c => ({ ...c, wilaya: v, commune: '' }))}
                       options={WILAYAS.map(w => ({ value: w.name, label: `${w.id} — ${w.name}` }))}
                       className={theme.input}
                       variant="light"
@@ -297,7 +298,15 @@ export default function CheckoutPage() {
                   </div>
                   <div>
                     <label className={theme.label}>Commune</label>
-                    <input value={client.commune} onChange={e => setClient(c => ({ ...c, commune: e.target.value }))} className={theme.input} />
+                    <Select
+                      value={client.commune}
+                      onChange={v => setClient(c => ({ ...c, commune: v }))}
+                      options={getCommunesForWilaya(getWilayaIdByName(client.wilaya)).map(name => ({ value: name, label: name }))}
+                      placeholder={client.wilaya ? 'Choisissez une commune' : "Choisissez d'abord une wilaya"}
+                      disabled={!client.wilaya}
+                      className={theme.input}
+                      variant="light"
+                    />
                   </div>
                 </div>
                 <div>

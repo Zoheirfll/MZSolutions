@@ -4,7 +4,8 @@ import DashboardLayout from '../../components/DashboardLayout'
 import Select from '../../components/Select'
 import api from '../../api/axios'
 import { theme } from '../../theme'
-import { WILAYAS } from '../../data/wilayas'
+import { WILAYAS, getWilayaIdByName } from '../../data/wilayas'
+import { getCommunesForWilaya } from '../../data/communes'
 import { useAuth } from '../../context/AuthContext'
 
 const DELIVERY_OPTIONS = [
@@ -90,6 +91,8 @@ export default function OrderFormPage() {
   }
 
   const removeItem = key => setCartItems(prev => prev.filter(i => i._key !== key))
+
+  const communeOptions = getCommunesForWilaya(getWilayaIdByName(client.wilaya)).map(name => ({ value: name, label: name }))
 
   const subtotal = cartItems.reduce((s, i) => s + i.price * i.quantity, 0)
   const total    = subtotal + Number(shippingCost || 0)
@@ -250,7 +253,7 @@ export default function OrderFormPage() {
                 <label className="block text-xs text-gray-400 mb-1.5">Wilaya *</label>
                 <Select
                   value={client.wilaya}
-                  onChange={v => setClient(c => ({ ...c, wilaya: v }))}
+                  onChange={v => setClient(c => ({ ...c, wilaya: v, commune: '' }))}
                   options={WILAYAS.map(w => ({ value: w.name, label: `${w.id} — ${w.name}` }))}
                   placeholder="Choisissez une Wilaya"
                   className={inputCls}
@@ -260,7 +263,15 @@ export default function OrderFormPage() {
               </div>
               <div>
                 <label className="block text-xs text-gray-400 mb-1.5">Commune</label>
-                <input value={client.commune} onChange={e => setClient(c => ({ ...c, commune: e.target.value }))} className={inputCls} style={bdrStyle} placeholder="Commune" />
+                <Select
+                  value={client.commune}
+                  onChange={v => setClient(c => ({ ...c, commune: v }))}
+                  options={communeOptions}
+                  placeholder={client.wilaya ? 'Choisissez une commune' : "Choisissez d'abord une wilaya"}
+                  disabled={!client.wilaya}
+                  className={inputCls}
+                  style={{ ...bdrStyle, background: theme.dark.sidebar }}
+                />
               </div>
             </div>
           </div>
@@ -275,7 +286,8 @@ export default function OrderFormPage() {
                   name="delivery_type"
                   value={opt.value}
                   checked={deliveryType === opt.value}
-                  onChange={() => setDeliveryType(opt.value)}
+                  onClick={() => setDeliveryType(prev => prev === opt.value ? '' : opt.value)}
+                  onChange={() => {}}
                   className="accent-violet-600 w-4 h-4"
                 />
                 <span className="text-sm text-gray-300">{opt.label}</span>

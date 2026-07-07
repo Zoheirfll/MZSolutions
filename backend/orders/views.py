@@ -4,6 +4,7 @@ from datetime import date, timedelta
 from django.core.mail import send_mail
 from django.db import transaction
 from django.db.models import Q, Count, Case, When, IntegerField, Max, Min
+from django.db.models.functions import TruncDate
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -11,7 +12,7 @@ from rest_framework import status
 
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
-from .models import Order, OrderItem, OrderStatusHistory, STATUS_CHOICES, OrderAssignment, FailureReason, CallAttempt, CALL_STATUS_CHOICES, PaymentWebhookLog, AbandonedCart, CarrierAccount, CARRIER_CHOICES, CustomerRisk, BlacklistedPhone, Complaint, ComplaintMessage, COMPLAINT_STATUS_CHOICES, ExchangeRequest, EXCHANGE_STATUS_CHOICES
+from .models import Order, OrderItem, OrderStatusHistory, STATUS_CHOICES, NO_ANSWER_STATUSES, OrderAssignment, FailureReason, CallAttempt, CALL_STATUS_CHOICES, PaymentWebhookLog, AbandonedCart, CarrierAccount, CARRIER_CHOICES, CustomerRisk, BlacklistedPhone, Complaint, ComplaintMessage, COMPLAINT_STATUS_CHOICES, ExchangeRequest, EXCHANGE_STATUS_CHOICES
 from .serializers import OrderSerializer, OrderDetailSerializer, OrderAssignmentSerializer, FailureReasonSerializer, CallAttemptSerializer, AbandonedCartSerializer, CarrierAccountSerializer, BlacklistedPhoneSerializer, ComplaintSerializer, ComplaintDetailSerializer, ExchangeRequestSerializer
 from .utils import assign_order_round_robin
 from . import chargily
@@ -1088,11 +1089,15 @@ class PublicOrderItemsView(APIView):
         return Response({'order_id': order.id, 'items': items})
 
 
+_PROCESSED_STATUSES_FOR_CHOICES = ['no_answer_1', 'no_answer_2', 'no_answer_3', 'confirmed', 'shipped', 'delivered', 'returned', 'cancelled']
+
+
 class ConfirmationRateView(APIView):
     permission_classes = [IsAuthenticated]
 
     CONFIRMED_STATUSES = ['confirmed', 'shipped', 'delivered']
-    PROCESSED_STATUSES = ['no_answer_1', 'no_answer_2', 'no_answer_3', 'confirmed', 'shipped', 'delivered', 'returned', 'cancelled']
+    PROCESSED_STATUSES = _PROCESSED_STATUSES_FOR_CHOICES
+    PROCESSED_STATUS_CHOICES = [c for c in STATUS_CHOICES if c[0] in _PROCESSED_STATUSES_FOR_CHOICES]
 
     def get(self, request):
         if not (is_owner_or_admin(request) or has_permission(request, 'stats_view')):
@@ -1131,7 +1136,13 @@ class ConfirmationRateView(APIView):
         confirmed = totals['confirmed'] or 0
         rate = round(confirmed / processed * 100, 1) if processed else 0.0
 
-        # Stats par confirmateur via OrderAssignment
+        no_answer_total  = qs.filter(status__in=NO_ANSWER_STATUSES).count()
+        returned_total   = qs.filter(status='returned').count()
+        cancelled_total  = qs.filter(status='cancelled').count()
+
+        # Stats par confirmateur via OrderAssignment — détail par issue (pas
+        # seulement processed/confirmed) pour identifier où un confirmateur perd
+        # des commandes (non-réponse vs annulation/retour).
         assignments = (
             store.orders
             .filter(created_at__date__gte=date_from, created_at__date__lte=date_to)
@@ -1142,6 +1153,9 @@ class ConfirmationRateView(APIView):
             .annotate(
                 processed=Count(Case(When(status__in=self.PROCESSED_STATUSES, then=1), output_field=IntegerField())),
                 confirmed=Count(Case(When(status__in=self.CONFIRMED_STATUSES, then=1), output_field=IntegerField())),
+                no_answer=Count(Case(When(status__in=NO_ANSWER_STATUSES, then=1), output_field=IntegerField())),
+                returned=Count(Case(When(status='returned', then=1), output_field=IntegerField())),
+                cancelled=Count(Case(When(status='cancelled', then=1), output_field=IntegerField())),
             )
         )
 
@@ -1155,10 +1169,50 @@ class ConfirmationRateView(APIView):
                 'confirmateur_name': f"{a['assignment__confirmateur__first_name']} {a['assignment__confirmateur__last_name']}".strip(),
                 'processed':         conf_processed,
                 'confirmed':         conf_confirmed,
+                'no_answer':         a['no_answer'] or 0,
+                'returned':          a['returned'] or 0,
+                'cancelled':         a['cancelled'] or 0,
                 'rate':              conf_rate,
             })
 
         by_confirmateur.sort(key=lambda x: x['rate'], reverse=True)
+
+        # Évolution quotidienne (traitées/confirmées/taux par jour) — pour le
+        # graphique de tendance côté frontend.
+        daily_qs = (
+            qs.annotate(day=TruncDate('created_at'))
+            .values('day')
+            .annotate(
+                processed=Count(Case(When(status__in=self.PROCESSED_STATUSES, then=1), output_field=IntegerField())),
+                confirmed=Count(Case(When(status__in=self.CONFIRMED_STATUSES, then=1), output_field=IntegerField())),
+            )
+            .order_by('day')
+        )
+        daily = [{
+            'date':      str(d['day']),
+            'processed': d['processed'] or 0,
+            'confirmed': d['confirmed'] or 0,
+            'rate':      round((d['confirmed'] or 0) / d['processed'] * 100, 1) if d['processed'] else 0.0,
+        } for d in daily_qs]
+
+        by_status = [
+            {'status': code, 'label': label, 'count': qs.filter(status=code).count()}
+            for code, label in self.PROCESSED_STATUS_CHOICES
+        ]
+        by_status = [s for s in by_status if s['count'] > 0]
+
+        # Comparaison avec la période précédente de même durée (tendance ↑/↓).
+        span_days = (date_to - date_from).days + 1
+        prev_date_to   = date_from - timedelta(days=1)
+        prev_date_from = prev_date_to - timedelta(days=span_days - 1)
+        prev_qs = store.orders.filter(created_at__date__gte=prev_date_from, created_at__date__lte=prev_date_to)
+        prev_totals = prev_qs.aggregate(
+            processed=Count(Case(When(status__in=self.PROCESSED_STATUSES, then=1), output_field=IntegerField())),
+            confirmed=Count(Case(When(status__in=self.CONFIRMED_STATUSES, then=1), output_field=IntegerField())),
+        )
+        prev_processed = prev_totals['processed'] or 0
+        prev_confirmed = prev_totals['confirmed'] or 0
+        previous_rate = round(prev_confirmed / prev_processed * 100, 1) if prev_processed else None
 
         return Response({
             'period':     period,
@@ -1167,7 +1221,13 @@ class ConfirmationRateView(APIView):
             'total_processed': processed,
             'total_confirmed': confirmed,
             'confirmation_rate': rate,
-            'by_confirmateur': by_confirmateur,
+            'no_answer_total':  no_answer_total,
+            'returned_total':   returned_total,
+            'cancelled_total':  cancelled_total,
+            'previous_rate':    previous_rate,
+            'by_confirmateur':  by_confirmateur,
+            'daily':            daily,
+            'by_status':        by_status,
         })
 
 

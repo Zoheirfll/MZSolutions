@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
@@ -8,7 +8,8 @@ import StatusBadge from '../../components/StatusBadge'
 import Select from '../../components/Select'
 import api from '../../api/axios'
 import { theme } from '../../theme'
-import { WILAYAS } from '../../data/wilayas'
+import { WILAYAS, getWilayaIdByName } from '../../data/wilayas'
+import { getCommunesForWilaya } from '../../data/communes'
 
 const STATUS_OPTIONS = [
   { value: '',            label: 'Tous les statuts' },
@@ -450,7 +451,7 @@ function QuickEditModal({ order, onClose, onSaved }) {
             <label className="block text-xs mb-1.5" style={{ color: theme.dark.muted }}>Wilaya</label>
             <Select
               value={wilaya}
-              onChange={setWilaya}
+              onChange={v => { setWilaya(v); setCommune('') }}
               options={WILAYAS.map(w => ({ value: w.name, label: `${w.id} — ${w.name}` }))}
               placeholder="Choisissez une Wilaya"
               className={inputCls}
@@ -459,7 +460,15 @@ function QuickEditModal({ order, onClose, onSaved }) {
           </div>
           <div>
             <label className="block text-xs mb-1.5" style={{ color: theme.dark.muted }}>Commune</label>
-            <input value={commune} onChange={e => setCommune(e.target.value)} className={inputCls} style={bdrStyle} placeholder="Commune" />
+            <Select
+              value={commune}
+              onChange={setCommune}
+              options={getCommunesForWilaya(getWilayaIdByName(wilaya)).map(name => ({ value: name, label: name }))}
+              placeholder={wilaya ? 'Choisissez une commune' : "Choisissez d'abord une wilaya"}
+              disabled={!wilaya}
+              className={inputCls}
+              style={bdrStyle}
+            />
           </div>
         </div>
 
@@ -526,6 +535,7 @@ function HistoryModal({ orderId, onClose }) {
 
 export default function OrdersPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [data,     setData]     = useState({ results: [], count: 0 })
   const [statusF,  setStatusF]  = useState('')
   const [search,   setSearch]   = useState('')
@@ -536,7 +546,10 @@ export default function OrdersPage() {
   const [quickEdit, setQuickEdit] = useState(null)
   const [historyId, setHistoryId] = useState(null)
   const [sort, setSort] = useState(SORT_OPTIONS[0])
-  const [filters, setFilters] = useState(EMPTY_FILTERS)
+  const [filters, setFilters] = useState(() => {
+    const confirmateur = new URLSearchParams(location.search).get('confirmateur')
+    return confirmateur ? { ...EMPTY_FILTERS, confirmateur } : EMPTY_FILTERS
+  })
   const [showFilterModal, setShowFilterModal] = useState(false)
   const [statusCounts, setStatusCounts] = useState(null)
   const [exporting, setExporting] = useState(false)

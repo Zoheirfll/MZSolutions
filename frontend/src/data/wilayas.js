@@ -58,3 +58,7 @@ export const WILAYAS = [
   { id: 57, name: 'El M\'Ghair' },
   { id: 58, name: 'El Meniaa' },
 ]
+
+export function getWilayaIdByName(name) {
+  return WILAYAS.find(w => w.name === name)?.id ?? null
+}
