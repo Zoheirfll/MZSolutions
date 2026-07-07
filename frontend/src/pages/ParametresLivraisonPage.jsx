@@ -5,36 +5,39 @@ import api from '../api/axios'
 import { theme } from '../theme'
 import { WILAYAS } from '../data/wilayas'
 
+// `real: true` = API réellement branchée (via Ecotrack ou API propre) — le
+// transporteur reçoit vraiment l'expédition. `real: false` = simulé pour
+// l'instant (tracking factice MOCK-..., en attente d'accès API confirmé).
 const CARRIERS = [
-  { code: 'yalidine',       label: 'Yalidine' },
-  { code: 'zr_express',     label: 'ZR Express' },
-  { code: 'noest',          label: 'Noest' },
-  { code: 'guepex',         label: 'Guepex' },
-  { code: 'maystro',        label: 'Maystro' },
-  { code: 'waslet',         label: 'Waslet' },
-  { code: 'imir',           label: 'Imir' },
-  { code: 'dhd',            label: 'DHD' },
-  { code: 'speedmail',      label: 'SpeedMail' },
-  { code: 'worldexpress',   label: 'Worldexpress' },
-  { code: 'ups',            label: 'UPS' },
-  { code: 'anderson',       label: 'Anderson' },
-  { code: 'ontime',         label: 'OnTime' },
-  { code: 'yalitec',        label: 'Yalitec' },
-  { code: 'assil_delivery', label: 'Assil Delivery' },
-  { code: 'zimou_express',  label: 'Zimou Express' },
-  { code: 'tikjdadelivery', label: 'Tikjdadelivery' },
-  { code: 'ecomdz',         label: 'EcomDz' },
-  { code: 'colireli',       label: 'Colireli' },
-  { code: 'overed',         label: 'Overed' },
-  { code: 'expediachrono',  label: 'Expediachrono' },
-  { code: 'navex',          label: 'Navex' },
-  { code: 'courier48hr',    label: '48HR Courrier Express' },
-  { code: 'pachers',        label: 'Pachers' },
-  { code: 'lynx',           label: 'Lynx' },
-  { code: 'tls',            label: 'TLS' },
-  { code: 'siexpress',      label: 'Siexpress' },
-  { code: 'chronorex',      label: 'Chronorex' },
-  { code: 'mdm',            label: 'MDM' },
+  { code: 'yalidine',       label: 'Yalidine',              real: false },
+  { code: 'zr_express',     label: 'ZR Express',            real: false },
+  { code: 'noest',          label: 'Noest',                 real: false },
+  { code: 'guepex',         label: 'Guepex',                real: false },
+  { code: 'maystro',        label: 'Maystro',               real: false },
+  { code: 'waslet',         label: 'Waslet',                real: false },
+  { code: 'imir',           label: 'Imir',                  real: true },
+  { code: 'dhd',            label: 'DHD',                   real: true },
+  { code: 'speedmail',      label: 'SpeedMail',             real: false },
+  { code: 'worldexpress',   label: 'Worldexpress',          real: true },
+  { code: 'ups',            label: 'UPS',                   real: true },
+  { code: 'anderson',       label: 'Anderson',               real: true },
+  { code: 'ontime',         label: 'OnTime',                real: true },
+  { code: 'yalitec',        label: 'Yalitec',               real: false },
+  { code: 'assil_delivery', label: 'Assil Delivery',        real: true },
+  { code: 'zimou_express',  label: 'Zimou Express',         real: false },
+  { code: 'tikjdadelivery', label: 'Tikjdadelivery',        real: true },
+  { code: 'ecomdz',         label: 'EcomDz',                real: false },
+  { code: 'colireli',       label: 'Colireli',              real: true },
+  { code: 'overed',         label: 'Overed',                real: false },
+  { code: 'expediachrono',  label: 'Expediachrono',         real: true },
+  { code: 'navex',          label: 'Navex',                 real: true },
+  { code: 'courier48hr',    label: '48HR Courrier Express', real: true },
+  { code: 'pachers',        label: 'Pachers',                real: true },
+  { code: 'lynx',           label: 'Lynx',                  real: true },
+  { code: 'tls',            label: 'TLS',                   real: true },
+  { code: 'siexpress',      label: 'Siexpress',             real: true },
+  { code: 'chronorex',      label: 'Chronorex',             real: true },
+  { code: 'mdm',            label: 'MDM',                   real: false },
 ]
 
 const TABS = [
@@ -202,6 +205,9 @@ export default function ParametresLivraisonPage() {
                       {c.label[0]}
                     </div>
                     <p className="font-semibold text-gray-200">{c.label}</p>
+                    <span className={c.real ? theme.badge.success : theme.badge.warning}>
+                      {c.real ? 'API réelle' : 'Simulé (à venir)'}
+                    </span>
                     {account ? (
                       <>
                         <span className={theme.badge.success}>Connecté</span>

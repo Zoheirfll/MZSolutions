@@ -1,5 +1,6 @@
-from .base import MockCarrierClient
+from .ecotrack import EcotrackClient
 
 
-class ColireliClient(MockCarrierClient):
+class ColireliClient(EcotrackClient):
     carrier_code = 'colireli'
+    api_domain = 'https://colireli.ecotrack.dz/'

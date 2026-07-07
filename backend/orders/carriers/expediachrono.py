@@ -1,5 +1,6 @@
-from .base import MockCarrierClient
+from .ecotrack import EcotrackClient
 
 
-class ExpediachronoClient(MockCarrierClient):
+class ExpediachronoClient(EcotrackClient):
     carrier_code = 'expediachrono'
+    api_domain = 'https://expediachrono.ecotrack.dz/'

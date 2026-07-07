@@ -1,5 +1,6 @@
-from .base import MockCarrierClient
+from .ecotrack import EcotrackClient
 
 
-class AndersonClient(MockCarrierClient):
+class AndersonClient(EcotrackClient):
     carrier_code = 'anderson'
+    api_domain = 'https://anderson-ecommerce.ecotrack.dz/'

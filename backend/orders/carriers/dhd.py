@@ -1,5 +1,6 @@
-from .base import MockCarrierClient
+from .ecotrack import EcotrackClient
 
 
-class DhdClient(MockCarrierClient):
+class DhdClient(EcotrackClient):
     carrier_code = 'dhd'
+    api_domain = 'https://dhd.ecotrack.dz/'

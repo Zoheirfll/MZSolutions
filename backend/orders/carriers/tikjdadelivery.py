@@ -1,5 +1,6 @@
-from .base import MockCarrierClient
+from .ecotrack import EcotrackClient
 
 
-class TikjdadeliveryClient(MockCarrierClient):
+class TikjdadeliveryClient(EcotrackClient):
     carrier_code = 'tikjdadelivery'
+    api_domain = 'https://tikjdadelivery.ecotrack.dz/'

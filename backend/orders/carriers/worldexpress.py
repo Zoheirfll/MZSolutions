@@ -1,5 +1,6 @@
-from .base import MockCarrierClient
+from .ecotrack import EcotrackClient
 
 
-class WorldexpressClient(MockCarrierClient):
+class WorldexpressClient(EcotrackClient):
     carrier_code = 'worldexpress'
+    api_domain = 'https://world-express.ecotrack.dz/'

@@ -1,5 +1,6 @@
-from .base import MockCarrierClient
+from .ecotrack import EcotrackClient
 
 
-class PachersClient(MockCarrierClient):
+class PachersClient(EcotrackClient):
     carrier_code = 'pachers'
+    api_domain = 'https://packers.ecotrack.dz/'

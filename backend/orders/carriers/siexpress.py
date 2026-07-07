@@ -1,5 +1,6 @@
-from .base import MockCarrierClient
+from .ecotrack import EcotrackClient
 
 
-class SiexpressClient(MockCarrierClient):
+class SiexpressClient(EcotrackClient):
     carrier_code = 'siexpress'
+    api_domain = 'https://siexpress.ecotrack.dz/'

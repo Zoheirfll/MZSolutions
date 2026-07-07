@@ -1,5 +1,6 @@
-from .base import MockCarrierClient
+from .ecotrack import EcotrackClient
 
 
-class LynxClient(MockCarrierClient):
+class LynxClient(EcotrackClient):
     carrier_code = 'lynx'
+    api_domain = 'https://lynx.ecotrack.dz/'

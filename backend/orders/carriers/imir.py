@@ -1,5 +1,6 @@
-from .base import MockCarrierClient
+from .ecotrack import EcotrackClient
 
 
-class ImirClient(MockCarrierClient):
+class ImirClient(EcotrackClient):
     carrier_code = 'imir'
+    api_domain = 'https://imir.ecotrack.dz/'

@@ -1,5 +1,6 @@
-from .base import MockCarrierClient
+from .ecotrack import EcotrackClient
 
 
-class ChronorexClient(MockCarrierClient):
+class ChronorexClient(EcotrackClient):
     carrier_code = 'chronorex'
+    api_domain = 'https://chronorex.ecotrack.dz/'
