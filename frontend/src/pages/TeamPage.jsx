@@ -278,7 +278,7 @@ function MembersTable({ members, onToggle, onManagePermissions }) {
         </thead>
         <tbody>
           {members.map(m => (
-            <tr key={m.id} className="border-b" style={{ borderColor: theme.dark.border + '55' }}>
+            <tr key={m.id} className="border-b" style={{ borderColor: theme.dark.borderRowHoverStrong }}>
               <td className="py-3 pr-4 text-gray-200 font-medium">{m.first_name} {m.last_name}</td>
               <td className="py-3 pr-4 text-gray-400">{m.email}</td>
               <td className="py-3 pr-4 text-gray-400">{m.phone || '—'}</td>

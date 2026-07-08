@@ -214,7 +214,7 @@ export default function SuppliersPage() {
                 <EmptyState icon={<TruckIcon />} title="Aucun fournisseur" subtitle="Ajoutez votre premier fournisseur pour commencer." />
               </td></tr>
             ) : suppliers.map(s => (
-              <tr key={s.id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.border + '44' }}>
+              <tr key={s.id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
                 <td className="px-4 py-3 text-gray-200">{s.first_name}</td>
                 <td className="px-4 py-3 text-gray-200">{s.last_name}</td>
                 <td className="px-4 py-3 text-gray-400">{s.email || '—'}</td>

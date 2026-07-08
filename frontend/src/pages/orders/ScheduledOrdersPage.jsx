@@ -117,7 +117,7 @@ export default function ScheduledOrdersPage() {
                 </div>
               </td></tr>
             ) : orders.map(o => (
-              <tr key={o.id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.border + '44' }}>
+              <tr key={o.id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
                 <td className="px-4 py-3 text-gray-500 cursor-pointer" onClick={() => navigate(`/dashboard/commandes/${o.id}`)}>#{o.id}</td>
                 <td className="px-4 py-3 text-gray-200 font-medium cursor-pointer" onClick={() => navigate(`/dashboard/commandes/${o.id}`)}>{o.first_name} {o.last_name}</td>
                 <td className="px-4 py-3 text-gray-300">{o.phone}</td>

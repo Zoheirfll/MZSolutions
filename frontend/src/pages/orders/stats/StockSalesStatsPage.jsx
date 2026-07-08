@@ -40,7 +40,7 @@ export default function StockSalesStatsPage() {
                 {results.length === 0 ? (
                   <tr><td colSpan={3} className="px-4 py-10 text-center text-sm text-gray-500">Aucune vente sur cette période.</td></tr>
                 ) : results.map(r => (
-                  <tr key={r.product_id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.border + '44' }}>
+                  <tr key={r.product_id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
                     <td className="px-4 py-3 text-gray-200">{r.product_name}</td>
                     <td className="px-4 py-3 text-gray-300">{r.units_sold}</td>
                     <td className="px-4 py-3 text-gray-500">{r.movements}</td>

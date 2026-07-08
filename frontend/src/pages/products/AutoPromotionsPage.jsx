@@ -260,7 +260,7 @@ export default function AutoPromotionsPage() {
                 <EmptyState icon={<SparkleIcon />} title="Aucune offre automatique" subtitle="Créez une réduction visible directement sur vos fiches produit." />
               </td></tr>
             ) : promos.map(p => (
-              <tr key={p.id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.border + '44' }}>
+              <tr key={p.id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
                 <td className="px-4 py-3 text-gray-200 font-medium">{p.name}</td>
                 <td className="px-4 py-3 text-gray-300">
                   {p.discount_type === 'percentage' ? `${Number(p.discount_value)}%` : `${Number(p.discount_value).toLocaleString('fr-DZ')} DZD`}

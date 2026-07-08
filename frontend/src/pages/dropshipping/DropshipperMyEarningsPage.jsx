@@ -66,7 +66,7 @@ export default function DropshipperMyEarningsPage() {
             {detail.entries.length === 0 ? (
               <tr><td colSpan={4} className="px-4 py-8 text-center text-sm text-gray-500">Aucune commission calculée pour l'instant — elle apparaît dès qu'une de vos commandes passe au statut « Livrée ».</td></tr>
             ) : detail.entries.map(e => (
-              <tr key={e.id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.border + '44' }}>
+              <tr key={e.id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
                 <td className="px-4 py-3 text-gray-300">#{e.order_id}</td>
                 <td className="px-4 py-3 text-gray-400">{e.product_name}</td>
                 <td className="px-4 py-3 text-gray-200">{money(e.amount)}</td>
@@ -91,7 +91,7 @@ export default function DropshipperMyEarningsPage() {
             {detail.payments.length === 0 ? (
               <tr><td colSpan={3} className="px-4 py-8 text-center text-sm text-gray-500">Aucun paiement reçu pour l'instant.</td></tr>
             ) : detail.payments.map(p => (
-              <tr key={p.id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.border + '44' }}>
+              <tr key={p.id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
                 <td className="px-4 py-3 text-gray-200">{money(p.amount)}</td>
                 <td className="px-4 py-3 text-gray-400">{p.note || '—'}</td>
                 <td className="px-4 py-3 text-gray-500 text-xs">{new Date(p.paid_at).toLocaleString('fr-DZ')}</td>

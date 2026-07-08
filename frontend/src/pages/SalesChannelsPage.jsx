@@ -281,7 +281,7 @@ export default function SalesChannelsPage() {
                 {logs.length === 0 ? (
                   <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-gray-500">Aucune synchronisation pour l'instant.</td></tr>
                 ) : logs.map(l => (
-                  <tr key={l.id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.border + '44' }}>
+                  <tr key={l.id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
                     <td className="px-4 py-3 text-gray-200">{l.channel_label}</td>
                     <td className="px-4 py-3 text-gray-400">{l.direction_label}</td>
                     <td className="px-4 py-3">

@@ -145,7 +145,7 @@ export default function MarketingPixelsPage() {
                 {currentPixels.length === 0 ? (
                   <tr><td colSpan={4} className="px-4 py-10 text-center text-sm text-gray-500">Aucun pixel configuré pour l'instant.</td></tr>
                 ) : currentPixels.map(p => (
-                  <tr key={p.id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.border + '44' }}>
+                  <tr key={p.id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
                     <td className="px-4 py-3 text-gray-200">{p.label || '—'}</td>
                     <td className="px-4 py-3 text-gray-300 font-mono text-xs">{p.pixel_id}</td>
                     <td className="px-4 py-3 text-gray-500 text-xs">{new Date(p.created_at).toLocaleDateString('fr-DZ')}</td>

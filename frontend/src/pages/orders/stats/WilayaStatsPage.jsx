@@ -37,7 +37,7 @@ export default function WilayaStatsPage() {
               {results.length === 0 ? (
                 <tr><td colSpan={4} className="px-4 py-10 text-center text-sm text-gray-500">Aucune commande sur cette période.</td></tr>
               ) : results.map(r => (
-                <tr key={r.wilaya} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.border + '44' }}>
+                <tr key={r.wilaya} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
                   <td className="px-4 py-3 text-gray-200">{r.wilaya}</td>
                   <td className="px-4 py-3 text-gray-300">{r.orders_count}</td>
                   <td className="px-4 py-3">

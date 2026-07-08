@@ -225,7 +225,7 @@ export default function FailureReasonsPage() {
                 </div>
               </td></tr>
             ) : reasons.map((r, i) => (
-              <tr key={r.id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.border + '44' }}>
+              <tr key={r.id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
                 <td className="px-4 py-3 text-gray-200 font-medium">{r.label}</td>
                 <td className="px-4 py-3 text-gray-400">
                   <div className="flex items-center gap-1.5">

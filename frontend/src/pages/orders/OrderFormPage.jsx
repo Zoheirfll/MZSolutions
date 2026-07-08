@@ -201,7 +201,7 @@ export default function OrderFormPage() {
                   </thead>
                   <tbody>
                     {cartItems.map(item => (
-                      <tr key={item._key} className="border-b" style={{ borderColor: theme.dark.border + '44' }}>
+                      <tr key={item._key} className="border-b" style={{ borderColor: theme.dark.borderRowHover }}>
                         <td className="py-2.5 pr-3 text-gray-200">{item.product_name}</td>
                         <td className="py-2.5 text-right text-gray-300">{Number(item.price).toLocaleString('fr-DZ')}</td>
                         <td className="py-2.5 text-center">

@@ -92,7 +92,7 @@ export default function ClientsPage() {
                 <EmptyState icon={<UsersIcon />} title="Aucun client" subtitle="Les clients apparaissent ici après leur première commande." />
               </td></tr>
             ) : data.results.map(c => (
-              <tr key={c.phone} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.border + '44' }}>
+              <tr key={c.phone} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
                 <td className="px-4 py-3 text-gray-200 font-medium">{c.first_name} {c.last_name}</td>
                 <td className="px-4 py-3 text-gray-400">{c.email || '—'}</td>
                 <td className="px-4 py-3 text-gray-300 font-mono text-xs">{c.phone}</td>

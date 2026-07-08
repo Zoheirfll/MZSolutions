@@ -850,7 +850,7 @@ export default function OrdersPage() {
               <tr
                 key={o.id}
                 className="border-b hover:bg-white/2 transition cursor-pointer"
-                style={{ borderColor: theme.dark.border + '44' }}
+                style={{ borderColor: theme.dark.borderRowHover }}
                 onClick={() => navigate(`/dashboard/commandes/${o.id}`)}
               >
                 <td className="px-4 py-3" onClick={e => e.stopPropagation()}>

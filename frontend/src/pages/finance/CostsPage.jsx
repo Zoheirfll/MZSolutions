@@ -180,7 +180,7 @@ export default function CostsPage() {
             ) : costs.length === 0 ? (
               <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-gray-500">Aucun coût saisi.</td></tr>
             ) : costs.map(c => (
-              <tr key={c.id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.border + '44' }}>
+              <tr key={c.id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
                 <td className="px-4 py-3">
                   <span className={c.category === 'marketing' ? theme.badge.info : theme.badge.neutral}>{c.category_label}</span>
                 </td>

@@ -38,7 +38,7 @@ export default function FailuresStatsPage() {
                 {data.by_reason.length === 0 ? (
                   <tr><td colSpan={3} className="px-4 py-10 text-center text-sm text-gray-500">Aucun échec sur cette période.</td></tr>
                 ) : data.by_reason.map(r => (
-                  <tr key={r.reason_id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.border + '44' }}>
+                  <tr key={r.reason_id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
                     <td className="px-4 py-3 text-gray-200">{r.label}</td>
                     <td className="px-4 py-3 text-gray-300">{r.count}</td>
                     <td className="px-4 py-3">
