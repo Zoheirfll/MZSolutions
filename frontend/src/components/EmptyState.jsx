@@ -9,7 +9,7 @@ export default function EmptyState({ icon: Icon, title, description, action }) {
           <Icon className="w-6 h-6 text-violet-400" strokeWidth={1.5} />
         </div>
       )}
-      {title && <p className="text-gray-300 text-sm font-medium">{title}</p>}
+      {title && <p className="text-app-primary text-sm font-medium">{title}</p>}
       {description && <p className="text-xs mt-1" style={{ color: theme.dark.muted }}>{description}</p>}
       {action && <div className="mt-4">{action}</div>}
     </div>
