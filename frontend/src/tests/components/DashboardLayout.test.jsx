@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import DashboardLayout from '../../components/DashboardLayout'
 
@@ -69,5 +70,18 @@ describe('DashboardLayout — sidebar gated by permissions', () => {
     renderLayout({ email: 'c@test.com', team_role: 'confirmateur', permissions: {} })
     await waitFor(() => expect(screen.getByText('Tableau de bord')).toBeInTheDocument())
     expect(screen.queryByText('PARAMÈTRES')).not.toBeInTheDocument()
+  })
+
+  it('toggles the theme and persists it to localStorage', async () => {
+    const user = userEvent.setup()
+    localStorage.clear()
+    renderLayout({ email: 'owner@test.com', team_role: null, permissions: { store_view: true } })
+
+    const toggle = await screen.findByTestId('theme-toggle')
+    expect(document.documentElement.dataset.theme).toBe('dark')
+
+    await user.click(toggle)
+    expect(document.documentElement.dataset.theme).toBe('light')
+    expect(localStorage.getItem('mz-theme')).toBe('light')
   })
 })
