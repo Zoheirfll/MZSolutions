@@ -94,7 +94,7 @@ export default function Dashboard() {
       {/* Welcome */}
       <div className="mb-7 flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-100">
+          <h2 className="text-2xl font-bold text-app-primary">
             Bonjour, <span className="text-violet-400">{user?.first_name}</span>
           </h2>
           <p className="text-sm mt-1" style={{ color: theme.dark.muted }}>
@@ -182,7 +182,7 @@ export default function Dashboard() {
         style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
         <div className="flex items-center gap-2 mb-4">
           <LineChart className="w-4 h-4 text-violet-400" strokeWidth={2} />
-          <p className="text-sm font-semibold text-gray-200">Commandes — 15 derniers jours</p>
+          <p className="text-sm font-semibold text-app-primary">Commandes — 15 derniers jours</p>
         </div>
         {loading ? (
           <div className={`h-60 rounded-lg ${theme.skeleton}`} />
@@ -213,13 +213,13 @@ export default function Dashboard() {
             <div className="rounded-2xl border p-5 sm:p-6" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
               <div className="flex items-center gap-2 mb-4">
                 <MapPin className="w-4 h-4 text-violet-400" strokeWidth={2} />
-                <p className="text-sm font-semibold text-gray-200">Commandes par wilaya — 30 derniers jours</p>
+                <p className="text-sm font-semibold text-app-primary">Commandes par wilaya — 30 derniers jours</p>
               </div>
               <AlgeriaMap data={wilayaStats} />
               <div className="mt-4 space-y-1.5">
                 {wilayaStats.slice(0, 3).map(w => (
                   <div key={w.wilaya} className="flex justify-between text-xs">
-                    <span className="text-gray-300">{w.wilaya}</span>
+                    <span className="text-app-primary">{w.wilaya}</span>
                     <span style={{ color: theme.dark.muted }}>{w.orders_count} commande{w.orders_count !== 1 ? 's' : ''}</span>
                   </div>
                 ))}
@@ -231,12 +231,12 @@ export default function Dashboard() {
             <div className="rounded-2xl border p-5 sm:p-6" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
               <div className="flex items-center gap-2 mb-4">
                 <Share2 className="w-4 h-4 text-violet-400" strokeWidth={2} />
-                <p className="text-sm font-semibold text-gray-200">Par source de vente — 30 derniers jours</p>
+                <p className="text-sm font-semibold text-app-primary">Par source de vente — 30 derniers jours</p>
               </div>
               <div className="space-y-2.5">
                 {sourceStats.map(s => (
                   <div key={s.source} className="flex items-center justify-between rounded-lg px-3 py-2.5" style={{ background: theme.dark.sidebar }}>
-                    <span className="text-sm text-gray-300 truncate pr-2">{s.source}</span>
+                    <span className="text-sm text-app-primary truncate pr-2">{s.source}</span>
                     <div className="flex items-center gap-4 text-xs shrink-0" style={{ color: theme.dark.muted }}>
                       <span>{s.orders_count} cmd</span>
                       <span className="text-emerald-400">{s.confirmed_count} conf.</span>
