@@ -38,7 +38,7 @@ export default function ProductsStatsPage() {
               {results.length === 0 ? (
                 <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-gray-500">Aucune commande sur cette période.</td></tr>
               ) : results.map(r => (
-                <tr key={r.product_id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.border + '44' }}>
+                <tr key={r.product_id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
                   <td className="px-4 py-3 text-gray-200">{r.product_name}</td>
                   <td className="px-4 py-3 text-gray-400">{r.best_wilaya}</td>
                   <td className="px-4 py-3 text-gray-400">{r.best_source}</td>

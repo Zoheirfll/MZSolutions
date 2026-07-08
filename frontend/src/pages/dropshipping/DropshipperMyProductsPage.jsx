@@ -84,7 +84,7 @@ export default function DropshipperMyProductsPage() {
               ) : catalog.map(p => {
                 const isSelected = selectedProductIds.has(p.id)
                 return (
-                  <tr key={p.id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.border + '44' }}>
+                  <tr key={p.id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
                     <td className="px-4 py-3 text-gray-200">{p.name}</td>
                     <td className="px-4 py-3 text-gray-400">{money(p.price)}</td>
                     <td className="px-4 py-3">

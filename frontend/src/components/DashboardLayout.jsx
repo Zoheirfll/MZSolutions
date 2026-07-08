@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import api from '../api/axios'
 import Logo from './Logo'
 import { theme } from '../theme'
+import { useTheme } from '../hooks/useTheme'
 
 const ICONS = {
   dashboard: (
@@ -105,6 +106,7 @@ const ICONS = {
 
 export default function DashboardLayout({ children, title }) {
   const { user, logout } = useAuth()
+  const { theme: currentTheme, toggleTheme } = useTheme()
   const teamRole = user?.team_role || null
   const can = key => !!user?.permissions?.[key]
   const navigate = useNavigate()
@@ -148,8 +150,8 @@ export default function DashboardLayout({ children, title }) {
       className={({ isActive }) =>
         'flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-colors duration-150 ' +
         (isActive
-          ? 'bg-white/6 text-gray-100 font-medium'
-          : 'text-gray-500 hover:text-gray-300 hover:bg-white/4')
+          ? 'bg-white/6 text-app-primary font-medium'
+          : 'text-app-muted hover:text-app-primary hover:bg-white/4')
       }
     >
       {label}
@@ -164,8 +166,8 @@ export default function DashboardLayout({ children, title }) {
       className={({ isActive }) =>
         'relative flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors duration-150 ' +
         (isActive
-          ? 'bg-white/6 text-gray-100 font-medium'
-          : 'text-gray-500 hover:text-gray-300 hover:bg-white/4')
+          ? 'bg-white/6 text-app-primary font-medium'
+          : 'text-app-muted hover:text-app-primary hover:bg-white/4')
       }
     >
       {({ isActive }) => (
@@ -194,7 +196,7 @@ export default function DashboardLayout({ children, title }) {
   const prodActive = location.pathname.startsWith('/dashboard/produits')
 
   return (
-    <div className="flex h-dvh overflow-hidden" style={{ background: theme.dark.app, colorScheme: 'dark' }}>
+    <div className="flex h-dvh overflow-hidden" style={{ background: theme.dark.app, colorScheme: currentTheme }}>
 
       {/* ── Mobile overlay ── */}
       {mobileNavOpen && (
@@ -216,7 +218,7 @@ export default function DashboardLayout({ children, title }) {
           <div className="min-w-0 flex items-center gap-2.5">
             <Logo className="w-11 h-auto shrink-0 text-violet-400" />
             <div className="min-w-0">
-              <p className="text-base font-semibold text-gray-100 tracking-tight leading-none">MZSolutions</p>
+              <p className="text-base font-semibold text-app-primary tracking-tight leading-none">MZSolutions</p>
               <p className="text-xs mt-1.5 truncate" style={{ color: theme.dark.muted }}>
                 {user?.store_name ?? user?.email}
               </p>
@@ -224,7 +226,7 @@ export default function DashboardLayout({ children, title }) {
           </div>
           <button
             onClick={() => setMobileNavOpen(false)}
-            className="lg:hidden shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-colors duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+            className="lg:hidden shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-app-primary hover:bg-white/5 transition-colors duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
           >
             {ICONS.close}
           </button>
@@ -244,7 +246,7 @@ export default function DashboardLayout({ children, title }) {
                 <button
                   onClick={() => setExpanded(e => ({ ...e, commandes: !e.commandes }))}
                   className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
-                    location.pathname.startsWith('/dashboard/commandes') ? 'bg-white/6 text-gray-100 font-medium' : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
+                    location.pathname.startsWith('/dashboard/commandes') ? 'bg-white/6 text-app-primary font-medium' : 'text-gray-400 hover:text-app-primary hover:bg-white/5'
                   }`}
                 >
                   <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.orders}</span>Commandes</span>
@@ -266,7 +268,7 @@ export default function DashboardLayout({ children, title }) {
                         <li>
                           <button
                             onClick={() => setExpanded(e => ({ ...e, annulation: !e.annulation }))}
-                            className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-sm transition-colors duration-200 text-gray-400 hover:text-gray-200 hover:bg-white/5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+                            className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-sm transition-colors duration-200 text-gray-400 hover:text-app-primary hover:bg-white/5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
                           >
                             <span>Annulation</span>
                             <svg className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${expanded.annulation ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -295,7 +297,7 @@ export default function DashboardLayout({ children, title }) {
                   <button
                     onClick={() => setExpanded(e => ({ ...e, produits: !e.produits }))}
                     className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
-                      prodActive ? 'bg-white/6 text-gray-100 font-medium' : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
+                      prodActive ? 'bg-white/6 text-app-primary font-medium' : 'text-gray-400 hover:text-app-primary hover:bg-white/5'
                     }`}
                   >
                     <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.products}</span>Produits & Catégories</span>
@@ -311,7 +313,7 @@ export default function DashboardLayout({ children, title }) {
                       <li>
                         <button
                           onClick={() => setExpanded(e => ({ ...e, fournisseurs: !e.fournisseurs }))}
-                          className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-sm transition-colors duration-200 text-gray-400 hover:text-gray-200 hover:bg-white/5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+                          className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-sm transition-colors duration-200 text-gray-400 hover:text-app-primary hover:bg-white/5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
                         >
                           <span>Fournisseur</span>
                           <svg className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${expanded.fournisseurs ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -339,7 +341,7 @@ export default function DashboardLayout({ children, title }) {
                   <button
                     onClick={() => setExpanded(e => ({ ...e, clients: !e.clients }))}
                     className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
-                      location.pathname.startsWith('/dashboard/clients') ? 'bg-white/6 text-gray-100 font-medium' : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
+                      location.pathname.startsWith('/dashboard/clients') ? 'bg-white/6 text-app-primary font-medium' : 'text-gray-400 hover:text-app-primary hover:bg-white/5'
                     }`}
                   >
                     <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.customers}</span>Clients</span>
@@ -379,7 +381,7 @@ export default function DashboardLayout({ children, title }) {
                   <button
                     onClick={() => setExpanded(e => ({ ...e, finances: !e.finances }))}
                     className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
-                      location.pathname.startsWith('/dashboard/finances') ? 'bg-white/6 text-gray-100 font-medium' : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
+                      location.pathname.startsWith('/dashboard/finances') ? 'bg-white/6 text-app-primary font-medium' : 'text-gray-400 hover:text-app-primary hover:bg-white/5'
                     }`}
                   >
                     <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.stats}</span>Finances</span>
@@ -402,7 +404,7 @@ export default function DashboardLayout({ children, title }) {
                   <button
                     onClick={() => setExpanded(e => ({ ...e, stats: !e.stats }))}
                     className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
-                      location.pathname.startsWith('/dashboard/stats') ? 'bg-white/6 text-gray-100 font-medium' : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
+                      location.pathname.startsWith('/dashboard/stats') ? 'bg-white/6 text-app-primary font-medium' : 'text-gray-400 hover:text-app-primary hover:bg-white/5'
                     }`}
                   >
                     <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.stats}</span>Statistiques</span>
@@ -468,7 +470,7 @@ export default function DashboardLayout({ children, title }) {
               {initials}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm text-gray-300 font-medium truncate">{user?.first_name} {user?.last_name}</p>
+              <p className="text-sm text-app-primary font-medium truncate">{user?.first_name} {user?.last_name}</p>
               <p className="text-xs truncate" style={{ color: theme.dark.muted }}>{user?.email}</p>
             </div>
           </div>
@@ -486,17 +488,17 @@ export default function DashboardLayout({ children, title }) {
           <div className="flex items-center gap-2 min-w-0">
             <button
               onClick={() => setMobileNavOpen(true)}
-              className="lg:hidden shrink-0 w-9 h-9 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+              className="lg:hidden shrink-0 w-9 h-9 rounded-lg flex items-center justify-center text-gray-400 hover:text-app-primary hover:bg-white/5 transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
             >
               {ICONS.menu}
             </button>
-            <h1 className="text-base sm:text-lg font-semibold text-gray-200 truncate">{title}</h1>
+            <h1 className="text-base sm:text-lg font-semibold text-app-primary truncate">{title}</h1>
           </div>
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             {/* Cloche stock bas */}
             <button
               onClick={() => navigate('/dashboard/stock')}
-              className="relative w-9 h-9 rounded-lg border flex items-center justify-center text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+              className="relative w-9 h-9 rounded-lg border flex items-center justify-center text-gray-400 hover:text-app-primary hover:bg-white/5 transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
               style={{ borderColor: theme.dark.border }}
             >
               {ICONS.bell}
@@ -506,6 +508,30 @@ export default function DashboardLayout({ children, title }) {
                 </span>
               )}
             </button>
+            {/* Réservé aux pages déjà converties au bi-thème (Dashboard, Équipe) — les ~45
+                autres pages du dashboard consomment encore des couleurs Tailwind codées en
+                dur (text-gray-*) qui ne suivent pas data-theme, donc y afficher le toggle
+                casserait la lisibilité en mode clair. Retirer cette garde au fur et à mesure
+                que le reste du dashboard est converti (voir CLAUDE.md, section Thème). */}
+            {(location.pathname === '/dashboard' || location.pathname === '/dashboard/equipe') && (
+              <button
+                onClick={toggleTheme}
+                data-testid="theme-toggle"
+                aria-label={currentTheme === 'dark' ? 'Passer en mode clair' : 'Passer en mode sombre'}
+                className="w-9 h-9 rounded-lg border-app flex items-center justify-center text-app-muted hover:text-app-primary hover:bg-white/5 transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+                style={{ borderWidth: 1, borderStyle: 'solid' }}
+              >
+                {currentTheme === 'dark' ? (
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                  </svg>
+                )}
+              </button>
+            )}
             <a
               href={user?.store_slug ? `/store/${user.store_slug}` : '#'}
               target="_blank" rel="noreferrer"

@@ -170,7 +170,7 @@ export default function BlacklistPage() {
                 <EmptyState icon={<ShieldIcon />} title="Aucun numéro bloqué" subtitle="Bloquez un client problématique pour empêcher ses futures commandes." />
               </td></tr>
             ) : entries.map(e => (
-              <tr key={e.id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.border + '44' }}>
+              <tr key={e.id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
                 <td className="px-4 py-3 text-gray-200 font-mono text-xs">{e.phone}</td>
                 <td className="px-4 py-3 text-gray-400 max-w-56 truncate" title={e.message}>{e.message || '—'}</td>
                 <td className="px-4 py-3">

@@ -353,7 +353,7 @@ export default function ReviewsPage() {
                 <EmptyState icon={<StarOutlineIcon />} title="Aucun avis trouvé" subtitle="Les avis clients approuvés ou en attente apparaîtront ici." />
               </td></tr>
             ) : reviews.map(r => (
-              <tr key={r.id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.border + '44' }}>
+              <tr key={r.id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
                 <td className="px-4 py-3">
                   <input type="checkbox" checked={selected.has(r.id)} onChange={() => toggleRow(r.id)} className="accent-violet-600 cursor-pointer" />
                 </td>

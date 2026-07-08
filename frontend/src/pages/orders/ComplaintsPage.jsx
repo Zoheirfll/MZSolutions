@@ -106,28 +106,37 @@ export default function ComplaintsPage() {
               <th className="px-4 py-3 font-medium">CLIENT</th>
               <th className="px-4 py-3 font-medium">SUJET</th>
               <th className="px-4 py-3 font-medium">MESSAGES</th>
+              <th className="px-4 py-3 font-medium">CONFIRMATEUR</th>
               <th className="px-4 py-3 font-medium">STATUT</th>
               <th className="px-4 py-3 font-medium">DÉPOSÉE LE</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={6}><Spinner /></td></tr>
+              <tr><td colSpan={7}><Spinner /></td></tr>
             ) : data.results.length === 0 ? (
-              <tr><td colSpan={6}>
+              <tr><td colSpan={7}>
                 <EmptyState icon={<AlertIcon />} title="Aucune réclamation" subtitle="Les réclamations déposées par vos clients apparaîtront ici." />
               </td></tr>
             ) : data.results.map(c => (
               <tr key={c.id} onClick={() => navigate(`/dashboard/reclamations/${c.id}`)}
-                className="border-b hover:bg-white/2 transition cursor-pointer" style={{ borderColor: theme.dark.border + '44' }}>
+                className="border-b hover:bg-white/2 transition cursor-pointer" style={{ borderColor: theme.dark.borderRowHover }}>
                 <td className="px-4 py-3 text-violet-300 font-mono text-xs">{c.order_display}</td>
                 <td className="px-4 py-3 text-gray-300 font-mono text-xs">{c.order_phone}</td>
                 <td className="px-4 py-3 text-gray-200 font-medium max-w-56 truncate">{c.subject}</td>
                 <td className="px-4 py-3">
                   <span className={theme.badge.info}>{c.messages_count}</span>
                 </td>
+                <td className="px-4 py-3 text-gray-400 text-xs">{c.confirmateur_name || '—'}</td>
                 <td className="px-4 py-3">
-                  <span className={STATUS_BADGE[c.status] || theme.badge.neutral}>{c.status_label}</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className={STATUS_BADGE[c.status] || theme.badge.neutral}>{c.status_label}</span>
+                    {c.days_open >= 2 && (
+                      <span className={theme.badge.danger} title="Ouverte depuis plusieurs jours">
+                        {c.days_open}j
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td className="px-4 py-3 text-gray-500 text-xs">{new Date(c.created_at).toLocaleString('fr-DZ')}</td>
               </tr>

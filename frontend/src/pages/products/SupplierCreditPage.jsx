@@ -217,7 +217,7 @@ export default function SupplierCreditPage() {
             ) : credits.length === 0 ? (
               <tr><td colSpan={5} className="text-center py-12 text-gray-500">Aucun crédit enregistré.</td></tr>
             ) : credits.map(c => (
-              <tr key={c.id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.border + '44' }}>
+              <tr key={c.id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
                 <td className="px-4 py-3 text-gray-200 font-medium">{c.supplier_name}</td>
                 <td className="px-4 py-3 text-red-300 font-semibold">{Number(c.amount).toLocaleString('fr-DZ')} DZD</td>
                 <td className="px-4 py-3 text-gray-400 max-w-[200px] truncate">{c.note || '—'}</td>

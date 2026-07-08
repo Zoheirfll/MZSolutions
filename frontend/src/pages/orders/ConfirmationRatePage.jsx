@@ -195,7 +195,7 @@ export default function ConfirmationRatePage() {
                     <tr
                       key={c.confirmateur_id}
                       className="border-b hover:bg-white/2 transition cursor-pointer"
-                      style={{ borderColor: theme.dark.border + '44' }}
+                      style={{ borderColor: theme.dark.borderRowHover }}
                       onClick={() => navigate(`/dashboard/commandes?confirmateur=${c.confirmateur_id}`)}
                     >
                       <td className="px-5 py-3.5">

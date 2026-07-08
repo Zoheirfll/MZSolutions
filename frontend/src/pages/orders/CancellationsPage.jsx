@@ -174,7 +174,7 @@ export default function CancellationsPage({ mode }) {
                 key={o.id}
                 onClick={() => navigate(`/dashboard/commandes/${o.id}`)}
                 className="border-b hover:bg-white/2 transition cursor-pointer"
-                style={{ borderColor: theme.dark.border + '44' }}
+                style={{ borderColor: theme.dark.borderRowHover }}
               >
                 <td className="px-4 py-3 text-gray-500">#{o.id}</td>
                 <td className="px-4 py-3 text-gray-200 font-medium">{o.first_name} {o.last_name}</td>

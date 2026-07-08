@@ -281,7 +281,7 @@ export default function CouponsPage() {
                 <EmptyState icon={<TagIcon />} title="Aucun coupon" subtitle="Créez votre premier code promo pour commencer." />
               </td></tr>
             ) : coupons.map(c => (
-              <tr key={c.id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.border + '44' }}>
+              <tr key={c.id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
                 <td className="px-4 py-3 text-gray-200 font-medium">{c.name}</td>
                 <td className="px-4 py-3">
                   <button onClick={() => copyCode(c)} className="font-mono text-xs px-2.5 py-1.5 rounded-lg bg-white/5 text-gray-300 hover:bg-white/10 transition cursor-pointer">

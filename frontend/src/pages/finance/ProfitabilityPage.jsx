@@ -99,7 +99,7 @@ export default function ProfitabilityPage() {
                 {rows.length === 0 ? (
                   <tr><td colSpan={6} className="px-4 py-10 text-center text-sm text-gray-500">Aucune commande livrée sur cette période.</td></tr>
                 ) : rows.map((r, i) => (
-                  <tr key={i} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.border + '44' }}>
+                  <tr key={i} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
                     <td className="px-4 py-3 text-gray-200">{r.label}</td>
                     <td className="px-4 py-3 text-gray-400">{r.orders_count}</td>
                     <td className="px-4 py-3 text-gray-300">{money(r.revenue)}</td>

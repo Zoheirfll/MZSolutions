@@ -156,7 +156,7 @@ export default function ProductsPage() {
                 <EmptyState icon={<ImageIcon />} title="Aucun produit trouvé" subtitle="Ajoutez votre premier produit pour commencer." />
               </td></tr>
             ) : data.results.map(p => (
-              <tr key={p.id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.border + '44' }}>
+              <tr key={p.id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
                 <td className="px-4 py-3 text-gray-500 text-xs">{p.id}</td>
                 <td className="px-4 py-3">
                   {firstImage(p)

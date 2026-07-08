@@ -252,7 +252,7 @@ export default function OrderDetailPage() {
                 </thead>
                 <tbody>
                   {order.items?.map(item => (
-                    <tr key={item.id} className="border-b last:border-0 hover:bg-white/2 transition" style={{ borderColor: theme.dark.border + '44' }}>
+                    <tr key={item.id} className="border-b last:border-0 hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
                       <td className="py-3 px-1 text-gray-200 font-medium">{item.product_name}</td>
                       <td className="py-3 px-1 text-right text-gray-400">{Number(item.price).toLocaleString('fr-DZ')} DZD</td>
                       <td className="py-3 px-1 text-center">

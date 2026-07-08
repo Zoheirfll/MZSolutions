@@ -106,7 +106,7 @@ export default function StockPage() {
           <tbody>
             {invLoading ? (
               [...Array(6)].map((_, i) => (
-                <tr key={i} className="border-b" style={{ borderColor: theme.dark.border + '44' }}>
+                <tr key={i} className="border-b" style={{ borderColor: theme.dark.borderRowHover }}>
                   <td className="px-4 py-3"><div className={theme.skeleton + ' h-4 w-32'} /></td>
                   <td className="px-4 py-3"><div className={theme.skeleton + ' h-4 w-16'} /></td>
                   <td className="px-4 py-3"><div className={theme.skeleton + ' h-4 w-16'} /></td>
@@ -123,7 +123,7 @@ export default function StockPage() {
                 </td>
               </tr>
             ) : inventory.results.map((item, i) => (
-              <tr key={i} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.border + '44' }}>
+              <tr key={i} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
                 <td className="px-4 py-3 text-gray-200 font-medium">{item.product_name}</td>
                 <td className="px-4 py-3 text-gray-400">{item.variant_name || '—'}</td>
                 <td className="px-4 py-3 text-gray-400">{item.option_value || '—'}</td>

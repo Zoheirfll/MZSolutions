@@ -234,7 +234,7 @@ export default function CategoriesPage() {
     <>
       <div
         className={`flex items-center gap-3 px-4 py-3 border-b hover:bg-white/2 transition ${indent ? 'pl-10' : ''}`}
-        style={{ borderColor: theme.dark.border + '44' }}
+        style={{ borderColor: theme.dark.borderRowHover }}
       >
         {!indent && (
           <input

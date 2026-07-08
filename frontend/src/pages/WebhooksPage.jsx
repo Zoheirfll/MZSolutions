@@ -165,7 +165,7 @@ export default function WebhooksPage() {
                 {filteredEndpoints.length === 0 ? (
                   <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-gray-500">Aucun endpoint configuré.</td></tr>
                 ) : filteredEndpoints.map(ep => (
-                  <tr key={ep.id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.border + '44' }}>
+                  <tr key={ep.id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
                     <td className="px-4 py-3 text-gray-200">{ep.name || '—'}<br /><span className="text-xs text-gray-500 font-mono">{ep.url}</span></td>
                     <td className="px-4 py-3 text-gray-400 text-xs max-w-56 truncate" title={ep.events.join(', ') || 'Tous'}>{ep.events.length ? ep.events.join(', ') : 'Tous'}</td>
                     <td className="px-4 py-3">
@@ -224,7 +224,7 @@ export default function WebhooksPage() {
                 {logs.length === 0 ? (
                   <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-gray-500">Aucun événement pour l'instant.</td></tr>
                 ) : logs.map(l => (
-                  <tr key={l.id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.border + '44' }}>
+                  <tr key={l.id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
                     <td className="px-4 py-3 text-gray-300">{l.direction_label}{l.endpoint_name && <><br /><span className="text-xs text-gray-500">{l.endpoint_name}</span></>}</td>
                     <td className="px-4 py-3 text-gray-400 text-xs">{l.event || '—'}</td>
                     <td className="px-4 py-3">

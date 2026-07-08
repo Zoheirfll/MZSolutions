@@ -158,7 +158,7 @@ export default function SupplierPaymentPage() {
             ) : payments.length === 0 ? (
               <tr><td colSpan={5} className="text-center py-12 text-gray-500">Aucun versement enregistré.</td></tr>
             ) : payments.map(p => (
-              <tr key={p.id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.border + '44' }}>
+              <tr key={p.id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
                 <td className="px-4 py-3 text-gray-200 font-medium">{p.supplier_name}</td>
                 <td className="px-4 py-3 text-emerald-400 font-semibold">{Number(p.amount).toLocaleString('fr-DZ')} DZD</td>
                 <td className="px-4 py-3 text-gray-400 max-w-[200px] truncate">{p.note || '—'}</td>

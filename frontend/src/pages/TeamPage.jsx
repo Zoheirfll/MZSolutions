@@ -61,17 +61,17 @@ function Modal({ role, onClose, onSaved }) {
     }
   }
 
-  const inputCls = `w-full px-3.5 py-2.5 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 transition [color-scheme:dark]`
+  const inputCls = `w-full px-3.5 py-2.5 rounded-lg border text-sm text-app-primary bg-transparent outline-none focus:border-violet-500 transition [color-scheme:dark]`
   const bdrStyle = { borderColor: theme.dark.border }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
       <div className="w-full max-w-lg rounded-xl border p-6 max-h-[90vh] overflow-y-auto" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
         <div className="flex items-center justify-between mb-5">
-          <h3 className="text-base font-semibold text-gray-200">
+          <h3 className="text-base font-semibold text-app-primary">
             Inviter un {ROLE_LABELS[role]}
           </h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-300 transition">
+          <button onClick={onClose} className="text-app-muted hover:text-app-primary transition">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -81,29 +81,29 @@ function Modal({ role, onClose, onSaved }) {
         <form onSubmit={submit} className="space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs text-gray-400 mb-1">Prénom *</label>
+              <label className="block text-xs text-app-muted mb-1">Prénom *</label>
               <input name="first_name" value={form.first_name} onChange={change} required className={inputCls} style={bdrStyle} placeholder="Prénom" />
             </div>
             <div>
-              <label className="block text-xs text-gray-400 mb-1">Nom *</label>
+              <label className="block text-xs text-app-muted mb-1">Nom *</label>
               <input name="last_name" value={form.last_name} onChange={change} required className={inputCls} style={bdrStyle} placeholder="Nom" />
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs text-gray-400 mb-1">Email *</label>
+              <label className="block text-xs text-app-muted mb-1">Email *</label>
               <input type="email" name="email" value={form.email} onChange={change} required className={inputCls} style={bdrStyle} placeholder="Email" />
             </div>
             <div>
-              <label className="block text-xs text-gray-400 mb-1">Téléphone</label>
+              <label className="block text-xs text-app-muted mb-1">Téléphone</label>
               <input name="phone" value={form.phone} onChange={change} className={inputCls} style={bdrStyle} placeholder="+213 …" />
             </div>
           </div>
 
           {role === 'admin' && (
             <div>
-              <label className="block text-xs text-gray-400 mb-1">Rôle</label>
+              <label className="block text-xs text-app-muted mb-1">Rôle</label>
               <Select
                 value={form.role}
                 onChange={v => setForm(f => ({ ...f, role: v }))}
@@ -117,7 +117,7 @@ function Modal({ role, onClose, onSaved }) {
             <>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1">Wilaya</label>
+                  <label className="block text-xs text-app-muted mb-1">Wilaya</label>
                   <Select
                     value={form.wilaya}
                     onChange={v => setForm(f => ({ ...f, wilaya: v }))}
@@ -127,12 +127,12 @@ function Modal({ role, onClose, onSaved }) {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1">Commune</label>
+                  <label className="block text-xs text-app-muted mb-1">Commune</label>
                   <input name="commune" value={form.commune} onChange={change} className={inputCls} style={bdrStyle} placeholder="Commune" />
                 </div>
               </div>
               <div>
-                <label className="block text-xs text-gray-400 mb-1">Adresse</label>
+                <label className="block text-xs text-app-muted mb-1">Adresse</label>
                 <input name="address" value={form.address} onChange={change} className={inputCls} style={bdrStyle} placeholder="Adresse complète" />
               </div>
             </>
@@ -140,10 +140,10 @@ function Modal({ role, onClose, onSaved }) {
 
           {catalog.length > 0 && (
             <div>
-              <label className="block text-xs text-gray-400 mb-2">Permissions</label>
+              <label className="block text-xs text-app-muted mb-2">Permissions</label>
               <div className="max-h-48 overflow-y-auto rounded-lg border divide-y" style={{ borderColor: theme.dark.border }}>
                 {catalog.map(({ key, label }) => (
-                  <label key={key} className="flex items-center gap-2.5 px-3 py-2 text-sm text-gray-300 cursor-pointer hover:bg-white/5 transition">
+                  <label key={key} className="flex items-center gap-2.5 px-3 py-2 text-sm text-app-primary cursor-pointer hover:bg-white/5 transition">
                     <input
                       type="checkbox"
                       checked={!!form.permissions[key]}
@@ -160,7 +160,7 @@ function Modal({ role, onClose, onSaved }) {
           {error && <p className="text-red-400 text-xs">{error}</p>}
 
           <div className="pt-2 flex justify-end gap-3">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-400 hover:text-gray-200 transition">
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-app-muted hover:text-app-primary transition">
               Annuler
             </button>
             <button type="submit" disabled={loading} className="px-5 py-2 rounded-lg text-sm font-semibold text-white bg-violet-600 hover:bg-violet-500 transition disabled:opacity-60">
@@ -206,10 +206,10 @@ function MemberPermissionsModal({ member, onClose }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
       <div className="w-full max-w-lg rounded-xl border p-6 max-h-[90vh] overflow-y-auto" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
         <div className="flex items-center justify-between mb-5">
-          <h3 className="text-base font-semibold text-gray-200">
+          <h3 className="text-base font-semibold text-app-primary">
             Permissions — {member.first_name} {member.last_name}
           </h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-300 transition">
+          <button onClick={onClose} className="text-app-muted hover:text-app-primary transition">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -217,7 +217,7 @@ function MemberPermissionsModal({ member, onClose }) {
         </div>
 
         {loading ? (
-          <p className="text-sm text-gray-500 py-6 text-center">Chargement…</p>
+          <p className="text-sm text-app-muted py-6 text-center">Chargement…</p>
         ) : (
           <div className="rounded-lg border divide-y" style={{ borderColor: theme.dark.border }}>
             {catalog.map(({ key, label, enabled, is_custom }) => (
@@ -226,7 +226,7 @@ function MemberPermissionsModal({ member, onClose }) {
                   type="button"
                   onClick={() => toggle(key, enabled)}
                   disabled={saving === key}
-                  className="text-sm text-gray-300 text-left flex items-center gap-2 disabled:opacity-60"
+                  className="text-sm text-app-primary text-left flex items-center gap-2 disabled:opacity-60"
                 >
                   {label}
                   {is_custom && (
@@ -254,7 +254,7 @@ function MemberPermissionsModal({ member, onClose }) {
 function MembersTable({ members, onToggle, onManagePermissions }) {
   if (!members.length) {
     return (
-      <div className="flex flex-col items-center justify-center text-center py-16 px-6 text-gray-500">
+      <div className="flex flex-col items-center justify-center text-center py-16 px-6 text-app-muted">
         <svg className="w-10 h-10 mb-3 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m9-2.13a4 4 0 10-8 0 4 4 0 008 0zm6 4v.01M3 16v.01" />
         </svg>
@@ -266,7 +266,7 @@ function MembersTable({ members, onToggle, onManagePermissions }) {
     <div className="overflow-x-auto -mx-5 px-5 sm:mx-0 sm:px-0">
       <table className="w-full text-sm min-w-180">
         <thead>
-          <tr className="text-left text-xs text-gray-500 border-b" style={{ borderColor: theme.dark.border }}>
+          <tr className="text-left text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
             <th className="pb-3 pr-4 font-medium">Nom</th>
             <th className="pb-3 pr-4 font-medium">Email</th>
             <th className="pb-3 pr-4 font-medium">Téléphone</th>
@@ -278,10 +278,10 @@ function MembersTable({ members, onToggle, onManagePermissions }) {
         </thead>
         <tbody>
           {members.map(m => (
-            <tr key={m.id} className="border-b" style={{ borderColor: theme.dark.border + '55' }}>
-              <td className="py-3 pr-4 text-gray-200 font-medium">{m.first_name} {m.last_name}</td>
-              <td className="py-3 pr-4 text-gray-400">{m.email}</td>
-              <td className="py-3 pr-4 text-gray-400">{m.phone || '—'}</td>
+            <tr key={m.id} className="border-b" style={{ borderColor: theme.dark.borderRowHoverStrong }}>
+              <td className="py-3 pr-4 text-app-primary font-medium">{m.first_name} {m.last_name}</td>
+              <td className="py-3 pr-4 text-app-muted">{m.email}</td>
+              <td className="py-3 pr-4 text-app-muted">{m.phone || '—'}</td>
               <td className="py-3 pr-4">
                 <span className="text-xs px-2 py-0.5 rounded-full bg-violet-600/20 text-violet-300">
                   {ROLE_LABELS[m.role]}
@@ -292,14 +292,14 @@ function MembersTable({ members, onToggle, onManagePermissions }) {
                   {m.is_active ? 'Actif' : 'En attente'}
                 </span>
               </td>
-              <td className="py-3 pr-4 text-gray-500 text-xs">
+              <td className="py-3 pr-4 text-app-muted text-xs">
                 {new Date(m.invited_at).toLocaleDateString('fr-FR')}
               </td>
               <td className="py-3">
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => onManagePermissions(m)}
-                    className="text-xs text-gray-400 hover:text-gray-200 transition"
+                    className="text-xs text-app-muted hover:text-app-primary transition"
                   >
                     Permissions
                   </button>
@@ -412,7 +412,7 @@ export default function TeamPage() {
             <svg className="w-10 h-10 mx-auto mb-4 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.66 0-3 .9-3 2s1.34 2 3 2 3 .9 3 2-1.34 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V6m0 10v2m9-8a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <p className="text-gray-400 font-medium">Relevés de paiement</p>
+            <p className="text-app-muted font-medium">Relevés de paiement</p>
             <p className="text-sm mt-2" style={{ color: theme.dark.muted }}>
               Disponible au Sprint 6 — Finances & Paiements
             </p>

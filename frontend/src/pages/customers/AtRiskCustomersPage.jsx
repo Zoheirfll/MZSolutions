@@ -126,7 +126,7 @@ export default function AtRiskCustomersPage() {
                 <EmptyState icon={<AlertIcon />} title="Aucun client à risque" subtitle="Personne ne dépasse le seuil configuré pour l'instant." />
               </td></tr>
             ) : clients.map(c => (
-              <tr key={c.phone} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.border + '44' }}>
+              <tr key={c.phone} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
                 <td className="px-4 py-3 text-gray-200 font-medium">{c.first_name} {c.last_name}</td>
                 <td className="px-4 py-3 text-gray-300 font-mono text-xs">{c.phone}</td>
                 <td className="px-4 py-3 text-gray-400">{c.orders_count}</td>

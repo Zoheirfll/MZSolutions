@@ -74,7 +74,7 @@ export default function DropshippersPage() {
                 <EmptyState title="Aucun dropshipper" subtitle="Invitez un membre d'équipe avec le rôle Dropshipper depuis la page Équipe." />
               </td></tr>
             ) : dropshippers.map(d => (
-              <tr key={d.id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.border + '44' }}>
+              <tr key={d.id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
                 <td className="px-4 py-3 text-gray-200">{d.first_name} {d.last_name}<br /><span className="text-xs text-gray-500">{d.email}</span></td>
                 <td className="px-4 py-3 text-gray-400">{d.products_count}</td>
                 <td className="px-4 py-3 text-gray-300">{money(d.total_earned)}</td>

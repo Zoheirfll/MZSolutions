@@ -89,7 +89,7 @@ export const theme = {
   },
 
   skeleton: 'animate-pulse bg-white/6 rounded-lg',
-  emptyState: 'flex flex-col items-center justify-center text-center py-16 px-6 text-gray-500',
+  emptyState: 'flex flex-col items-center justify-center text-center py-16 px-6 text-app-muted',
 
   logo: 'text-violet-400',
   hero: 'bg-gradient-to-br from-[#2e1065] via-[#6d28d9] to-[#7c3aed]',
@@ -118,13 +118,15 @@ export const theme = {
   // Premium dark ("Linear/Vercel"): near-black surfaces, neutral hairline
   // borders (no purple tint), accent reserved for interactive elements only.
   dark: {
-    app:        '#08090a',
-    sidebar:    '#0a0b0c',
-    card:       '#0d0e10',
-    cardAlt:    '#131417',
-    border:     '#1f2023',
-    borderHover:'#2a2b2f',
-    muted:      '#6b6d73',
-    mutedLight: '#9a9ca3',
+    app:              'var(--bg-app)',
+    sidebar:          'var(--bg-sidebar)',
+    card:             'var(--bg-card)',
+    cardAlt:          'var(--bg-card-alt)',
+    border:           'var(--border-color)',
+    borderHover:      'var(--border-color-hover)',
+    muted:            'var(--text-muted)',
+    mutedLight:       'var(--text-muted-light)',
+    borderRowHover:       'var(--border-color-row-hover)',
+    borderRowHoverStrong: 'var(--border-color-row-hover-strong)',
   },
 }

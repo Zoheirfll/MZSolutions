@@ -205,8 +205,8 @@ export default function ParametresLivraisonPage() {
                       {c.label[0]}
                     </div>
                     <p className="font-semibold text-gray-200">{c.label}</p>
-                    <span className={c.real ? theme.badge.success : theme.badge.warning}>
-                      {c.real ? 'API réelle' : 'Simulé (à venir)'}
+                    <span className={c.real ? theme.badge.info : theme.badge.warning} title={c.real ? "Connexion à l'API confirmée — création d'expédition non encore testée avec un vrai compte" : undefined}>
+                      {c.real ? 'API branchée (non testée)' : 'Simulé (à venir)'}
                     </span>
                     {account ? (
                       <>
@@ -250,7 +250,7 @@ export default function ParametresLivraisonPage() {
             <tbody>
               {loading ? (
                 [...Array(2)].map((_, i) => (
-                  <tr key={i} className="border-b" style={{ borderColor: theme.dark.border + '44' }}>
+                  <tr key={i} className="border-b" style={{ borderColor: theme.dark.borderRowHover }}>
                     <td colSpan={9} className="px-4 py-4"><div className={theme.skeleton + ' h-5 w-full'} /></td>
                   </tr>
                 ))
@@ -266,7 +266,7 @@ export default function ParametresLivraisonPage() {
                   </td>
                 </tr>
               ) : accounts.map(a => (
-                <tr key={a.id} className="border-b last:border-0 hover:bg-white/2 transition" style={{ borderColor: theme.dark.border + '44' }}>
+                <tr key={a.id} className="border-b last:border-0 hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
                   <td className="px-4 py-3 text-gray-400">{a.id}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2.5">
