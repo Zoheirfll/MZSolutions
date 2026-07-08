@@ -173,7 +173,85 @@ function Modal({ role, onClose, onSaved }) {
   )
 }
 
-function MembersTable({ members, onToggle }) {
+function MemberPermissionsModal({ member, onClose }) {
+  const [catalog, setCatalog] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving]   = useState(null)
+
+  const fetchCatalog = () => {
+    setLoading(true)
+    api.get(`/team/members/${member.id}/permissions/`)
+      .then(({ data }) => setCatalog(data.catalog))
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }
+
+  useEffect(() => { fetchCatalog() }, [])
+
+  const toggle = async (key, current) => {
+    setSaving(key)
+    setCatalog(c => c.map(e => e.key === key ? { ...e, enabled: !current } : e))
+    try {
+      await api.post(`/team/members/${member.id}/permissions/`, { permission: key, enabled: !current })
+      fetchCatalog()
+    } catch (err) {
+      setCatalog(c => c.map(e => e.key === key ? { ...e, enabled: current } : e))
+      alert(err.response?.data?.detail || 'Erreur lors de la mise à jour.')
+    } finally {
+      setSaving(null)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
+      <div className="w-full max-w-lg rounded-xl border p-6 max-h-[90vh] overflow-y-auto" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="text-base font-semibold text-gray-200">
+            Permissions — {member.first_name} {member.last_name}
+          </h3>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-300 transition">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {loading ? (
+          <p className="text-sm text-gray-500 py-6 text-center">Chargement…</p>
+        ) : (
+          <div className="rounded-lg border divide-y" style={{ borderColor: theme.dark.border }}>
+            {catalog.map(({ key, label, enabled, is_custom }) => (
+              <div key={key} className="flex items-center justify-between gap-3 px-3 py-2.5">
+                <button
+                  type="button"
+                  onClick={() => toggle(key, enabled)}
+                  disabled={saving === key}
+                  className="text-sm text-gray-300 text-left flex items-center gap-2 disabled:opacity-60"
+                >
+                  {label}
+                  {is_custom && (
+                    <span className="text-xs px-1.5 py-0.5 rounded-full bg-violet-600/20 text-violet-300">
+                      Personnalisé
+                    </span>
+                  )}
+                </button>
+                <button
+                  onClick={() => toggle(key, enabled)}
+                  disabled={saving === key}
+                  className={`w-9 h-5 rounded-full transition-colors duration-150 relative cursor-pointer disabled:opacity-60 shrink-0 ${enabled ? 'bg-violet-600' : 'bg-white/10'}`}
+                >
+                  <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-150 ${enabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function MembersTable({ members, onToggle, onManagePermissions }) {
   if (!members.length) {
     return (
       <div className="flex flex-col items-center justify-center text-center py-16 px-6 text-gray-500">
@@ -218,12 +296,20 @@ function MembersTable({ members, onToggle }) {
                 {new Date(m.invited_at).toLocaleDateString('fr-FR')}
               </td>
               <td className="py-3">
-                <button
-                  onClick={() => onToggle(m)}
-                  className="text-xs text-red-400 hover:text-red-300 transition"
-                >
-                  Désactiver
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => onManagePermissions(m)}
+                    className="text-xs text-gray-400 hover:text-gray-200 transition"
+                  >
+                    Permissions
+                  </button>
+                  <button
+                    onClick={() => onToggle(m)}
+                    className="text-xs text-red-400 hover:text-red-300 transition"
+                  >
+                    Désactiver
+                  </button>
+                </div>
               </td>
             </tr>
           ))}
@@ -238,6 +324,7 @@ export default function TeamPage() {
   const [members, setMembers]     = useState([])
   const [showModal, setShowModal] = useState(false)
   const [invited, setInvited]     = useState(false)
+  const [permissionsMember, setPermissionsMember] = useState(null)
 
   const fetchMembers = () => {
     const role = activeTab === 'retirer' ? 'confirmateur' : activeTab
@@ -269,6 +356,13 @@ export default function TeamPage() {
           role={activeTab === 'retirer' ? 'confirmateur' : activeTab}
           onClose={() => setShowModal(false)}
           onSaved={handleSaved}
+        />
+      )}
+
+      {permissionsMember && (
+        <MemberPermissionsModal
+          member={permissionsMember}
+          onClose={() => setPermissionsMember(null)}
         />
       )}
 
@@ -324,7 +418,7 @@ export default function TeamPage() {
             </p>
           </div>
         ) : (
-          <MembersTable members={members} onToggle={handleToggle} />
+          <MembersTable members={members} onToggle={handleToggle} onManagePermissions={setPermissionsMember} />
         )}
       </div>
     </DashboardLayout>
