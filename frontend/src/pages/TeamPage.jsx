@@ -29,15 +29,15 @@ function Modal({ role, onClose, onSaved }) {
 
   useEffect(() => {
     api.get('/team/permissions/').then(({ data }) => {
-      setCatalog(data.catalog)
-      setForm(f => ({ ...f, permissions: { ...(data.matrix[f.role] || {}) } }))
+      setCatalog(data.catalog || [])
+      setForm(f => ({ ...f, permissions: { ...(data.matrix?.[f.role] || {}) } }))
     }).catch(() => {})
   }, [])
 
   useEffect(() => {
     if (!catalog.length) return
     api.get('/team/permissions/').then(({ data }) => {
-      setForm(f => ({ ...f, permissions: { ...(data.matrix[f.role] || {}) } }))
+      setForm(f => ({ ...f, permissions: { ...(data.matrix?.[f.role] || {}) } }))
     }).catch(() => {})
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.role])
@@ -181,7 +181,7 @@ function MemberPermissionsModal({ member, onClose }) {
   const fetchCatalog = () => {
     setLoading(true)
     api.get(`/team/members/${member.id}/permissions/`)
-      .then(({ data }) => setCatalog(data.catalog))
+      .then(({ data }) => setCatalog(data.catalog || []))
       .catch(() => {})
       .finally(() => setLoading(false))
   }
