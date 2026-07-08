@@ -145,6 +145,48 @@ class AuthenticatedOrderCreationTests(TestCase):
         self.assertEqual(resp.data['count'], 0)
 
 
+class AbandonedCartRemindTests(TestCase):
+    def setUp(self):
+        self.owner, self.store = make_owner()
+        from orders.models import AbandonedCart
+        self.cart = AbandonedCart.objects.create(
+            store=self.store, first_name='C', phone='0555000000', total=Decimal('2000'),
+        )
+
+    def test_marks_reminder_sent(self):
+        client = auth_client(self.owner)
+        resp = client.post(f'/api/orders/abandoned-carts/{self.cart.id}/remind/')
+        self.assertEqual(resp.status_code, 200)
+        self.cart.refresh_from_db()
+        self.assertTrue(self.cart.reminder_sent)
+        self.assertIsNotNone(self.cart.reminder_sent_at)
+
+    def test_isolated_per_store(self):
+        other_owner, other_store = make_owner()
+        client = auth_client(other_owner)
+        resp = client.post(f'/api/orders/abandoned-carts/{self.cart.id}/remind/')
+        self.assertEqual(resp.status_code, 404)
+
+    def test_email_channel_rejected_without_email(self):
+        client = auth_client(self.owner)
+        resp = client.post(f'/api/orders/abandoned-carts/{self.cart.id}/remind/', {'channel': 'email'}, format='json')
+        self.assertEqual(resp.status_code, 400)
+        self.cart.refresh_from_db()
+        self.assertFalse(self.cart.reminder_sent)
+
+    def test_email_channel_sends_and_marks_sent(self):
+        from django.core import mail
+        self.cart.email = 'client@test.com'
+        self.cart.save()
+        client = auth_client(self.owner)
+        resp = client.post(f'/api/orders/abandoned-carts/{self.cart.id}/remind/', {'channel': 'email'}, format='json')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ['client@test.com'])
+        self.cart.refresh_from_db()
+        self.assertTrue(self.cart.reminder_sent)
+
+
 class ScheduledOrderTests(TestCase):
     def setUp(self):
         self.owner, self.store = make_owner()
@@ -608,6 +650,32 @@ class CancellationTransitionTests(TestCase):
         self.assertEqual(resp.data['cancel_requested_count'], 1)
         self.assertEqual(resp.data['returned_count'], 0)
 
+    def test_reject_cancellation_restores_prior_status_not_hardcoded_confirmed(self):
+        # La commande était 'shipped' (pas 'confirmed') avant la demande
+        # d'annulation — "Rejeter" doit restaurer 'shipped', pas 'confirmed'.
+        client = auth_client(self.owner)
+        client.post(f'/api/orders/{self.order.id}/status/', {'status': 'shipped'}, format='json')
+        client.post(f'/api/orders/{self.order.id}/status/', {'status': 'cancel_requested', 'note': 'Prix trop élevé'}, format='json')
+
+        resp = client.post(f'/api/orders/{self.order.id}/reject-cancellation/', {'note': 'Client injoignable'}, format='json')
+        self.assertEqual(resp.status_code, 200)
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, 'shipped')
+        last_history = OrderStatusHistory.objects.filter(order=self.order).order_by('-changed_at').first()
+        self.assertEqual(last_history.status, 'shipped')
+        self.assertIn('Client injoignable', last_history.note)
+
+    def test_reject_cancellation_requires_cancel_requested_status(self):
+        client = auth_client(self.owner)
+        resp = client.post(f'/api/orders/{self.order.id}/reject-cancellation/', {}, format='json')
+        self.assertEqual(resp.status_code, 400)
+
+    def test_cancellation_note_exposed_on_order_list(self):
+        client = auth_client(self.owner)
+        client.post(f'/api/orders/{self.order.id}/status/', {'status': 'cancel_requested', 'note': 'Changement d’avis'}, format='json')
+        resp = client.get('/api/orders/?status=cancel_requested')
+        self.assertEqual(resp.data['results'][0]['cancellation_note'], 'Changement d’avis')
+
 
 class FailureReasonCRUDTests(TestCase):
     def setUp(self):
@@ -642,6 +710,19 @@ class FailureReasonCRUDTests(TestCase):
         self.assertEqual(resp2.status_code, 403)
         resp3 = client.delete(f'/api/orders/failure-reasons/{reason.id}/')
         self.assertEqual(resp3.status_code, 403)
+
+    def test_usage_count_reflects_call_attempts(self):
+        reason = FailureReason.objects.create(store=self.store, label='Injoignable')
+        other_reason = FailureReason.objects.create(store=self.store, label='Faux numéro')
+        order = Order.objects.create(store=self.store, first_name='C', phone='0600', wilaya='Alger')
+        CallAttempt.objects.create(order=order, status='no_answer', failure_reason=reason)
+        CallAttempt.objects.create(order=order, status='no_answer', failure_reason=reason, attempt_number=2)
+
+        client = auth_client(self.owner)
+        resp = client.get('/api/orders/failure-reasons/')
+        by_id = {r['id']: r['usage_count'] for r in resp.data}
+        self.assertEqual(by_id[reason.id], 2)
+        self.assertEqual(by_id[other_reason.id], 0)
 
     def test_confirmateur_can_read(self):
         FailureReason.objects.create(store=self.store, label='Existing')

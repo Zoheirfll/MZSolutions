@@ -116,6 +116,9 @@ export default function OrderDetailPage() {
   const [newStatus,  setNewStatus]  = useState('')
   const [statusNote, setStatusNote] = useState('')
   const [savingStatus, setSavingStatus] = useState(false)
+  const [failureReasons, setFailureReasons] = useState([])
+  const [failureReason,  setFailureReason]  = useState('')
+  const showFailureReason = ['no_answer_1', 'no_answer_2', 'no_answer_3'].includes(newStatus)
 
   // Assignation
   const [newConfirmateur, setNewConfirmateur] = useState('')
@@ -133,6 +136,7 @@ export default function OrderDetailPage() {
     fetchOrder()
     api.get('/team/members/?role=confirmateur').then(({ data }) => setConfirmateurs(data)).catch(() => {})
     api.get('/stores/me/carriers/').then(({ data }) => setCarrierAccounts(data.filter(a => a.is_active))).catch(() => {})
+    api.get('/orders/failure-reasons/?active=1').then(({ data }) => setFailureReasons(data)).catch(() => {})
   }, [fetchOrder])
 
   const changeStatus = async () => {
@@ -144,6 +148,10 @@ export default function OrderDetailPage() {
       if (newStatus === 'confirmed' && selectedCarrierId) payload.carrier_id = selectedCarrierId
       const { data } = await api.post(`/orders/${id}/status/`, payload)
       if (data.carrier_warning) setCarrierWarning(data.carrier_warning)
+      if (showFailureReason && failureReason) {
+        await api.post(`/orders/${id}/call-attempts/`, { status: 'no_answer', failure_reason: failureReason, note: statusNote })
+        setFailureReason('')
+      }
       setStatusNote('')
       fetchOrder()
     } catch {} finally { setSavingStatus(false) }
@@ -311,6 +319,17 @@ export default function OrderDetailPage() {
               <h3 className="text-sm font-semibold text-gray-200">Changer le statut</h3>
             </div>
             <Select value={newStatus} onChange={setNewStatus} options={STATUS_CHOICES} className={inputCls + ' mb-2'} style={{ ...bdrStyle, background: theme.dark.sidebar }} />
+            {showFailureReason && (
+              <Select
+                value={failureReason}
+                onChange={setFailureReason}
+                options={failureReasons.map(r => ({ value: r.id, label: r.label }))}
+                placeholder={failureReasons.length ? 'Raison (optionnel)' : 'Aucune raison configurée'}
+                disabled={failureReasons.length === 0}
+                className={inputCls + ' mb-2'}
+                style={{ ...bdrStyle, background: theme.dark.sidebar }}
+              />
+            )}
             {newStatus === 'confirmed' && carrierAccounts.length > 1 && (
               <Select
                 value={selectedCarrierId}

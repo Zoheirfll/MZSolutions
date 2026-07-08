@@ -52,10 +52,17 @@ class OrderStatusHistorySerializer(serializers.ModelSerializer):
 
 
 class FailureReasonSerializer(serializers.ModelSerializer):
+    usage_count = serializers.SerializerMethodField()
+
     class Meta:
         model  = FailureReason
-        fields = ['id', 'label', 'is_active', 'order']
-        read_only_fields = ['id']
+        fields = ['id', 'label', 'is_active', 'order', 'usage_count']
+        read_only_fields = ['id', 'usage_count']
+
+    def get_usage_count(self, obj):
+        # Annoté par la vue liste (_usage_count) pour éviter le N+1 ; 0 par
+        # défaut (ex: juste après création, ou appelé hors de cette vue).
+        return getattr(obj, '_usage_count', 0)
 
 
 class OrderAssignmentSerializer(serializers.ModelSerializer):
@@ -104,6 +111,7 @@ class OrderSerializer(serializers.ModelSerializer):
     confirmateur_name    = serializers.SerializerMethodField()
     payment_method_label = serializers.SerializerMethodField()
     carrier_label        = serializers.SerializerMethodField()
+    cancellation_note     = serializers.SerializerMethodField()
 
     class Meta:
         model  = Order
@@ -114,6 +122,7 @@ class OrderSerializer(serializers.ModelSerializer):
             'delivery_type', 'payment_method', 'payment_method_label', 'note',
             'items_count', 'confirmateur_name', 'created_at', 'scheduled_at',
             'carrier_label', 'carrier_tracking_number', 'carrier_status',
+            'cancellation_note',
         ]
 
     def get_items_count(self, obj):
@@ -127,6 +136,16 @@ class OrderSerializer(serializers.ModelSerializer):
 
     def get_carrier_label(self, obj):
         return obj.carrier.get_carrier_display() if obj.carrier else None
+
+    def get_cancellation_note(self, obj):
+        # Note attachée par le vendeur au moment de la demande d'annulation
+        # (CancellationsPage.jsx colonne "Motif") — uniquement pertinent pour
+        # ces deux statuts, pour ne pas faire une requête history par ligne
+        # sur les listes de commandes qui n'en ont pas besoin (OrdersPage).
+        if obj.status not in ('cancel_requested', 'cancelled'):
+            return None
+        entry = obj.history.filter(status='cancel_requested').order_by('-changed_at').first()
+        return entry.note if entry else None
 
     def get_confirmateur_name(self, obj):
         try:

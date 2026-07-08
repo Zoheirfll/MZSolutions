@@ -22,6 +22,46 @@ def parse_period(request):
     return today - timedelta(days=7), today, None  # week (défaut)
 
 
+def send_abandoned_cart_email(store, cart):
+    """Envoie l'email de relance panier abandonné — factorisé pour être appelé
+    aussi bien par la relance automatique (management command
+    send_abandoned_cart_reminders) que par une relance manuelle immédiate
+    depuis AbandonedCartsPage.jsx (bouton "Relancer" → "Par email")."""
+    from django.core.mail import send_mail
+    from django.conf import settings
+
+    # item['price'] est stocké tel quel dans le JSONField, potentiellement en
+    # chaîne (ex. '3600.0000', reçu du frontend) — jamais faire confiance au
+    # type, toujours forcer la conversion avant le formatage numérique.
+    def _price(item):
+        try:
+            return float(item.get('price', 0) or 0)
+        except (TypeError, ValueError):
+            return 0.0
+
+    items_lines = "\n".join(
+        f"  - {item.get('product_name', '?')} x{item.get('quantity', 1)} — {_price(item):,.0f} DA"
+        for item in (cart.items or [])
+    )
+    store_url = f"{settings.FRONTEND_URL}/store/{store.slug}"
+    subject = f"Vous avez oublié des articles dans votre panier — {store.name}"
+    message = (
+        f"Bonjour {cart.first_name or 'client'},\n\n"
+        f"Vous avez laissé des articles dans votre panier sur {store.name} :\n\n"
+        f"{items_lines}\n\n"
+        f"Total : {cart.total:,.0f} DA\n\n"
+        f"Finalisez votre commande ici : {store_url}\n\n"
+        f"— L'équipe {store.name}"
+    )
+    send_mail(
+        subject=subject,
+        message=message,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[cart.email],
+        fail_silently=False,
+    )
+
+
 def order_channel(order):
     """Canal de vente déduit des données existantes (pas de champ dédié) :
     dropshipper si Order.dropshipper renseigné, sinon boutique en ligne si la

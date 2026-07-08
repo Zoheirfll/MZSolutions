@@ -128,13 +128,13 @@ export default function ScheduledOrdersPage() {
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
-                    <button onClick={() => handleSendNow(o)} disabled={busyId === o.id} className={theme.btn.primary + ' !px-2.5 !py-1 text-xs'}>
+                    <button onClick={() => handleSendNow(o)} disabled={busyId === o.id} className={theme.btn.primary + ' px-2.5! py-1! text-xs'}>
                       Envoyer maintenant
                     </button>
-                    <button onClick={() => setEditing(o)} disabled={busyId === o.id} className={theme.btn.secondary + ' !px-2.5 !py-1 text-xs'}>
+                    <button onClick={() => setEditing(o)} disabled={busyId === o.id} className={theme.btn.secondary + ' px-2.5! py-1! text-xs'}>
                       Modifier
                     </button>
-                    <button onClick={() => handleCancel(o)} disabled={busyId === o.id} className={theme.btn.danger + ' !px-2.5 !py-1 text-xs'}>
+                    <button onClick={() => handleCancel(o)} disabled={busyId === o.id} className={theme.btn.danger + ' px-2.5! py-1! text-xs'}>
                       Annuler
                     </button>
                   </div>

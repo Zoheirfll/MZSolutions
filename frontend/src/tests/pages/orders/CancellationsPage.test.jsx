@@ -47,7 +47,7 @@ describe('CancellationsPage', () => {
     expect(api.get).toHaveBeenCalledWith(expect.stringContaining('status=cancel_requested'))
   })
 
-  it('confirms a cancellation request, which posts the new status and refetches', async () => {
+  it('opens a modal to confirm a cancellation, then posts the new status with the note', async () => {
     const user = userEvent.setup()
     api.get.mockResolvedValue({ data: { count: 1, results: [ORDER] } })
     api.post.mockResolvedValueOnce({ data: {} })
@@ -55,8 +55,42 @@ describe('CancellationsPage', () => {
     await screen.findByText('Sara K')
 
     await user.click(screen.getByText('Confirmer'))
+    expect(await screen.findByRole('heading', { name: "Confirmer l'annulation" })).toBeInTheDocument()
+    await user.type(screen.getByPlaceholderText(/remboursement effectué/), 'Remboursé par virement')
+    await user.click(screen.getByRole('button', { name: "Confirmer l'annulation" }))
 
-    await waitFor(() => expect(api.post).toHaveBeenCalledWith('/orders/5/status/', { status: 'cancelled' }))
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith('/orders/5/status/', { status: 'cancelled', note: 'Remboursé par virement' }))
+  })
+
+  it('opens a modal to reject a cancellation request, restoring the prior status server-side', async () => {
+    const user = userEvent.setup()
+    const orderWithReason = { ...ORDER, cancellation_note: 'Le client a changé d’avis' }
+    api.get.mockResolvedValue({ data: { count: 1, results: [orderWithReason] } })
+    api.post.mockResolvedValueOnce({ data: {} })
+    renderPage('requests')
+    await screen.findByText('Sara K')
+
+    await user.click(screen.getByText('Rejeter'))
+    expect(await screen.findByText("Rejeter la demande d'annulation")).toBeInTheDocument()
+    expect(screen.getByText(/Motif de la demande : Le client a changé d’avis/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Rejeter la demande' }))
+
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith('/orders/5/reject-cancellation/', { note: '' }))
+  })
+
+  it('shows the cancellation reason column when present', async () => {
+    const orderWithReason = { ...ORDER, cancellation_note: 'Prix trop élevé' }
+    api.get.mockResolvedValue({ data: { count: 1, results: [orderWithReason] } })
+    renderPage('requests')
+    expect(await screen.findByText('Prix trop élevé')).toBeInTheDocument()
+  })
+
+  it('includes the search term in the orders request', async () => {
+    const user = userEvent.setup()
+    api.get.mockResolvedValue({ data: { count: 0, results: [] } })
+    renderPage('requests')
+    await user.type(screen.getByPlaceholderText('Recherche nom, téléphone…'), 'Sara')
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith(expect.stringContaining('search=Sara')))
   })
 
   it('shows the confirmed-cancellations list without actions and no status filter param mismatch', async () => {

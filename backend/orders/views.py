@@ -14,7 +14,7 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from .models import Order, OrderItem, OrderStatusHistory, STATUS_CHOICES, NO_ANSWER_STATUSES, OrderAssignment, FailureReason, CallAttempt, CALL_STATUS_CHOICES, PaymentWebhookLog, AbandonedCart, CarrierAccount, CARRIER_CHOICES, CustomerRisk, BlacklistedPhone, Complaint, ComplaintMessage, COMPLAINT_STATUS_CHOICES, ExchangeRequest, EXCHANGE_STATUS_CHOICES
 from .serializers import OrderSerializer, OrderDetailSerializer, OrderAssignmentSerializer, FailureReasonSerializer, CallAttemptSerializer, AbandonedCartSerializer, CarrierAccountSerializer, BlacklistedPhoneSerializer, ComplaintSerializer, ComplaintDetailSerializer, ExchangeRequestSerializer
-from .utils import assign_order_round_robin
+from .utils import assign_order_round_robin, send_abandoned_cart_email
 from . import chargily
 from .carriers import get_carrier_client
 from core.permissions import IsOwnerOrAdminForWrites, is_owner_or_admin, has_permission
@@ -517,6 +517,45 @@ class OrderStatusView(APIView):
         order.carrier_shipment_created_at = timezone.now()
         order.save(update_fields=['carrier', 'carrier_tracking_number', 'carrier_status', 'carrier_shipment_created_at'])
         return None
+
+
+class OrderRejectCancellationView(APIView):
+    """Rejette une demande d'annulation (CancellationsPage.jsx, bouton
+    "Rejeter") en restaurant le VRAI statut antérieur à 'cancel_requested'
+    (retrouvé dans OrderStatusHistory), plutôt que de le figer arbitrairement
+    à 'confirmed' — bug corrigé : une commande déjà 'shipped'/'delivered' au
+    moment de la demande d'annulation ne doit pas régresser à 'confirmed'."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        store = _get_store(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        try:
+            order = store.orders.get(pk=pk)
+        except Order.DoesNotExist:
+            return Response({'detail': 'Commande introuvable.'}, status=404)
+
+        if order.status != 'cancel_requested':
+            return Response({'detail': "Cette commande n'a pas de demande d'annulation en cours."}, status=400)
+
+        history = list(order.history.order_by('changed_at'))
+        restored_status = 'pending'
+        for i, h in enumerate(history):
+            if h.status == 'cancel_requested' and i > 0:
+                restored_status = history[i - 1].status
+                break
+
+        order.status = restored_status
+        order.save(update_fields=['status'])
+        note = request.data.get('note', '')
+        OrderStatusHistory.objects.create(
+            order      = order,
+            status     = restored_status,
+            changed_by = request.user,
+            note       = f"Demande d'annulation rejetée{' — ' + note if note else ''}",
+        )
+        return Response(OrderDetailSerializer(order).data)
 
 
 class CarrierAccountListCreateView(APIView):
@@ -1639,7 +1678,7 @@ class FailureReasonListView(APIView):
         store = _get_store(request)
         if not store:
             return Response({'detail': 'Accès refusé.'}, status=403)
-        qs = store.failure_reasons.all()
+        qs = store.failure_reasons.annotate(_usage_count=Count('callattempt'))
         if request.query_params.get('active') == '1':
             qs = qs.filter(is_active=True)
         return Response(FailureReasonSerializer(qs, many=True).data)
@@ -1761,3 +1800,38 @@ class AbandonedCartListView(APIView):
         offset = (page - 1) * per_page
         results = AbandonedCartSerializer(qs[offset:offset + per_page], many=True).data
         return Response({'count': total, 'page': page, 'per_page': per_page, 'results': results})
+
+
+class AbandonedCartRemindView(APIView):
+    """Relance manuelle immédiate d'un panier abandonné, en plus de la relance
+    automatique par email (send_abandoned_cart_reminders). Deux canaux :
+    - `channel=whatsapp` (défaut) : le lien wa.me est ouvert côté frontend,
+      cet endpoint journalise juste que c'est fait (WhatsApp ne peut pas être
+      déclenché depuis le serveur sans l'API Business, payante — hors scope).
+    - `channel=email` : envoie réellement l'email via send_abandoned_cart_email
+      (même contenu que la relance automatique), 400 si le panier n'a pas
+      d'email renseigné."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        store = _get_store(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        try:
+            cart = store.abandoned_carts.get(pk=pk)
+        except AbandonedCart.DoesNotExist:
+            return Response({'detail': 'Panier introuvable.'}, status=404)
+
+        channel = request.data.get('channel', 'whatsapp')
+        if channel == 'email':
+            if not cart.email:
+                return Response({'detail': "Ce panier n'a pas d'email renseigné."}, status=400)
+            try:
+                send_abandoned_cart_email(store, cart)
+            except Exception as e:
+                return Response({'detail': f"Échec de l'envoi de l'email : {e}"}, status=502)
+
+        cart.reminder_sent = True
+        cart.reminder_sent_at = timezone.now()
+        cart.save(update_fields=['reminder_sent', 'reminder_sent_at'])
+        return Response(AbandonedCartSerializer(cart).data)

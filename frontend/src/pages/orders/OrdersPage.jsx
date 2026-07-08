@@ -391,15 +391,24 @@ function FilterModal({ filters, onClose, onApply }) {
   )
 }
 
+const NO_ANSWER_STATUSES = ['no_answer_1', 'no_answer_2', 'no_answer_3']
+
 function QuickEditModal({ order, onClose, onSaved }) {
   const [status,  setStatus]  = useState('')
   const [note,    setNote]    = useState(order.note || '')
   const [wilaya,  setWilaya]  = useState(order.wilaya || '')
   const [commune, setCommune] = useState(order.commune || '')
   const [saving,  setSaving]  = useState(false)
+  const [failureReasons, setFailureReasons] = useState([])
+  const [failureReason,  setFailureReason]  = useState('')
+
+  useEffect(() => {
+    api.get('/orders/failure-reasons/?active=1').then(({ data }) => setFailureReasons(data)).catch(() => {})
+  }, [])
 
   const inputCls = 'w-full px-3 py-2 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 transition [color-scheme:dark]'
   const bdrStyle = { borderColor: theme.dark.border, background: theme.dark.sidebar }
+  const showFailureReason = NO_ANSWER_STATUSES.includes(status)
 
   const handleSave = async () => {
     setSaving(true)
@@ -409,6 +418,9 @@ function QuickEditModal({ order, onClose, onSaved }) {
       }
       if (status && status !== order.status) {
         await api.post(`/orders/${order.id}/status/`, { status, note })
+        if (showFailureReason && failureReason) {
+          await api.post(`/orders/${order.id}/call-attempts/`, { status: 'no_answer', failure_reason: failureReason, note })
+        }
       }
       onSaved()
     } catch {} finally { setSaving(false) }
@@ -440,6 +452,21 @@ function QuickEditModal({ order, onClose, onSaved }) {
             />
           </div>
         </div>
+
+        {showFailureReason && (
+          <div className="mb-4">
+            <label className="block text-xs mb-1.5" style={{ color: theme.dark.muted }}>Raison (optionnel)</label>
+            <Select
+              value={failureReason}
+              onChange={setFailureReason}
+              options={failureReasons.map(r => ({ value: r.id, label: r.label }))}
+              placeholder={failureReasons.length ? '— Choisir —' : 'Aucune raison configurée'}
+              disabled={failureReasons.length === 0}
+              className={inputCls}
+              style={bdrStyle}
+            />
+          </div>
+        )}
 
         <div className="mb-4">
           <label className="block text-xs mb-1.5" style={{ color: theme.dark.muted }}>Commentaire interne</label>

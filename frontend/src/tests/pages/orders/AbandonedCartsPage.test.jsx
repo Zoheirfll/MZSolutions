@@ -9,7 +9,7 @@ vi.mock('../../../context/AuthContext', () => ({
 }))
 
 vi.mock('../../../api/axios', () => ({
-  default: { get: vi.fn() },
+  default: { get: vi.fn(), post: vi.fn() },
 }))
 import api from '../../../api/axios'
 
@@ -55,5 +55,58 @@ describe('AbandonedCartsPage', () => {
     await screen.findByText('Aucun panier abandonné')
     await user.click(screen.getByRole('button', { name: 'Récupérés' }))
     await waitFor(() => expect(api.get).toHaveBeenCalledWith(expect.stringContaining('recovered=1')))
+  })
+
+  const CART_WITH_ITEMS = {
+    id: 7, first_name: 'Sami', last_name: 'K', phone: '0555111222', email: '', wilaya: 'Oran',
+    items: [{ product_name: 'T-shirt', price: 1500, quantity: 2 }], total: 3000,
+    is_recovered: false, reminder_sent: false, created_at: '2026-07-01T10:00:00Z',
+  }
+
+  it('opens the items modal when clicking the article count', async () => {
+    api.get.mockImplementation((url) => {
+      if (url.startsWith('/orders/abandoned-carts/')) return Promise.resolve({ data: { results: [CART_WITH_ITEMS], count: 1 } })
+      return Promise.resolve({ data: { count: 0 } })
+    })
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByText('Sami K')
+    await user.click(screen.getByText('1 article(s)'))
+    expect(await screen.findByText('T-shirt')).toBeInTheDocument()
+    expect(screen.getByText('Qté : 2')).toBeInTheDocument()
+  })
+
+  it('sends a reminder via WhatsApp and marks it sent', async () => {
+    api.get.mockImplementation((url) => {
+      if (url.startsWith('/orders/abandoned-carts/')) return Promise.resolve({ data: { results: [CART_WITH_ITEMS], count: 1 } })
+      return Promise.resolve({ data: { count: 0 } })
+    })
+    api.post.mockResolvedValue({ data: {} })
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => {})
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByText('Sami K')
+    await user.click(screen.getByText('Relancer'))
+
+    expect(openSpy).toHaveBeenCalledWith(expect.stringContaining('wa.me/213555111222'), '_blank', 'noopener')
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith('/orders/abandoned-carts/7/remind/', { channel: 'whatsapp' }))
+    openSpy.mockRestore()
+  })
+
+  it('offers a WhatsApp/Email choice when the cart has an email, and sends via email', async () => {
+    const cartWithEmail = { ...CART_WITH_ITEMS, email: 'client@test.com' }
+    api.get.mockImplementation((url) => {
+      if (url.startsWith('/orders/abandoned-carts/')) return Promise.resolve({ data: { results: [cartWithEmail], count: 1 } })
+      return Promise.resolve({ data: { count: 0 } })
+    })
+    api.post.mockResolvedValue({ data: {} })
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByText('Sami K')
+
+    await user.click(screen.getByText('Relancer'))
+    await user.click(screen.getByText('Par email'))
+
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith('/orders/abandoned-carts/7/remind/', { channel: 'email' }))
   })
 })

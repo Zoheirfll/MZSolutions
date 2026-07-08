@@ -1,11 +1,11 @@
 from django.urls import path
 from .views import (
     OrderListCreateView, OrderDetailView,
-    OrderStatusView, OrderStatsView, ConfirmationRateView,
+    OrderStatusView, OrderRejectCancellationView, OrderStatsView, ConfirmationRateView,
     OrderAssignmentView,
     CallAttemptListView, CallAttemptDetailView,
     FailureReasonListView, FailureReasonDetailView,
-    AbandonedCartListView,
+    AbandonedCartListView, AbandonedCartRemindView,
     ClientListView, CustomerRiskToggleView,
     BlacklistListCreateView, BlacklistDetailView,
     ComplaintListView, ComplaintDetailView, ComplaintStatusView, ComplaintMessageCreateView,
@@ -18,6 +18,7 @@ from .stats_views import (
 
 urlpatterns = [
     path('abandoned-carts/',                       AbandonedCartListView.as_view()),
+    path('abandoned-carts/<int:pk>/remind/',       AbandonedCartRemindView.as_view()),
     path('clients/',                              ClientListView.as_view()),
     path('clients/<str:phone>/risk/',             CustomerRiskToggleView.as_view()),
     path('blacklist/',                            BlacklistListCreateView.as_view()),
@@ -44,6 +45,7 @@ urlpatterns = [
     path('failure-reasons/<int:pk>/',             FailureReasonDetailView.as_view()),
     path('<int:pk>/',                             OrderDetailView.as_view()),
     path('<int:pk>/status/',                      OrderStatusView.as_view()),
+    path('<int:pk>/reject-cancellation/',          OrderRejectCancellationView.as_view()),
     path('<int:pk>/assignment/',                  OrderAssignmentView.as_view()),
     path('<int:pk>/call-attempts/',               CallAttemptListView.as_view()),
     path('<int:pk>/call-attempts/<int:cid>/',     CallAttemptDetailView.as_view()),

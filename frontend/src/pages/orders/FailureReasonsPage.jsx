@@ -5,6 +5,13 @@ import { theme } from '../../theme'
 
 const EMPTY = { label: '', is_active: true, order: 0 }
 
+const COMMON_REASONS = [
+  'Numéro invalide', 'Injoignable après plusieurs tentatives', "Pas de réponse",
+  'Client ne se souvient pas de la commande', 'Prix trop élevé', 'Délai de livraison trop long',
+  'Adresse incorrecte ou incomplète', 'Commande en double', 'A commandé ailleurs',
+  'Changement d\'avis', 'Produit indisponible en réalité',
+]
+
 function CloseIcon(props) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="20" height="20" {...props}>
@@ -33,6 +40,22 @@ function PlusIcon(props) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="16" height="16" {...props}>
       <path d="M12 5v14M5 12h14" />
+    </svg>
+  )
+}
+
+function ArrowUpIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14" {...props}>
+      <path d="M12 19V5M5 12l7-7 7 7" />
+    </svg>
+  )
+}
+
+function ArrowDownIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14" {...props}>
+      <path d="M12 5v14M5 12l7 7 7-7" />
     </svg>
   )
 }
@@ -101,6 +124,7 @@ export default function FailureReasonsPage() {
   const [reasons, setReasons] = useState([])
   const [modal,   setModal]   = useState(null)
   const [loading, setLoading] = useState(true)
+  const [seeding, setSeeding] = useState(false)
 
   const fetchReasons = () => {
     setLoading(true)
@@ -120,6 +144,30 @@ export default function FailureReasonsPage() {
     fetchReasons()
   }
 
+  const handleSeedCommon = async () => {
+    setSeeding(true)
+    try {
+      const existingLabels = new Set(reasons.map(r => r.label.toLowerCase()))
+      const toCreate = COMMON_REASONS.filter(label => !existingLabels.has(label.toLowerCase()))
+      let order = reasons.length ? Math.max(...reasons.map(r => r.order)) + 1 : 0
+      for (const label of toCreate) {
+        await api.post('/orders/failure-reasons/', { label, is_active: true, order: order++ })
+      }
+      fetchReasons()
+    } catch {} finally { setSeeding(false) }
+  }
+
+  const moveReason = async (index, direction) => {
+    const other = reasons[index + direction]
+    if (!other) return
+    const current = reasons[index]
+    await Promise.all([
+      api.put(`/orders/failure-reasons/${current.id}/`, { order: other.order }),
+      api.put(`/orders/failure-reasons/${other.id}/`, { order: current.order }),
+    ])
+    fetchReasons()
+  }
+
   return (
     <DashboardLayout title="Raisons d'échec">
       {modal !== null && (
@@ -132,10 +180,17 @@ export default function FailureReasonsPage() {
 
       <div className="flex items-center justify-between mb-5 gap-3 flex-wrap">
         <p className="text-sm" style={{ color: theme.dark.muted }}>{reasons.length} raison{reasons.length !== 1 ? 's' : ''}</p>
-        <button onClick={() => setModal({})} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white bg-violet-600 hover:bg-violet-500 transition">
-          <PlusIcon />
-          Ajouter une raison
-        </button>
+        <div className="flex items-center gap-2">
+          {reasons.length === 0 && (
+            <button onClick={handleSeedCommon} disabled={seeding} className={theme.btn.secondary}>
+              {seeding ? 'Ajout…' : 'Ajouter les raisons courantes'}
+            </button>
+          )}
+          <button onClick={() => setModal({})} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white bg-violet-600 hover:bg-violet-500 transition">
+            <PlusIcon />
+            Ajouter une raison
+          </button>
+        </div>
       </div>
 
       <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border }}>
@@ -144,13 +199,14 @@ export default function FailureReasonsPage() {
             <tr className="text-left text-xs border-b" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
               <th className="px-4 py-3 font-medium">LIBELLÉ</th>
               <th className="px-4 py-3 font-medium">ORDRE</th>
+              <th className="px-4 py-3 font-medium">UTILISATIONS</th>
               <th className="px-4 py-3 font-medium">STATUT</th>
               <th className="px-4 py-3 font-medium">ACTIONS</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={4} className="py-16">
+              <tr><td colSpan={5} className="py-16">
                 <div className="flex items-center justify-center gap-2 text-gray-500">
                   <svg className="w-5 h-5 animate-spin text-violet-500" viewBox="0 0 24 24" fill="none">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -160,7 +216,7 @@ export default function FailureReasonsPage() {
                 </div>
               </td></tr>
             ) : reasons.length === 0 ? (
-              <tr><td colSpan={4}>
+              <tr><td colSpan={5}>
                 <div className={theme.emptyState}>
                   <svg className="w-12 h-12 mb-3 opacity-40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
@@ -168,10 +224,27 @@ export default function FailureReasonsPage() {
                   <p>Aucune raison définie</p>
                 </div>
               </td></tr>
-            ) : reasons.map(r => (
+            ) : reasons.map((r, i) => (
               <tr key={r.id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.border + '44' }}>
                 <td className="px-4 py-3 text-gray-200 font-medium">{r.label}</td>
-                <td className="px-4 py-3 text-gray-400">{r.order}</td>
+                <td className="px-4 py-3 text-gray-400">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-4 text-center">{r.order}</span>
+                    <button onClick={() => moveReason(i, -1)} disabled={i === 0} className="p-0.5 rounded text-gray-500 hover:text-gray-200 hover:bg-white/6 transition disabled:opacity-20 disabled:pointer-events-none" title="Monter">
+                      <ArrowUpIcon />
+                    </button>
+                    <button onClick={() => moveReason(i, 1)} disabled={i === reasons.length - 1} className="p-0.5 rounded text-gray-500 hover:text-gray-200 hover:bg-white/6 transition disabled:opacity-20 disabled:pointer-events-none" title="Descendre">
+                      <ArrowDownIcon />
+                    </button>
+                  </div>
+                </td>
+                <td className="px-4 py-3 text-gray-400">
+                  {r.usage_count > 0 ? (
+                    <span className={theme.badge.info}>{r.usage_count} fois</span>
+                  ) : (
+                    <span style={{ color: theme.dark.muted }}>—</span>
+                  )}
+                </td>
                 <td className="px-4 py-3">
                   <button onClick={() => toggleActive(r)} className={`px-2.5 py-0.5 rounded-full text-xs font-medium transition ${r.is_active ? 'bg-emerald-900/30 text-emerald-400 hover:bg-emerald-900/50' : 'bg-gray-800 text-gray-500 hover:bg-gray-700'}`}>
                     {r.is_active ? 'Active' : 'Inactive'}
