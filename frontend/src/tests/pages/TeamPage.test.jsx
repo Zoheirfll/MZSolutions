@@ -83,6 +83,46 @@ describe('TeamPage', () => {
     expect(await screen.findByText('Invitation envoyée par email.')).toBeInTheDocument()
   })
 
+  it('pre-fills invite permissions from the role matrix and submits edited values', async () => {
+    const user = userEvent.setup()
+    const matrixData = {
+      catalog: [
+        { key: 'orders_view', label: 'Voir les commandes' },
+        { key: 'finances_view', label: 'Voir les finances' },
+      ],
+      roles: ['admin', 'confirmateur', 'dropshipper'],
+      matrix: {
+        admin: { orders_view: true, finances_view: false },
+        confirmateur: { orders_view: true, finances_view: false },
+        dropshipper: { orders_view: true, finances_view: false },
+      },
+    }
+    api.get.mockImplementation((url) => {
+      if (url === '/team/members/?role=admin') return Promise.resolve({ data: ADMINS })
+      if (url === '/team/permissions/') return Promise.resolve({ data: matrixData })
+      return Promise.resolve({ data: { count: 0 } })
+    })
+    api.post.mockResolvedValueOnce({})
+    renderPage()
+
+    await screen.findByText('Karim B')
+    await user.click(screen.getByRole('button', { name: /Ajouter/ }))
+
+    expect(await screen.findByLabelText('Voir les commandes')).toBeChecked()
+    expect(screen.getByLabelText('Voir les finances')).not.toBeChecked()
+
+    await user.click(screen.getByLabelText('Voir les finances'))
+
+    await user.type(screen.getByPlaceholderText('Prénom'), 'Sara')
+    await user.type(screen.getByPlaceholderText('Nom'), 'Z')
+    await user.type(screen.getByPlaceholderText('Email'), 'sara@test.com')
+    await user.click(screen.getByRole('button', { name: "Envoyer l'invitation" }))
+
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith('/team/invite/', expect.objectContaining({
+      permissions: expect.objectContaining({ orders_view: true, finances_view: true }),
+    })))
+  })
+
   it('shows a server error in the invite modal without crashing', async () => {
     const user = userEvent.setup()
     api.get.mockImplementation((url) => {
@@ -101,5 +141,33 @@ describe('TeamPage', () => {
     await user.click(screen.getByRole('button', { name: "Envoyer l'invitation" }))
 
     expect(await screen.findByText('Cet email existe déjà.')).toBeInTheDocument()
+  })
+
+  it('opens the per-member permissions modal, shows custom badge, and toggles a permission', async () => {
+    const user = userEvent.setup()
+    api.get.mockImplementation((url) => {
+      if (url === '/team/members/?role=admin') return Promise.resolve({ data: ADMINS })
+      if (url === '/team/members/1/permissions/') return Promise.resolve({
+        data: { catalog: [
+          { key: 'orders_view', label: 'Voir les commandes', enabled: true, is_custom: false },
+          { key: 'finances_view', label: 'Voir les finances', enabled: true, is_custom: true },
+        ] },
+      })
+      return Promise.resolve({ data: { count: 0 } })
+    })
+    api.post.mockResolvedValueOnce({ data: { permissions: { orders_view: false, finances_view: true } } })
+    renderPage()
+
+    await screen.findByText('Karim B')
+    await user.click(screen.getByRole('button', { name: 'Permissions' }))
+
+    expect(await screen.findByText('Voir les finances')).toBeInTheDocument()
+    expect(screen.getByText('Personnalisé')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /Voir les commandes/ }))
+
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith('/team/members/1/permissions/', {
+      permission: 'orders_view', enabled: false,
+    }))
   })
 })

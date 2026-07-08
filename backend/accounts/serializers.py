@@ -60,7 +60,7 @@ class UserSerializer(serializers.ModelSerializer):
             membership = None
         if not membership:
             return {key: True for key, _ in PERMISSION_CATALOG}
-        return get_effective_permissions(membership.store, membership.role)
+        return get_effective_permissions(membership.store, membership.role, member=membership)
 
 
 class RegisterSerializer(serializers.Serializer):

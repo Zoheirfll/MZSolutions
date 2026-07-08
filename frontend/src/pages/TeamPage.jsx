@@ -16,15 +16,35 @@ const ROLE_LABELS = { admin: 'Admin', confirmateur: 'Confirmateur', dropshipper:
 
 const EMPTY_FORM = {
   role: 'admin', first_name: '', last_name: '', email: '', phone: '',
-  wilaya: '', commune: '', address: '',
+  wilaya: '', commune: '', address: '', permissions: {},
 }
 
 function Modal({ role, onClose, onSaved }) {
   const [form, setForm]     = useState({ ...EMPTY_FORM, role })
   const [loading, setLoading] = useState(false)
   const [error, setError]   = useState('')
+  const [catalog, setCatalog] = useState([])
 
   const change = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }))
+
+  useEffect(() => {
+    api.get('/team/permissions/').then(({ data }) => {
+      setCatalog(data.catalog || [])
+      setForm(f => ({ ...f, permissions: { ...(data.matrix?.[f.role] || {}) } }))
+    }).catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    if (!catalog.length) return
+    api.get('/team/permissions/').then(({ data }) => {
+      setForm(f => ({ ...f, permissions: { ...(data.matrix?.[f.role] || {}) } }))
+    }).catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.role])
+
+  const togglePermission = key => setForm(f => ({
+    ...f, permissions: { ...f.permissions, [key]: !f.permissions[key] },
+  }))
 
   const submit = async e => {
     e.preventDefault()
@@ -46,7 +66,7 @@ function Modal({ role, onClose, onSaved }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
-      <div className="w-full max-w-lg rounded-xl border p-6" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
+      <div className="w-full max-w-lg rounded-xl border p-6 max-h-[90vh] overflow-y-auto" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
         <div className="flex items-center justify-between mb-5">
           <h3 className="text-base font-semibold text-gray-200">
             Inviter un {ROLE_LABELS[role]}
@@ -118,6 +138,25 @@ function Modal({ role, onClose, onSaved }) {
             </>
           )}
 
+          {catalog.length > 0 && (
+            <div>
+              <label className="block text-xs text-gray-400 mb-2">Permissions</label>
+              <div className="max-h-48 overflow-y-auto rounded-lg border divide-y" style={{ borderColor: theme.dark.border }}>
+                {catalog.map(({ key, label }) => (
+                  <label key={key} className="flex items-center gap-2.5 px-3 py-2 text-sm text-gray-300 cursor-pointer hover:bg-white/5 transition">
+                    <input
+                      type="checkbox"
+                      checked={!!form.permissions[key]}
+                      onChange={() => togglePermission(key)}
+                      className="w-4 h-4 accent-violet-600 cursor-pointer shrink-0"
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
           {error && <p className="text-red-400 text-xs">{error}</p>}
 
           <div className="pt-2 flex justify-end gap-3">
@@ -134,7 +173,85 @@ function Modal({ role, onClose, onSaved }) {
   )
 }
 
-function MembersTable({ members, onToggle }) {
+function MemberPermissionsModal({ member, onClose }) {
+  const [catalog, setCatalog] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving]   = useState(null)
+
+  const fetchCatalog = () => {
+    setLoading(true)
+    api.get(`/team/members/${member.id}/permissions/`)
+      .then(({ data }) => setCatalog(data.catalog || []))
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }
+
+  useEffect(() => { fetchCatalog() }, [])
+
+  const toggle = async (key, current) => {
+    setSaving(key)
+    setCatalog(c => c.map(e => e.key === key ? { ...e, enabled: !current } : e))
+    try {
+      await api.post(`/team/members/${member.id}/permissions/`, { permission: key, enabled: !current })
+      fetchCatalog()
+    } catch (err) {
+      setCatalog(c => c.map(e => e.key === key ? { ...e, enabled: current } : e))
+      alert(err.response?.data?.detail || 'Erreur lors de la mise à jour.')
+    } finally {
+      setSaving(null)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
+      <div className="w-full max-w-lg rounded-xl border p-6 max-h-[90vh] overflow-y-auto" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="text-base font-semibold text-gray-200">
+            Permissions — {member.first_name} {member.last_name}
+          </h3>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-300 transition">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {loading ? (
+          <p className="text-sm text-gray-500 py-6 text-center">Chargement…</p>
+        ) : (
+          <div className="rounded-lg border divide-y" style={{ borderColor: theme.dark.border }}>
+            {catalog.map(({ key, label, enabled, is_custom }) => (
+              <div key={key} className="flex items-center justify-between gap-3 px-3 py-2.5">
+                <button
+                  type="button"
+                  onClick={() => toggle(key, enabled)}
+                  disabled={saving === key}
+                  className="text-sm text-gray-300 text-left flex items-center gap-2 disabled:opacity-60"
+                >
+                  {label}
+                  {is_custom && (
+                    <span className="text-xs px-1.5 py-0.5 rounded-full bg-violet-600/20 text-violet-300">
+                      Personnalisé
+                    </span>
+                  )}
+                </button>
+                <button
+                  onClick={() => toggle(key, enabled)}
+                  disabled={saving === key}
+                  className={`w-9 h-5 rounded-full transition-colors duration-150 relative cursor-pointer disabled:opacity-60 shrink-0 ${enabled ? 'bg-violet-600' : 'bg-white/10'}`}
+                >
+                  <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-150 ${enabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function MembersTable({ members, onToggle, onManagePermissions }) {
   if (!members.length) {
     return (
       <div className="flex flex-col items-center justify-center text-center py-16 px-6 text-gray-500">
@@ -179,12 +296,20 @@ function MembersTable({ members, onToggle }) {
                 {new Date(m.invited_at).toLocaleDateString('fr-FR')}
               </td>
               <td className="py-3">
-                <button
-                  onClick={() => onToggle(m)}
-                  className="text-xs text-red-400 hover:text-red-300 transition"
-                >
-                  Désactiver
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => onManagePermissions(m)}
+                    className="text-xs text-gray-400 hover:text-gray-200 transition"
+                  >
+                    Permissions
+                  </button>
+                  <button
+                    onClick={() => onToggle(m)}
+                    className="text-xs text-red-400 hover:text-red-300 transition"
+                  >
+                    Désactiver
+                  </button>
+                </div>
               </td>
             </tr>
           ))}
@@ -199,6 +324,7 @@ export default function TeamPage() {
   const [members, setMembers]     = useState([])
   const [showModal, setShowModal] = useState(false)
   const [invited, setInvited]     = useState(false)
+  const [permissionsMember, setPermissionsMember] = useState(null)
 
   const fetchMembers = () => {
     const role = activeTab === 'retirer' ? 'confirmateur' : activeTab
@@ -230,6 +356,13 @@ export default function TeamPage() {
           role={activeTab === 'retirer' ? 'confirmateur' : activeTab}
           onClose={() => setShowModal(false)}
           onSaved={handleSaved}
+        />
+      )}
+
+      {permissionsMember && (
+        <MemberPermissionsModal
+          member={permissionsMember}
+          onClose={() => setPermissionsMember(null)}
         />
       )}
 
@@ -285,7 +418,7 @@ export default function TeamPage() {
             </p>
           </div>
         ) : (
-          <MembersTable members={members} onToggle={handleToggle} />
+          <MembersTable members={members} onToggle={handleToggle} onManagePermissions={setPermissionsMember} />
         )}
       </div>
     </DashboardLayout>

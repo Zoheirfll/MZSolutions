@@ -83,4 +83,59 @@ describe('PermissionsPage', () => {
     await waitFor(() => expect(screen.getAllByRole('button', { name: /Désactivé — cliquer pour activer/ }).length).toBe(2))
     alertSpy.mockRestore()
   })
+
+  it('switches to a member and shows their individual permissions with a custom badge', async () => {
+    const user = userEvent.setup()
+    const MEMBERS = [
+      { id: 7, first_name: 'Sara', last_name: 'Z', role: 'confirmateur' },
+    ]
+    api.get.mockImplementation((url) => {
+      if (url === '/team/permissions/') return Promise.resolve({ data: MATRIX_DATA })
+      if (url === '/team/members/') return Promise.resolve({ data: MEMBERS })
+      if (url === '/team/members/7/permissions/') return Promise.resolve({
+        data: { catalog: [
+          { key: 'orders_view', label: 'Voir les commandes', enabled: false, is_custom: true },
+        ] },
+      })
+      return Promise.resolve({ data: { count: 0 } })
+    })
+    renderPage()
+
+    await screen.findByText('Voir les commandes')
+    await user.click(screen.getByRole('button', { name: /Tous les rôles/ }))
+    await user.click(screen.getByText('Sara Z (Confirmateur)'))
+
+    expect(await screen.findByText('Personnalisé')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Désactivé — cliquer pour activer/ })).toBeInTheDocument()
+  })
+
+  it('toggles an individual member permission via the dedicated endpoint', async () => {
+    const user = userEvent.setup()
+    const MEMBERS = [
+      { id: 7, first_name: 'Sara', last_name: 'Z', role: 'confirmateur' },
+    ]
+    api.get.mockImplementation((url) => {
+      if (url === '/team/permissions/') return Promise.resolve({ data: MATRIX_DATA })
+      if (url === '/team/members/') return Promise.resolve({ data: MEMBERS })
+      if (url === '/team/members/7/permissions/') return Promise.resolve({
+        data: { catalog: [
+          { key: 'orders_view', label: 'Voir les commandes', enabled: false, is_custom: false },
+        ] },
+      })
+      return Promise.resolve({ data: { count: 0 } })
+    })
+    api.post.mockResolvedValueOnce({ data: { permissions: { orders_view: true } } })
+    renderPage()
+
+    await screen.findByText('Voir les commandes')
+    await user.click(screen.getByRole('button', { name: /Tous les rôles/ }))
+    await user.click(screen.getByText('Sara Z (Confirmateur)'))
+
+    await screen.findByText('Voir les commandes')
+    await user.click(screen.getByRole('button', { name: /Désactivé — cliquer pour activer/ }))
+
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith('/team/members/7/permissions/', {
+      permission: 'orders_view', enabled: true,
+    }))
+  })
 })

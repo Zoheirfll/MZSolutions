@@ -56,6 +56,46 @@ class InviteTests(TestCase):
         self.assertEqual(resp.status_code, 400)
 
 
+class InvitePermissionsTests(TestCase):
+    def setUp(self):
+        self.owner, self.store = make_owner()
+
+    def test_invite_without_permissions_creates_no_overrides(self):
+        client = auth_client(self.owner)
+        resp = client.post('/api/team/invite/', {
+            'role': 'confirmateur', 'first_name': 'C', 'last_name': 'F', 'email': 'noperm@test.com',
+        }, format='json')
+        self.assertEqual(resp.status_code, 201)
+        member = TeamMember.objects.get(email='noperm@test.com')
+        self.assertEqual(member.permission_overrides.count(), 0)
+
+    def test_invite_with_permissions_creates_only_diffs_from_role_default(self):
+        client = auth_client(self.owner)
+        # confirmateur default: orders_view=True, finances_view=False (see DEFAULT_PERMISSIONS)
+        resp = client.post('/api/team/invite/', {
+            'role': 'confirmateur', 'first_name': 'C', 'last_name': 'F', 'email': 'withperm@test.com',
+            'permissions': {
+                'orders_view': True,     # matches default -> no override stored
+                'finances_view': True,   # differs from default -> override stored
+            },
+        }, format='json')
+        self.assertEqual(resp.status_code, 201)
+        member = TeamMember.objects.get(email='withperm@test.com')
+        overrides = {o.permission: o.enabled for o in member.permission_overrides.all()}
+        self.assertEqual(overrides, {'finances_view': True})
+
+    def test_new_member_effective_permissions_include_custom_override(self):
+        client = auth_client(self.owner)
+        client.post('/api/team/invite/', {
+            'role': 'confirmateur', 'first_name': 'C', 'last_name': 'F', 'email': 'effective@test.com',
+            'permissions': {'stock_view': True},
+        }, format='json')
+        member = TeamMember.objects.get(email='effective@test.com')
+        from .models import get_effective_permissions
+        perms = get_effective_permissions(self.store, 'confirmateur', member=member)
+        self.assertTrue(perms['stock_view'])
+
+
 class TeamListTests(TestCase):
     def setUp(self):
         self.owner, self.store = make_owner()
@@ -124,3 +164,101 @@ class RolePermissionsMatrixTests(TestCase):
             'role': 'confirmateur', 'permission': 'not_a_real_permission', 'enabled': True,
         }, format='json')
         self.assertEqual(resp.status_code, 400)
+
+
+class TeamMemberPermissionsViewTests(TestCase):
+    def setUp(self):
+        self.owner, self.store = make_owner()
+        self.conf_user, self.conf = make_team_member(self.store, 'confirmateur')
+
+    def test_owner_can_view_member_permissions(self):
+        client = auth_client(self.owner)
+        resp = client.get(f'/api/team/members/{self.conf.id}/permissions/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(resp.data['catalog']), len(PERMISSION_CATALOG))
+        entry = next(e for e in resp.data['catalog'] if e['key'] == 'orders_view')
+        self.assertTrue(entry['enabled'])
+        self.assertFalse(entry['is_custom'])
+
+    def test_confirmateur_cannot_view_own_permissions_endpoint(self):
+        client = auth_client(self.conf_user)
+        resp = client.get(f'/api/team/members/{self.conf.id}/permissions/')
+        self.assertEqual(resp.status_code, 403)
+
+    def test_post_creates_override_and_marks_custom(self):
+        client = auth_client(self.owner)
+        resp = client.post(f'/api/team/members/{self.conf.id}/permissions/', {
+            'permission': 'stock_view', 'enabled': True,
+        }, format='json')
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.data['permissions']['stock_view'])
+
+        check = client.get(f'/api/team/members/{self.conf.id}/permissions/')
+        entry = next(e for e in check.data['catalog'] if e['key'] == 'stock_view')
+        self.assertTrue(entry['is_custom'])
+
+    def test_post_upserts_same_permission_twice(self):
+        client = auth_client(self.owner)
+        client.post(f'/api/team/members/{self.conf.id}/permissions/', {'permission': 'stock_view', 'enabled': True}, format='json')
+        resp = client.post(f'/api/team/members/{self.conf.id}/permissions/', {'permission': 'stock_view', 'enabled': False}, format='json')
+        self.assertEqual(resp.status_code, 200)
+        self.assertFalse(resp.data['permissions']['stock_view'])
+        from .models import TeamMemberPermission
+        self.assertEqual(TeamMemberPermission.objects.filter(member=self.conf, permission='stock_view').count(), 1)
+
+    def test_post_rejects_unknown_permission(self):
+        client = auth_client(self.owner)
+        resp = client.post(f'/api/team/members/{self.conf.id}/permissions/', {
+            'permission': 'not_a_real_permission', 'enabled': True,
+        }, format='json')
+        self.assertEqual(resp.status_code, 400)
+
+    def test_member_override_does_not_leak_to_role_matrix(self):
+        client = auth_client(self.owner)
+        client.post(f'/api/team/members/{self.conf.id}/permissions/', {'permission': 'stock_view', 'enabled': True}, format='json')
+        matrix = client.get('/api/team/permissions/')
+        self.assertFalse(matrix.data['matrix']['confirmateur']['stock_view'])
+
+
+from .models import TeamMemberPermission, get_effective_permissions
+
+
+class EffectivePermissionsCascadeTests(TestCase):
+    def setUp(self):
+        self.owner, self.store = make_owner()
+        self.conf_user, self.conf = make_team_member(self.store, 'confirmateur')
+
+    def test_defaults_to_role_default_with_no_overrides(self):
+        perms = get_effective_permissions(self.store, 'confirmateur', member=self.conf)
+        self.assertFalse(perms['finances_view'])
+        self.assertTrue(perms['orders_view'])
+
+    def test_role_override_applies_when_no_member_override(self):
+        RolePermission.objects.create(store=self.store, role='confirmateur', permission='finances_view', enabled=True)
+        perms = get_effective_permissions(self.store, 'confirmateur', member=self.conf)
+        self.assertTrue(perms['finances_view'])
+
+    def test_member_override_wins_over_role_override(self):
+        RolePermission.objects.create(store=self.store, role='confirmateur', permission='finances_view', enabled=True)
+        TeamMemberPermission.objects.create(member=self.conf, permission='finances_view', enabled=False)
+        perms = get_effective_permissions(self.store, 'confirmateur', member=self.conf)
+        self.assertFalse(perms['finances_view'])
+
+    def test_member_override_isolated_from_other_members_same_role(self):
+        _, other_conf = make_team_member(self.store, 'confirmateur')
+        TeamMemberPermission.objects.create(member=self.conf, permission='stock_view', enabled=True)
+        perms_conf  = get_effective_permissions(self.store, 'confirmateur', member=self.conf)
+        perms_other = get_effective_permissions(self.store, 'confirmateur', member=other_conf)
+        self.assertTrue(perms_conf['stock_view'])
+        self.assertFalse(perms_other['stock_view'])
+
+    def test_no_member_arg_behaves_like_role_only(self):
+        perms = get_effective_permissions(self.store, 'confirmateur')
+        self.assertFalse(perms['finances_view'])
+
+    def test_member_override_reflected_in_auth_me(self):
+        from .models import TeamMemberPermission
+        TeamMemberPermission.objects.create(member=self.conf, permission='finances_view', enabled=True)
+        client = auth_client(self.conf_user)
+        resp = client.get('/api/auth/me/')
+        self.assertTrue(resp.data['permissions']['finances_view'])

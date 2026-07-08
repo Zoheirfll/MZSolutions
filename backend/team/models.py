@@ -108,13 +108,40 @@ class RolePermission(models.Model):
         return f"{self.store_id} — {self.role} — {self.permission} = {self.enabled}"
 
 
-def get_effective_permissions(store, role):
-    """Permissions effectives d'un rôle dans une boutique : override stocké
-    si présent, sinon valeur par défaut. `role=None` (owner) n'appelle jamais
-    cette fonction — l'owner a un accès total géré séparément."""
-    defaults  = DEFAULT_PERMISSIONS.get(role, {})
-    overrides = {
+class TeamMemberPermission(models.Model):
+    """Override d'une permission du catalogue pour un membre précis — a
+    priorité sur RolePermission (override de rôle) qui a lui-même priorité
+    sur DEFAULT_PERMISSIONS (défaut du rôle). Seuls les overrides explicites
+    sont stockés, même philosophie que RolePermission."""
+    member     = models.ForeignKey(TeamMember, on_delete=models.CASCADE, related_name='permission_overrides')
+    permission = models.CharField(max_length=50)
+    enabled    = models.BooleanField(default=True)
+
+    class Meta:
+        unique_together = [('member', 'permission')]
+
+    def __str__(self):
+        return f"{self.member_id} — {self.permission} = {self.enabled}"
+
+
+def get_effective_permissions(store, role, member=None):
+    """Permissions effectives d'un rôle (et, si `member` est fourni, d'un
+    membre précis) dans une boutique : override membre si présent, sinon
+    override de rôle si présent, sinon valeur par défaut du rôle. `role=None`
+    (owner) n'appelle jamais cette fonction — l'owner a un accès total géré
+    séparément."""
+    defaults = DEFAULT_PERMISSIONS.get(role, {})
+    role_overrides = {
         p.permission: p.enabled
         for p in RolePermission.objects.filter(store=store, role=role)
     }
-    return {key: overrides.get(key, defaults.get(key, False)) for key, _ in PERMISSION_CATALOG}
+    member_overrides = {}
+    if member is not None:
+        member_overrides = {
+            p.permission: p.enabled
+            for p in TeamMemberPermission.objects.filter(member=member)
+        }
+    return {
+        key: member_overrides.get(key, role_overrides.get(key, defaults.get(key, False)))
+        for key, _ in PERMISSION_CATALOG
+    }
