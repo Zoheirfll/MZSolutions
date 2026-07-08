@@ -4,6 +4,34 @@
   --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
 }
 
+:root {
+  --bg-app: #08090a;
+  --bg-sidebar: #0a0b0c;
+  --bg-card: #0d0e10;
+  --bg-card-alt: #131417;
+  --border-color: #1f2023;
+  --border-color-hover: #2a2b2f;
+  --text-primary: #e5e7eb;
+  --text-muted: #6b6d73;
+  --text-muted-light: #9a9ca3;
+  --border-color-row-hover: rgba(148, 150, 156, 0.27);
+  --border-color-row-hover-strong: rgba(148, 150, 156, 0.33);
+}
+
+[data-theme="light"] {
+  --bg-app: #f7f7f8;
+  --bg-sidebar: #ffffff;
+  --bg-card: #ffffff;
+  --bg-card-alt: #f3f4f6;
+  --border-color: #e5e7eb;
+  --border-color-hover: #d1d5db;
+  --text-primary: #111827;
+  --text-muted: #6b7280;
+  --text-muted-light: #4b5563;
+  --border-color-row-hover: rgba(107, 114, 128, 0.18);
+  --border-color-row-hover-strong: rgba(107, 114, 128, 0.24);
+}
+
 html {
   /* Bumps every rem-based Tailwind utility (text-*, p-*, gap-*, rounded-*)
      up ~7% at once, so the whole app reads bigger/airier without touching
@@ -41,3 +69,13 @@ select {
      select's background/text color even after appearance: none. */
   forced-color-adjust: none;
 }
+
+.text-app-primary { color: var(--text-primary); }
+.text-app-muted { color: var(--text-muted); }
+.text-app-muted-light { color: var(--text-muted-light); }
+.bg-app { background-color: var(--bg-app); }
+.bg-app-sidebar { background-color: var(--bg-sidebar); }
+.bg-app-card { background-color: var(--bg-card); }
+.bg-app-card-alt { background-color: var(--bg-card-alt); }
+.border-app { border-color: var(--border-color); }
+.border-app-hover:hover { border-color: var(--border-color-hover); }
