@@ -31,6 +31,14 @@ function BackIcon(props) {
   )
 }
 
+function PaperclipIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14" {...props}>
+      <path d="M21.44 11.05l-9.19 9.19a5 5 0 01-7.07-7.07l9.19-9.19a3 3 0 014.24 4.24l-9.19 9.19a1 1 0 01-1.42-1.42l8.49-8.48" />
+    </svg>
+  )
+}
+
 export default function ComplaintDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -41,6 +49,10 @@ export default function ComplaintDetailPage() {
   const [savingStatus, setSavingStatus] = useState(false)
   const [newMessage, setNewMessage]     = useState('')
   const [savingMessage, setSavingMessage] = useState(false)
+  const [statusAttachment, setStatusAttachment]   = useState(null)
+  const [messageAttachment, setMessageAttachment] = useState(null)
+  const [confirmateurs, setConfirmateurs] = useState([])
+  const [assigning, setAssigning]       = useState(false)
 
   const inputCls = 'w-full px-3.5 py-2.5 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 transition [color-scheme:dark]'
   const bdrStyle = { borderColor: theme.dark.border, background: theme.dark.sidebar }
@@ -54,28 +66,48 @@ export default function ComplaintDetailPage() {
   }, [id])
 
   useEffect(() => { fetchComplaint() }, [fetchComplaint])
+  useEffect(() => {
+    api.get('/team/members/?role=confirmateur').then(({ data }) => setConfirmateurs(Array.isArray(data) ? data : [])).catch(() => {})
+  }, [])
 
   const changeStatus = async () => {
     setSavingStatus(true)
     try {
-      const { data } = await api.post(`/orders/complaints/${id}/status/`, { status: newStatus, note })
+      const fd = new FormData()
+      fd.append('status', newStatus)
+      fd.append('note', note)
+      if (statusAttachment) fd.append('attachment', statusAttachment)
+      const { data } = await api.post(`/orders/complaints/${id}/status/`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
       setComplaint(data)
       setNote('')
+      setStatusAttachment(null)
     } catch {} finally {
       setSavingStatus(false)
     }
   }
 
   const addMessage = async () => {
-    if (!newMessage.trim()) return
+    if (!newMessage.trim() && !messageAttachment) return
     setSavingMessage(true)
     try {
-      const { data } = await api.post(`/orders/complaints/${id}/messages/`, { message: newMessage })
+      const fd = new FormData()
+      fd.append('message', newMessage)
+      if (messageAttachment) fd.append('attachment', messageAttachment)
+      const { data } = await api.post(`/orders/complaints/${id}/messages/`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
       setComplaint(data)
       setNewMessage('')
+      setMessageAttachment(null)
     } catch {} finally {
       setSavingMessage(false)
     }
+  }
+
+  const reassign = async (confirmateurId) => {
+    setAssigning(true)
+    try {
+      const { data } = await api.put(`/orders/complaints/${id}/assignment/`, { confirmateur: confirmateurId })
+      setComplaint(c => ({ ...c, confirmateur_name: data.confirmateur_name }))
+    } catch {} finally { setAssigning(false) }
   }
 
   if (loading) {
@@ -136,6 +168,11 @@ export default function ComplaintDetailPage() {
                         <span className="text-xs" style={{ color: theme.dark.muted }}>{new Date(m.created_at).toLocaleString('fr-DZ')}</span>
                       </div>
                       {m.message && <p className="text-xs mt-0.5 text-gray-400">{m.message}</p>}
+                      {m.attachment_url && (
+                        <a href={m.attachment_url} target="_blank" rel="noreferrer" className="inline-block mt-2">
+                          <img src={m.attachment_url} alt="Pièce jointe" className="w-24 h-24 object-cover rounded-lg border" style={{ borderColor: theme.dark.border }} />
+                        </a>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -145,7 +182,12 @@ export default function ComplaintDetailPage() {
             <div className="mt-5 pt-4 border-t" style={{ borderColor: theme.dark.border }}>
               <label className="block text-xs mb-1.5" style={{ color: theme.dark.muted }}>Ajouter un message (sans changer le statut)</label>
               <textarea value={newMessage} onChange={e => setNewMessage(e.target.value)} rows={2} className={`${inputCls} resize-none`} style={bdrStyle} placeholder="Répondre au client…" />
-              <button onClick={addMessage} disabled={savingMessage || !newMessage.trim()} className={theme.btn.outline + ' mt-2 text-sm disabled:opacity-50'}>
+              <label className="inline-flex items-center gap-1.5 text-xs mt-2 cursor-pointer transition hover:text-gray-200" style={{ color: theme.dark.muted }}>
+                <PaperclipIcon />
+                {messageAttachment ? messageAttachment.name : 'Joindre une photo'}
+                <input type="file" accept="image/*" className="hidden" onChange={e => setMessageAttachment(e.target.files?.[0] || null)} />
+              </label>
+              <button onClick={addMessage} disabled={savingMessage || (!newMessage.trim() && !messageAttachment)} className={theme.btn.outline + ' mt-2 text-sm disabled:opacity-50 block'}>
                 {savingMessage ? '…' : 'Ajouter le message'}
               </button>
             </div>
@@ -155,9 +197,28 @@ export default function ComplaintDetailPage() {
         {/* Colonne droite */}
         <div className="w-full lg:w-72 shrink-0 space-y-4 lg:sticky lg:top-4">
           <div className="rounded-xl border p-4" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
+            <h3 className="text-sm font-semibold text-gray-200 mb-3">Assignation</h3>
+            <p className="text-sm text-gray-300 mb-3">{complaint.confirmateur_name || 'Non assignée'}</p>
+            <Select
+              value=""
+              onChange={reassign}
+              options={confirmateurs.map(c => ({ value: c.id, label: `${c.first_name} ${c.last_name}` }))}
+              placeholder={assigning ? 'Réassignation…' : 'Réassigner à…'}
+              disabled={assigning || confirmateurs.length === 0}
+              className={inputCls}
+              style={bdrStyle}
+            />
+          </div>
+
+          <div className="rounded-xl border p-4" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
             <h3 className="text-sm font-semibold text-gray-200 mb-3">Changer le statut</h3>
             <Select value={newStatus} onChange={setNewStatus} options={STATUS_OPTIONS} className={inputCls + ' mb-2'} style={bdrStyle} />
-            <textarea value={note} onChange={e => setNote(e.target.value)} rows={2} className={`${inputCls} resize-none mb-3`} style={bdrStyle} placeholder="Note (optionnel)" />
+            <textarea value={note} onChange={e => setNote(e.target.value)} rows={2} className={`${inputCls} resize-none mb-2`} style={bdrStyle} placeholder="Note (optionnel)" />
+            <label className="inline-flex items-center gap-1.5 text-xs mb-3 cursor-pointer transition hover:text-gray-200" style={{ color: theme.dark.muted }}>
+              <PaperclipIcon />
+              {statusAttachment ? statusAttachment.name : 'Joindre une photo'}
+              <input type="file" accept="image/*" className="hidden" onChange={e => setStatusAttachment(e.target.files?.[0] || null)} />
+            </label>
             <button onClick={changeStatus} disabled={savingStatus || newStatus === complaint.status} className={theme.btn.primary + ' w-full disabled:opacity-50'}>
               {savingStatus ? '…' : 'Appliquer'}
             </button>

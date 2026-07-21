@@ -120,3 +120,47 @@ def assign_order_round_robin(order):
         assigned_by  = None,
     )
     return assignment
+
+
+def assign_complaint_round_robin(complaint):
+    """Même logique round-robin que assign_order_round_robin, mais avec son
+    propre curseur (ComplaintAssignment) — un confirmateur très sollicité sur
+    les commandes ne doit pas être systématiquement écarté des réclamations."""
+    from team.models import TeamMember
+    from .models import ComplaintAssignment
+
+    confirmateurs = list(
+        TeamMember.objects.filter(
+            store=complaint.store,
+            role='confirmateur',
+            is_active=True,
+            user__isnull=False,
+        ).order_by('id')
+    )
+
+    if not confirmateurs:
+        return None
+
+    last = (
+        ComplaintAssignment.objects
+        .filter(complaint__store=complaint.store, confirmateur__isnull=False)
+        .order_by('-assigned_at')
+        .select_related('confirmateur')
+        .first()
+    )
+
+    if last and last.confirmateur:
+        ids = [c.id for c in confirmateurs]
+        try:
+            idx = ids.index(last.confirmateur.id)
+            next_idx = (idx + 1) % len(confirmateurs)
+        except ValueError:
+            next_idx = 0
+    else:
+        next_idx = 0
+
+    return ComplaintAssignment.objects.create(
+        complaint    = complaint,
+        confirmateur = confirmateurs[next_idx],
+        assigned_by  = None,
+    )

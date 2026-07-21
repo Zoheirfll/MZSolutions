@@ -8,7 +8,7 @@ from .views import (
     AbandonedCartListView, AbandonedCartRemindView,
     ClientListView, CustomerRiskToggleView,
     BlacklistListCreateView, BlacklistDetailView,
-    ComplaintListView, ComplaintDetailView, ComplaintStatusView, ComplaintMessageCreateView,
+    ComplaintListView, ComplaintDetailView, ComplaintStatusView, ComplaintMessageCreateView, ComplaintAssignmentView,
     ExchangeListView, ExchangeDetailView, ExchangeStatusView,
 )
 from .stats_views import (
@@ -27,6 +27,7 @@ urlpatterns = [
     path('complaints/<int:pk>/',                  ComplaintDetailView.as_view()),
     path('complaints/<int:pk>/status/',           ComplaintStatusView.as_view()),
     path('complaints/<int:pk>/messages/',         ComplaintMessageCreateView.as_view()),
+    path('complaints/<int:pk>/assignment/',       ComplaintAssignmentView.as_view()),
     path('exchanges/',                            ExchangeListView.as_view()),
     path('exchanges/<int:pk>/',                   ExchangeDetailView.as_view()),
     path('exchanges/<int:pk>/status/',            ExchangeStatusView.as_view()),

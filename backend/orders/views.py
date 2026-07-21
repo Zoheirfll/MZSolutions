@@ -12,12 +12,14 @@ from rest_framework import status
 
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
-from .models import Order, OrderItem, OrderStatusHistory, STATUS_CHOICES, NO_ANSWER_STATUSES, OrderAssignment, FailureReason, CallAttempt, CALL_STATUS_CHOICES, PaymentWebhookLog, AbandonedCart, CarrierAccount, CARRIER_CHOICES, CustomerRisk, BlacklistedPhone, Complaint, ComplaintMessage, COMPLAINT_STATUS_CHOICES, ExchangeRequest, EXCHANGE_STATUS_CHOICES
+from .models import Order, OrderItem, OrderStatusHistory, STATUS_CHOICES, NO_ANSWER_STATUSES, OrderAssignment, FailureReason, CallAttempt, CALL_STATUS_CHOICES, PaymentWebhookLog, AbandonedCart, CarrierAccount, CARRIER_CHOICES, CustomerRisk, BlacklistedPhone, Complaint, ComplaintMessage, ComplaintAssignment, COMPLAINT_STATUS_CHOICES, ExchangeRequest, EXCHANGE_STATUS_CHOICES
 from .serializers import OrderSerializer, OrderDetailSerializer, OrderAssignmentSerializer, FailureReasonSerializer, CallAttemptSerializer, AbandonedCartSerializer, CarrierAccountSerializer, BlacklistedPhoneSerializer, ComplaintSerializer, ComplaintDetailSerializer, ExchangeRequestSerializer
-from .utils import assign_order_round_robin, send_abandoned_cart_email
+from .utils import assign_order_round_robin, assign_complaint_round_robin, send_abandoned_cart_email
 from . import chargily
 from .carriers import get_carrier_client
 from core.permissions import IsOwnerOrAdminForWrites, is_owner_or_admin, has_permission
+from core.validators import validate_uploaded_file
+from django.core.exceptions import ValidationError as DjangoValidationError
 
 
 def _get_store(request):
@@ -807,7 +809,7 @@ class ComplaintListView(APIView):
             'count':    total,
             'page':     page,
             'per_page': per_page,
-            'results':  ComplaintSerializer(qs, many=True).data,
+            'results':  ComplaintSerializer(qs, many=True, context={'request': request}).data,
         })
 
 
@@ -826,7 +828,52 @@ class ComplaintDetailView(APIView):
     def get(self, request, pk):
         complaint, err = self._get(request, pk)
         if err: return err
-        return Response(ComplaintDetailSerializer(complaint).data)
+        return Response(ComplaintDetailSerializer(complaint, context={'request': request}).data)
+
+
+class ComplaintAssignmentView(APIView):
+    """Réassignation manuelle d'une réclamation à un confirmateur (mirroring
+    OrderAssignmentView) — l'assignation initiale se fait automatiquement en
+    round-robin à la création (PublicComplaintCreateView)."""
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request, pk):
+        if not is_owner_or_admin(request):
+            return Response({'detail': 'Réassignation réservée au propriétaire ou administrateur.'}, status=403)
+        store = _get_store(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        try:
+            complaint = store.complaints.get(pk=pk)
+        except Complaint.DoesNotExist:
+            return Response({'detail': 'Réclamation introuvable.'}, status=404)
+
+        confirmateur_id = request.data.get('confirmateur')
+        if not confirmateur_id:
+            return Response({'detail': 'confirmateur requis.'}, status=400)
+        try:
+            confirmateur = store.team_members.get(pk=confirmateur_id, role='confirmateur', is_active=True)
+        except Exception:
+            return Response({'detail': 'Confirmateur invalide.'}, status=400)
+
+        ComplaintAssignment.objects.update_or_create(
+            complaint=complaint,
+            defaults={'confirmateur': confirmateur, 'assigned_by': request.user},
+        )
+        return Response(ComplaintSerializer(complaint, context={'request': request}).data)
+
+
+def _validate_complaint_attachment(attachment):
+    """Rejette un fichier hors whitelist image/taille avant tout enregistrement
+    — ComplaintMessage.objects.create() ne passe pas par full_clean(), donc les
+    validators du champ modèle ne se déclenchent jamais tout seuls ici."""
+    if not attachment:
+        return None
+    try:
+        validate_uploaded_file(attachment)
+    except DjangoValidationError as e:
+        return Response({'detail': e.messages[0] if e.messages else 'Fichier invalide.'}, status=400)
+    return None
 
 
 class ComplaintStatusView(APIView):
@@ -846,15 +893,20 @@ class ComplaintStatusView(APIView):
         if new_status not in valid:
             return Response({'detail': f'Statut invalide. Valeurs : {valid}'}, status=400)
 
+        attachment = request.FILES.get('attachment')
+        err = _validate_complaint_attachment(attachment)
+        if err: return err
+
         complaint.status = new_status
         complaint.save(update_fields=['status', 'updated_at'])
         ComplaintMessage.objects.create(
-            complaint = complaint,
-            status    = new_status,
-            message   = request.data.get('note', ''),
-            author    = request.user,
+            complaint  = complaint,
+            status     = new_status,
+            message    = request.data.get('note', ''),
+            author     = request.user,
+            attachment = attachment,
         )
-        return Response(ComplaintDetailSerializer(complaint).data)
+        return Response(ComplaintDetailSerializer(complaint, context={'request': request}).data)
 
 
 class ComplaintMessageCreateView(APIView):
@@ -870,11 +922,15 @@ class ComplaintMessageCreateView(APIView):
             return Response({'detail': 'Réclamation introuvable.'}, status=404)
 
         message = request.data.get('message', '').strip()
-        if not message:
+        attachment = request.FILES.get('attachment')
+        if not message and not attachment:
             return Response({'detail': 'Message vide.'}, status=400)
 
-        ComplaintMessage.objects.create(complaint=complaint, message=message, author=request.user)
-        return Response(ComplaintDetailSerializer(complaint).data, status=status.HTTP_201_CREATED)
+        err = _validate_complaint_attachment(attachment)
+        if err: return err
+
+        ComplaintMessage.objects.create(complaint=complaint, message=message, author=request.user, attachment=attachment)
+        return Response(ComplaintDetailSerializer(complaint, context={'request': request}).data, status=status.HTTP_201_CREATED)
 
 
 def _get_public_store_for_complaints(slug):
@@ -891,6 +947,7 @@ class PublicComplaintCreateView(APIView):
     renvoyée au client, pour éviter qu'un tiers ne devine un téléphone et
     consulte les commandes/montants de quelqu'un d'autre."""
     permission_classes = [AllowAny]
+    throttle_scope = 'complaint'
 
     @transaction.atomic
     def post(self, request):
@@ -917,8 +974,19 @@ class PublicComplaintCreateView(APIView):
         if not order:
             return Response({'detail': 'Aucune commande trouvée avec ce numéro de téléphone.'}, status=404)
 
+        attachment = request.FILES.get('attachment')
+        err = _validate_complaint_attachment(attachment)
+        if err: return err
+
         complaint = Complaint.objects.create(store=store, order=order, subject=subject, description=description)
-        ComplaintMessage.objects.create(complaint=complaint, message=description, status='open', author=None)
+        ComplaintMessage.objects.create(
+            complaint  = complaint,
+            message    = description,
+            status     = 'open',
+            author     = None,
+            attachment = attachment,
+        )
+        assign_complaint_round_robin(complaint)
 
         return Response({'id': complaint.id, 'detail': 'Réclamation envoyée.'}, status=status.HTTP_201_CREATED)
 
@@ -938,6 +1006,15 @@ class ExchangeListView(APIView):
         status_filter = request.query_params.get('status')
         if status_filter:
             qs = qs.filter(status=status_filter)
+
+        search = request.query_params.get('search', '').strip()
+        if search:
+            qs = qs.filter(
+                Q(order_item__order__phone__icontains=search) |
+                Q(order_item__order__first_name__icontains=search) |
+                Q(order_item__order__last_name__icontains=search) |
+                Q(order_item__product_name__icontains=search)
+            )
 
         page     = max(1, int(request.query_params.get('page', 1)))
         per_page = int(request.query_params.get('per_page', 10))
@@ -1039,6 +1116,7 @@ class PublicExchangeCreateView(APIView):
     doit appartenir à la boutique et le téléphone doit correspondre, avant de
     pouvoir référencer un article précis de cette commande."""
     permission_classes = [AllowAny]
+    throttle_scope = 'exchange'
 
     @transaction.atomic
     def post(self, request):
@@ -1088,6 +1166,7 @@ class PublicOrderItemsView(APIView):
     plusieurs commandes, pour limiter ce qu'un tiers connaissant le téléphone
     peut voir à une seule commande récente plutôt qu'à tout l'historique."""
     permission_classes = [AllowAny]
+    throttle_scope = 'exchange'
 
     def get(self, request, slug):
         store = _get_public_store_for_exchanges(slug)
@@ -1272,6 +1351,7 @@ class ConfirmationRateView(APIView):
 
 class PublicOrderView(APIView):
     permission_classes = [AllowAny]
+    throttle_scope = 'order'
 
     @transaction.atomic
     def post(self, request):
@@ -1730,6 +1810,7 @@ class FailureReasonDetailView(APIView):
 
 class PublicAbandonedCartView(APIView):
     permission_classes = [AllowAny]
+    throttle_scope = 'abandoned_cart'
 
     def post(self, request):
         store_slug = request.data.get('store_slug')
@@ -1766,6 +1847,7 @@ class PublicAbandonedCartView(APIView):
 
 class PublicMarkCartRecoveredView(APIView):
     permission_classes = [AllowAny]
+    throttle_scope = 'abandoned_cart'
 
     def post(self, request):
         store_slug = request.data.get('store_slug')

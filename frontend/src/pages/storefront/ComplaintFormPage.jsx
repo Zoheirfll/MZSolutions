@@ -22,16 +22,21 @@ export default function ComplaintFormPage() {
     subject: '',
     description: '',
   })
-  const [saving, setSaving] = useState(false)
-  const [error, setError]   = useState('')
-  const [sent, setSent]     = useState(false)
+  const [saving, setSaving]         = useState(false)
+  const [error, setError]           = useState('')
+  const [sent, setSent]             = useState(false)
+  const [attachment, setAttachment] = useState(null)
 
   const handleSubmit = async e => {
     e.preventDefault()
     setSaving(true)
     setError('')
     try {
-      await publicApi.post('/complaints/', { store_slug: slug, ...form })
+      const fd = new FormData()
+      fd.append('store_slug', slug)
+      Object.entries(form).forEach(([k, v]) => fd.append(k, v))
+      if (attachment) fd.append('attachment', attachment)
+      await publicApi.post('/complaints/', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
       setSent(true)
     } catch (err) {
       setError(err.response?.data?.detail || "Une erreur est survenue lors de l'envoi.")
@@ -83,6 +88,10 @@ export default function ComplaintFormPage() {
             <label className={theme.label}>Description *</label>
             <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} required rows={5}
               className={theme.input} placeholder="Décrivez le problème rencontré…" />
+          </div>
+          <div>
+            <label className={theme.label}>Photo (optionnel)</label>
+            <input type="file" accept="image/*" onChange={e => setAttachment(e.target.files?.[0] || null)} className={theme.input} />
           </div>
 
           {error && <p className={theme.errorText}>{error}</p>}

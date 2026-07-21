@@ -44,12 +44,12 @@ describe('ComplaintFormPage', () => {
     await user.type(screen.getByPlaceholderText('Décrivez le problème rencontré…'), 'Boîte cassée à la réception')
     await user.click(screen.getByRole('button', { name: 'Envoyer la réclamation' }))
 
-    expect(publicApi.post).toHaveBeenCalledWith('/complaints/', expect.objectContaining({
-      store_slug: 'demo',
-      phone: '0555000000',
-      subject: 'Colis endommagé',
-      description: 'Boîte cassée à la réception',
-    }))
+    expect(publicApi.post).toHaveBeenCalledWith('/complaints/', expect.any(FormData), { headers: { 'Content-Type': 'multipart/form-data' } })
+    const submittedForm = publicApi.post.mock.calls[0][1]
+    expect(submittedForm.get('store_slug')).toBe('demo')
+    expect(submittedForm.get('phone')).toBe('0555000000')
+    expect(submittedForm.get('subject')).toBe('Colis endommagé')
+    expect(submittedForm.get('description')).toBe('Boîte cassée à la réception')
     expect(await screen.findByText('Réclamation envoyée')).toBeInTheDocument()
   })
 

@@ -54,7 +54,7 @@ describe('ComplaintDetailPage', () => {
     const user = userEvent.setup()
     api.get.mockImplementation((url) => {
       if (url === '/orders/complaints/7/') return Promise.resolve({ data: COMPLAINT })
-      return Promise.resolve({ data: {} })
+      return Promise.resolve({ data: [] })
     })
     const updated = { ...COMPLAINT, messages: [...COMPLAINT.messages, { id: 2, author_name: 'Vendeur', status: null, status_label: '', message: 'Nous traitons votre demande.', created_at: '2026-07-02T10:00:00Z' }] }
     api.post.mockResolvedValueOnce({ data: updated })
@@ -64,7 +64,11 @@ describe('ComplaintDetailPage', () => {
     await user.type(screen.getByPlaceholderText('Répondre au client…'), 'Nous traitons votre demande.')
     await user.click(screen.getByRole('button', { name: 'Ajouter le message' }))
 
-    await waitFor(() => expect(api.post).toHaveBeenCalledWith('/orders/complaints/7/messages/', { message: 'Nous traitons votre demande.' }))
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith(
+      '/orders/complaints/7/messages/',
+      expect.any(FormData),
+      { headers: { 'Content-Type': 'multipart/form-data' } },
+    ))
     expect(await screen.findByText('Nous traitons votre demande.')).toBeInTheDocument()
   })
 

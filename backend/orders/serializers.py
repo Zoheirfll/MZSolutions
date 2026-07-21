@@ -188,12 +188,14 @@ class BlacklistedPhoneSerializer(serializers.ModelSerializer):
 
 
 class ComplaintMessageSerializer(serializers.ModelSerializer):
-    author_name  = serializers.SerializerMethodField()
-    status_label = serializers.SerializerMethodField()
+    author_name    = serializers.SerializerMethodField()
+    status_label   = serializers.SerializerMethodField()
+    attachment_url = serializers.SerializerMethodField()
 
     class Meta:
         model  = ComplaintMessage
-        fields = ['id', 'message', 'status', 'status_label', 'author_name', 'created_at']
+        fields = ['id', 'message', 'status', 'status_label', 'author_name', 'attachment', 'attachment_url', 'created_at']
+        extra_kwargs = {'attachment': {'write_only': True, 'required': False}}
 
     def get_author_name(self, obj):
         if obj.author:
@@ -203,17 +205,27 @@ class ComplaintMessageSerializer(serializers.ModelSerializer):
     def get_status_label(self, obj):
         return dict(COMPLAINT_STATUS_CHOICES).get(obj.status, obj.status) if obj.status else None
 
+    def get_attachment_url(self, obj):
+        if not obj.attachment:
+            return None
+        request = self.context.get('request')
+        url = obj.attachment.url
+        return request.build_absolute_uri(url) if request else url
+
 
 class ComplaintSerializer(serializers.ModelSerializer):
-    status_label   = serializers.SerializerMethodField()
-    order_display  = serializers.SerializerMethodField()
-    order_phone    = serializers.SerializerMethodField()
-    messages_count = serializers.SerializerMethodField()
+    status_label      = serializers.SerializerMethodField()
+    order_display      = serializers.SerializerMethodField()
+    order_phone        = serializers.SerializerMethodField()
+    messages_count      = serializers.SerializerMethodField()
+    confirmateur_name   = serializers.SerializerMethodField()
+    days_open           = serializers.SerializerMethodField()
 
     class Meta:
         model  = Complaint
         fields = ['id', 'order', 'order_display', 'order_phone', 'subject', 'description',
-                  'status', 'status_label', 'messages_count', 'created_at', 'updated_at']
+                  'status', 'status_label', 'messages_count', 'confirmateur_name', 'days_open',
+                  'created_at', 'updated_at']
         read_only_fields = ['id', 'created_at', 'updated_at']
 
     def get_status_label(self, obj):
@@ -227,6 +239,23 @@ class ComplaintSerializer(serializers.ModelSerializer):
 
     def get_messages_count(self, obj):
         return obj.messages.count()
+
+    def get_confirmateur_name(self, obj):
+        try:
+            a = obj.assignment
+            if a and a.confirmateur:
+                return f"{a.confirmateur.first_name} {a.confirmateur.last_name}".strip()
+        except Exception:
+            pass
+        return None
+
+    def get_days_open(self, obj):
+        # Ancienneté depuis le dépôt — uniquement pertinent tant que non résolue
+        # (sert à l'indicateur d'urgence de ComplaintsPage.jsx).
+        if obj.status == 'resolved':
+            return None
+        from django.utils import timezone
+        return (timezone.now() - obj.created_at).days
 
 
 class ComplaintDetailSerializer(ComplaintSerializer):
@@ -243,13 +272,22 @@ class ExchangeRequestSerializer(serializers.ModelSerializer):
     order_phone        = serializers.SerializerMethodField()
     original_product   = serializers.SerializerMethodField()
     replacement_value  = serializers.SerializerMethodField()
+    days_open           = serializers.SerializerMethodField()
 
     class Meta:
         model  = ExchangeRequest
         fields = ['id', 'order_item', 'order', 'order_display', 'order_phone', 'original_product',
                   'replacement_option', 'replacement_value', 'reason', 'status', 'status_label',
-                  'vendor_note', 'created_at', 'updated_at']
+                  'days_open', 'vendor_note', 'created_at', 'updated_at']
         read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def get_days_open(self, obj):
+        # Ancienneté depuis le dépôt — uniquement pertinent tant qu'aucune
+        # décision n'a été prise (même logique que ComplaintSerializer.days_open).
+        if obj.status != 'open':
+            return None
+        from django.utils import timezone
+        return (timezone.now() - obj.created_at).days
 
     def get_status_label(self, obj):
         return dict(EXCHANGE_STATUS_CHOICES).get(obj.status, obj.status)

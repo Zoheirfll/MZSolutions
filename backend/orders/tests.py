@@ -417,6 +417,49 @@ class ComplaintPublicFlowTests(TestCase):
         complaint.refresh_from_db()
         self.assertEqual(complaint.status, 'resolved')
 
+    def test_auto_assigned_round_robin_on_creation(self):
+        conf_user1, conf1 = make_team_member(self.store, 'confirmateur')
+        conf_user2, conf2 = make_team_member(self.store, 'confirmateur')
+        resp = self.client.post('/api/public/complaints/', {
+            'store_slug': self.store.slug, 'order_id': self.order.id, 'phone': '0555222222',
+            'subject': 'Pb', 'description': 'Description',
+        }, content_type='application/json')
+        complaint = Complaint.objects.get(id=resp.data['id'])
+        self.assertIsNotNone(complaint.assignment.confirmateur)
+        self.assertIn(complaint.assignment.confirmateur_id, [conf1.id, conf2.id])
+
+    def test_owner_can_reassign_complaint(self):
+        conf_user, conf = make_team_member(self.store, 'confirmateur')
+        complaint = Complaint.objects.create(store=self.store, order=self.order, subject='S', description='D')
+        client = auth_client(self.owner)
+        resp = client.put(f'/api/orders/complaints/{complaint.id}/assignment/', {'confirmateur': conf.id}, format='json')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['confirmateur_name'], f'{conf.first_name} {conf.last_name}')
+
+    def test_confirmateur_cannot_reassign(self):
+        conf_user, conf = make_team_member(self.store, 'confirmateur')
+        complaint = Complaint.objects.create(store=self.store, order=self.order, subject='S', description='D')
+        client = auth_client(conf_user)
+        resp = client.put(f'/api/orders/complaints/{complaint.id}/assignment/', {'confirmateur': conf.id}, format='json')
+        self.assertEqual(resp.status_code, 403)
+
+    def test_days_open_none_when_resolved(self):
+        complaint = Complaint.objects.create(store=self.store, order=self.order, subject='S', description='D', status='resolved')
+        client = auth_client(self.owner)
+        resp = client.get('/api/orders/complaints/')
+        row = next(r for r in resp.data['results'] if r['id'] == complaint.id)
+        self.assertIsNone(row['days_open'])
+
+    def test_message_with_attachment(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        complaint = Complaint.objects.create(store=self.store, order=self.order, subject='S', description='D')
+        client = auth_client(self.owner)
+        image = SimpleUploadedFile('photo.jpg', b'\xff\xd8\xff\xe0' + b'0' * 100, content_type='image/jpeg')
+        resp = client.post(f'/api/orders/complaints/{complaint.id}/messages/', {'message': 'Voir photo', 'attachment': image}, format='multipart')
+        self.assertEqual(resp.status_code, 201)
+        msg = complaint.messages.last()
+        self.assertTrue(msg.attachment)
+
 
 class ExchangePublicFlowTests(TestCase):
     def setUp(self):
@@ -456,6 +499,29 @@ class ExchangePublicFlowTests(TestCase):
         client = auth_client(self.owner)
         resp = client.post(f'/api/orders/exchanges/{exchange.id}/status/', {'status': 'rejected'}, format='json')
         self.assertEqual(resp.status_code, 400)
+
+    def test_search_by_product_name(self):
+        from products.models import ProductVariant, VariantOption
+        variant = ProductVariant.objects.create(product=self.product, name='Taille')
+        opt = VariantOption.objects.create(variant=variant, value='42', stock=1)
+        ExchangeRequest.objects.create(store=self.store, order_item=self.item, replacement_option=opt, reason='x')
+
+        client = auth_client(self.owner)
+        resp = client.get('/api/orders/exchanges/?search=Shoe')
+        self.assertEqual(resp.data['count'], 1)
+        resp2 = client.get('/api/orders/exchanges/?search=Nonexistent')
+        self.assertEqual(resp2.data['count'], 0)
+
+    def test_days_open_none_once_decided(self):
+        from products.models import ProductVariant, VariantOption
+        variant = ProductVariant.objects.create(product=self.product, name='Taille')
+        opt = VariantOption.objects.create(variant=variant, value='42', stock=1)
+        exchange = ExchangeRequest.objects.create(store=self.store, order_item=self.item, replacement_option=opt, reason='x', status='rejected')
+
+        client = auth_client(self.owner)
+        resp = client.get('/api/orders/exchanges/')
+        row = next(r for r in resp.data['results'] if r['id'] == exchange.id)
+        self.assertIsNone(row['days_open'])
 
 
 class StatsViewsPermissionTests(TestCase):

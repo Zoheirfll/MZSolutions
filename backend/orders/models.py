@@ -2,6 +2,7 @@ from django.db import models
 from django.conf import settings
 from stores.models import Store
 from products.models import Product, VariantOption
+from core.validators import validate_image_extension, validate_image_size
 
 CALL_STATUS_CHOICES = [
     ('no_answer',        'Pas répondu'),
@@ -312,6 +313,8 @@ class ComplaintMessage(models.Model):
     message    = models.TextField(blank=True)
     status     = models.CharField(max_length=20, choices=COMPLAINT_STATUS_CHOICES, blank=True)
     author     = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL)
+    attachment = models.ImageField(upload_to='complaints/', null=True, blank=True,
+                                    validators=[validate_image_extension, validate_image_size])
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -319,6 +322,17 @@ class ComplaintMessage(models.Model):
 
     def __str__(self):
         return f"Message réclamation #{self.complaint_id}"
+
+
+class ComplaintAssignment(models.Model):
+    complaint    = models.OneToOneField(Complaint, on_delete=models.CASCADE, related_name='assignment')
+    confirmateur = models.ForeignKey('team.TeamMember', null=True, blank=True, on_delete=models.SET_NULL, related_name='assigned_complaints')
+    assigned_at  = models.DateTimeField(auto_now_add=True)
+    assigned_by  = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL)
+
+    def __str__(self):
+        name = f"{self.confirmateur.first_name} {self.confirmateur.last_name}" if self.confirmateur else 'Non assigné'
+        return f"#{self.complaint_id} → {name}"
 
 
 EXCHANGE_STATUS_CHOICES = [
