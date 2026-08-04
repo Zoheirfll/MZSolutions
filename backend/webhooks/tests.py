@@ -35,12 +35,17 @@ class WebhookEndpointCrudTests(TestCase):
 
 
 class DispatchTests(TestCase):
+    """`x.test` (RFC 2606) ne résout jamais en DNS réel — is_public_http_url()
+    (Sécurité, point 13 SSRF) le rejetterait avant même d'atteindre le
+    requests.post mocké. Ces tests portent sur la logique de dispatch, pas sur
+    la vérification SSRF elle-même (couverte séparément), donc on la mocke."""
     def setUp(self):
         self.owner, self.store = make_owner()
         self.endpoint = WebhookEndpoint.objects.create(store=self.store, url='https://x.test/hook', events=['order.created'])
 
+    @patch('webhooks.dispatch.is_public_http_url', return_value=True)
     @patch('webhooks.dispatch.requests.post')
-    def test_fire_event_success_logs_and_resets_failures(self, mock_post):
+    def test_fire_event_success_logs_and_resets_failures(self, mock_post, mock_safe_url):
         mock_post.return_value = MagicMock(status_code=200, ok=True)
         self.endpoint.consecutive_failures = 3
         self.endpoint.save()
@@ -54,8 +59,9 @@ class DispatchTests(TestCase):
         fire_event(self.store, 'order.confirmed', {'order_id': 1})
         mock_post.assert_not_called()
 
+    @patch('webhooks.dispatch.is_public_http_url', return_value=True)
     @patch('webhooks.dispatch.requests.post')
-    def test_endpoint_auto_disabled_after_max_failures(self, mock_post):
+    def test_endpoint_auto_disabled_after_max_failures(self, mock_post, mock_safe_url):
         import requests
         mock_post.side_effect = requests.exceptions.ConnectionError('connection refused')
         for _ in range(MAX_CONSECUTIVE_FAILURES):
@@ -70,6 +76,17 @@ class DispatchTests(TestCase):
         self.endpoint.save()
         fire_event(self.store, 'order.created', {'order_id': 1})
         mock_post.assert_not_called()
+
+    @patch('webhooks.dispatch.requests.post')
+    def test_ssrf_target_never_sent_and_logged_as_error(self, mock_post):
+        # is_public_http_url() résout réellement 'localhost' -> 127.0.0.1,
+        # rejeté comme adresse loopback (Sécurité, point 13).
+        self.endpoint.url = 'http://localhost:8000/internal'
+        self.endpoint.save()
+        fire_event(self.store, 'order.created', {'order_id': 1})
+        mock_post.assert_not_called()
+        log = WebhookLog.objects.filter(endpoint=self.endpoint).latest('created_at')
+        self.assertEqual(log.status, 'error')
 
 
 class IncomingWebhookTests(TestCase):

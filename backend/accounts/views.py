@@ -1,9 +1,11 @@
-import random
+import secrets
 import string
 from datetime import timedelta
 
 from django.conf import settings
+from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.mail import send_mail
 from django.db import transaction
 from django.utils import timezone
@@ -24,7 +26,7 @@ token_generator = PasswordResetTokenGenerator()
 
 
 def _generate_code():
-    return ''.join(random.choices(string.digits, k=6))
+    return ''.join(secrets.choice(string.digits) for _ in range(6))
 
 
 def _send_verification_email(user, code):
@@ -209,9 +211,6 @@ class PasswordResetConfirmView(APIView):
         token = request.data.get('token', '')
         new_password = request.data.get('new_password', '')
 
-        if len(new_password) < 8:
-            return Response({'detail': 'Le mot de passe doit contenir au moins 8 caractères.'}, status=400)
-
         try:
             pk = force_str(urlsafe_base64_decode(uid))
             user = User.objects.get(pk=pk)
@@ -220,6 +219,11 @@ class PasswordResetConfirmView(APIView):
 
         if not token_generator.check_token(user, token):
             return Response({'detail': 'Lien invalide ou expiré.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            validate_password(new_password, user=user)
+        except DjangoValidationError as e:
+            return Response({'detail': ' '.join(e.messages)}, status=400)
 
         user.set_password(new_password)
         user.save(update_fields=['password'])
@@ -241,6 +245,7 @@ def _verify_google_token(access_token):
 
 class GoogleRegisterView(APIView):
     permission_classes = [AllowAny]
+    throttle_scope = 'register'
 
     @transaction.atomic
     def post(self, request):

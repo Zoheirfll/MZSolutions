@@ -1,4 +1,6 @@
+from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
+from core.validators import validate_public_url
 from .models import WebhookEndpoint, WebhookLog, IncomingWebhookKey, WEBHOOK_EVENT_CHOICES
 
 
@@ -8,6 +10,13 @@ class WebhookEndpointSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'url', 'events', 'secret', 'is_active',
                   'consecutive_failures', 'last_triggered_at', 'created_at']
         read_only_fields = ['id', 'secret', 'consecutive_failures', 'last_triggered_at', 'created_at']
+
+    def validate_url(self, value):
+        try:
+            validate_public_url(value)
+        except DjangoValidationError as e:
+            raise serializers.ValidationError(e.messages)
+        return value
 
     def validate_events(self, value):
         valid = dict(WEBHOOK_EVENT_CHOICES)

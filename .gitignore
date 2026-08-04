@@ -10,6 +10,7 @@ backend/media/
 node_modules/
 frontend/dist/
 frontend/.env
+frontend/.env.production
 
 # Éditeurs / OS
 .vscode/

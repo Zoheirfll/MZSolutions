@@ -51,6 +51,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'core.middleware.SecurityHeadersMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -92,12 +93,22 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
     ),
-    # Rate limiting ciblé (Epic 8.6) — pas de throttle global agressif qui
-    # casserait le dashboard authentifié, seulement sur les endpoints
-    # AllowAny sensibles au brute force (login, OTP, reset, promo, webhook
-    # entrant), via ScopedRateThrottle + throttle_scope sur chaque vue.
+    # Rate limiting ciblé (Epic 8.6) sur les endpoints AllowAny sensibles au
+    # brute force (login, OTP, reset, promo, webhook entrant, etc.) via
+    # ScopedRateThrottle + throttle_scope sur chaque vue.
+    #
+    # Sécurité — point 14 : ce commentaire disait auparavant "pas de throttle
+    # global agressif" — en pratique ça signifiait qu'AUCUNE limite de débit
+    # n'existait pour un utilisateur authentifié (n'importe quel rôle), sur
+    # n'importe quel endpoint sans throttle_scope explicite (création de
+    # commande authentifiée, invitations d'équipe, listes de données...). Un
+    # compte compromis ou un membre d'équipe malveillant pouvait marteler
+    # l'API sans limite. UserRateThrottle ajoute un filet de sécurité
+    # générique par utilisateur, à un taux assez généreux pour ne jamais
+    # gêner un usage normal du dashboard (rafraîchissements de listes, stats).
     'DEFAULT_THROTTLE_CLASSES': (
         'rest_framework.throttling.ScopedRateThrottle',
+        'core.throttling.AuthenticatedUserRateThrottle',
     ),
     'DEFAULT_THROTTLE_RATES': {
         'login':            '10/min',
@@ -106,6 +117,13 @@ REST_FRAMEWORK = {
         'password_reset':   '5/min',
         'promo':            '20/min',
         'incoming_webhook': '30/min',
+        'order':            '10/min',
+        'exchange':         '10/min',
+        'complaint':        '10/min',
+        'review':           '10/min',
+        'invitation':       '20/min',
+        'abandoned_cart':   '20/min',
+        'user':             '2000/hour',
     },
 }
 
@@ -117,14 +135,27 @@ SIMPLE_JWT = {
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
-CORS_ALLOWED_ORIGINS = [
-    'http://localhost:5173',
-    'http://127.0.0.1:5173',
-]
-CORS_ALLOWED_ORIGIN_REGEXES = [
-    r'^https://.*\.ngrok-free\.dev$',
-    r'^https://.*\.ngrok\.io$',
-]
+# Sécurité — point 11 : ce bloc n'était pas conditionné par DEBUG, donc actif
+# aussi en production. *.ngrok-free.dev/*.ngrok.io sont des domaines de tunnel
+# accessibles à n'importe qui (pas seulement à nous) — combinés à
+# CORS_ALLOW_CREDENTIALS=True, un attaquant pouvait créer son propre tunnel
+# ngrok gratuit dont l'origine passait la vérification CORS avec les
+# credentials autorisés (impact réel : Django Admin, seul point du projet à
+# s'appuyer sur les cookies de session plutôt qu'un JWT Bearer non auto-envoyé
+# cross-origin). En prod, seules les origines explicites de CORS_ALLOWED_ORIGINS
+# (.env) sont autorisées, jamais le repli localhost/ngrok.
+if DEBUG:
+    CORS_ALLOWED_ORIGINS = [
+        'http://localhost:5173',
+        'http://127.0.0.1:5173',
+    ]
+    CORS_ALLOWED_ORIGIN_REGEXES = [
+        r'^https://.*\.ngrok-free\.dev$',
+        r'^https://.*\.ngrok\.io$',
+    ]
+else:
+    CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', default='', cast=Csv())
+    CORS_ALLOWED_ORIGIN_REGEXES = []
 CORS_ALLOW_CREDENTIALS = True
 
 # Cookies sécurisés / HSTS (Epic 8.6) — actifs seulement en production, pour

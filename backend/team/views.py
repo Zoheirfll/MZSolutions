@@ -126,6 +126,7 @@ class TeamMemberDetailView(APIView):
 
 class AcceptInvitationView(APIView):
     permission_classes = [AllowAny]
+    throttle_scope = 'invitation'
 
     def get(self, request):
         token = request.query_params.get('token', '')

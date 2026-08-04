@@ -1,4 +1,6 @@
 from django.contrib.auth import authenticate
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.utils.text import slugify
 from rest_framework import serializers
@@ -81,6 +83,16 @@ class RegisterSerializer(serializers.Serializer):
         if Store.objects.filter(slug=value).exists():
             raise serializers.ValidationError("Ce slug de boutique est déjà pris.")
         return slugify(value)
+
+    def validate_password(self, value):
+        # AUTH_PASSWORD_VALIDATORS (settings.py) n'est jamais invoqué par
+        # défaut sur un serializer DRF — sans cet appel explicite, seul le
+        # min_length=8 ci-dessus est réellement appliqué.
+        try:
+            validate_password(value)
+        except DjangoValidationError as e:
+            raise serializers.ValidationError(e.messages)
+        return value
 
     @transaction.atomic
     def create(self, validated_data):

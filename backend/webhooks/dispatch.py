@@ -2,6 +2,7 @@ import hashlib
 import hmac
 import json
 import requests
+from core.validators import is_public_http_url
 from .models import WebhookEndpoint, WebhookLog, MAX_CONSECUTIVE_FAILURES
 
 
@@ -29,14 +30,22 @@ def _send(endpoint, event, payload):
         headers['X-MZ-Signature'] = hmac.new(endpoint.secret.encode(), body.encode(), hashlib.sha256).hexdigest()
 
     status_code = None
-    try:
-        resp = requests.post(endpoint.url, data=body, headers=headers, timeout=5)
-        status_code = resp.status_code
-        success = resp.ok
-        message = '' if success else f"HTTP {resp.status_code}"
-    except requests.RequestException as e:
+    # Revérifié ici (pas seulement à la création) : protège contre le DNS
+    # rebinding — un domaine pointant vers une IP publique au moment de la
+    # configuration pourrait résoudre vers une IP privée/interne au moment de
+    # l'envoi réel (Sécurité — point 13, SSRF).
+    if not is_public_http_url(endpoint.url):
         success = False
-        message = str(e)
+        message = "URL invalide ou pointant vers une adresse réseau non autorisée."
+    else:
+        try:
+            resp = requests.post(endpoint.url, data=body, headers=headers, timeout=5)
+            status_code = resp.status_code
+            success = resp.ok
+            message = '' if success else f"HTTP {resp.status_code}"
+        except requests.RequestException as e:
+            success = False
+            message = str(e)
 
     from django.utils import timezone
     WebhookLog.objects.create(
