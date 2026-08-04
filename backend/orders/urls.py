@@ -10,6 +10,7 @@ from .views import (
     BlacklistListCreateView, BlacklistDetailView,
     ComplaintListView, ComplaintDetailView, ComplaintStatusView, ComplaintMessageCreateView, ComplaintAssignmentView,
     ExchangeListView, ExchangeDetailView, ExchangeStatusView,
+    ShipmentListView, OrderLabelView,
 )
 from .stats_views import (
     OrdersStatsDetailView, ReturnsStatsView, FailureStatsView, StockSalesStatsView,
@@ -31,6 +32,7 @@ urlpatterns = [
     path('exchanges/',                            ExchangeListView.as_view()),
     path('exchanges/<int:pk>/',                   ExchangeDetailView.as_view()),
     path('exchanges/<int:pk>/status/',            ExchangeStatusView.as_view()),
+    path('shipments/',                            ShipmentListView.as_view()),
     path('',                                      OrderListCreateView.as_view()),
     path('stats/',                                OrderStatsView.as_view()),
     path('stats/confirmation/',                   ConfirmationRateView.as_view()),
@@ -45,6 +47,7 @@ urlpatterns = [
     path('failure-reasons/',                      FailureReasonListView.as_view()),
     path('failure-reasons/<int:pk>/',             FailureReasonDetailView.as_view()),
     path('<int:pk>/',                             OrderDetailView.as_view()),
+    path('<int:pk>/label/',                       OrderLabelView.as_view()),
     path('<int:pk>/status/',                      OrderStatusView.as_view()),
     path('<int:pk>/reject-cancellation/',          OrderRejectCancellationView.as_view()),
     path('<int:pk>/assignment/',                  OrderAssignmentView.as_view()),

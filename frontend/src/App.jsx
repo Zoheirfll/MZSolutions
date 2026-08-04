@@ -30,6 +30,7 @@ import OrdersPage from './pages/orders/OrdersPage'
 import OrderFormPage from './pages/orders/OrderFormPage'
 import ScheduledOrdersPage from './pages/orders/ScheduledOrdersPage'
 import CancellationsPage from './pages/orders/CancellationsPage'
+import ShipmentsPage from './pages/orders/ShipmentsPage'
 import OrderDetailPage from './pages/orders/OrderDetailPage'
 import FailureReasonsPage from './pages/orders/FailureReasonsPage'
 import ConfirmationRatePage from './pages/orders/ConfirmationRatePage'
@@ -121,6 +122,7 @@ function App() {
           <Route path="/dashboard/commandes/paniers-abandonnes"           element={<PD><AbandonedCartsPage /></PD>} />
           <Route path="/dashboard/commandes/annulations/demandes"       element={<PD><CancellationsPage mode="requests" /></PD>} />
           <Route path="/dashboard/commandes/annulations/confirmees"     element={<PD><CancellationsPage mode="confirmed" /></PD>} />
+          <Route path="/dashboard/expeditions"                          element={<PD><ShipmentsPage /></PD>} />
           <Route path="/dashboard/reclamations"                          element={<PD><ComplaintsPage /></PD>} />
           <Route path="/dashboard/reclamations/:id"                      element={<PD><ComplaintDetailPage /></PD>} />
           <Route path="/dashboard/echanges"                              element={<PD><ExchangesPage /></PD>} />

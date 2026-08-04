@@ -148,10 +148,7 @@ export default function DashboardLayout({ children, title }) {
       end={exact}
       onClick={() => setMobileNavOpen(false)}
       className={({ isActive }) =>
-        'flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-colors duration-150 ' +
-        (isActive
-          ? 'bg-white/6 text-app-primary font-medium'
-          : 'text-app-muted hover:text-app-primary hover:bg-white/4')
+        `${theme.nav.subItem.base} ${isActive ? theme.nav.subItem.active : theme.nav.subItem.inactive}`
       }
     >
       {label}
@@ -164,10 +161,7 @@ export default function DashboardLayout({ children, title }) {
       end={exact}
       onClick={() => setMobileNavOpen(false)}
       className={({ isActive }) =>
-        'relative flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors duration-150 ' +
-        (isActive
-          ? 'bg-white/6 text-app-primary font-medium'
-          : 'text-app-muted hover:text-app-primary hover:bg-white/4')
+        `${theme.nav.item.base} ${isActive ? theme.nav.item.active : theme.nav.item.inactive}`
       }
     >
       {({ isActive }) => (
@@ -397,7 +391,7 @@ export default function DashboardLayout({ children, title }) {
                   )}
                 </li>
               )}
-              {can('shipping_settings_view') && <li>{disabled(ICONS.shipping, 'Expéditions')}</li>}
+              {can('shipping_settings_view') && <li>{mainLink('/dashboard/expeditions', ICONS.shipping, 'Expéditions')}</li>}
               {can('stock_view') && <li>{mainLink('/dashboard/stock', ICONS.stock, 'Stock & Inventaire', false, lowStockCount)}</li>}
               {can('stats_view') && (
                 <li>

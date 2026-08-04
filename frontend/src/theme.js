@@ -19,8 +19,8 @@ export const theme = {
       'disabled:opacity-40 disabled:pointer-events-none cursor-pointer px-3.5 py-2 text-sm ' +
       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent',
     outline:
-      'inline-flex items-center justify-center gap-2 border border-white/12 text-gray-300 hover:bg-white/5 hover:border-white/20 ' +
-      'active:bg-white/8 rounded-lg transition-colors duration-150 cursor-pointer px-3.5 py-2 text-sm font-medium ' +
+      'inline-flex items-center justify-center gap-2 border border-white/25 bg-white/[0.06] text-gray-100 hover:bg-white/12 hover:border-white/35 ' +
+      'active:bg-white/16 rounded-lg transition-colors duration-150 cursor-pointer px-3.5 py-2 text-sm font-medium ' +
       'disabled:opacity-40 disabled:pointer-events-none ' +
       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400',
     // Variante claire de "outline" — pour les pages fond blanc (boutique publique).
@@ -31,7 +31,7 @@ export const theme = {
       'disabled:opacity-40 disabled:pointer-events-none ' +
       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400',
     ghost:
-      'inline-flex items-center justify-center gap-2 text-gray-400 hover:text-gray-200 hover:bg-white/5 active:bg-white/8 ' +
+      'inline-flex items-center justify-center gap-2 border border-white/12 text-gray-200 hover:text-white hover:bg-white/10 hover:border-white/25 active:bg-white/14 ' +
       'rounded-lg transition-colors duration-150 cursor-pointer px-3 py-1.5 text-sm font-medium ' +
       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400',
     danger:
@@ -40,12 +40,12 @@ export const theme = {
       'disabled:pointer-events-none cursor-pointer px-3.5 py-2 text-sm ' +
       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-2',
     icon:
-      'inline-flex items-center justify-center w-8 h-8 rounded-lg text-gray-500 hover:text-gray-200 ' +
-      'hover:bg-white/8 transition-colors duration-150 cursor-pointer ' +
+      'inline-flex items-center justify-center w-8 h-8 rounded-lg text-gray-300 hover:text-white ' +
+      'bg-white/[0.04] hover:bg-white/12 transition-colors duration-150 cursor-pointer ' +
       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400',
     secondary:
-      'inline-flex items-center justify-center gap-2 bg-white/6 hover:bg-white/10 border border-white/10 ' +
-      'text-gray-200 font-medium rounded-lg transition-colors duration-150 cursor-pointer px-3.5 py-2 text-sm ' +
+      'inline-flex items-center justify-center gap-2 bg-white/12 hover:bg-white/18 border border-white/20 ' +
+      'text-gray-100 font-medium rounded-lg transition-colors duration-150 cursor-pointer px-3.5 py-2 text-sm ' +
       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400',
   },
 
@@ -90,6 +90,21 @@ export const theme = {
 
   skeleton: 'animate-pulse bg-white/6 rounded-lg',
   emptyState: 'flex flex-col items-center justify-center text-center py-16 px-6 text-app-muted',
+
+  // Sidebar nav links — centralisé ici pour que "boutons pas assez visibles"
+  // (feedback utilisateur) se corrige au même endroit que les boutons theme.btn.
+  nav: {
+    item: {
+      base: 'relative flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors duration-150 border border-transparent',
+      active: 'bg-white/10 border-white/15 text-app-primary font-medium',
+      inactive: 'text-gray-300 hover:text-app-primary hover:bg-white/6 hover:border-white/10',
+    },
+    subItem: {
+      base: 'flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-colors duration-150 border border-transparent',
+      active: 'bg-white/10 border-white/15 text-app-primary font-medium',
+      inactive: 'text-gray-300 hover:text-app-primary hover:bg-white/6 hover:border-white/10',
+    },
+  },
 
   logo: 'text-violet-400',
   hero: 'bg-gradient-to-br from-[#2e1065] via-[#6d28d9] to-[#7c3aed]',

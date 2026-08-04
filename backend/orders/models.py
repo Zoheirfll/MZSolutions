@@ -1,8 +1,20 @@
+import uuid
+
 from django.db import models
 from django.conf import settings
 from stores.models import Store
 from products.models import Product, VariantOption
 from core.validators import validate_image_extension, validate_image_size
+
+
+def complaint_attachment_path(instance, filename):
+    # Nom aléatoire (pas le nom original) — évite qu'une pièce jointe de
+    # réclamation (potentiellement sensible) soit accessible via une URL
+    # devinable/prévisible, les médias n'étant pas scopés par boutique au
+    # niveau de la couche de service statique (Sécurité — point 7).
+    ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
+    name = f"{uuid.uuid4().hex}.{ext}" if ext else uuid.uuid4().hex
+    return f"complaints/{name}"
 
 CALL_STATUS_CHOICES = [
     ('no_answer',        'Pas répondu'),
@@ -313,7 +325,7 @@ class ComplaintMessage(models.Model):
     message    = models.TextField(blank=True)
     status     = models.CharField(max_length=20, choices=COMPLAINT_STATUS_CHOICES, blank=True)
     author     = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL)
-    attachment = models.ImageField(upload_to='complaints/', null=True, blank=True,
+    attachment = models.ImageField(upload_to=complaint_attachment_path, null=True, blank=True,
                                     validators=[validate_image_extension, validate_image_size])
     created_at = models.DateTimeField(auto_now_add=True)
 

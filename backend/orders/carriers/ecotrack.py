@@ -4,6 +4,10 @@ from ..wilaya_codes import wilaya_code
 from .base import BaseCarrierClient, MockCarrierClient, ShipmentResult
 
 
+class TrackingNotFoundError(Exception):
+    pass
+
+
 class EcotrackClient(BaseCarrierClient):
     """Client réel pour tout transporteur bâti sur la plateforme partagée
     Ecotrack (ecotrack.dz) — 19+ sociétés de livraison algériennes
@@ -51,3 +55,17 @@ class EcotrackClient(BaseCarrierClient):
         # dans l'API documentée — à affiner si besoin (webhooks Ecotrack,
         # voir CLAUDE.md).
         return 'created'
+
+    def get_label(self, tracking_number):
+        if not self.carrier_account.api_token:
+            return MockCarrierClient(self.carrier_account).get_label(tracking_number)
+        resp = requests.get(
+            f"{self.api_domain}api/v1/get/order/label",
+            params={'tracking': tracking_number},
+            headers=self._headers(),
+            timeout=15,
+        )
+        if resp.status_code == 422:
+            raise TrackingNotFoundError(tracking_number)
+        resp.raise_for_status()
+        return resp.content

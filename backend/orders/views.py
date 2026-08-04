@@ -2,6 +2,7 @@ import json
 from decimal import Decimal
 from datetime import date, timedelta
 from django.core.mail import send_mail
+from django.http import HttpResponse
 from django.db import transaction
 from django.db.models import Q, Count, Case, When, IntegerField, Max, Min
 from django.db.models.functions import TruncDate
@@ -17,8 +18,10 @@ from .serializers import OrderSerializer, OrderDetailSerializer, OrderAssignment
 from .utils import assign_order_round_robin, assign_complaint_round_robin, send_abandoned_cart_email
 from . import chargily
 from .carriers import get_carrier_client
+from .carriers.ecotrack import TrackingNotFoundError
 from core.permissions import IsOwnerOrAdminForWrites, is_owner_or_admin, has_permission
 from core.validators import validate_uploaded_file
+from core.pagination import parse_pagination
 from django.core.exceptions import ValidationError as DjangoValidationError
 
 
@@ -64,6 +67,45 @@ def _authoritative_item_price(store, item):
     if promo:
         return product.price - promo.compute_discount(product.price)
     return product.price
+
+
+MAX_ORDER_ITEM_QUANTITY = 10000
+
+
+def _validate_item_quantity(item):
+    """`OrderItem.quantity` (PositiveIntegerField) n'a pas de contrainte CHECK
+    en base sur ce projet — .objects.create() contourne toute validation
+    Django. Sans ce contrôle, une quantité négative envoyée par le client
+    (checkout invité y compris) peut réduire artificiellement order.total via
+    recalculate() et gonfler le stock via _deduct_stock_for_order() (Sécurité
+    — point 8). Retourne la quantité (int) si valide, sinon None."""
+    quantity = item.get('quantity', 1)
+    try:
+        quantity = int(quantity)
+    except (TypeError, ValueError):
+        return None
+    if quantity < 1 or quantity > MAX_ORDER_ITEM_QUANTITY:
+        return None
+    return quantity
+
+
+def _validate_shipping_cost(request):
+    """`Order.shipping_cost` est fourni tel quel par le client (aucun calcul
+    automatique par wilaya pour l'instant, cf. TBD CLAUDE.md) — sans validation,
+    une valeur négative permettait de faire passer order.total sous zéro même
+    après le floor sur (subtotal - discount_amount), puisque shipping_cost est
+    ajouté après ce floor dans Order.recalculate() (Sécurité — point 13,
+    checkout invité inclus). Retourne la valeur (Decimal-compatible) si valide,
+    sinon None."""
+    from decimal import Decimal, InvalidOperation
+    raw = request.data.get('shipping_cost', 0)
+    try:
+        value = Decimal(str(raw))
+    except (InvalidOperation, ValueError, TypeError):
+        return None
+    if value < 0:
+        return None
+    return value
 
 
 def _deduct_stock_for_order(store, order):
@@ -284,8 +326,7 @@ class OrderListCreateView(APIView):
         ordering_dir = request.query_params.get('ordering_dir', 'desc')
         qs = qs.order_by(f"-{ordering_field}" if ordering_dir == 'desc' else ordering_field)
 
-        page     = max(1, int(request.query_params.get('page', 1)))
-        per_page = int(request.query_params.get('per_page', 10))
+        page, per_page = parse_pagination(request, default_per_page=10)
         total    = qs.count()
         qs       = qs[(page - 1) * per_page: page * per_page]
 
@@ -352,10 +393,16 @@ class OrderListCreateView(APIView):
         # toute création, pour ne rien laisser en base si un article est invalide.
         resolved_prices = []
         for item in items_data:
+            if _validate_item_quantity(item) is None:
+                return Response({'detail': 'Quantité invalide pour un article de la commande.'}, status=400)
             price = _authoritative_item_price(store, item)
             if price is None:
                 return Response({'detail': 'Un article de la commande est introuvable.'}, status=400)
             resolved_prices.append(price)
+
+        shipping_cost = _validate_shipping_cost(request)
+        if shipping_cost is None:
+            return Response({'detail': 'Frais de livraison invalides.'}, status=400)
 
         order = Order.objects.create(
             store         = store,
@@ -367,7 +414,7 @@ class OrderListCreateView(APIView):
             wilaya        = request.data.get('wilaya', ''),
             commune       = request.data.get('commune', ''),
             address       = request.data.get('address', ''),
-            shipping_cost = request.data.get('shipping_cost', 0),
+            shipping_cost = shipping_cost,
             delivery_type = request.data.get('delivery_type', ''),
             note          = request.data.get('note', ''),
             dropshipper   = dropshipper_membership,
@@ -380,7 +427,7 @@ class OrderListCreateView(APIView):
                 variant_option_id = item.get('variant_option'),
                 product_name      = item.get('product_name', ''),
                 price             = price,
-                quantity          = item.get('quantity', 1),
+                quantity          = _validate_item_quantity(item),
             )
 
         order.recalculate()
@@ -706,8 +753,7 @@ class ClientListView(APIView):
                 'created_at':     row['created_at'],
             })
 
-        page     = max(1, int(request.query_params.get('page', 1)))
-        per_page = int(request.query_params.get('per_page', 10))
+        page, per_page = parse_pagination(request, default_per_page=10)
         total    = len(results)
         results  = results[(page - 1) * per_page: page * per_page]
 
@@ -800,8 +846,7 @@ class ComplaintListView(APIView):
                 Q(subject__icontains=search)
             )
 
-        page     = max(1, int(request.query_params.get('page', 1)))
-        per_page = int(request.query_params.get('per_page', 10))
+        page, per_page = parse_pagination(request, default_per_page=10)
         total    = qs.count()
         qs       = qs[(page - 1) * per_page: page * per_page]
 
@@ -1016,8 +1061,7 @@ class ExchangeListView(APIView):
                 Q(order_item__product_name__icontains=search)
             )
 
-        page     = max(1, int(request.query_params.get('page', 1)))
-        per_page = int(request.query_params.get('per_page', 10))
+        page, per_page = parse_pagination(request, default_per_page=10)
         total    = qs.count()
         qs       = qs[(page - 1) * per_page: page * per_page]
 
@@ -1393,6 +1437,8 @@ class PublicOrderView(APIView):
         # qu'un prix falsifié ne puisse pas non plus fausser la remise.
         resolved_prices = []
         for item in items_data:
+            if _validate_item_quantity(item) is None:
+                return Response({'detail': 'Quantité invalide pour un article du panier.'}, status=400)
             price = _authoritative_item_price(store, item)
             if price is None:
                 return Response({'detail': 'Un article du panier est introuvable.'}, status=400)
@@ -1418,6 +1464,10 @@ class PublicOrderView(APIView):
             if discount_amount <= 0:
                 return Response({'detail': "Ce code promo ne s'applique à aucun article de votre panier."}, status=400)
 
+        shipping_cost = _validate_shipping_cost(request)
+        if shipping_cost is None:
+            return Response({'detail': 'Frais de livraison invalides.'}, status=400)
+
         order = Order.objects.create(
             store         = store,
             first_name    = request.data.get('first_name', ''),
@@ -1426,7 +1476,7 @@ class PublicOrderView(APIView):
             wilaya        = request.data.get('wilaya', ''),
             commune       = request.data.get('commune', ''),
             address       = request.data.get('address', ''),
-            shipping_cost = request.data.get('shipping_cost', 0),
+            shipping_cost = shipping_cost,
             payment_method = payment_method,
             note          = request.data.get('note', ''),
             promo_code      = promo.code if promo else '',
@@ -1440,7 +1490,7 @@ class PublicOrderView(APIView):
                 variant_option_id = item.get('variant_option'),
                 product_name      = item.get('product_name', ''),
                 price             = price,
-                quantity          = item.get('quantity', 1),
+                quantity          = _validate_item_quantity(item),
             )
 
         order.recalculate()
@@ -1873,11 +1923,7 @@ class AbandonedCartListView(APIView):
             qs = qs.filter(is_recovered=True)
         elif recovered == '0':
             qs = qs.filter(is_recovered=False)
-        try:
-            page     = max(1, int(request.query_params.get('page', 1)))
-            per_page = max(1, min(100, int(request.query_params.get('per_page', 20))))
-        except ValueError:
-            page, per_page = 1, 20
+        page, per_page = parse_pagination(request, default_per_page=20)
         total  = qs.count()
         offset = (page - 1) * per_page
         results = AbandonedCartSerializer(qs[offset:offset + per_page], many=True).data
@@ -1917,3 +1963,84 @@ class AbandonedCartRemindView(APIView):
         cart.reminder_sent_at = timezone.now()
         cart.save(update_fields=['reminder_sent', 'reminder_sent_at'])
         return Response(AbandonedCartSerializer(cart).data)
+
+
+SHIPMENT_STATUSES = ('confirmed', 'shipped', 'delivered', 'returned')
+
+
+class ShipmentListView(APIView):
+    """Suivi centralisé des commandes en cours/déjà expédiées (page
+    Expéditions du dashboard)."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        store = _get_store(request)
+        if not store or not is_owner_or_admin(request):
+            return Response({'detail': 'Accès refusé.'}, status=403)
+
+        qs = store.orders.prefetch_related('items').filter(status__in=SHIPMENT_STATUSES)
+
+        status_filter = request.query_params.get('status')
+        if status_filter in SHIPMENT_STATUSES:
+            qs = qs.filter(status=status_filter)
+
+        carrier = request.query_params.get('carrier')
+        if carrier:
+            qs = qs.filter(carrier_id=carrier)
+
+        search = request.query_params.get('search', '').strip()
+        if search:
+            qs = qs.filter(
+                Q(first_name__icontains=search) |
+                Q(last_name__icontains=search) |
+                Q(phone__icontains=search) |
+                Q(carrier_tracking_number__icontains=search)
+            )
+
+        qs = qs.order_by('-created_at')
+
+        page, per_page = parse_pagination(request, default_per_page=10)
+        total = qs.count()
+        qs = qs[(page - 1) * per_page: page * per_page]
+
+        return Response({
+            'count':    total,
+            'page':     page,
+            'per_page': per_page,
+            'results':  OrderSerializer(qs, many=True).data,
+        })
+
+
+class OrderLabelView(APIView):
+    """Téléchargement de l'étiquette d'expédition officielle du transporteur
+    pour une commande donnée (mockée si le compte transporteur n'a pas de
+    token réel)."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        store = _get_store(request)
+        if not store or not is_owner_or_admin(request):
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        try:
+            order = store.orders.get(pk=pk)
+        except Order.DoesNotExist:
+            return Response({'detail': 'Commande introuvable.'}, status=404)
+
+        if not order.carrier_tracking_number:
+            return Response({'detail': "Aucune expédition créée pour cette commande."}, status=400)
+        if not order.carrier:
+            return Response({'detail': 'Transporteur introuvable pour cette commande.'}, status=400)
+
+        try:
+            client = get_carrier_client(order.carrier)
+            pdf_bytes = client.get_label(order.carrier_tracking_number)
+        except TrackingNotFoundError:
+            return Response({'detail': "Numéro de suivi introuvable auprès du transporteur."}, status=404)
+        except NotImplementedError:
+            return Response({'detail': "Étiquette non disponible pour ce transporteur."}, status=400)
+        except Exception:
+            return Response({'detail': "Impossible de récupérer l'étiquette auprès du transporteur."}, status=502)
+
+        response = HttpResponse(pdf_bytes, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="etiquette-{order.id}.pdf"'
+        return response
