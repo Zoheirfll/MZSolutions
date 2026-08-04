@@ -12,6 +12,7 @@ from .serializers import (
     ProductReviewSerializer, PromotionSerializer,
 )
 from core.permissions import get_store as _get_store, IsOwnerOrAdminForWrites
+from core.pagination import parse_pagination
 
 
 # ─── Categories ───────────────────────────────────────────────────────────────
@@ -42,8 +43,7 @@ class CategoryListCreateView(APIView):
             qs = qs.filter(is_deleted=False)
 
         # Pagination
-        page     = max(1, int(request.query_params.get('page', 1)))
-        per_page = int(request.query_params.get('per_page', 10))
+        page, per_page = parse_pagination(request, default_per_page=10)
         total    = qs.count()
         qs       = qs.order_by('-created_at')[(page - 1) * per_page: page * per_page]
 
@@ -137,8 +137,7 @@ class ProductListCreateView(APIView):
         if category:
             qs = qs.filter(categories__name__icontains=category).distinct()
 
-        page     = max(1, int(request.query_params.get('page', 1)))
-        per_page = int(request.query_params.get('per_page', 10))
+        page, per_page = parse_pagination(request, default_per_page=10)
         total    = qs.count()
         qs       = qs.order_by('-created_at')[(page - 1) * per_page: page * per_page]
 
@@ -232,6 +231,36 @@ class ProductImageView(APIView):
         img.image.delete(save=False)
         img.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class ProductImageReorderView(APIView):
+    """Réordonne les images d'un produit (glisser/monter-descendre côté
+    ProductFormPage.jsx) — la première de la liste devient l'image principale
+    (aucun champ booléen dédié, `order=0` fait déjà foi partout ailleurs,
+    ex. StorefrontProductPage.jsx utilise `images[0]`)."""
+    permission_classes = [IsAuthenticated, IsOwnerOrAdminForWrites]
+
+    def put(self, request, pk):
+        store = _get_store(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        try:
+            product = store.products.get(pk=pk)
+        except Product.DoesNotExist:
+            return Response({'detail': 'Produit introuvable.'}, status=404)
+
+        order_ids = request.data.get('order', [])
+        images = {img.id: img for img in product.images.all()}
+        if set(order_ids) != set(images.keys()):
+            return Response({'detail': "La liste doit contenir exactement les images existantes du produit."}, status=400)
+
+        for index, img_id in enumerate(order_ids):
+            img = images[img_id]
+            if img.order != index:
+                img.order = index
+                img.save(update_fields=['order'])
+
+        return Response(ProductImageSerializer(product.images.order_by('order'), many=True, context={'request': request}).data)
 
 
 # ─── Variants ────────────────────────────────────────────────────────────────
@@ -431,8 +460,7 @@ class InventoryListView(APIView):
                     'stock':        p.stock,
                 })
 
-        page     = max(1, int(request.query_params.get('page', 1)))
-        per_page = int(request.query_params.get('per_page', 20))
+        page, per_page = parse_pagination(request, default_per_page=20)
         total    = len(results)
         results  = results[(page - 1) * per_page: page * per_page]
 
@@ -729,8 +757,7 @@ class ProductReviewListView(APIView):
         elif approved == '0':
             qs = qs.filter(is_approved=False)
 
-        page     = max(1, int(request.query_params.get('page', 1)))
-        per_page = int(request.query_params.get('per_page', 10))
+        page, per_page = parse_pagination(request, default_per_page=10)
         total    = qs.count()
         qs       = qs[(page - 1) * per_page: page * per_page]
         return Response({
@@ -785,6 +812,7 @@ class ProductReviewDetailView(APIView):
 
 class PublicReviewView(APIView):
     permission_classes = [AllowAny]
+    throttle_scope = 'review'
 
     def post(self, request):
         from stores.models import Store
@@ -893,8 +921,7 @@ class PublicProductListView(APIView):
 
         qs = qs.order_by('-created_at').distinct()
 
-        page     = max(1, int(request.query_params.get('page', 1)))
-        per_page = int(request.query_params.get('per_page', 12))
+        page, per_page = parse_pagination(request, default_per_page=12)
         total    = qs.count()
         qs       = qs[(page - 1) * per_page: page * per_page]
 
@@ -1037,6 +1064,8 @@ class PublicProductDetailView(APIView):
             'id':              product.id,
             'name':            product.name,
             'description':     product.description,
+            'meta_title':      product.meta_title,
+            'meta_description': product.meta_description,
             'price':           str(display_price),
             'original_price':  str(original_price) if original_price is not None else None,
             'compare_price':   str(product.compare_price) if product.compare_price else None,

@@ -1,7 +1,7 @@
 from django.urls import path
 from .views import (
     CategoryListCreateView, CategoryDetailView, CategoryRestoreView,
-    ProductListCreateView, ProductDetailView, ProductImageView,
+    ProductListCreateView, ProductDetailView, ProductImageView, ProductImageReorderView,
     ProductVariantView, ProductVariantDetailView,
     VariantOptionView, VariantOptionDetailView,
     LowStockView, InventoryListView,
@@ -19,6 +19,7 @@ urlpatterns = [
     path('',                                               ProductListCreateView.as_view()),
     path('<int:pk>/',                                      ProductDetailView.as_view()),
     path('<int:pk>/images/',                               ProductImageView.as_view()),
+    path('<int:pk>/images/reorder/',                       ProductImageReorderView.as_view()),
     path('<int:pk>/images/<int:img_id>/',                  ProductImageView.as_view()),
 
     # Variants

@@ -171,7 +171,7 @@ class ProductSerializer(serializers.ModelSerializer):
             'categories', 'category_names', 'supplier', 'supplier_name',
             'free_shipping', 'allow_out_of_stock', 'drop_shipping',
             'is_active', 'created_at', 'images', 'variants', 'sold_count',
-            'active_promotion',
+            'active_promotion', 'meta_title', 'meta_description',
         ]
         read_only_fields = ['id', 'created_at']
 

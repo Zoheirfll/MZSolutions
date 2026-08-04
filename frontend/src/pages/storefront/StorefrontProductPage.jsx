@@ -163,6 +163,30 @@ export default function StorefrontProductPage() {
       .finally(() => setLoading(false))
   }, [slug, productId])
 
+  // Balises <title>/<meta description> — pas de librairie type react-helmet dans
+  // ce projet, manipulation directe du DOM + restauration au démontage.
+  useEffect(() => {
+    if (!product) return
+    const previousTitle = document.title
+    document.title = product.meta_title || product.name
+
+    let metaTag = document.querySelector('meta[name="description"]')
+    const previousContent = metaTag?.getAttribute('content')
+    const createdTag = !metaTag
+    if (!metaTag) {
+      metaTag = document.createElement('meta')
+      metaTag.setAttribute('name', 'description')
+      document.head.appendChild(metaTag)
+    }
+    metaTag.setAttribute('content', product.meta_description || (product.description || '').slice(0, 160))
+
+    return () => {
+      document.title = previousTitle
+      if (createdTag) metaTag.remove()
+      else if (previousContent != null) metaTag.setAttribute('content', previousContent)
+    }
+  }, [product])
+
   if (loading) return (
     <StorefrontLayout>
       <div className="max-w-6xl mx-auto px-4 py-10">

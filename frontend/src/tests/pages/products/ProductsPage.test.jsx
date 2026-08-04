@@ -91,4 +91,53 @@ describe('ProductsPage', () => {
 
     expect(await screen.findByText('Aucun produit trouvé')).toBeInTheDocument()
   })
+
+  it('filters by category using the real category list', async () => {
+    const user = userEvent.setup()
+    api.get.mockImplementation((url) => {
+      if (url.startsWith('/products/?')) return Promise.resolve({ data: PRODUCTS_DATA })
+      if (url.startsWith('/products/categories/')) return Promise.resolve({ data: { results: [{ id: 1, name: 'Vêtements' }] } })
+      return Promise.resolve({ data: { count: 0 } })
+    })
+    renderPage()
+    await screen.findByText('T-shirt')
+
+    await user.click(screen.getByText('Toutes les catégories'))
+    await user.click(screen.getByRole('button', { name: 'Vêtements' }))
+
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith(expect.stringContaining('category=V%C3%AAtements')))
+  })
+
+  it('flags low-stock products using the store threshold', async () => {
+    api.get.mockImplementation((url) => {
+      if (url.startsWith('/products/?')) return Promise.resolve({ data: PRODUCTS_DATA })
+      if (url.startsWith('/stores/me/settings/')) return Promise.resolve({ data: { low_stock_threshold: 5 } })
+      return Promise.resolve({ data: { count: 0 } })
+    })
+    renderPage()
+    await screen.findByText('T-shirt')
+
+    // stock=10 (T-shirt) est au-dessus du seuil 5, stock=0 (Casquette) est en-dessous
+    const stockCells = screen.getAllByText(/^(10|0)$/)
+    expect(stockCells.find(el => el.textContent === '0')).toHaveClass('text-red-400')
+  })
+
+  it('selects rows and performs a bulk deactivate', async () => {
+    const user = userEvent.setup()
+    api.get.mockImplementation((url) => {
+      if (url.startsWith('/products/?')) return Promise.resolve({ data: PRODUCTS_DATA })
+      return Promise.resolve({ data: { count: 0 } })
+    })
+    api.put.mockResolvedValue({})
+    renderPage()
+    await screen.findByText('T-shirt')
+
+    const checkboxes = screen.getAllByRole('checkbox')
+    await user.click(checkboxes[1]) // première ligne (index 0 = case "tout sélectionner")
+
+    expect(screen.getByText('1 sélectionné')).toBeInTheDocument()
+    await user.click(screen.getByText('Désactiver'))
+
+    await waitFor(() => expect(api.put).toHaveBeenCalledWith('/products/1/', { is_active: false }))
+  })
 })

@@ -107,6 +107,35 @@ class ProductTests(TestCase):
         resp2 = client.post(f'/api/products/{product.id}/images/', {'image': evil}, format='multipart')
         self.assertEqual(resp2.status_code, 400)
 
+    def test_meta_fields_saved_and_returned(self):
+        client = auth_client(self.owner)
+        resp = client.post('/api/products/', {
+            'name': 'SEO Prod', 'price': '1000',
+            'meta_title': 'Titre SEO', 'meta_description': 'Description SEO',
+        }, format='json')
+        self.assertEqual(resp.status_code, 201)
+        self.assertEqual(resp.data['meta_title'], 'Titre SEO')
+        self.assertEqual(resp.data['meta_description'], 'Description SEO')
+
+    def test_image_reorder(self):
+        product = Product.objects.create(store=self.store, name='Reorder Prod', price=Decimal('100'))
+        client = auth_client(self.owner)
+        img1 = client.post(f'/api/products/{product.id}/images/', {'image': SimpleUploadedFile('a.png', PNG_1PX, content_type='image/png')}, format='multipart').data
+        img2 = client.post(f'/api/products/{product.id}/images/', {'image': SimpleUploadedFile('b.png', PNG_1PX, content_type='image/png')}, format='multipart').data
+
+        resp = client.put(f'/api/products/{product.id}/images/reorder/', {'order': [img2['id'], img1['id']]}, format='json')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data[0]['id'], img2['id'])
+        self.assertEqual(resp.data[1]['id'], img1['id'])
+
+    def test_image_reorder_rejects_mismatched_ids(self):
+        product = Product.objects.create(store=self.store, name='Reorder Prod 2', price=Decimal('100'))
+        client = auth_client(self.owner)
+        img1 = client.post(f'/api/products/{product.id}/images/', {'image': SimpleUploadedFile('a.png', PNG_1PX, content_type='image/png')}, format='multipart').data
+
+        resp = client.put(f'/api/products/{product.id}/images/reorder/', {'order': [img1['id'], 9999]}, format='json')
+        self.assertEqual(resp.status_code, 400)
+
 
 class ProductVariantTests(TestCase):
     def setUp(self):

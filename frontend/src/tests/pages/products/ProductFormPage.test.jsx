@@ -108,6 +108,70 @@ describe('ProductFormPage', () => {
     expect(mockNavigate).not.toHaveBeenCalled()
   })
 
+  it('lets you add a draft variant/option before the product exists, created after save', async () => {
+    const user = userEvent.setup()
+    api.get.mockImplementation((url) => {
+      if (url.startsWith('/products/categories/')) return Promise.resolve({ data: { results: [] } })
+      if (url === '/products/suppliers/') return Promise.resolve({ data: [] })
+      return Promise.resolve({ data: { count: 0 } })
+    })
+    api.post.mockImplementation((url) => {
+      if (url === '/products/') return Promise.resolve({ data: { id: 99 } })
+      if (url === '/products/99/variants/') return Promise.resolve({ data: { id: 5 } })
+      return Promise.resolve({ data: {} })
+    })
+    renderCreate()
+
+    const nameInput = await screen.findByPlaceholderText('Nom du produit')
+    await user.type(nameInput, 'Casquette')
+    const priceInput = nameInput.closest('form').querySelector('input[name="price"]')
+    await user.type(priceInput, '2000')
+
+    await user.click(screen.getByText('Variantes'))
+    await user.click(screen.getByText('+ Ajouter une variante'))
+    await user.type(screen.getByPlaceholderText('Nom de la variante (ex: Couleur)'), 'Couleur')
+    await user.click(screen.getByText("+ Ajouter une sous-option"))
+    await user.type(screen.getByPlaceholderText('ex: Rouge'), 'Rouge')
+
+    await user.click(screen.getByRole('button', { name: 'Enregistrer le produit' }))
+
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith('/products/', expect.objectContaining({ name: 'Casquette' })))
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith('/products/99/variants/', expect.objectContaining({ name: 'Couleur', order: 0 })))
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith('/products/99/variants/5/options/', expect.objectContaining({ value: 'Rouge' })))
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/dashboard/produits/99/modifier'))
+  })
+
+  it('lets you pick an image before the product exists, uploaded after save', async () => {
+    const user = userEvent.setup()
+    api.get.mockImplementation((url) => {
+      if (url.startsWith('/products/categories/')) return Promise.resolve({ data: { results: [] } })
+      if (url === '/products/suppliers/') return Promise.resolve({ data: [] })
+      return Promise.resolve({ data: { count: 0 } })
+    })
+    api.post.mockImplementation((url) => {
+      if (url === '/products/') return Promise.resolve({ data: { id: 99 } })
+      return Promise.resolve({ data: {} })
+    })
+    renderCreate()
+
+    const nameInput = await screen.findByPlaceholderText('Nom du produit')
+    await user.type(nameInput, 'Casquette')
+    const priceInput = nameInput.closest('form').querySelector('input[name="price"]')
+    await user.type(priceInput, '2000')
+
+    await user.click(screen.getByText('Images'))
+    const file = new File(['x'], 'photo.png', { type: 'image/png' })
+    const fileInput = document.querySelector('input[type="file"][accept="image/*"]')
+    await user.upload(fileInput, file)
+    expect(await screen.findByText('En attente')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Enregistrer le produit' }))
+
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith(
+      '/products/99/images/', expect.any(FormData), { headers: { 'Content-Type': 'multipart/form-data' } },
+    ))
+  })
+
   it('loads an existing product in edit mode and adds a variant option with a non-empty value', async () => {
     const user = userEvent.setup()
     api.get.mockImplementation((url) => {

@@ -45,6 +45,14 @@ function ImageIcon(props) {
   )
 }
 
+function AlertIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="13" height="13" {...props}>
+      <path d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
+    </svg>
+  )
+}
+
 function Spinner({ label = 'Chargement…' }) {
   return (
     <div className="flex flex-col items-center justify-center gap-2 py-12 text-gray-500">
@@ -72,9 +80,18 @@ export default function ProductsPage() {
   const [data, setData]         = useState({ results: [], count: 0, page: 1, per_page: 10 })
   const [search, setSearch]     = useState('')
   const [catSearch, setCatSearch] = useState('')
+  const [categories, setCategories] = useState([])
+  const [threshold, setThreshold] = useState(null)
   const [page, setPage]         = useState(1)
   const [perPage, setPerPage]   = useState(10)
   const [loading, setLoading]   = useState(true)
+  const [selected, setSelected] = useState(new Set())
+  const [bulkBusy, setBulkBusy] = useState(false)
+
+  useEffect(() => {
+    api.get('/products/categories/?parent=null&per_page=200').then(({ data }) => setCategories(data.results || [])).catch(() => {})
+    api.get('/stores/me/settings/').then(({ data }) => setThreshold(data.low_stock_threshold)).catch(() => {})
+  }, [])
 
   const fetchProducts = useCallback(() => {
     setLoading(true)
@@ -88,6 +105,7 @@ export default function ProductsPage() {
   }, [page, perPage, search, catSearch])
 
   useEffect(() => { fetchProducts() }, [fetchProducts])
+  useEffect(() => { setSelected(new Set()) }, [data.results])
 
   const handleToggle = async (product) => {
     await api.put(`/products/${product.id}/`, { is_active: !product.is_active })
@@ -101,6 +119,32 @@ export default function ProductsPage() {
   }
 
   const totalPages = Math.max(1, Math.ceil(data.count / perPage))
+  const allIds     = data.results.map(p => p.id)
+  const allChecked = allIds.length > 0 && allIds.every(id => selected.has(id))
+
+  const toggleAll = () => setSelected(allChecked ? new Set() : new Set(allIds))
+  const toggleRow = id => setSelected(prev => {
+    const next = new Set(prev)
+    next.has(id) ? next.delete(id) : next.add(id)
+    return next
+  })
+
+  const handleBulkToggle = async (activate) => {
+    setBulkBusy(true)
+    try {
+      await Promise.all([...selected].map(id => api.put(`/products/${id}/`, { is_active: activate })))
+      fetchProducts()
+    } catch {} finally { setBulkBusy(false) }
+  }
+
+  const handleBulkDelete = async () => {
+    if (!confirm(`Supprimer ${selected.size} produit(s) ?`)) return
+    setBulkBusy(true)
+    try {
+      await Promise.all([...selected].map(id => api.delete(`/products/${id}/`)))
+      fetchProducts()
+    } catch {} finally { setBulkBusy(false) }
+  }
 
   const firstImage = (p) => p.images?.[0]?.image_url
 
@@ -108,6 +152,14 @@ export default function ProductsPage() {
     <DashboardLayout title="Produits">
       {/* Header */}
       <div className="flex items-center justify-between mb-5 gap-3 flex-wrap">
+        {selected.size > 0 ? (
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <span className={theme.badge.info}>{selected.size} sélectionné{selected.size > 1 ? 's' : ''}</span>
+            <button onClick={() => handleBulkToggle(true)} disabled={bulkBusy} className={theme.btn.secondary}>Activer</button>
+            <button onClick={() => handleBulkToggle(false)} disabled={bulkBusy} className={theme.btn.secondary}>Désactiver</button>
+            <button onClick={handleBulkDelete} disabled={bulkBusy} className={theme.btn.danger}>Supprimer</button>
+          </div>
+        ) : (
         <div className="flex gap-3 flex-wrap">
           <input
             value={search}
@@ -116,14 +168,15 @@ export default function ProductsPage() {
             className="px-4 py-2 rounded-lg text-sm text-gray-200 border outline-none focus:border-violet-500 transition w-full sm:w-55"
             style={{ background: theme.dark.card, borderColor: theme.dark.border }}
           />
-          <input
+          <Select
             value={catSearch}
-            onChange={e => { setCatSearch(e.target.value); setPage(1) }}
-            placeholder="Recherche par catégorie"
-            className="px-4 py-2 rounded-lg text-sm text-gray-200 border outline-none focus:border-violet-500 transition w-full sm:w-55"
+            onChange={v => { setCatSearch(v); setPage(1) }}
+            options={[{ value: '', label: 'Toutes les catégories' }, ...categories.map(c => ({ value: c.name, label: c.name }))]}
+            className="px-4 py-2 rounded-lg text-sm text-gray-200 border w-full sm:w-55"
             style={{ background: theme.dark.card, borderColor: theme.dark.border }}
           />
         </div>
+        )}
         <button
           onClick={() => navigate('/dashboard/produits/nouveau')}
           className={theme.btn.primary + ' text-sm shrink-0'}
@@ -137,6 +190,7 @@ export default function ProductsPage() {
         <table className="w-full text-sm min-w-180">
           <thead style={{ background: theme.dark.sidebar }}>
             <tr className="text-left text-xs text-gray-500 border-b" style={{ borderColor: theme.dark.border }}>
+              <th className="px-4 py-3 w-10"><input type="checkbox" checked={allChecked} onChange={toggleAll} className="accent-violet-600" /></th>
               <th className="px-4 py-3 font-medium w-10">ID</th>
               <th className="px-4 py-3 font-medium w-16">IMAGE</th>
               <th className="px-4 py-3 font-medium">NOM</th>
@@ -150,13 +204,19 @@ export default function ProductsPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={9}><Spinner /></td></tr>
+              <tr><td colSpan={10}><Spinner /></td></tr>
             ) : data.results.length === 0 ? (
-              <tr><td colSpan={9}>
+              <tr><td colSpan={10}>
                 <EmptyState icon={<ImageIcon />} title="Aucun produit trouvé" subtitle="Ajoutez votre premier produit pour commencer." />
               </td></tr>
-            ) : data.results.map(p => (
+            ) : data.results.map(p => {
+              const stockQty = p.total_stock ?? p.stock
+              const isLowStock = threshold != null && stockQty <= threshold
+              return (
               <tr key={p.id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
+                <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                  <input type="checkbox" checked={selected.has(p.id)} onChange={() => toggleRow(p.id)} className="accent-violet-600" />
+                </td>
                 <td className="px-4 py-3 text-gray-500 text-xs">{p.id}</td>
                 <td className="px-4 py-3">
                   {firstImage(p)
@@ -183,7 +243,12 @@ export default function ProductsPage() {
                 <td className="px-4 py-3 text-gray-400">
                   {p.category_names?.length > 0 ? p.category_names.join(', ') : '—'}
                 </td>
-                <td className="px-4 py-3 text-gray-300">{p.stock}</td>
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-1.5">
+                    <span className={isLowStock ? 'text-red-400 font-semibold' : 'text-gray-300'}>{stockQty}</span>
+                    {isLowStock && <AlertIcon className="text-red-400 shrink-0" />}
+                  </div>
+                </td>
                 <td className="px-4 py-3 text-gray-500">{p.sold_count}</td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
@@ -204,7 +269,7 @@ export default function ProductsPage() {
                   </div>
                 </td>
               </tr>
-            ))}
+            )})}
           </tbody>
         </table>
       </div>

@@ -73,6 +73,8 @@ class Product(models.Model):
     allow_out_of_stock = models.BooleanField(default=False)
     drop_shipping      = models.BooleanField(default=False)
     is_active          = models.BooleanField(default=True)
+    meta_title         = models.CharField(max_length=70, blank=True, help_text="Balise <title> de la fiche produit publique — retombe sur le nom du produit si vide")
+    meta_description   = models.CharField(max_length=160, blank=True, help_text="Balise <meta name=\"description\"> — retombe sur un extrait de la description si vide")
     created_at         = models.DateTimeField(auto_now_add=True)
 
     class Meta:
