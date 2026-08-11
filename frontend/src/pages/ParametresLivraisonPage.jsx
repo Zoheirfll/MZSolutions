@@ -8,10 +8,12 @@ import { WILAYAS } from '../data/wilayas'
 // `real: true` = API réellement branchée (via Ecotrack ou API propre) — le
 // transporteur reçoit vraiment l'expédition. `real: false` = simulé pour
 // l'instant (tracking factice MOCK-..., en attente d'accès API confirmé).
+// `tested: true` = en plus, une vraie expédition a été créée avec succès
+// avec un compte partenaire réel (pas juste la connexion/auth).
 const CARRIERS = [
   { code: 'yalidine',       label: 'Yalidine',              real: false },
   { code: 'zr_express',     label: 'ZR Express',            real: false },
-  { code: 'noest',          label: 'Noest',                 real: false },
+  { code: 'noest',          label: 'Noest',                 real: true, tested: true },
   { code: 'guepex',         label: 'Guepex',                real: false },
   { code: 'maystro',        label: 'Maystro',               real: false },
   { code: 'waslet',         label: 'Waslet',                real: false },
@@ -205,8 +207,11 @@ export default function ParametresLivraisonPage() {
                       {c.label[0]}
                     </div>
                     <p className="font-semibold text-gray-200">{c.label}</p>
-                    <span className={c.real ? theme.badge.info : theme.badge.warning} title={c.real ? "Connexion à l'API confirmée — création d'expédition non encore testée avec un vrai compte" : undefined}>
-                      {c.real ? 'API branchée (non testée)' : 'Simulé (à venir)'}
+                    <span
+                      className={c.tested ? theme.badge.success : c.real ? theme.badge.info : theme.badge.warning}
+                      title={c.tested ? 'Expédition réelle créée avec succès avec un vrai compte partenaire' : c.real ? "Connexion à l'API confirmée — création d'expédition non encore testée avec un vrai compte" : undefined}
+                    >
+                      {c.tested ? 'Testé et fonctionnel' : c.real ? 'API branchée (non testée)' : 'Simulé (à venir)'}
                     </span>
                     {account ? (
                       <>
