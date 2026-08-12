@@ -36,6 +36,18 @@ def _get_store(request):
         return None
 
 
+def _quota_block_reason(quota):
+    """Refuse la création de commande si le quota de commandes est atteint
+    OU si l'essai gratuit est expiré sans abonnement payant actif — jusqu'ici
+    seul le compteur de commandes bloquait, l'expiration de l'essai
+    (badge "Expiré" du tableau de bord) n'avait aucun effet réel côté serveur."""
+    if quota.orders_used >= quota.orders_limit:
+        return 'Quota de commandes atteint.'
+    if not quota.is_trial_active and not quota.is_subscription_active:
+        return "Période d'essai expirée — un abonnement actif est requis pour continuer."
+    return None
+
+
 def _authoritative_item_price(store, item):
     """Résout le prix réel (serveur) d'une ligne de panier — ne jamais faire
     confiance au `price` envoyé par le client (Epic 8.6, faille critique :
@@ -106,6 +118,31 @@ def _validate_shipping_cost(request):
     if value < 0:
         return None
     return value
+
+
+def _resolve_shipping_cost(store, wilaya_name, stop_desk, fallback):
+    """Si la boutique a un transporteur par défaut avec une vraie grille
+    tarifaire (Ecotrack/Noest), le tarif réel écrase la valeur envoyée par
+    le client — même logique de défense que `_authoritative_item_price`
+    pour les prix produits (Epic 8.6). Retombe sur `fallback` (déjà validé
+    non-négatif) si aucun tarif réel n'est disponible (transporteur mocké,
+    pas de compte par défaut, wilaya inconnue)."""
+    from .wilaya_codes import wilaya_code
+    wid = wilaya_code(wilaya_name)
+    if not wid:
+        return fallback
+    account = store.carrier_accounts.filter(is_default=True, is_active=True).first()
+    if not account:
+        return fallback
+    try:
+        rates = get_carrier_client(account).get_rates(wid)
+    except Exception:
+        return fallback
+    if not rates:
+        return fallback
+    if stop_desk and rates.get('tarif_stopdesk') is not None:
+        return Decimal(str(rates['tarif_stopdesk']))
+    return Decimal(str(rates['tarif']))
 
 
 def _deduct_stock_for_order(store, order):
@@ -370,8 +407,9 @@ class OrderListCreateView(APIView):
         if not scheduled_at:
             try:
                 quota = store.quota
-                if quota.orders_used >= quota.orders_limit:
-                    return Response({'detail': 'Quota de commandes atteint.'}, status=403)
+                block_reason = _quota_block_reason(quota)
+                if block_reason:
+                    return Response({'detail': block_reason}, status=403)
             except Exception:
                 quota = None
 
@@ -415,6 +453,8 @@ class OrderListCreateView(APIView):
             commune       = request.data.get('commune', ''),
             address       = request.data.get('address', ''),
             shipping_cost = shipping_cost,
+            stop_desk     = bool(request.data.get('stop_desk')),
+            station_code  = request.data.get('station_code', ''),
             delivery_type = request.data.get('delivery_type', ''),
             note          = request.data.get('note', ''),
             dropshipper   = dropshipper_membership,
@@ -466,16 +506,137 @@ class OrderDetailView(APIView):
         if err: return err
         return Response(OrderDetailSerializer(order).data)
 
+    @transaction.atomic
     def put(self, request, pk):
-        if not is_owner_or_admin(request):
-            return Response({'detail': 'Modification réservée au propriétaire ou administrateur.'}, status=403)
+        # Modification réservée owner/admin par défaut, mais un confirmateur
+        # peut aussi corriger une commande (ville/commune/quantité mal
+        # remplies par le client) si le vendeur lui a accordé `orders_manage`
+        # dans la matrice de permissions (Epic 7.5) — écart volontaire par
+        # rapport à la règle "écriture = owner/admin uniquement" pour ce cas
+        # précis, à la demande explicite du produit.
+        if not (is_owner_or_admin(request) or has_permission(request, 'orders_manage')):
+            return Response({'detail': 'Modification réservée au propriétaire, administrateur, ou confirmateur autorisé.'}, status=403)
         order, err = self._get(request, pk)
         if err: return err
+        store = order.store
+
+        wilaya_changed = 'wilaya' in request.data and request.data['wilaya'] != order.wilaya
+
         allowed = ['first_name', 'last_name', 'phone', 'wilaya', 'commune',
-                   'address', 'shipping_cost', 'delivery_type', 'note']
+                   'address', 'shipping_cost', 'delivery_type', 'note', 'stop_desk', 'station_code']
         for field in allowed:
             if field in request.data:
                 setattr(order, field, request.data[field])
+
+        # Si la wilaya change et qu'aucun nouveau tarif n'a été précisé
+        # explicitement, on retente le vrai tarif du transporteur par défaut
+        # plutôt que de laisser l'ancien montant (potentiellement erroné pour
+        # la nouvelle destination).
+        if wilaya_changed and 'shipping_cost' not in request.data:
+            order.shipping_cost = _resolve_shipping_cost(store, order.wilaya, order.stop_desk, order.shipping_cost)
+
+        items_payload = request.data.get('items')
+        if items_payload is not None:
+            from products.models import StockMovement
+            # `order.items.all()` réutilise le cache déjà peuplé par le
+            # `prefetch_related('items', ...)` de `_get()` — utiliser une
+            # requête fraîche ici créerait des objets Python distincts,
+            # mutés/sauvés en base mais invisibles à `order.recalculate()`
+            # (qui lit lui aussi `self.items.all()`, donc le même cache).
+            items_by_id = {i.id: i for i in order.items.all()}
+
+            def restock(item):
+                target = item.variant_option or item.product
+                if target:
+                    target.stock = target.stock + item.quantity
+                    target.save(update_fields=['stock'])
+                    StockMovement.objects.create(
+                        store=store, product=item.product, variant_option=item.variant_option,
+                        quantity=item.quantity, reason='order_sale', note=f"Modification commande #{order.id}",
+                    )
+
+            def deduct(product, variant_option, qty):
+                target = variant_option or product
+                if target:
+                    target.stock = max(target.stock - qty, 0)
+                    target.save(update_fields=['stock'])
+                    StockMovement.objects.create(
+                        store=store, product=product, variant_option=variant_option,
+                        quantity=-qty, reason='order_sale', note=f"Modification commande #{order.id}",
+                    )
+
+            for entry in items_payload:
+                entry_id = entry.get('id')
+                item = items_by_id.get(entry_id) if entry_id else None
+
+                if entry.get('_delete'):
+                    if item:
+                        restock(item)
+                        item.delete()
+                    continue
+
+                new_qty = entry.get('quantity')
+                qty = int(new_qty) if new_qty is not None and int(new_qty) >= 1 else (item.quantity if item else 1)
+
+                # `product`/`variant_option` fournis = le confirmateur/client a changé
+                # d'article ou de variante (taille/couleur) — jamais fait confiance
+                # au prix client, toujours résolu côté serveur comme à la création.
+                new_product_id = entry.get('product')
+                new_variant_id = entry.get('variant_option')
+                product_changed = item and new_product_id and (
+                    new_product_id != item.product_id or new_variant_id != item.variant_option_id
+                )
+
+                if item and not product_changed:
+                    # Simple ajustement de quantité sur le même article.
+                    delta = qty - item.quantity
+                    if delta != 0:
+                        deduct(item.product, item.variant_option, delta)
+                    item.quantity = qty
+                    item.save(update_fields=['quantity'])
+                    continue
+
+                # Nouvel article (pas d'id) OU changement de produit/variante sur
+                # un article existant : résolution de prix identique à la création
+                # de commande (jamais la valeur envoyée par le client).
+                price = _authoritative_item_price(store, entry)
+                if price is None:
+                    continue
+                from products.models import VariantOption
+                product = store.products.filter(pk=new_product_id or (item.product_id if item else None)).first()
+                if not product:
+                    continue
+                variant_option = None
+                if new_variant_id:
+                    variant_option = VariantOption.objects.filter(pk=new_variant_id, variant__product=product).first()
+                    if not variant_option:
+                        continue
+                product_name = f"{product.name} — {variant_option.value}" if variant_option else product.name
+
+                if item:
+                    restock(item)
+                    item.product = product
+                    item.variant_option = variant_option
+                    item.product_name = product_name
+                    item.price = price
+                    item.quantity = qty
+                    item.save()
+                else:
+                    OrderItem.objects.create(
+                        order=order, product=product, variant_option=variant_option,
+                        product_name=product_name, price=price, quantity=qty,
+                    )
+                deduct(product, variant_option, qty)
+
+            # Invalide le cache `prefetch_related('items', ...)` posé par
+            # `_get()` — les articles ajoutés/supprimés ci-dessus existent
+            # bien en base mais ce cache ne le sait pas, donc `recalculate()`
+            # et la sérialisation qui suivent ignoreraient les nouveaux
+            # articles / garderaient les supprimés (même piège que pour la
+            # correction de quantité, mais ici sur le nombre de lignes).
+            if hasattr(order, '_prefetched_objects_cache'):
+                order._prefetched_objects_cache.pop('items', None)
+
         if 'scheduled_at' in request.data and order.status == 'scheduled':
             new_scheduled_at = parse_datetime(request.data['scheduled_at'] or '')
             if new_scheduled_at is None:
@@ -522,50 +683,127 @@ class OrderStatusView(APIView):
                 return Response(OrderDetailSerializer(order).data)
             order.refresh_from_db()
 
-        order.status = new_status
-        order.save(update_fields=['status'])
-        OrderStatusHistory.objects.create(
-            order      = order,
-            status     = new_status,
-            changed_by = request.user,
-            note       = request.data.get('note', ''),
+        carrier_warning = _transition_order_status(
+            store, order, new_status, changed_by=request.user,
+            note=request.data.get('note', ''), carrier_id=request.data.get('carrier_id'),
         )
-
-        carrier_warning = self._maybe_create_shipment(request, store, order, new_status)
-        _sync_commission_for_order(store, order, new_status)
-        if new_status in STATUS_TO_WEBHOOK_EVENT:
-            _fire_order_webhook(store, order, STATUS_TO_WEBHOOK_EVENT[new_status])
 
         data = OrderDetailSerializer(order).data
         if carrier_warning:
             data['carrier_warning'] = carrier_warning
         return Response(data)
 
-    def _maybe_create_shipment(self, request, store, order, new_status):
-        if new_status != 'confirmed' or order.carrier_tracking_number:
-            return None
 
-        carrier_id = request.data.get('carrier_id')
+def _transition_order_status(store, order, new_status, changed_by=None, note='', carrier_id=None):
+    """Applique un changement de statut avec tous les effets de bord normalement
+    déclenchés par `OrderStatusView.post` — factorisé pour être réutilisable par
+    la synchronisation automatique des statuts transporteur (`sync_carrier_tracking`,
+    `OrderSyncTrackingView`), qui doit produire exactement le même comportement
+    qu'un changement manuel (historique, création d'expédition si confirmée,
+    commission dropshipper, webhooks sortants)."""
+    order.status = new_status
+    order.save(update_fields=['status'])
+    OrderStatusHistory.objects.create(order=order, status=new_status, changed_by=changed_by, note=note)
+
+    carrier_warning = None
+    if new_status == 'confirmed' and not order.carrier_tracking_number:
         account = None
         if carrier_id:
             account = store.carrier_accounts.filter(pk=carrier_id, is_active=True).first()
         if not account:
             account = store.carrier_accounts.filter(is_default=True, is_active=True).first()
-
         if not account:
-            return 'Aucun transporteur configuré — expédition non créée.'
+            carrier_warning = 'Aucun transporteur configuré — expédition non créée.'
+        else:
+            carrier_warning = _create_shipment_for_order(store, order, account)
 
+    _sync_commission_for_order(store, order, new_status)
+    if new_status in STATUS_TO_WEBHOOK_EVENT:
+        _fire_order_webhook(store, order, STATUS_TO_WEBHOOK_EVENT[new_status])
+    return carrier_warning
+
+
+def sync_order_from_carrier(store, order):
+    """Interroge le transporteur pour rafraîchir `carrier_status`, et fait
+    avancer `Order.status` si l'événement correspond à une transition connue
+    (voir `NOEST_STATUS_MAP`) — jamais en arrière, jamais sur une commande déjà
+    dans un état terminal (delivered/returned/cancelled). Utilisée par le bouton
+    de sync manuel (`OrderSyncTrackingView`) et par la commande automatique
+    `sync_carrier_tracking` (à planifier en tâche périodique, comme
+    `cancel_stale_calls`)."""
+    client = get_carrier_client(order.carrier)
+    info = client.get_status_info(order.carrier_tracking_number)
+    order.carrier_status = info['carrier_status']
+    order.save(update_fields=['carrier_status'])
+
+    mapped = info.get('order_status')
+    if mapped and mapped != order.status and order.status not in ('delivered', 'returned', 'cancelled'):
+        _transition_order_status(
+            store, order, mapped, changed_by=None,
+            note=f"Mise à jour automatique — statut transporteur : {info['carrier_status']}",
+        )
+    return order
+
+
+class OrderAssignCarrierView(APIView):
+    """Attribue une société de livraison à une commande, indépendamment du
+    statut — bouton "Assigner" permanent sur la fiche commande (pas caché
+    dans "Modifier" ni conditionné à un changement de statut). Nécessaire
+    pour les commandes importées depuis un canal externe (Shopify) qui
+    arrivent sans transporteur : ce n'est pas une "modification", c'est une
+    attribution manuelle à faire au cas par cas. Si la commande n'a pas
+    encore de tracking, crée l'expédition immédiatement (sinon se contente
+    de changer le transporteur par défaut pour une future confirmation)."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        store = _get_store(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        if not (is_owner_or_admin(request) or has_permission(request, 'orders_manage')):
+            return Response({'detail': 'Réservé au propriétaire, administrateur, ou confirmateur autorisé.'}, status=403)
         try:
-            result = get_carrier_client(account).create_shipment(order)
-        except Exception as e:
-            return f"Erreur transporteur : {e}"
+            order = store.orders.get(pk=pk)
+        except Order.DoesNotExist:
+            return Response({'detail': 'Commande introuvable.'}, status=404)
 
-        order.carrier = account
-        order.carrier_tracking_number = result.tracking_number
-        order.carrier_status = result.status
-        order.carrier_shipment_created_at = timezone.now()
-        order.save(update_fields=['carrier', 'carrier_tracking_number', 'carrier_status', 'carrier_shipment_created_at'])
-        return None
+        carrier_id = request.data.get('carrier_id')
+        account = store.carrier_accounts.filter(pk=carrier_id, is_active=True).first() if carrier_id else None
+        if not account:
+            return Response({'detail': 'Transporteur invalide ou inactif.'}, status=400)
+
+        warning = None
+        if order.carrier_tracking_number:
+            # Déjà expédiée — on change juste l'association pour référence,
+            # pas de nouvel appel API (éviterait une double expédition réelle).
+            order.carrier = account
+            order.save(update_fields=['carrier'])
+        else:
+            warning = _create_shipment_for_order(store, order, account)
+
+        data = OrderDetailSerializer(order).data
+        if warning:
+            data['carrier_warning'] = warning
+        return Response(data)
+
+
+def _create_shipment_for_order(store, order, account):
+    """Appelle réellement l'API du transporteur pour créer l'expédition et
+    enregistre le tracking sur la commande. Retourne un message d'erreur
+    (string) en cas d'échec, ou None si tout s'est bien passé — partagé entre
+    la confirmation automatique (OrderStatusView) et l'attribution manuelle
+    (OrderAssignCarrierView)."""
+    try:
+        result = get_carrier_client(account).create_shipment(order)
+    except Exception as e:
+        return f"Erreur transporteur : {e}"
+
+    order.carrier = account
+    order.carrier_tracking_number = result.tracking_number
+    order.carrier_status = result.status
+    order.carrier_shipment_created_at = timezone.now()
+    order.save(update_fields=['carrier', 'carrier_tracking_number', 'carrier_status', 'carrier_shipment_created_at'])
+    return None
 
 
 class OrderRejectCancellationView(APIView):
@@ -676,6 +914,60 @@ class CarrierAccountDetailView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+class CarrierRatesView(APIView):
+    """Tarif de livraison réel pour un compte transporteur + une wilaya
+    (US demandée : afficher le vrai prix au lieu de le saisir à la main).
+    Best-effort — 404 si le transporteur n'expose pas de grille tarifaire
+    ou si le compte n'est pas configuré (mock)."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        store = _get_store(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        try:
+            account = store.carrier_accounts.get(pk=pk, is_active=True)
+        except CarrierAccount.DoesNotExist:
+            return Response({'detail': 'Compte transporteur introuvable ou inactif.'}, status=404)
+
+        from .wilaya_codes import wilaya_code
+        wilaya_name = request.query_params.get('wilaya', '')
+        wid = wilaya_code(wilaya_name)
+        if not wid:
+            return Response({'detail': 'Wilaya invalide.'}, status=400)
+
+        client = get_carrier_client(account)
+        rates = client.get_rates(wid)
+        if not rates:
+            return Response({'detail': "Tarif indisponible pour ce transporteur/cette wilaya."}, status=404)
+        return Response(rates)
+
+
+class CarrierDesksView(APIView):
+    """Liste des bureaux/points relais réels du transporteur pour une wilaya
+    (ex: Noest — 108 bureaux avec nom/adresse). Nécessaire pour choisir un
+    `station_code` valide quand `stop_desk=True`, sinon la création
+    d'expédition échoue chez certains transporteurs."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        store = _get_store(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        try:
+            account = store.carrier_accounts.get(pk=pk, is_active=True)
+        except CarrierAccount.DoesNotExist:
+            return Response({'detail': 'Compte transporteur introuvable ou inactif.'}, status=404)
+
+        from .wilaya_codes import wilaya_code
+        wid = wilaya_code(request.query_params.get('wilaya', ''))
+        if not wid:
+            return Response({'detail': 'Wilaya invalide.'}, status=400)
+
+        desks = get_carrier_client(account).get_desks(wid)
+        return Response(desks)
+
+
 class OrderStatsView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -733,6 +1025,9 @@ class ClientListView(APIView):
         manual_risk_phones = set(
             CustomerRisk.objects.filter(store=store, manual_risk=True).values_list('phone', flat=True)
         )
+        blacklisted_phones = set(
+            BlacklistedPhone.objects.filter(store=store).values_list('phone', flat=True)
+        )
 
         results = []
         for row in aggregated:
@@ -750,6 +1045,7 @@ class ClientListView(APIView):
                 'risky_count':    row['risky_count'],
                 'is_risky':       is_risky,
                 'manual_risk':    row['phone'] in manual_risk_phones,
+                'is_blacklisted': row['phone'] in blacklisted_phones,
                 'created_at':     row['created_at'],
             })
 
@@ -782,7 +1078,20 @@ class BlacklistListCreateView(APIView):
         if not store:
             return Response({'detail': 'Accès refusé.'}, status=403)
         qs = store.blacklisted_phones.all()
-        return Response(BlacklistedPhoneSerializer(qs, many=True).data)
+        search = request.query_params.get('search', '').strip()
+        if search:
+            qs = qs.filter(phone__icontains=search)
+
+        page, per_page = parse_pagination(request, default_per_page=20)
+        total = qs.count()
+        qs    = qs[(page - 1) * per_page: page * per_page]
+
+        return Response({
+            'count':    total,
+            'page':     page,
+            'per_page': per_page,
+            'results':  BlacklistedPhoneSerializer(qs, many=True).data,
+        })
 
     def post(self, request):
         store = _get_store(request)
@@ -1393,6 +1702,60 @@ class ConfirmationRateView(APIView):
         })
 
 
+class PublicShippingRateView(APIView):
+    """Tarif de livraison réel affiché au client sur la boutique publique,
+    basé sur le transporteur PAR DÉFAUT de la boutique — pas de choix de
+    transporteur côté client (décision produit : un seul transporteur
+    "officiel" par boutique vu du client final, cohérent avec le fait que
+    la boutique n'affiche qu'un seul prix de livraison au checkout)."""
+    permission_classes = [AllowAny]
+
+    def get(self, request, slug):
+        from stores.models import Store
+        try:
+            store = Store.objects.get(slug=slug, is_active=True)
+        except Store.DoesNotExist:
+            return Response({'detail': 'Boutique introuvable.'}, status=404)
+
+        from .wilaya_codes import wilaya_code
+        wid = wilaya_code(request.query_params.get('wilaya', ''))
+        if not wid:
+            return Response({'detail': 'Wilaya invalide.'}, status=400)
+
+        account = store.carrier_accounts.filter(is_default=True, is_active=True).first()
+        if not account:
+            return Response({'detail': 'Aucun transporteur par défaut configuré.'}, status=404)
+
+        rates = get_carrier_client(account).get_rates(wid)
+        if not rates:
+            return Response({'detail': 'Tarif indisponible pour cette wilaya.'}, status=404)
+        return Response(rates)
+
+
+class PublicDesksView(APIView):
+    """Liste des bureaux/points relais du transporteur par défaut de la
+    boutique, pour que le client choisisse où retirer son colis (stop desk)."""
+    permission_classes = [AllowAny]
+
+    def get(self, request, slug):
+        from stores.models import Store
+        try:
+            store = Store.objects.get(slug=slug, is_active=True)
+        except Store.DoesNotExist:
+            return Response({'detail': 'Boutique introuvable.'}, status=404)
+
+        from .wilaya_codes import wilaya_code
+        wid = wilaya_code(request.query_params.get('wilaya', ''))
+        if not wid:
+            return Response({'detail': 'Wilaya invalide.'}, status=400)
+
+        account = store.carrier_accounts.filter(is_default=True, is_active=True).first()
+        if not account:
+            return Response([])
+
+        return Response(get_carrier_client(account).get_desks(wid))
+
+
 class PublicOrderView(APIView):
     permission_classes = [AllowAny]
     throttle_scope = 'order'
@@ -1419,7 +1782,8 @@ class PublicOrderView(APIView):
 
         try:
             quota = store.quota
-            if quota.orders_used >= quota.orders_limit:
+            block_reason = _quota_block_reason(quota)
+            if block_reason:
                 return Response({'detail': 'Cette boutique ne peut plus accepter de commandes.'}, status=403)
         except Exception:
             quota = None
@@ -1467,6 +1831,9 @@ class PublicOrderView(APIView):
         shipping_cost = _validate_shipping_cost(request)
         if shipping_cost is None:
             return Response({'detail': 'Frais de livraison invalides.'}, status=400)
+        shipping_cost = _resolve_shipping_cost(
+            store, request.data.get('wilaya', ''), bool(request.data.get('stop_desk')), shipping_cost,
+        )
 
         order = Order.objects.create(
             store         = store,
@@ -1477,6 +1844,8 @@ class PublicOrderView(APIView):
             commune       = request.data.get('commune', ''),
             address       = request.data.get('address', ''),
             shipping_cost = shipping_cost,
+            stop_desk     = bool(request.data.get('stop_desk')),
+            station_code  = request.data.get('station_code', ''),
             payment_method = payment_method,
             note          = request.data.get('note', ''),
             promo_code      = promo.code if promo else '',
@@ -2044,3 +2413,76 @@ class OrderLabelView(APIView):
         response = HttpResponse(pdf_bytes, content_type='application/pdf')
         response['Content-Disposition'] = f'attachment; filename="etiquette-{order.id}.pdf"'
         return response
+
+
+class OrderRetryShipmentView(APIView):
+    """Relance manuellement la création d'expédition pour une commande déjà
+    confirmée mais sans tracking (ex: aucun transporteur actif au moment de
+    la confirmation, ou échec transitoire de l'API transporteur) — voir
+    ShipmentsPage.jsx, bouton "Créer l'expédition"/"Réessayer"."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        store = _get_store(request)
+        if not store or not is_owner_or_admin(request):
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        try:
+            order = store.orders.get(pk=pk)
+        except Order.DoesNotExist:
+            return Response({'detail': 'Commande introuvable.'}, status=404)
+
+        if order.status not in ('confirmed', 'shipped'):
+            return Response({'detail': "Seule une commande confirmée ou expédiée peut avoir une expédition créée."}, status=400)
+        if order.carrier_tracking_number:
+            return Response({'detail': 'Une expédition existe déjà pour cette commande.'}, status=400)
+
+        carrier_id = request.data.get('carrier_id')
+        account = None
+        if carrier_id:
+            account = store.carrier_accounts.filter(pk=carrier_id, is_active=True).first()
+        if not account:
+            account = store.carrier_accounts.filter(is_default=True, is_active=True).first()
+        if not account:
+            return Response({'detail': 'Aucun transporteur actif configuré.'}, status=400)
+
+        try:
+            result = get_carrier_client(account).create_shipment(order)
+        except Exception as e:
+            return Response({'detail': f"Erreur transporteur : {e}"}, status=502)
+
+        order.carrier = account
+        order.carrier_tracking_number = result.tracking_number
+        order.carrier_status = result.status
+        order.carrier_shipment_created_at = timezone.now()
+        order.save(update_fields=['carrier', 'carrier_tracking_number', 'carrier_status', 'carrier_shipment_created_at'])
+        return Response(OrderSerializer(order).data)
+
+
+class OrderSyncTrackingView(APIView):
+    """Bouton de synchronisation manuelle — interroge le transporteur et
+    délègue à `sync_order_from_carrier` (rafraîchit `carrier_status`, et fait
+    avancer `Order.status` si l'événement transporteur correspond à une
+    transition connue). Même logique que la synchronisation automatique
+    périodique (`sync_carrier_tracking`)."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        store = _get_store(request)
+        if not store or not is_owner_or_admin(request):
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        try:
+            order = store.orders.get(pk=pk)
+        except Order.DoesNotExist:
+            return Response({'detail': 'Commande introuvable.'}, status=404)
+
+        if not order.carrier_tracking_number or not order.carrier:
+            return Response({'detail': "Aucune expédition à suivre pour cette commande."}, status=400)
+
+        try:
+            order = sync_order_from_carrier(store, order)
+        except TrackingNotFoundError:
+            return Response({'detail': "Numéro de suivi introuvable auprès du transporteur."}, status=404)
+        except Exception:
+            return Response({'detail': "Impossible de récupérer le statut auprès du transporteur."}, status=502)
+
+        return Response(OrderDetailSerializer(order).data)

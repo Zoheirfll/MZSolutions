@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef, Fragment } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import DashboardLayout from '../../components/DashboardLayout'
 import StatusBadge from '../../components/StatusBadge'
@@ -6,6 +6,8 @@ import Select from '../../components/Select'
 import api from '../../api/axios'
 import { theme } from '../../theme'
 import { useAuth } from '../../context/AuthContext'
+import { WILAYAS, getWilayaIdByName } from '../../data/wilayas'
+import { getCommunesForWilaya } from '../../data/communes'
 
 const STATUS_CHOICES = [
   { value: 'pending',          label: 'En attente de confirmation' },
@@ -104,6 +106,7 @@ export default function OrderDetailPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const isConfirmateur = user?.team_role === 'confirmateur'
+  const canEditOrder = !!user?.permissions?.orders_manage
 
   const [order,         setOrder]         = useState(null)
   const [loading,       setLoading]       = useState(true)
@@ -111,6 +114,268 @@ export default function OrderDetailPage() {
   const [carrierAccounts, setCarrierAccounts] = useState([])
   const [selectedCarrierId, setSelectedCarrierId] = useState('')
   const [carrierWarning, setCarrierWarning] = useState('')
+  const [downloadingLabel, setDownloadingLabel] = useState(false)
+  const [labelError, setLabelError] = useState('')
+  const [savingCarrier, setSavingCarrier] = useState(false)
+  const [assignCarrierError, setAssignCarrierError] = useState('')
+
+  // Articles — toujours modifiables directement sur la page (pas caché
+  // dans "Modifier") : au cas où le client s'est trompé de taille/couleur,
+  // ou pour les commandes importées (Shopify) à corriger manuellement.
+  const [localItems,   setLocalItems]   = useState([])
+  const [savingItems,  setSavingItems]  = useState(false)
+  const [itemsError,   setItemsError]   = useState('')
+  const [itemSearch,   setItemSearch]   = useState('')
+  const [itemResults,  setItemResults]  = useState([])
+  const [itemSearching, setItemSearching] = useState(false)
+  const [changingRowKey, setChangingRowKey] = useState(null) // clé de la ligne dont on cherche un nouveau produit/variante
+  const nextTempId = useRef(-1)
+
+  useEffect(() => {
+    if (order?.items) setLocalItems(order.items.map(i => ({ ...i, _key: i.id })))
+  }, [order])
+
+  useEffect(() => {
+    const term = itemSearch.trim()
+    if (!term) { setItemResults([]); return }
+    setItemSearching(true)
+    const t = setTimeout(() => {
+      api.get(`/products/?search=${encodeURIComponent(term)}&per_page=8`)
+        .then(({ data }) => setItemResults(data.results ?? []))
+        .catch(() => {})
+        .finally(() => setItemSearching(false))
+    }, 300)
+    return () => clearTimeout(t)
+  }, [itemSearch])
+
+  const localSubtotal = localItems.filter(i => !i._delete).reduce((s, i) => s + i.price * i.quantity, 0)
+
+  // Sauvegarde immédiate — pas de bouton "Enregistrer" : chaque interaction
+  // (quantité, suppression, ajout, changement de variante) persiste tout de
+  // suite. `items` = le tableau localItems déjà mis à jour (calculé avant
+  // l'appel, jamais lu depuis le state qui n'est pas encore à jour à cause
+  // de l'asynchronicité de setState).
+  const persistItems = async items => {
+    setSavingItems(true)
+    setItemsError('')
+    try {
+      const payload = items
+        .filter(i => !(i._new && i._delete))
+        .map(i => {
+          if (i._delete) return { id: i.id, _delete: true }
+          if (i._new) return { product: i.product, variant_option: i.variant_option, quantity: i.quantity }
+          if (i._changed) return { id: i.id, product: i.product, variant_option: i.variant_option, quantity: i.quantity }
+          return { id: i.id, quantity: i.quantity }
+        })
+      await api.put(`/orders/${id}/`, { items: payload })
+      fetchOrder(true)
+    } catch (err) {
+      setItemsError(err.response?.data?.detail || "Impossible d'enregistrer les articles.")
+    } finally { setSavingItems(false) }
+  }
+
+  const qtyTimers = useRef({})
+  const updateLocalQty = (key, qty) => {
+    if (qty < 1) return
+    setLocalItems(prev => {
+      const next = prev.map(i => i._key === key ? { ...i, quantity: qty } : i)
+      // Léger anti-rebond sur les clics +/- répétés, pour ne pas spammer
+      // l'API à chaque incrément — la dernière valeur gagne.
+      clearTimeout(qtyTimers.current[key])
+      qtyTimers.current[key] = setTimeout(() => persistItems(next), 400)
+      return next
+    })
+  }
+
+  const removeLocalItem = key => {
+    setLocalItems(prev => {
+      const next = prev.filter(i => i._key !== key).concat(
+        prev.some(i => i._key === key && !i._new) ? [{ ...prev.find(i => i._key === key), _delete: true }] : []
+      )
+      persistItems(next)
+      return next
+    })
+  }
+
+  const addProductToOrder = (p, variantOption) => {
+    const price = variantOption ? Number(variantOption.price ?? p.price) : Number(p.price)
+    const key = nextTempId.current--
+    setLocalItems(prev => {
+      const next = [...prev, {
+        _key: key, _new: true,
+        product: p.id, variant_option: variantOption?.id || null,
+        product_name: variantOption ? `${p.name} — ${variantOption.value}` : p.name,
+        price, quantity: 1,
+      }]
+      persistItems(next)
+      return next
+    })
+    setItemSearch('')
+    setItemResults([])
+  }
+
+  const changeRowProduct = (key, p, variantOption) => {
+    const price = variantOption ? Number(variantOption.price ?? p.price) : Number(p.price)
+    setLocalItems(prev => {
+      const next = prev.map(i => i._key === key ? {
+        ...i, _changed: true,
+        product: p.id, variant_option: variantOption?.id || null,
+        product_name: variantOption ? `${p.name} — ${variantOption.value}` : p.name,
+        price,
+      } : i)
+      persistItems(next)
+      return next
+    })
+    setChangingRowKey(null)
+    setItemSearch('')
+    setItemResults([])
+  }
+
+  const assignCarrier = async () => {
+    if (!selectedCarrierId) return
+    setSavingCarrier(true)
+    setAssignCarrierError('')
+    try {
+      const { data } = await api.post(`/orders/${id}/assign-carrier/`, { carrier_id: selectedCarrierId })
+      if (data.carrier_warning) setAssignCarrierError(data.carrier_warning)
+      fetchOrder(true)
+    } catch (err) {
+      setAssignCarrierError(err.response?.data?.detail || "Impossible d'attribuer ce transporteur.")
+    } finally { setSavingCarrier(false) }
+  }
+
+  const downloadLabel = async () => {
+    setLabelError('')
+    setDownloadingLabel(true)
+    try {
+      const res = await api.get(`/orders/${id}/label/`, { responseType: 'blob' })
+      const url = URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }))
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `etiquette-${id}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      let detail = "Impossible de récupérer l'étiquette."
+      if (err.response?.data instanceof Blob) {
+        try {
+          const text = await err.response.data.text()
+          detail = JSON.parse(text).detail || detail
+        } catch {}
+      } else if (err.response?.data?.detail) {
+        detail = err.response.data.detail
+      }
+      setLabelError(detail)
+    } finally {
+      setDownloadingLabel(false)
+    }
+  }
+
+  // Livraison — toujours modifiable directement sur la page, sauvegarde
+  // immédiate à chaque changement (pas de bouton "Enregistrer") : ville/
+  // commune/point relais/frais, au cas où le client s'est trompé au
+  // checkout ou pour attribuer manuellement une commande importée (Shopify).
+  const [editWilaya,     setEditWilaya]     = useState('')
+  const [editCommune,    setEditCommune]    = useState('')
+  const [editStopDesk,   setEditStopDesk]   = useState(false)
+  const [editRate,       setEditRate]       = useState(null) // {tarif, tarif_stopdesk} ou null
+  const [editShipping,   setEditShipping]   = useState(0)
+  const [editShippingEdited, setEditShippingEdited] = useState(false)
+  const [editShippingLoading, setEditShippingLoading] = useState(false)
+  const [editDesks,       setEditDesks]       = useState([])
+  const [editDesksLoading, setEditDesksLoading] = useState(false)
+  const [editStationCode, setEditStationCode]  = useState('')
+  const [savingEdit,     setSavingEdit]     = useState(false)
+  const [shippingError,  setShippingError]  = useState('')
+  const shippingCostTimer = useRef(null)
+
+  const defaultCarrier = carrierAccounts.find(a => a.is_default)
+
+  const resetShippingFields = () => {
+    if (!order) return
+    setEditWilaya(order.wilaya)
+    setEditCommune(order.commune)
+    setEditStopDesk(order.stop_desk)
+    setEditStationCode(order.station_code || '')
+    setEditShipping(order.shipping_cost)
+    setEditShippingEdited(false)
+  }
+
+  // Initialise les champs dès que la commande est (re)chargée.
+  useEffect(() => { resetShippingFields() }, [order?.id, order?.updated_at])
+
+  // Liste des bureaux réels dès que point relais + wilaya sont connus
+  useEffect(() => {
+    if (!defaultCarrier || !editWilaya || !editStopDesk) { setEditDesks([]); return }
+    setEditDesksLoading(true)
+    api.get(`/stores/me/carriers/${defaultCarrier.id}/desks/?wilaya=${encodeURIComponent(editWilaya)}`)
+      .then(({ data }) => setEditDesks(data))
+      .catch(() => setEditDesks([]))
+      .finally(() => setEditDesksLoading(false))
+  }, [defaultCarrier, editWilaya, editStopDesk])
+
+  // Retente le vrai tarif du transporteur par défaut dès que la wilaya
+  // change, sauf si le confirmateur a déjà tapé un montant à la main.
+  useEffect(() => {
+    if (!defaultCarrier || !editWilaya || editShippingEdited) return
+    setEditShippingLoading(true)
+    api.get(`/stores/me/carriers/${defaultCarrier.id}/rates/?wilaya=${encodeURIComponent(editWilaya)}`)
+      .then(({ data }) => {
+        setEditRate(data)
+        setEditShipping(editStopDesk && data.tarif_stopdesk != null ? data.tarif_stopdesk : data.tarif)
+      })
+      .catch(() => setEditRate(null))
+      .finally(() => setEditShippingLoading(false))
+  }, [defaultCarrier, editWilaya, editShippingEdited])
+
+  const persistShipping = async fields => {
+    setSavingEdit(true)
+    setShippingError('')
+    try {
+      await api.put(`/orders/${id}/`, fields)
+      fetchOrder(true)
+    } catch (err) {
+      setShippingError(err.response?.data?.detail || "Impossible d'enregistrer.")
+    } finally { setSavingEdit(false) }
+  }
+
+  const chooseWilaya = v => {
+    setEditWilaya(v)
+    setEditCommune('')
+    // Pas de shipping_cost explicite : le serveur retente le vrai tarif
+    // pour la nouvelle wilaya (voir _resolve_shipping_cost côté backend).
+    persistShipping({ wilaya: v, commune: '' })
+  }
+
+  const chooseCommune = v => {
+    setEditCommune(v)
+    persistShipping({ commune: v })
+  }
+
+  // Bascule domicile/point relais : réapplique le tarif réel correspondant
+  // si le montant n'a pas été modifié à la main, et sauvegarde tout de suite.
+  const chooseStopDesk = value => {
+    setEditStopDesk(value)
+    const shipping = editRate && !editShippingEdited
+      ? (value && editRate.tarif_stopdesk != null ? editRate.tarif_stopdesk : editRate.tarif)
+      : editShipping
+    if (editRate && !editShippingEdited) setEditShipping(shipping)
+    persistShipping({ stop_desk: value, shipping_cost: shipping, station_code: value ? editStationCode : '' })
+  }
+
+  const chooseStationCode = v => {
+    setEditStationCode(v)
+    persistShipping({ station_code: v })
+  }
+
+  const changeShippingCost = value => {
+    setEditShipping(value)
+    setEditShippingEdited(true)
+    clearTimeout(shippingCostTimer.current)
+    shippingCostTimer.current = setTimeout(() => persistShipping({ shipping_cost: value }), 600)
+  }
 
   // Changer statut
   const [newStatus,  setNewStatus]  = useState('')
@@ -124,12 +389,16 @@ export default function OrderDetailPage() {
   const [newConfirmateur, setNewConfirmateur] = useState('')
   const [savingAssign, setSavingAssign] = useState(false)
 
-  const fetchOrder = useCallback(() => {
-    setLoading(true)
+  const fetchOrder = useCallback((silent = false) => {
+    if (!silent) setLoading(true)
     api.get(`/orders/${id}/`)
-      .then(({ data }) => { setOrder(data); setNewStatus(data.status) })
-      .catch(() => navigate('/dashboard/commandes'))
-      .finally(() => setLoading(false))
+      .then(({ data }) => {
+        setOrder(data)
+        setNewStatus(data.status)
+        setSelectedCarrierId(prev => prev || data.carrier || '')
+      })
+      .catch(() => { if (!silent) navigate('/dashboard/commandes') })
+      .finally(() => { if (!silent) setLoading(false) })
   }, [id, navigate])
 
   useEffect(() => {
@@ -153,7 +422,7 @@ export default function OrderDetailPage() {
         setFailureReason('')
       }
       setStatusNote('')
-      fetchOrder()
+      fetchOrder(true)
     } catch {} finally { setSavingStatus(false) }
   }
 
@@ -162,7 +431,7 @@ export default function OrderDetailPage() {
     setSavingAssign(true)
     try {
       await api.put(`/orders/${id}/assignment/`, { confirmateur: newConfirmateur })
-      fetchOrder()
+      fetchOrder(true)
       setNewConfirmateur('')
     } catch {} finally { setSavingAssign(false) }
   }
@@ -209,7 +478,7 @@ export default function OrderDetailPage() {
                 style={{ background: '#7c3aed' }}>
                 {initials}
               </div>
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <p className="font-semibold text-gray-100 truncate">{order.first_name} {order.last_name}</p>
                 <p className="text-xs" style={{ color: theme.dark.muted }}>Commande #{order.id} · {new Date(order.created_at).toLocaleDateString('fr-DZ')}</p>
               </div>
@@ -218,12 +487,31 @@ export default function OrderDetailPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-4 gap-x-4">
               <InfoTile icon={ICONS.phone} label="Téléphone" value={order.phone} />
               <InfoTile icon={ICONS.pin} label="Wilaya / Commune" value={`${order.wilaya}${order.commune ? ' · ' + order.commune : ''}`} />
-              <InfoTile icon={ICONS.truck} label="Livraison" value={order.delivery_type || '—'} />
+              <InfoTile
+                icon={ICONS.truck}
+                label="Livraison"
+                value={
+                  order.carrier_label
+                    ? order.carrier_label
+                    : defaultCarrier
+                      ? `${defaultCarrier.carrier_label} (par défaut)`
+                      : order.delivery_type || 'Aucun transporteur configuré'
+                }
+              />
               <InfoTile icon={ICONS.cash} label="Paiement" value={order.payment_method_label || '—'} />
               {order.carrier_tracking_number && (
-                <InfoTile icon={ICONS.shipping} label="Transporteur" value={`${order.carrier_label} — ${order.carrier_tracking_number}`} highlight />
+                <InfoTile icon={ICONS.shipping} label="Société de livraison" value={`${order.carrier_label} — ${order.carrier_tracking_number}`} highlight />
               )}
             </div>
+
+            {order.carrier_tracking_number && (
+              <div className="mt-4 pt-4 border-t" style={{ borderColor: theme.dark.border }}>
+                <button onClick={downloadLabel} disabled={downloadingLabel} className={theme.btn.outline + ' text-sm disabled:opacity-60'}>
+                  {downloadingLabel ? 'Téléchargement…' : 'Télécharger l\'étiquette'}
+                </button>
+                {labelError && <p className="text-red-400 text-xs mt-2">{labelError}</p>}
+              </div>
+            )}
 
             {order.note && (
               <div className="mt-4 pt-4 border-t flex items-start gap-2.5" style={{ borderColor: theme.dark.border }}>
@@ -238,38 +526,243 @@ export default function OrderDetailPage() {
             )}
           </div>
 
-          {/* Articles */}
-          <SectionCard icon={ICONS.package} title={`Articles (${order.items?.length || 0})`}>
+          {/* Articles — toujours modifiables directement (produit, variante,
+              quantité, ajout/suppression), indépendamment de "Modifier". */}
+          <SectionCard icon={ICONS.package} title={`Articles (${localItems.filter(i => !i._delete).length})`}>
+            {canEditOrder && (
+              <div className="relative mb-3">
+                <input
+                  value={itemSearch}
+                  onChange={e => { setItemSearch(e.target.value); setChangingRowKey(null) }}
+                  placeholder="Rechercher un produit à ajouter…"
+                  className="w-full px-3.5 py-2.5 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 transition"
+                  style={{ borderColor: theme.dark.border }}
+                />
+                {(itemResults.length > 0 || itemSearching) && !changingRowKey && (
+                  <div className="absolute z-20 left-0 right-0 top-full mt-1 rounded-lg border overflow-hidden shadow-xl max-h-72 overflow-y-auto" style={{ background: theme.dark.sidebar, borderColor: theme.dark.border }}>
+                    {itemSearching && <p className="px-4 py-3 text-xs text-gray-500">Recherche…</p>}
+                    {itemResults.map(p => {
+                      const options = (p.variants || []).flatMap(v => v.options || [])
+                      return (
+                        <div key={p.id} className="border-b last:border-0" style={{ borderColor: theme.dark.border }}>
+                          {options.length === 0 && (
+                            <button onClick={() => addProductToOrder(p)} className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 transition flex items-center justify-between">
+                              <span>{p.name}</span>
+                              <span className="text-violet-300 text-xs">{Number(p.price).toLocaleString('fr-DZ')} DZD</span>
+                            </button>
+                          )}
+                          {options.map(opt => (
+                            <button key={opt.id} onClick={() => addProductToOrder(p, opt)} className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-white/5 transition flex items-center justify-between">
+                              <span>{p.name} — {opt.value}</span>
+                              <span className="text-violet-300 text-xs">{Number(opt.price ?? p.price).toLocaleString('fr-DZ')} DZD</span>
+                            </button>
+                          ))}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
             <div className="overflow-x-auto -mx-1">
-              <table className="w-full text-sm min-w-105">
+              <table className="w-full text-sm min-w-120">
                 <thead>
                   <tr className="text-[11px] uppercase tracking-wide border-b text-left" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
                     <th className="pb-2.5 px-1 font-medium">Produit</th>
                     <th className="pb-2.5 px-1 font-medium text-right">Prix</th>
                     <th className="pb-2.5 px-1 font-medium text-center">Qté</th>
                     <th className="pb-2.5 px-1 font-medium text-right">Total</th>
+                    {canEditOrder && <th className="pb-2.5 px-1 w-16"></th>}
                   </tr>
                 </thead>
                 <tbody>
-                  {order.items?.map(item => (
-                    <tr key={item.id} className="border-b last:border-0 hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
-                      <td className="py-3 px-1 text-gray-200 font-medium">{item.product_name}</td>
-                      <td className="py-3 px-1 text-right text-gray-400">{Number(item.price).toLocaleString('fr-DZ')} DZD</td>
-                      <td className="py-3 px-1 text-center">
-                        <span className="inline-flex items-center justify-center min-w-6 h-6 px-1.5 rounded-md text-xs font-semibold bg-white/5 text-gray-300">
-                          {item.quantity}
-                        </span>
-                      </td>
-                      <td className="py-3 px-1 text-right text-gray-100 font-semibold">{(item.price * item.quantity).toLocaleString('fr-DZ')} DZD</td>
-                    </tr>
+                  {localItems.filter(i => !i._delete).map(item => (
+                    <Fragment key={item._key}>
+                      <tr className="border-b last:border-0 hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
+                        <td className="py-3 px-1 text-gray-200 font-medium">
+                          {item.product_name}
+                          {canEditOrder && (
+                            <button onClick={() => { setChangingRowKey(k => k === item._key ? null : item._key); setItemSearch(''); setItemResults([]) }} className="ml-2 text-xs text-violet-400 hover:text-violet-300 transition cursor-pointer">
+                              {changingRowKey === item._key ? 'Annuler' : 'Changer'}
+                            </button>
+                          )}
+                        </td>
+                        <td className="py-3 px-1 text-right text-gray-400">{Number(item.price).toLocaleString('fr-DZ')} DZD</td>
+                        <td className="py-3 px-1 text-center">
+                          {canEditOrder ? (
+                            <div className="flex items-center justify-center gap-1">
+                              <button type="button" onClick={() => updateLocalQty(item._key, item.quantity - 1)}
+                                className="w-6 h-6 rounded border text-gray-400 hover:text-gray-200 text-xs cursor-pointer" style={{ borderColor: theme.dark.border }}>−</button>
+                              <span className="w-8 text-center text-gray-200">{item.quantity}</span>
+                              <button type="button" onClick={() => updateLocalQty(item._key, item.quantity + 1)}
+                                className="w-6 h-6 rounded border text-gray-400 hover:text-gray-200 text-xs cursor-pointer" style={{ borderColor: theme.dark.border }}>+</button>
+                            </div>
+                          ) : (
+                            <span className="inline-flex items-center justify-center min-w-6 h-6 px-1.5 rounded-md text-xs font-semibold bg-white/5 text-gray-300">
+                              {item.quantity}
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3 px-1 text-right text-gray-100 font-semibold">
+                          {(item.price * item.quantity).toLocaleString('fr-DZ')} DZD
+                        </td>
+                        {canEditOrder && (
+                          <td className="py-3 px-1 text-center">
+                            <button onClick={() => removeLocalItem(item._key)} className="text-red-400 hover:text-red-300 transition cursor-pointer" title="Retirer">
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
+                                <path d="M18 6L6 18M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </td>
+                        )}
+                      </tr>
+                      {changingRowKey === item._key && (
+                        <tr>
+                          <td colSpan={5} className="px-1 pb-3">
+                            <div className="relative">
+                              <input
+                                value={itemSearch}
+                                onChange={e => setItemSearch(e.target.value)}
+                                placeholder="Rechercher le nouveau produit/variante…"
+                                autoFocus
+                                className="w-full px-3.5 py-2 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 transition"
+                                style={{ borderColor: theme.dark.border }}
+                              />
+                              {(itemResults.length > 0 || itemSearching) && (
+                                <div className="relative z-20 mt-1 rounded-lg border overflow-hidden shadow-xl max-h-60 overflow-y-auto" style={{ background: theme.dark.sidebar, borderColor: theme.dark.border }}>
+                                  {itemSearching && <p className="px-4 py-3 text-xs text-gray-500">Recherche…</p>}
+                                  {itemResults.map(p => {
+                                    const options = (p.variants || []).flatMap(v => v.options || [])
+                                    return (
+                                      <div key={p.id} className="border-b last:border-0" style={{ borderColor: theme.dark.border }}>
+                                        {options.length === 0 && (
+                                          <button onClick={() => changeRowProduct(item._key, p)} className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 transition flex items-center justify-between">
+                                            <span>{p.name}</span>
+                                            <span className="text-violet-300 text-xs">{Number(p.price).toLocaleString('fr-DZ')} DZD</span>
+                                          </button>
+                                        )}
+                                        {options.map(opt => (
+                                          <button key={opt.id} onClick={() => changeRowProduct(item._key, p, opt)} className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-white/5 transition flex items-center justify-between">
+                                            <span>{p.name} — {opt.value}</span>
+                                            <span className="text-violet-300 text-xs">{Number(opt.price ?? p.price).toLocaleString('fr-DZ')} DZD</span>
+                                          </button>
+                                        ))}
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
                   ))}
                 </tbody>
               </table>
             </div>
-            <div className="mt-4 pt-4 border-t flex flex-col items-end gap-1.5 text-sm" style={{ borderColor: theme.dark.border }}>
+
+            {savingItems && <p className="mt-2 text-xs text-right" style={{ color: theme.dark.muted }}>Enregistrement…</p>}
+            {itemsError && <p className="text-red-400 text-xs mt-2 text-right">{itemsError}</p>}
+          </SectionCard>
+
+          {/* Livraison — ville/commune/domicile-point relais/frais, toujours
+              modifiables ici (pas dans un mode "Modifier" séparé). */}
+          {canEditOrder && (
+            <SectionCard icon={ICONS.truck} title="Livraison">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1.5">Wilaya</label>
+                  <Select
+                    value={editWilaya}
+                    onChange={chooseWilaya}
+                    options={WILAYAS.map(w => ({ value: w.name, label: `${w.id} — ${w.name}` }))}
+                    className={inputCls}
+                    style={{ ...bdrStyle, background: theme.dark.sidebar }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1.5">Commune</label>
+                  <Select
+                    value={editCommune}
+                    onChange={chooseCommune}
+                    options={getCommunesForWilaya(getWilayaIdByName(editWilaya)).map(name => ({ value: name, label: name }))}
+                    placeholder={editWilaya ? 'Choisissez une commune' : "Choisissez d'abord une wilaya"}
+                    disabled={!editWilaya}
+                    className={inputCls}
+                    style={{ ...bdrStyle, background: theme.dark.sidebar }}
+                  />
+                </div>
+                {editRate && editRate.tarif_stopdesk != null && (
+                  <div className="sm:col-span-2 grid grid-cols-2 gap-2">
+                    <label className={`flex items-center justify-between gap-2 cursor-pointer rounded-lg border px-3 py-2 text-xs transition ${!editStopDesk ? 'border-violet-500 bg-violet-500/10' : ''}`} style={{ borderColor: !editStopDesk ? undefined : theme.dark.border }}>
+                      <span className="flex items-center gap-2 text-gray-300">
+                        <input type="radio" name="edit_stop_desk" checked={!editStopDesk} onChange={() => chooseStopDesk(false)} className="accent-violet-600 w-3.5 h-3.5" />
+                        À domicile
+                      </span>
+                      <span className="text-gray-400">{Number(editRate.tarif).toLocaleString('fr-DZ')} DZD</span>
+                    </label>
+                    <label className={`flex items-center justify-between gap-2 cursor-pointer rounded-lg border px-3 py-2 text-xs transition ${editStopDesk ? 'border-violet-500 bg-violet-500/10' : ''}`} style={{ borderColor: editStopDesk ? undefined : theme.dark.border }}>
+                      <span className="flex items-center gap-2 text-gray-300">
+                        <input type="radio" name="edit_stop_desk" checked={editStopDesk} onChange={() => chooseStopDesk(true)} className="accent-violet-600 w-3.5 h-3.5" />
+                        Point relais
+                      </span>
+                      <span className="text-gray-400">{Number(editRate.tarif_stopdesk).toLocaleString('fr-DZ')} DZD</span>
+                    </label>
+                  </div>
+                )}
+                {editStopDesk && (
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs text-gray-400 mb-1.5">Bureau de retrait</label>
+                    <Select
+                      value={editStationCode}
+                      onChange={chooseStationCode}
+                      options={editDesks.map(d => ({ value: d.code, label: `${d.name} — ${d.address}` }))}
+                      placeholder={editDesksLoading ? 'Chargement des bureaux…' : editDesks.length ? 'Choisir un bureau' : 'Aucun bureau trouvé pour cette wilaya'}
+                      disabled={editDesksLoading || editDesks.length === 0}
+                      className={inputCls}
+                      style={{ ...bdrStyle, background: theme.dark.sidebar }}
+                    />
+                  </div>
+                )}
+                <div className="sm:col-span-2">
+                  <label className="block text-xs text-gray-400 mb-1.5">Frais de livraison</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={editShipping}
+                    onChange={e => changeShippingCost(e.target.value)}
+                    className={inputCls}
+                    style={bdrStyle}
+                  />
+                  {editShippingLoading && <p className="text-xs mt-1" style={{ color: theme.dark.muted }}>Récupération du tarif réel…</p>}
+                  {!editShippingLoading && defaultCarrier && !editShippingEdited && (
+                    <p className="text-xs mt-1 text-emerald-400">Tarif réel {defaultCarrier.carrier_label} pour {editWilaya}{editRate?.tarif_stopdesk != null ? (editStopDesk ? ' (point relais)' : ' (domicile)') : ''}</p>
+                  )}
+                  {editShippingEdited && (
+                    <button type="button" onClick={() => setEditShippingEdited(false)} className="text-xs text-violet-400 hover:text-violet-300 transition cursor-pointer mt-1">
+                      Revenir au tarif réel
+                    </button>
+                  )}
+                  {editStopDesk && defaultCarrier?.carrier === 'noest' && !editStationCode && !editDesksLoading && editDesks.length > 0 && (
+                    <p className="text-xs mt-1.5 text-amber-400">
+                      ⚠️ Choisissez un bureau ci-dessus — Noest exige un bureau précis pour une livraison en point relais.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {savingEdit && <p className="text-xs mt-3" style={{ color: theme.dark.muted }}>Enregistrement…</p>}
+              {shippingError && <p className="text-xs mt-3 text-red-400">{shippingError}</p>}
+            </SectionCard>
+          )}
+
+          {/* Total — placé après Livraison pour refléter le frais de livraison à jour */}
+          <SectionCard icon={ICONS.cash} title="Total">
+            <div className="flex flex-col items-end gap-1.5 text-sm">
               <div className="flex justify-between w-full max-w-56">
                 <span style={{ color: theme.dark.muted }}>Sous-total</span>
-                <span className="text-gray-300">{Number(order.subtotal).toLocaleString('fr-DZ')} DZD</span>
+                <span className="text-gray-300">{localSubtotal.toLocaleString('fr-DZ')} DZD</span>
               </div>
               <div className="flex justify-between w-full max-w-56">
                 <span style={{ color: theme.dark.muted }}>Livraison</span>
@@ -277,7 +770,7 @@ export default function OrderDetailPage() {
               </div>
               <div className="flex justify-between w-full max-w-56 pt-1.5 mt-1 border-t" style={{ borderColor: theme.dark.border }}>
                 <span className="text-gray-200 font-medium">Total</span>
-                <span className="text-white font-bold text-base">{Number(order.total).toLocaleString('fr-DZ')} DZD</span>
+                <span className="text-white font-bold text-base">{(localSubtotal + Number(order.shipping_cost)).toLocaleString('fr-DZ')} DZD</span>
               </div>
             </div>
           </SectionCard>
@@ -330,16 +823,6 @@ export default function OrderDetailPage() {
                 style={{ ...bdrStyle, background: theme.dark.sidebar }}
               />
             )}
-            {newStatus === 'confirmed' && carrierAccounts.length > 1 && (
-              <Select
-                value={selectedCarrierId}
-                onChange={setSelectedCarrierId}
-                options={carrierAccounts.map(a => ({ value: a.id, label: a.carrier_label }))}
-                placeholder="Transporteur par défaut de la boutique"
-                className={inputCls + ' mb-2'}
-                style={{ ...bdrStyle, background: theme.dark.sidebar }}
-              />
-            )}
             <textarea value={statusNote} onChange={e => setStatusNote(e.target.value)} rows={2} className={`${inputCls} resize-none mb-3`} style={bdrStyle} placeholder="Note (optionnel)" />
             <button onClick={changeStatus} disabled={savingStatus || newStatus === order.status} className={theme.btn.primary + ' w-full'}>
               {savingStatus ? '…' : 'Appliquer'}
@@ -351,6 +834,42 @@ export default function OrderDetailPage() {
               </p>
             )}
           </div>
+
+          {/* Société de livraison — permanente, pas cachée dans "Modifier"
+              ni liée à un changement de statut : nécessaire pour attribuer
+              manuellement un transporteur aux commandes importées (Shopify)
+              qui arrivent sans transporteur. */}
+          {canEditOrder && (
+            <div className="rounded-xl border p-4" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.06)', color: '#a1a1aa' }}>
+                  <Icon path={ICONS.shipping} className="w-3.5 h-3.5" />
+                </div>
+                <h3 className="text-sm font-semibold text-gray-200">Société de livraison</h3>
+              </div>
+              <div className="mb-3 px-3 py-2 rounded-lg" style={{ background: theme.dark.sidebar }}>
+                <p className="text-sm text-violet-300 font-medium">
+                  {order.carrier_label || <span style={{ color: theme.dark.muted }}>Non attribuée</span>}
+                </p>
+                {order.carrier_tracking_number && <p className="text-xs mt-0.5" style={{ color: theme.dark.muted }}>Tracking : {order.carrier_tracking_number}</p>}
+                {order.carrier_status && order.carrier_status !== 'created' && (
+                  <p className="text-xs mt-1 text-emerald-400">Dernier statut transporteur : {order.carrier_status}</p>
+                )}
+              </div>
+              <Select
+                value={selectedCarrierId}
+                onChange={setSelectedCarrierId}
+                options={carrierAccounts.map(a => ({ value: a.id, label: a.carrier_label }))}
+                placeholder="Choisir une société de livraison"
+                className={inputCls + ' mb-2'}
+                style={{ ...bdrStyle, background: theme.dark.sidebar }}
+              />
+              <button onClick={assignCarrier} disabled={savingCarrier || !selectedCarrierId} className={theme.btn.primary + ' w-full'}>
+                {savingCarrier ? '…' : order.carrier_tracking_number ? 'Réattribuer' : 'Attribuer'}
+              </button>
+              {assignCarrierError && <p className="mt-2 text-xs text-red-400">{assignCarrierError}</p>}
+            </div>
+          )}
 
           {/* Assignation — visible pour tous, modifiable uniquement par owner/admin */}
           <div className="rounded-xl border p-4" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>

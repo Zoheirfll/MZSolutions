@@ -1,4 +1,5 @@
 import requests
+from django.core.cache import cache
 
 from ..wilaya_codes import wilaya_code
 from .base import BaseCarrierClient, MockCarrierClient, ShipmentResult
@@ -40,7 +41,7 @@ class EcotrackClient(BaseCarrierClient):
             'remarque':    order.note or '',
             'produit':     ', '.join(i.product_name for i in order.items.all()) or 'Commande',
             'type':        1,  # 1 = Livraison
-            'stop_desk':   0,
+            'stop_desk':   int(order.stop_desk),
         }
         resp = requests.post(f"{self.api_domain}api/v1/create/order", json=payload, headers=self._headers(), timeout=15)
         resp.raise_for_status()
@@ -69,3 +70,29 @@ class EcotrackClient(BaseCarrierClient):
             raise TrackingNotFoundError(tracking_number)
         resp.raise_for_status()
         return resp.content
+
+    def get_rates(self, wilaya_id):
+        # ⚠️ Best-effort, non testé avec un vrai compte (structure de
+        # réponse déduite du code source de la lib de référence, pas d'un
+        # vrai appel observé) — à vérifier dès qu'un compte Ecotrack réel
+        # est disponible pour tester.
+        if not self.carrier_account.api_token:
+            return None
+        cache_key = f'ecotrack_fees_{self.carrier_account.id}'
+        rates = cache.get(cache_key)
+        if rates is None:
+            try:
+                resp = requests.get(f"{self.api_domain}api/v1/get/fees", headers=self._headers(), timeout=10)
+                resp.raise_for_status()
+                rates = resp.json().get('livraison', [])
+            except requests.RequestException:
+                return None
+            cache.set(cache_key, rates, 60 * 60 * 6)
+        entry = next((r for r in rates if r.get('wilaya_id') == wilaya_id), None)
+        if not entry:
+            return None
+        home = entry.get('tarif') or entry.get('prix') or entry.get('domicile')
+        stopdesk = entry.get('tarif_stopdesk') or entry.get('stopdesk') or entry.get('stop_desk')
+        if home is None:
+            return None
+        return {'tarif': float(home), 'tarif_stopdesk': float(stopdesk) if stopdesk is not None else None}

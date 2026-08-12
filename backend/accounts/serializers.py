@@ -75,7 +75,7 @@ class RegisterSerializer(serializers.Serializer):
     store_slug = serializers.SlugField(max_length=80)
 
     def validate_email(self, value):
-        if User.objects.filter(email=value).exists():
+        if User.objects.filter(email__iexact=value).exists():
             raise serializers.ValidationError("Un compte avec cet email existe déjà.")
         return value
 
@@ -117,7 +117,14 @@ class LoginSerializer(serializers.Serializer):
     password = serializers.CharField(write_only=True)
 
     def validate(self, data):
-        user = authenticate(username=data['email'], password=data['password'])
+        # Recherche insensible à la casse — `authenticate()` fait un match
+        # exact sur l'email, ce qui rejette une connexion valide si l'email a
+        # été saisi avec une casse différente (ex: clavier mobile qui
+        # capitalise automatiquement la première lettre). L'email n'a aucune
+        # raison d'être sensible à la casse pour l'utilisateur.
+        email = data['email'].strip()
+        user_obj = User.objects.filter(email__iexact=email).first()
+        user = authenticate(username=user_obj.email, password=data['password']) if user_obj else None
         if not user:
             raise serializers.ValidationError("Email ou mot de passe incorrect.")
         if not user.is_email_verified:

@@ -20,8 +20,29 @@ class BaseCarrierClient:
     def get_status(self, tracking_number):
         raise NotImplementedError
 
+    def get_status_info(self, tracking_number):
+        """Statut détaillé pour la synchronisation automatique (voir
+        `sync_carrier_tracking`) — {'carrier_status': texte affiché,
+        'order_status': 'shipped'|'delivered'|'returned'|None}. `order_status`
+        vaut None si le transporteur ne fournit pas de mapping fiable vers nos
+        statuts (implémentation par défaut, sûre pour tout transporteur dont
+        les libellés de statut n'ont pas été vérifiés en conditions réelles)."""
+        return {'carrier_status': self.get_status(tracking_number), 'order_status': None}
+
     def get_label(self, tracking_number):
         raise NotImplementedError
+
+    def get_rates(self, wilaya_id):
+        """Tarif de livraison réel pour une wilaya donnée — {'tarif': ..,
+        'tarif_stopdesk': ..} en DA, ou None si le transporteur n'expose pas
+        cette info (mock, ou API sans grille tarifaire publique)."""
+        return None
+
+    def get_desks(self, wilaya_id):
+        """Liste des bureaux/points relais (stop desk) pour une wilaya —
+        [{'code': .., 'name': .., 'address': ..}], ou [] si le transporteur
+        n'expose pas cette info ou ne supporte pas le point relais."""
+        return []
 
 
 def _generate_mock_label_pdf(tracking_number, carrier_code):

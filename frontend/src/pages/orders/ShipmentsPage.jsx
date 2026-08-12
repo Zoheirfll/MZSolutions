@@ -41,6 +41,26 @@ function ChevronRightIcon(props) {
   )
 }
 
+function RefreshIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14" {...props}>
+      <path d="M21 2v6h-6M3 22v-6h6" />
+      <path d="M3.51 9a9 9 0 0114.85-3.36L21 8M3 16l2.64 2.36A9 9 0 0020.49 15" />
+    </svg>
+  )
+}
+
+function TruckIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14" {...props}>
+      <path d="M10 17h4V5H2v12h3" />
+      <path d="M20 17h2v-3.34a4 4 0 00-1.17-2.83L19 9h-5v8h1" />
+      <circle cx="7.5" cy="17.5" r="2.5" />
+      <circle cx="17.5" cy="17.5" r="2.5" />
+    </svg>
+  )
+}
+
 export default function ShipmentsPage() {
   const navigate = useNavigate()
 
@@ -54,6 +74,8 @@ export default function ShipmentsPage() {
   const [loading,    setLoading]    = useState(true)
   const [labelError, setLabelError] = useState('')
   const [downloadingId, setDownloadingId] = useState(null)
+  const [retryingId, setRetryingId] = useState(null)
+  const [syncingId, setSyncingId] = useState(null)
 
   useEffect(() => {
     api.get('/stores/me/carriers/').then(({ data: d }) => setCarriers(d)).catch(() => {})
@@ -103,6 +125,32 @@ export default function ShipmentsPage() {
     }
   }
 
+  const retryShipment = async (order) => {
+    setLabelError('')
+    setRetryingId(order.id)
+    try {
+      await api.post(`/orders/${order.id}/retry-shipment/`)
+      fetchShipments()
+    } catch (err) {
+      setLabelError(`Commande #${order.id} — ${err.response?.data?.detail || "Impossible de créer l'expédition."}`)
+    } finally {
+      setRetryingId(null)
+    }
+  }
+
+  const syncTracking = async (order) => {
+    setLabelError('')
+    setSyncingId(order.id)
+    try {
+      await api.post(`/orders/${order.id}/sync-tracking/`)
+      fetchShipments()
+    } catch (err) {
+      setLabelError(`Commande #${order.id} — ${err.response?.data?.detail || 'Impossible de rafraîchir le statut.'}`)
+    } finally {
+      setSyncingId(null)
+    }
+  }
+
   const shipments  = data.results || []
   const totalPages = Math.max(1, Math.ceil(data.count / perPage))
   const carrierOptions = [{ value: '', label: 'Tous les transporteurs' }, ...carriers.map(c => ({ value: c.id, label: c.name || c.carrier }))]
@@ -114,7 +162,7 @@ export default function ShipmentsPage() {
         <input
           value={search}
           onChange={e => setSearch(e.target.value)}
-          placeholder="Recherche nom, téléphone, tracking…"
+          placeholder="Recherche nom, téléphone, tracking"
           className="px-3 py-2 rounded-lg border text-sm text-gray-200 outline-none focus:border-violet-500 transition w-full sm:w-64"
           style={{ background: theme.dark.card, borderColor: theme.dark.border }}
         />
@@ -143,11 +191,12 @@ export default function ShipmentsPage() {
               <th className="px-4 py-3 font-medium">TRACKING</th>
               <th className="px-4 py-3 font-medium">STATUT</th>
               <th className="px-4 py-3 font-medium">ÉTIQUETTE</th>
+              <th className="px-4 py-3 font-medium">ACTIONS</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={7} className="py-16">
+              <tr><td colSpan={8} className="py-16">
                 <div className="flex items-center justify-center gap-2 text-gray-500">
                   <svg className="w-5 h-5 animate-spin text-violet-500" viewBox="0 0 24 24" fill="none">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -157,7 +206,7 @@ export default function ShipmentsPage() {
                 </div>
               </td></tr>
             ) : shipments.length === 0 ? (
-              <tr><td colSpan={7}>
+              <tr><td colSpan={8}>
                 <EmptyState title="Aucune expédition trouvée" description="Les commandes confirmées, expédiées, livrées ou retournées apparaîtront ici." />
               </td></tr>
             ) : shipments.map(o => (
@@ -172,7 +221,12 @@ export default function ShipmentsPage() {
                 <td className="px-4 py-3 text-gray-300">{o.wilaya}</td>
                 <td className="px-4 py-3 text-gray-300">{o.carrier_label || '—'}</td>
                 <td className="px-4 py-3 text-gray-400 font-mono text-xs">{o.carrier_tracking_number || '—'}</td>
-                <td className="px-4 py-3"><StatusBadge status={o.status} /></td>
+                <td className="px-4 py-3">
+                  <StatusBadge status={o.status} />
+                  {o.carrier_status && o.carrier_status !== 'created' && (
+                    <p className="text-[11px] mt-1" style={{ color: theme.dark.muted }}>{o.carrier_status}</p>
+                  )}
+                </td>
                 <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                   {o.carrier_tracking_number ? (
                     <button
@@ -181,6 +235,28 @@ export default function ShipmentsPage() {
                       className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded text-violet-400 border border-violet-800 hover:bg-violet-900/20 transition disabled:opacity-50"
                     >
                       <DownloadIcon /> {downloadingId === o.id ? '…' : 'Étiquette'}
+                    </button>
+                  ) : (
+                    <span className="text-gray-600 text-xs">—</span>
+                  )}
+                </td>
+                <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                  {!o.carrier_tracking_number && ['confirmed', 'shipped'].includes(o.status) ? (
+                    <button
+                      onClick={() => retryShipment(o)}
+                      disabled={retryingId === o.id}
+                      className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded text-emerald-400 border border-emerald-800 hover:bg-emerald-900/20 transition disabled:opacity-50"
+                    >
+                      <TruckIcon /> {retryingId === o.id ? '…' : 'Créer l’expédition'}
+                    </button>
+                  ) : o.carrier_tracking_number ? (
+                    <button
+                      onClick={() => syncTracking(o)}
+                      disabled={syncingId === o.id}
+                      className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded text-gray-300 border hover:bg-white/5 transition disabled:opacity-50"
+                      style={{ borderColor: theme.dark.border }}
+                    >
+                      <RefreshIcon /> {syncingId === o.id ? '…' : 'Actualiser'}
                     </button>
                   ) : (
                     <span className="text-gray-600 text-xs">—</span>

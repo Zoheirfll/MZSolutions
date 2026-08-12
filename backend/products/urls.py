@@ -4,7 +4,7 @@ from .views import (
     ProductListCreateView, ProductDetailView, ProductImageView, ProductImageReorderView,
     ProductVariantView, ProductVariantDetailView,
     VariantOptionView, VariantOptionDetailView,
-    LowStockView, InventoryListView,
+    LowStockView, InventoryListView, StockAdjustmentView, StockMovementListView,
     SupplierListCreateView, SupplierDetailView,
     SupplierCreditView, SupplierCreditDetailView,
     SupplierPaymentView, SupplierPaymentDetailView,
@@ -36,6 +36,8 @@ urlpatterns = [
     # Low-stock
     path('low-stock/',                                     LowStockView.as_view()),
     path('inventory/',                                     InventoryListView.as_view()),
+    path('stock/adjust/',                                  StockAdjustmentView.as_view()),
+    path('stock/movements/',                               StockMovementListView.as_view()),
 
     # Suppliers CRUD
     path('suppliers/',                                     SupplierListCreateView.as_view()),

@@ -91,10 +91,40 @@ export default function CheckoutPage() {
   const [appliedPromo,  setAppliedPromo]  = useState(null)
   const [promoError,    setPromoError]    = useState('')
   const [checkingPromo, setCheckingPromo] = useState(false)
+  const [shippingRate,   setShippingRate]   = useState(null) // {tarif, tarif_stopdesk} ou null
+  const [shippingOption, setShippingOption] = useState('domicile') // 'domicile' | 'stopdesk'
+  const [shippingLoading, setShippingLoading] = useState(false)
+  const [desks,          setDesks]          = useState([])
+  const [desksLoading,   setDesksLoading]   = useState(false)
+  const [stationCode,    setStationCode]    = useState('')
   const abandonedTimerRef = useRef(null)
 
   const discountAmount = appliedPromo ? Number(appliedPromo.discount_amount) : 0
-  const total = subtotal - discountAmount
+  const shippingCost = shippingRate
+    ? (shippingOption === 'stopdesk' && shippingRate.tarif_stopdesk != null ? shippingRate.tarif_stopdesk : shippingRate.tarif)
+    : 0
+  const total = subtotal - discountAmount + shippingCost
+
+  // Tarif réel du transporteur par défaut de la boutique, dès que la wilaya est choisie
+  useEffect(() => {
+    if (!client.wilaya) { setShippingRate(null); return }
+    setShippingLoading(true)
+    publicApi.get(`/store/${slug}/shipping-rate/?wilaya=${encodeURIComponent(client.wilaya)}`)
+      .then(({ data }) => setShippingRate(data))
+      .catch(() => setShippingRate(null))
+      .finally(() => setShippingLoading(false))
+  }, [client.wilaya, slug])
+
+  // Liste des bureaux réels dès que le client choisit "point relais"
+  useEffect(() => {
+    setStationCode('')
+    if (!client.wilaya || shippingOption !== 'stopdesk') { setDesks([]); return }
+    setDesksLoading(true)
+    publicApi.get(`/store/${slug}/desks/?wilaya=${encodeURIComponent(client.wilaya)}`)
+      .then(({ data }) => setDesks(data))
+      .catch(() => setDesks([]))
+      .finally(() => setDesksLoading(false))
+  }, [client.wilaya, shippingOption, slug])
 
   // InitiateCheckout (US-8.3.2) — une fois par arrivée sur le tunnel avec un panier non vide
   useEffect(() => {
@@ -151,6 +181,10 @@ export default function CheckoutPage() {
 
   const handleSubmit = async e => {
     e.preventDefault()
+    if (shippingOption === 'stopdesk' && desks.length > 0 && !stationCode) {
+      setError('Choisissez un bureau de retrait.')
+      return
+    }
     setSaving(true)
     setError('')
     try {
@@ -161,6 +195,9 @@ export default function CheckoutPage() {
         payment_method: paymentMethod,
         items: cartItems.map(({ _key, image_url, ...i }) => i),
         promo_code: appliedPromo?.code || undefined,
+        shipping_cost: shippingCost,
+        stop_desk: shippingOption === 'stopdesk',
+        station_code: shippingOption === 'stopdesk' ? stationCode : '',
       })
       trackEvent('Purchase', {
         value: total, currency: 'DZD', order_id: data.id,
@@ -364,6 +401,40 @@ export default function CheckoutPage() {
                 {promoError && <p className={theme.errorText}>{promoError}</p>}
               </div>
 
+              {shippingRate && shippingRate.tarif_stopdesk != null && (
+                <div className="mb-4 space-y-2">
+                  <label className={`flex items-center justify-between gap-3 cursor-pointer rounded-xl border p-3 transition ${shippingOption === 'domicile' ? 'border-violet-500 bg-violet-50/50' : 'border-gray-200 hover:border-gray-300'}`}>
+                    <span className="flex items-center gap-2.5 text-sm text-gray-700">
+                      <input type="radio" name="shipping_option" checked={shippingOption === 'domicile'} onChange={() => setShippingOption('domicile')} className="accent-violet-600 w-4 h-4" />
+                      Livraison à domicile
+                    </span>
+                    <span className="text-sm font-medium text-gray-900">{Number(shippingRate.tarif).toLocaleString('fr-DZ')} DZD</span>
+                  </label>
+                  <label className={`flex items-center justify-between gap-3 cursor-pointer rounded-xl border p-3 transition ${shippingOption === 'stopdesk' ? 'border-violet-500 bg-violet-50/50' : 'border-gray-200 hover:border-gray-300'}`}>
+                    <span className="flex items-center gap-2.5 text-sm text-gray-700">
+                      <input type="radio" name="shipping_option" checked={shippingOption === 'stopdesk'} onChange={() => setShippingOption('stopdesk')} className="accent-violet-600 w-4 h-4" />
+                      Retrait en point relais
+                    </span>
+                    <span className="text-sm font-medium text-gray-900">{Number(shippingRate.tarif_stopdesk).toLocaleString('fr-DZ')} DZD</span>
+                  </label>
+                </div>
+              )}
+
+              {shippingOption === 'stopdesk' && (
+                <div className="mb-4">
+                  <label className={theme.label}>Bureau de retrait</label>
+                  <Select
+                    value={stationCode}
+                    onChange={setStationCode}
+                    options={desks.map(d => ({ value: d.code, label: `${d.name} — ${d.address}` }))}
+                    placeholder={desksLoading ? 'Chargement des bureaux…' : desks.length ? 'Choisissez un bureau' : 'Aucun bureau disponible pour cette wilaya'}
+                    disabled={desksLoading || desks.length === 0}
+                    className={theme.input}
+                    variant="light"
+                  />
+                </div>
+              )}
+
               <div className="space-y-2 mb-4 text-sm">
                 <div className="flex justify-between">
                   <span className="text-gray-500">Sous-total</span>
@@ -375,6 +446,12 @@ export default function CheckoutPage() {
                     <span>-{discountAmount.toLocaleString('fr-DZ')} DZD</span>
                   </div>
                 )}
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Frais de livraison</span>
+                  <span className="text-gray-900">
+                    {shippingLoading ? '…' : `${shippingCost.toLocaleString('fr-DZ')} DZD`}
+                  </span>
+                </div>
                 <div className="border-t border-gray-100 pt-2 mt-2 flex justify-between font-semibold">
                   <span>Total</span>
                   <span className="text-violet-700">{total.toLocaleString('fr-DZ')} DZD</span>

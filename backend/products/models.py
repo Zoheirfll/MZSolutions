@@ -248,7 +248,7 @@ class Promotion(models.Model):
 
 STOCK_MOVEMENT_REASONS = [
     ('exchange_return', 'Retour échange'), ('exchange_issue', 'Sortie échange'),
-    ('order_sale', 'Vente (commande)'),
+    ('order_sale', 'Vente (commande)'), ('manual_adjustment', 'Ajustement manuel'),
 ]
 
 

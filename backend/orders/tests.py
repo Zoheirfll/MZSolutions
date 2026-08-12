@@ -385,7 +385,7 @@ class BlacklistTests(TestCase):
         other_owner, _ = make_owner()
         client = auth_client(other_owner)
         resp = client.get('/api/orders/blacklist/')
-        self.assertEqual(len(resp.data), 0)
+        self.assertEqual(resp.data['count'], 0)
 
 
 class ComplaintPublicFlowTests(TestCase):

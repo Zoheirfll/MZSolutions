@@ -27,7 +27,12 @@ export default function OrderFormPage() {
   const [client,       setClient]       = useState(EMPTY_CLIENT)
   const [cartItems,    setCartItems]    = useState([])
   const [shippingCost, setShippingCost] = useState(0)
+  const [shippingCostEdited, setShippingCostEdited] = useState(false) // évite d'écraser une valeur modifiée à la main
   const [deliveryType, setDeliveryType] = useState('')
+  const [carrierAccounts, setCarrierAccounts] = useState([])
+  const [selectedCarrierId, setSelectedCarrierId] = useState('')
+  const [rateInfo, setRateInfo] = useState(null) // {tarif, tarif_stopdesk} ou null
+  const [rateLoading, setRateLoading] = useState(false)
   const [note,         setNote]         = useState('')
   const [saving,       setSaving]       = useState(false)
   const [errors,       setErrors]       = useState({})
@@ -48,6 +53,29 @@ export default function OrderFormPage() {
         .catch(() => setAllowedProductIds(new Set()))
     }
   }, [isDropshipper])
+
+  useEffect(() => {
+    api.get('/stores/me/carriers/').then(({ data }) => {
+      const active = data.filter(a => a.is_active)
+      setCarrierAccounts(active)
+      const def = active.find(a => a.is_default)
+      if (def) setSelectedCarrierId(def.id)
+    }).catch(() => {})
+  }, [])
+
+  // Récupère le vrai tarif dès que transporteur + wilaya sont connus —
+  // remplace la valeur si le vendeur n'a pas déjà tapé un montant à la main.
+  useEffect(() => {
+    if (!selectedCarrierId || !client.wilaya || shippingCostEdited) { setRateInfo(null); return }
+    setRateLoading(true)
+    api.get(`/stores/me/carriers/${selectedCarrierId}/rates/?wilaya=${encodeURIComponent(client.wilaya)}`)
+      .then(({ data }) => {
+        setRateInfo(data)
+        setShippingCost(data.tarif)
+      })
+      .catch(() => setRateInfo(null))
+      .finally(() => setRateLoading(false))
+  }, [selectedCarrierId, client.wilaya, shippingCostEdited])
 
   useEffect(() => {
     clearTimeout(searchTimer.current)
@@ -365,16 +393,44 @@ export default function OrderFormPage() {
               </div>
             </div>
 
-            <div className="mb-4">
+            {carrierAccounts.length > 0 && (
+              <div className="mb-4">
+                <label className="block text-xs text-gray-400 mb-1.5">Société de livraison</label>
+                <Select
+                  value={selectedCarrierId}
+                  onChange={v => { setSelectedCarrierId(v); setShippingCostEdited(false) }}
+                  options={carrierAccounts.map(a => ({ value: a.id, label: a.carrier_label }))}
+                  placeholder="Aucun (frais manuels)"
+                  className={inputCls}
+                  style={{ ...bdrStyle, background: theme.dark.sidebar }}
+                />
+              </div>
+            )}
+
+            <div className="mb-1">
               <label className="block text-xs text-gray-400 mb-1.5">Frais de livraison</label>
               <input
                 type="number"
                 min="0"
                 value={shippingCost}
-                onChange={e => setShippingCost(e.target.value)}
+                onChange={e => { setShippingCost(e.target.value); setShippingCostEdited(true) }}
                 className="w-full px-3 py-2 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500"
                 style={bdrStyle}
               />
+            </div>
+            <div className="mb-4 min-h-4">
+              {rateLoading && <p className="text-xs mt-1" style={{ color: theme.dark.muted }}>Récupération du tarif réel…</p>}
+              {!rateLoading && rateInfo && !shippingCostEdited && (
+                <p className="text-xs mt-1 text-emerald-400">
+                  Tarif réel {selectedCarrierId ? carrierAccounts.find(a => a.id === Number(selectedCarrierId))?.carrier_label : ''} : {rateInfo.tarif.toLocaleString('fr-DZ')} DZD à domicile
+                  {rateInfo.tarif_stopdesk != null && ` / ${rateInfo.tarif_stopdesk.toLocaleString('fr-DZ')} DZD en point relais`}
+                </p>
+              )}
+              {shippingCostEdited && (
+                <button onClick={() => setShippingCostEdited(false)} className="text-xs text-violet-400 hover:text-violet-300 transition cursor-pointer mt-1">
+                  Revenir au tarif réel
+                </button>
+              )}
             </div>
 
             {errors.detail && <p className="text-red-400 text-xs mb-3">{errors.detail}</p>}

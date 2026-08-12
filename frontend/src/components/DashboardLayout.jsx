@@ -1,10 +1,29 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import api from '../api/axios'
 import Logo from './Logo'
 import { theme } from '../theme'
 import { useTheme } from '../hooks/useTheme'
+
+function playNewOrderChime() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)()
+    const now = ctx.currentTime
+    ;[880, 1175].forEach((freq, i) => {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = 'sine'
+      osc.frequency.value = freq
+      gain.gain.setValueAtTime(0.0001, now + i * 0.14)
+      gain.gain.exponentialRampToValueAtTime(0.2, now + i * 0.14 + 0.02)
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.14 + 0.25)
+      osc.connect(gain).connect(ctx.destination)
+      osc.start(now + i * 0.14)
+      osc.stop(now + i * 0.14 + 0.3)
+    })
+  } catch {}
+}
 
 const ICONS = {
   dashboard: (
@@ -30,6 +49,11 @@ const ICONS = {
   shipping: (
     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 16.5V9a1 1 0 011-1h9v8.5M3 16.5h1.5m8.5 0h4m-4 0V8m4 8.5H21m-4.5 0a1.75 1.75 0 11-3.5 0 1.75 1.75 0 013.5 0zM7.5 16.5a1.75 1.75 0 11-3.5 0 1.75 1.75 0 013.5 0zM13 11h4l3 3.5v2h-1" />
+    </svg>
+  ),
+  tracking: (
+    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
     </svg>
   ),
   complaints: (
@@ -116,6 +140,7 @@ export default function DashboardLayout({ children, title }) {
     fournisseurs: location.pathname.startsWith('/dashboard/produits/fournisseurs'),
     commandes:    location.pathname.startsWith('/dashboard/commandes'),
     annulation:   location.pathname.startsWith('/dashboard/commandes/annulations'),
+    suivi:        ['/dashboard/commandes/raisons-echec', '/dashboard/reclamations', '/dashboard/echanges'].some(p => location.pathname.startsWith(p)),
     clients:      location.pathname.startsWith('/dashboard/clients'),
     finances:     location.pathname.startsWith('/dashboard/finances'),
     stats:        location.pathname.startsWith('/dashboard/stats'),
@@ -123,14 +148,48 @@ export default function DashboardLayout({ children, title }) {
   const [lowStockCount, setLowStockCount] = useState(0)
   const [openComplaintsCount, setOpenComplaintsCount] = useState(0)
   const [openExchangesCount, setOpenExchangesCount] = useState(0)
+  const [pendingOrdersCount, setPendingOrdersCount] = useState(0)
+  const [newOrderPulse, setNewOrderPulse] = useState(false)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [quota, setQuota] = useState(null)
+  const pendingOrdersRef = useRef(null) // null = pas encore chargé (évite un faux positif au premier fetch)
 
   useEffect(() => {
     api.get('/products/low-stock/').then(({ data }) => setLowStockCount(data.count)).catch(() => {})
     api.get('/orders/complaints/?status=open&per_page=1').then(({ data }) => setOpenComplaintsCount(data.count)).catch(() => {})
     api.get('/orders/exchanges/?status=open&per_page=1').then(({ data }) => setOpenExchangesCount(data.count)).catch(() => {})
     api.get('/stores/me/quota/').then(({ data }) => setQuota(data)).catch(() => {})
+    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      Notification.requestPermission().catch(() => {})
+    }
+  }, [])
+
+  // Prévenir le vendeur (son + badge + notification navigateur) dès qu'une
+  // nouvelle commande "en attente" arrive — sondage léger, pas de websocket
+  // dans le projet. `pendingOrdersRef` retient la dernière valeur connue
+  // pour ne détecter que les VRAIES augmentations (pas le chargement initial).
+  useEffect(() => {
+    const checkPendingOrders = () => {
+      api.get('/orders/?status=pending&per_page=1').then(({ data }) => {
+        const count = data.count ?? 0
+        if (pendingOrdersRef.current !== null && count > pendingOrdersRef.current) {
+          playNewOrderChime()
+          setNewOrderPulse(true)
+          setTimeout(() => setNewOrderPulse(false), 4000)
+          if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+            new Notification('Nouvelle commande reçue', {
+              body: `${count - pendingOrdersRef.current} nouvelle(s) commande(s) en attente de confirmation.`,
+              icon: '/favicon.ico',
+            })
+          }
+        }
+        pendingOrdersRef.current = count
+        setPendingOrdersCount(count)
+      }).catch(() => {})
+    }
+    checkPendingOrders()
+    const interval = setInterval(checkPendingOrders, 30000)
+    return () => clearInterval(interval)
   }, [])
 
   // Alerte visuelle à l'approche de la limite (US-8.5.2) — essai gratuit
@@ -244,9 +303,16 @@ export default function DashboardLayout({ children, title }) {
                   }`}
                 >
                   <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.orders}</span>Commandes</span>
-                  <svg className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${expanded.commandes ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
+                  <span className="flex items-center gap-1.5 shrink-0">
+                    {pendingOrdersCount > 0 && (
+                      <span className={`w-5 h-5 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center font-bold ${newOrderPulse ? 'animate-pulse' : ''}`}>
+                        {pendingOrdersCount > 9 ? '9+' : pendingOrdersCount}
+                      </span>
+                    )}
+                    <svg className={`w-3.5 h-3.5 transition-transform duration-200 ${expanded.commandes ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </span>
                 </button>
                 {expanded.commandes && (
                   <ul className="mt-0.5 ml-5 space-y-0.5 border-l pl-3" style={{ borderColor: theme.dark.border }}>
@@ -257,7 +323,6 @@ export default function DashboardLayout({ children, title }) {
                         <li>{link('/dashboard/commandes/nouvelle', 'Nouvelle commande')}</li>
                         <li>{link('/dashboard/commandes/taux-confirmation', 'Taux de confirmation')}</li>
                         <li>{link('/dashboard/commandes/paniers-abandonnes', 'Paniers abandonnés')}</li>
-                        <li>{link('/dashboard/commandes/raisons-echec', "Raisons d'échec")}</li>
                         {/* Annulation — expandable */}
                         <li>
                           <button
@@ -282,8 +347,47 @@ export default function DashboardLayout({ children, title }) {
                 )}
               </li>
 
-              {can('complaints_view') && <li>{mainLink('/dashboard/reclamations', ICONS.complaints, 'Réclamations', false, openComplaintsCount)}</li>}
-              {can('exchanges_view') && <li>{mainLink('/dashboard/echanges', ICONS.exchange, 'Échanges', false, openExchangesCount)}</li>}
+              {/* Suivi des commandes — regroupe échecs d'appel / réclamations / échanges */}
+              {(can('orders_manage') || can('complaints_view') || can('exchanges_view')) && (
+                <li>
+                  <button
+                    onClick={() => setExpanded(e => ({ ...e, suivi: !e.suivi }))}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
+                      ['/dashboard/commandes/raisons-echec', '/dashboard/reclamations', '/dashboard/echanges'].some(p => location.pathname.startsWith(p))
+                        ? 'bg-white/6 text-app-primary font-medium' : 'text-gray-400 hover:text-app-primary hover:bg-white/5'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.tracking}</span>Suivi des commandes</span>
+                    <span className="flex items-center gap-1.5 shrink-0">
+                      {(openComplaintsCount + openExchangesCount) > 0 && (
+                        <span className="w-5 h-5 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center font-bold">
+                          {(openComplaintsCount + openExchangesCount) > 9 ? '9+' : openComplaintsCount + openExchangesCount}
+                        </span>
+                      )}
+                      <svg className={`w-3.5 h-3.5 transition-transform duration-200 ${expanded.suivi ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </span>
+                  </button>
+                  {expanded.suivi && (
+                    <ul className="mt-0.5 ml-5 space-y-0.5 border-l pl-3" style={{ borderColor: theme.dark.border }}>
+                      {can('orders_manage') && <li>{link('/dashboard/commandes/raisons-echec', 'Gestion des échecs')}</li>}
+                      {can('complaints_view') && (
+                        <li className="flex items-center justify-between">
+                          {link('/dashboard/reclamations', 'Gestion des réclamations')}
+                          {openComplaintsCount > 0 && <span className="mr-1 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] flex items-center justify-center font-bold shrink-0">{openComplaintsCount > 9 ? '9+' : openComplaintsCount}</span>}
+                        </li>
+                      )}
+                      {can('exchanges_view') && (
+                        <li className="flex items-center justify-between">
+                          {link('/dashboard/echanges', 'Gestion échanges')}
+                          {openExchangesCount > 0 && <span className="mr-1 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] flex items-center justify-center font-bold shrink-0">{openExchangesCount > 9 ? '9+' : openExchangesCount}</span>}
+                        </li>
+                      )}
+                    </ul>
+                  )}
+                </li>
+              )}
 
               {/* Produits & Catégories */}
               {can('products_view') && (

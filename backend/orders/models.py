@@ -121,6 +121,8 @@ class Order(models.Model):
     address       = models.TextField(blank=True)
     subtotal      = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     shipping_cost = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    stop_desk     = models.BooleanField(default=False, help_text="Livraison en point relais (True) plutôt qu'à domicile (False) — affecte le tarif transporteur et le mode d'expédition envoyé à l'API")
+    station_code  = models.CharField(max_length=20, blank=True, help_text="Code du bureau/point relais choisi (requis par certains transporteurs, ex: Noest, quand stop_desk=True)")
     total         = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     promo_code       = models.CharField(max_length=30, blank=True)
     discount_amount  = models.DecimalField(max_digits=12, decimal_places=2, default=0)

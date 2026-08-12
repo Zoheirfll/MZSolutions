@@ -212,6 +212,12 @@ export default function Auth() {
       const data = err.response?.data
       if (data?.code === 'email_not_verified') {
         setErrors({ general: data.detail, email_not_verified: true, email: data.email })
+      } else if (!err.response) {
+        // Pas de réponse du serveur = problème réseau (mauvaise URL API,
+        // hors ligne, navigateur intégré Instagram/Facebook qui bloque la
+        // requête...) — ne jamais afficher "Identifiants invalides" dans ce
+        // cas, ça égare complètement le diagnostic.
+        setErrors({ general: "Impossible de contacter le serveur. Vérifiez votre connexion, ou essayez depuis Chrome/Safari si vous êtes dans le navigateur d'une autre app (Instagram, Facebook...)." })
       } else {
         setErrors({ general: data?.detail || data?.non_field_errors?.[0] || 'Identifiants invalides.' })
       }

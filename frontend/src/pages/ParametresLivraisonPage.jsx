@@ -218,7 +218,7 @@ export default function ParametresLivraisonPage() {
                         <span className={theme.badge.success}>Connecté</span>
                         <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: theme.dark.muted }}>
                           <input type="checkbox" checked={account.is_default} onChange={() => toggleDefault(account)} className="cursor-pointer accent-violet-600" />
-                          Transporteur par défaut
+                          Société de livraison par défaut
                         </label>
                         <div className="flex gap-2 w-full">
                           <button onClick={() => openModal(c.code)} className={theme.btn.outline + ' flex-1 text-xs cursor-pointer'}>Modifier</button>

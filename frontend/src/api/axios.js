@@ -11,6 +11,10 @@ const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 const api = axios.create({
   baseURL: `${API_BASE}/api`,
+  // Contourne la page d'avertissement ngrok (sinon ngrok intercepte la
+  // requête AVANT le serveur et renvoie une page HTML sans en-têtes CORS —
+  // ce qui ressemble à tort à une erreur CORS classique).
+  headers: { 'ngrok-skip-browser-warning': 'true' },
 })
 
 api.interceptors.request.use((config) => {
@@ -28,7 +32,9 @@ api.interceptors.response.use(
       const refresh = localStorage.getItem('refresh')
       if (refresh) {
         try {
-          const { data } = await axios.post(`${API_BASE}/api/token/refresh/`, { refresh })
+          const { data } = await axios.post(`${API_BASE}/api/token/refresh/`, { refresh }, {
+            headers: { 'ngrok-skip-browser-warning': 'true' },
+          })
           localStorage.setItem('access', data.access)
           original.headers.Authorization = `Bearer ${data.access}`
           return api(original)

@@ -78,7 +78,7 @@ class VerifyEmailView(APIView):
         code = request.data.get('code', '').strip()
 
         try:
-            user = User.objects.get(email=email)
+            user = User.objects.get(email__iexact=email)
             vc = user.verification_code
         except (User.DoesNotExist, EmailVerificationCode.DoesNotExist):
             return Response({'detail': 'Code invalide.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -108,7 +108,7 @@ class ResendVerificationView(APIView):
     def post(self, request):
         email = request.data.get('email', '').strip()
         try:
-            user = User.objects.get(email=email, is_email_verified=False)
+            user = User.objects.get(email__iexact=email, is_email_verified=False)
         except User.DoesNotExist:
             return Response({'detail': 'OK'})  # ne pas révéler
 
@@ -180,7 +180,7 @@ class PasswordResetRequestView(APIView):
     def post(self, request):
         email = request.data.get('email', '').strip()
         try:
-            user = User.objects.get(email=email, is_active=True)
+            user = User.objects.get(email__iexact=email, is_active=True)
             uid = urlsafe_base64_encode(force_bytes(user.pk))
             token = token_generator.make_token(user)
             link = f"{settings.FRONTEND_URL}/reset-password?uid={uid}&token={token}"
@@ -262,7 +262,7 @@ class GoogleRegisterView(APIView):
             return Response({'detail': 'Token Google invalide.'}, status=status.HTTP_400_BAD_REQUEST)
 
         email = info.get('email')
-        if User.objects.filter(email=email).exists():
+        if User.objects.filter(email__iexact=email).exists():
             return Response(
                 {'detail': 'Un compte existe déjà avec cet email Google. Connectez-vous.'},
                 status=status.HTTP_409_CONFLICT,
@@ -305,7 +305,7 @@ class GoogleLoginView(APIView):
 
         email = info.get('email')
         try:
-            user = User.objects.get(email=email, is_active=True)
+            user = User.objects.get(email__iexact=email, is_active=True)
         except User.DoesNotExist:
             # Pas un vrai risque d'énumération : appeler cet endpoint suppose déjà
             # de posséder un token Google valide pour cet email précis (donc d'en
