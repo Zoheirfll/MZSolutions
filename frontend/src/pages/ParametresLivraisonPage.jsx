@@ -5,6 +5,30 @@ import api from '../api/axios'
 import { theme } from '../theme'
 import { WILAYAS } from '../data/wilayas'
 
+// Logos des sociétés de livraison — un fichier par code transporteur dans
+// assets/carriers/ (n'importe quelle extension image), retombe sur l'avatar-
+// lettre si aucun logo n'a été fourni pour ce transporteur.
+const CARRIER_LOGO_FILES = import.meta.glob('../assets/carriers/*.{png,jpg,jpeg,svg,webp,jfif}', { eager: true, import: 'default' })
+const CARRIER_LOGOS = Object.fromEntries(
+  Object.entries(CARRIER_LOGO_FILES).map(([path, url]) => [path.match(/carriers\/([^./]+)\./)[1], url])
+)
+
+function CarrierLogo({ code, label, size = 'w-16 h-16', textSize = 'text-lg', rounded = 'rounded-xl' }) {
+  const logo = CARRIER_LOGOS[code]
+  if (logo) {
+    return (
+      <div className={`${size} ${rounded} bg-white overflow-hidden flex items-center justify-center shrink-0 shadow`}>
+        <img src={logo} alt={label} className="w-full h-full object-contain p-1.5" />
+      </div>
+    )
+  }
+  return (
+    <div className={`${size} ${rounded} bg-white flex items-center justify-center ${textSize} font-bold text-violet-600 shadow shrink-0`}>
+      {label?.[0]}
+    </div>
+  )
+}
+
 // `real: true` = API réellement branchée (via Ecotrack ou API propre) — le
 // transporteur reçoit vraiment l'expédition. `real: false` = simulé pour
 // l'instant (tracking factice MOCK-..., en attente d'accès API confirmé).
@@ -203,9 +227,7 @@ export default function ParametresLivraisonPage() {
                 return (
                   <div key={c.code} className="rounded-xl border p-5 flex flex-col items-center text-center gap-3 transition-colors duration-150 hover:border-white/20"
                     style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-                    <div className="w-16 h-16 rounded-xl bg-white flex items-center justify-center text-lg font-bold text-violet-600 shadow">
-                      {c.label[0]}
-                    </div>
+                    <CarrierLogo code={c.code} label={c.label} />
                     <p className="font-semibold text-gray-200">{c.label}</p>
                     <span
                       className={c.tested ? theme.badge.success : c.real ? theme.badge.info : theme.badge.warning}
@@ -275,9 +297,7 @@ export default function ParametresLivraisonPage() {
                   <td className="px-4 py-3 text-gray-400">{a.id}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-xs font-bold text-violet-600 shrink-0">
-                        {a.carrier_label?.[0]}
-                      </div>
+                      <CarrierLogo code={a.carrier} label={a.carrier_label} size="w-8 h-8" textSize="text-xs" rounded="rounded-lg" />
                       <div>
                         <p className="text-gray-200 font-medium leading-tight">{a.name || a.carrier_label}</p>
                         <p className="text-xs leading-tight" style={{ color: theme.dark.muted }}>{a.carrier_label}</p>
@@ -332,9 +352,7 @@ export default function ParametresLivraisonPage() {
               {accountFor(modalCarrier) ? 'Modifier' : 'Connecter'} {CARRIERS.find(c => c.code === modalCarrier)?.label}
             </h3>
             <div className="flex justify-center mb-5">
-              <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center text-lg font-bold text-violet-600 shadow">
-                {CARRIERS.find(c => c.code === modalCarrier)?.label[0]}
-              </div>
+              <CarrierLogo code={modalCarrier} label={CARRIERS.find(c => c.code === modalCarrier)?.label} rounded="rounded-full" />
             </div>
             <label className={theme.labelDark}>Sélectionnez la ville de départ</label>
             <Select

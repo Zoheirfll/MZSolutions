@@ -1,4 +1,28 @@
 export const TEMPLATES = {
+  noir: {
+    label: 'Noir',
+    dark: true,
+    preview: { hero: 'linear-gradient(135deg, #08090a, #2e1065, #7c3aed)', primary: '#7c3aed', header: '#0a0b0c' },
+    vars: {
+      '--sf-primary':       '#7c3aed',
+      '--sf-primary-dark':  '#6d28d9',
+      '--sf-primary-light': 'rgba(124,58,237,0.14)',
+      '--sf-hero-from':     '#08090a',
+      '--sf-hero-via':      '#2e1065',
+      '--sf-hero-to':       '#4c1d95',
+      '--sf-header-bg':     '#0a0b0c',
+      '--sf-header-border': '#1f2023',
+      '--sf-header-text':   '#f3f4f6',
+      '--sf-header-hover':  '#7c3aed',
+      '--sf-body-bg':       '#08090a',
+      '--sf-card-bg':       '#0d0e10',
+      '--sf-card-bg-alt':   '#131417',
+      '--sf-text':          '#f3f4f6',
+      '--sf-text-muted':    '#9a9ca3',
+      '--sf-footer-bg':     '#0a0b0c',
+      '--sf-footer-border': '#1f2023',
+    },
+  },
   violet: {
     label: 'Violet',
     preview: { hero: 'linear-gradient(135deg, #1a0533, #4c1d95, #7c3aed)', primary: '#7c3aed', header: '#ffffff' },
@@ -23,6 +47,7 @@ export const TEMPLATES = {
   },
   midnight: {
     label: 'Midnight',
+    dark: true,
     preview: { hero: 'linear-gradient(135deg, #0f172a, #1e293b, #334155)', primary: '#f59e0b', header: '#0f172a' },
     vars: {
       '--sf-primary':       '#f59e0b',
@@ -90,13 +115,21 @@ function lighten(hex, amount = 0.9) {
   return `#${[r, g, b].map(c => Math.min(255, Math.round(c + (255 - c) * amount)).toString(16).padStart(2, '0')).join('')}`
 }
 
+function tint(hex, alpha = 0.14) {
+  const { r, g, b } = hexToRgb(hex)
+  return `rgba(${r},${g},${b},${alpha})`
+}
+
 export function buildCssVars(template, primaryOverride, secondaryOverride) {
   const base = TEMPLATES[template] ?? TEMPLATES.violet
   const vars = { ...base.vars }
   if (primaryOverride && /^#[0-9a-fA-F]{6}$/.test(primaryOverride)) {
     vars['--sf-primary']       = primaryOverride
     vars['--sf-primary-dark']  = darken(primaryOverride)
-    vars['--sf-primary-light'] = lighten(primaryOverride)
+    // Un éclaircissement vers le blanc (lighten) donne un pastel illisible sur
+    // fond sombre (bug rencontré : couleur perso rouge → carré rose clair sur
+    // le thème Noir) — teinte translucide sur les templates sombres à la place.
+    vars['--sf-primary-light'] = base.dark ? tint(primaryOverride) : lighten(primaryOverride)
   }
   if (secondaryOverride && /^#[0-9a-fA-F]{6}$/.test(secondaryOverride)) {
     vars['--sf-hero-via'] = secondaryOverride

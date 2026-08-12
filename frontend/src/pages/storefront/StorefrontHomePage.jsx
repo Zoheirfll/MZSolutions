@@ -43,12 +43,12 @@ function ProductCard({ product, slug }) {
             </div>
         }
         {discount && (
-          <span className="absolute top-2.5 left-2.5 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-lg shadow-sm">
+          <span className="absolute top-2.5 left-2.5 text-[10px] font-bold px-2 py-0.5 rounded-lg ring-1 ring-inset ring-red-400/40 backdrop-blur-sm" style={{ background: 'rgba(239,68,68,0.18)', color: '#fca5a5' }}>
             -{discount}%
           </span>
         )}
         {product.free_shipping && (
-          <span className="absolute top-2.5 right-2.5 bg-emerald-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-lg shadow-sm flex items-center gap-0.5">
+          <span className="absolute top-2.5 right-2.5 text-[10px] font-bold px-2 py-0.5 rounded-lg ring-1 ring-inset ring-emerald-400/40 backdrop-blur-sm flex items-center gap-0.5" style={{ background: 'rgba(16,185,129,0.18)', color: '#6ee7b7' }}>
             <TruckIcon className="w-2.5 h-2.5" /> Gratuit
           </span>
         )}

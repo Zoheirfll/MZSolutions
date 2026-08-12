@@ -7,7 +7,6 @@ import { useCart } from '../../context/CartContext'
 import { trackEvent } from '../../lib/pixels'
 import { WILAYAS, getWilayaIdByName } from '../../data/wilayas'
 import { getCommunesForWilaya } from '../../data/communes'
-import { theme } from '../../theme'
 
 function CheckIcon(props) {
   return (
@@ -73,6 +72,17 @@ function TrashIcon(props) {
 const EMPTY_CLIENT = {
   first_name: '', last_name: '', phone: '', email: '',
   wilaya: '', commune: '', address: '',
+}
+
+const inputCls = 'w-full px-3.5 py-2.5 rounded-lg text-sm outline-none transition-colors'
+const inputStyle = { background: 'var(--sf-body-bg)', border: '1px solid var(--sf-header-border)', color: 'var(--sf-text)' }
+const panelCls = 'rounded-2xl p-5'
+const panelStyle = { background: 'var(--sf-card-bg)', border: '1px solid var(--sf-header-border)' }
+
+function radioLabelStyle(active) {
+  return active
+    ? { border: '1px solid var(--sf-primary)', background: 'var(--sf-primary-light)' }
+    : { border: '1px solid var(--sf-header-border)' }
 }
 
 export default function CheckoutPage() {
@@ -223,16 +233,16 @@ export default function CheckoutPage() {
     return (
       <StorefrontLayout>
         <div className="max-w-lg mx-auto px-4 py-20 text-center">
-          <div className={`${theme.badge.success} inline-flex! w-16! h-16! rounded-full! p-0! items-center justify-center mb-4`}>
+          <div className="inline-flex w-16 h-16 rounded-full items-center justify-center mb-4 ring-1 ring-inset ring-emerald-400/40" style={{ background: 'rgba(16,185,129,0.15)', color: '#6ee7b7' }}>
             <CheckIcon className="w-8 h-8" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Merci pour votre commande !</h1>
-          <p className="text-gray-500 mb-6">Commande #{confirmedId} reçue. Nous vous contacterons bientôt.</p>
-          <Link to={`/store/${slug}/products`} className={theme.btn.primary}>
+          <h1 className="text-2xl font-bold mb-2" style={{ color: 'var(--sf-text)' }}>Merci pour votre commande !</h1>
+          <p className="mb-6" style={{ color: 'var(--sf-text-muted)' }}>Commande #{confirmedId} reçue. Nous vous contacterons bientôt.</p>
+          <Link to={`/store/${slug}/products`} className="inline-flex px-6 py-3 rounded-xl text-sm font-semibold text-white transition" style={{ background: 'var(--sf-primary)' }}>
             Continuer mes achats
           </Link>
-          <p className="text-xs text-gray-400 mt-6">
-            Un problème avec votre commande ? <Link to={`/store/${slug}/reclamation?order=${confirmedId}`} className="text-violet-600 hover:underline">Déposer une réclamation</Link>
+          <p className="text-xs mt-6" style={{ color: 'var(--sf-text-muted)' }}>
+            Un problème avec votre commande ? <Link to={`/store/${slug}/reclamation?order=${confirmedId}`} className="hover:underline" style={{ color: 'var(--sf-primary)' }}>Déposer une réclamation</Link>
           </p>
         </div>
       </StorefrontLayout>
@@ -242,10 +252,10 @@ export default function CheckoutPage() {
   if (cartItems.length === 0) {
     return (
       <StorefrontLayout>
-        <div className={theme.emptyState}>
-          <CartIcon className="w-12 h-12 text-gray-300 mb-3" />
+        <div className="flex flex-col items-center justify-center text-center py-20 px-6" style={{ color: 'var(--sf-text-muted)' }}>
+          <CartIcon className="w-12 h-12 mb-3 opacity-30" />
           <p className="mb-4">Votre panier est vide.</p>
-          <Link to={`/store/${slug}/products`} className={theme.btn.outlineLight}>
+          <Link to={`/store/${slug}/products`} className="px-5 py-2.5 rounded-lg text-sm font-medium transition" style={{ border: '1px solid var(--sf-header-border)', color: 'var(--sf-text)' }}>
             Voir les produits
           </Link>
         </div>
@@ -255,44 +265,47 @@ export default function CheckoutPage() {
 
   const sectionTitle = (num, label) => (
     <div className="flex items-center gap-2.5 mb-4">
-      <span className="w-6 h-6 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center shrink-0">{num}</span>
-      <h2 className="font-semibold text-gray-900">{label}</h2>
+      <span className="w-6 h-6 rounded-full text-white text-xs font-bold flex items-center justify-center shrink-0" style={{ background: 'var(--sf-primary)' }}>{num}</span>
+      <h2 className="font-semibold" style={{ color: 'var(--sf-text)' }}>{label}</h2>
     </div>
   )
 
   return (
     <StorefrontLayout>
       <div className="max-w-4xl mx-auto px-4 py-8 sm:py-10">
-        <h1 className="text-2xl font-bold text-gray-900 mb-8">Finaliser la commande</h1>
+        <h1 className="text-2xl font-bold mb-8" style={{ color: 'var(--sf-text)' }}>Finaliser la commande</h1>
 
         <form onSubmit={handleSubmit} className="flex flex-col lg:flex-row gap-6 lg:gap-8 items-start">
           <div className="flex-1 min-w-0 w-full space-y-6">
             {/* Étape 1 — Articles */}
-            <div className={theme.panel}>
+            <div className={panelCls} style={panelStyle}>
               {sectionTitle(1, 'Panier')}
               <div className="space-y-3">
                 {cartItems.map(item => (
                   <div key={item._key} className="flex items-center gap-3">
-                    <div className="w-14 h-14 rounded-lg bg-gray-50 border border-gray-200 overflow-hidden shrink-0 flex items-center justify-center text-gray-300">
+                    <div className="w-14 h-14 rounded-lg overflow-hidden shrink-0 flex items-center justify-center opacity-60"
+                      style={{ background: 'var(--sf-primary-light)', border: '1px solid var(--sf-header-border)' }}>
                       {item.image_url ? <img src={item.image_url} alt="" className="w-full h-full object-cover" /> : <PackageIcon className="w-6 h-6" />}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">{item.product_name}</p>
-                      <p className="text-xs text-gray-500">Prix unitaire : {Number(item.price).toLocaleString('fr-DZ')} DZD</p>
+                      <p className="text-sm font-medium truncate" style={{ color: 'var(--sf-text)' }}>{item.product_name}</p>
+                      <p className="text-xs" style={{ color: 'var(--sf-text-muted)' }}>Prix unitaire : {Number(item.price).toLocaleString('fr-DZ')} DZD</p>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
-                      <button type="button" onClick={() => updateQuantity(slug, item._key, item.quantity - 1)} className="w-7 h-7 rounded border border-gray-300 text-gray-500 hover:text-gray-800 flex items-center justify-center">
+                      <button type="button" onClick={() => updateQuantity(slug, item._key, item.quantity - 1)} className="w-7 h-7 rounded flex items-center justify-center transition"
+                        style={{ border: '1px solid var(--sf-header-border)', color: 'var(--sf-text-muted)' }}>
                         <MinusIcon className="w-3.5 h-3.5" />
                       </button>
-                      <span className="w-6 text-center text-sm">{item.quantity}</span>
-                      <button type="button" onClick={() => updateQuantity(slug, item._key, item.quantity + 1)} className="w-7 h-7 rounded border border-gray-300 text-gray-500 hover:text-gray-800 flex items-center justify-center">
+                      <span className="w-6 text-center text-sm" style={{ color: 'var(--sf-text)' }}>{item.quantity}</span>
+                      <button type="button" onClick={() => updateQuantity(slug, item._key, item.quantity + 1)} className="w-7 h-7 rounded flex items-center justify-center transition"
+                        style={{ border: '1px solid var(--sf-header-border)', color: 'var(--sf-text-muted)' }}>
                         <PlusIcon className="w-3.5 h-3.5" />
                       </button>
                     </div>
-                    <p className="w-20 text-right text-sm font-semibold text-gray-900 hidden sm:block">
+                    <p className="w-20 text-right text-sm font-semibold hidden sm:block" style={{ color: 'var(--sf-text)' }}>
                       {(item.price * item.quantity).toLocaleString('fr-DZ')}
                     </p>
-                    <button type="button" onClick={() => removeItem(slug, item._key)} className="text-red-400 hover:text-red-500 shrink-0">
+                    <button type="button" onClick={() => removeItem(slug, item._key)} className="shrink-0 transition" style={{ color: '#f87171' }}>
                       <TrashIcon className="w-4 h-4" />
                     </button>
                   </div>
@@ -301,73 +314,75 @@ export default function CheckoutPage() {
             </div>
 
             {/* Étape 2 — Infos client */}
-            <div className={theme.panel}>
+            <div className={panelCls} style={panelStyle}>
               {sectionTitle(2, 'Informations client')}
               <div className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className={theme.label}>Prénom *</label>
-                    <input value={client.first_name} onChange={e => setClient(c => ({ ...c, first_name: e.target.value }))} required className={theme.input} />
+                    <label className="block text-xs mb-1.5" style={{ color: 'var(--sf-text-muted)' }}>Prénom *</label>
+                    <input value={client.first_name} onChange={e => setClient(c => ({ ...c, first_name: e.target.value }))} required className={inputCls} style={inputStyle} />
                   </div>
                   <div>
-                    <label className={theme.label}>Nom</label>
-                    <input value={client.last_name} onChange={e => setClient(c => ({ ...c, last_name: e.target.value }))} className={theme.input} />
+                    <label className="block text-xs mb-1.5" style={{ color: 'var(--sf-text-muted)' }}>Nom</label>
+                    <input value={client.last_name} onChange={e => setClient(c => ({ ...c, last_name: e.target.value }))} className={inputCls} style={inputStyle} />
                   </div>
                 </div>
                 <div>
-                  <label className={theme.label}>Téléphone *</label>
-                  <input type="tel" value={client.phone} onChange={e => setClient(c => ({ ...c, phone: e.target.value }))} required className={theme.input} placeholder="06xx xxx xxx" />
+                  <label className="block text-xs mb-1.5" style={{ color: 'var(--sf-text-muted)' }}>Téléphone *</label>
+                  <input type="tel" value={client.phone} onChange={e => setClient(c => ({ ...c, phone: e.target.value }))} required className={inputCls} style={inputStyle} placeholder="06xx xxx xxx" />
                 </div>
                 <div>
-                  <label className={theme.label}>Email <span className="text-gray-400 font-normal">(optionnel — pour recevoir un rappel)</span></label>
-                  <input type="email" value={client.email} onChange={e => setClient(c => ({ ...c, email: e.target.value }))} className={theme.input} placeholder="votre@email.com" />
+                  <label className="block text-xs mb-1.5" style={{ color: 'var(--sf-text-muted)' }}>Email <span className="font-normal" style={{ color: 'var(--sf-text-muted)' }}>(optionnel — pour recevoir un rappel)</span></label>
+                  <input type="email" value={client.email} onChange={e => setClient(c => ({ ...c, email: e.target.value }))} className={inputCls} style={inputStyle} placeholder="votre@email.com" />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className={theme.label}>Wilaya *</label>
+                    <label className="block text-xs mb-1.5" style={{ color: 'var(--sf-text-muted)' }}>Wilaya *</label>
                     <Select
                       value={client.wilaya}
                       onChange={v => setClient(c => ({ ...c, wilaya: v, commune: '' }))}
                       options={WILAYAS.map(w => ({ value: w.name, label: `${w.id} — ${w.name}` }))}
-                      className={theme.input}
-                      variant="light"
+                      className={inputCls}
+                      style={inputStyle}
+                      variant="dark"
                     />
                   </div>
                   <div>
-                    <label className={theme.label}>Commune</label>
+                    <label className="block text-xs mb-1.5" style={{ color: 'var(--sf-text-muted)' }}>Commune</label>
                     <Select
                       value={client.commune}
                       onChange={v => setClient(c => ({ ...c, commune: v }))}
                       options={getCommunesForWilaya(getWilayaIdByName(client.wilaya)).map(name => ({ value: name, label: name }))}
                       placeholder={client.wilaya ? 'Choisissez une commune' : "Choisissez d'abord une wilaya"}
                       disabled={!client.wilaya}
-                      className={theme.input}
-                      variant="light"
+                      className={inputCls}
+                      style={inputStyle}
+                      variant="dark"
                     />
                   </div>
                 </div>
                 <div>
-                  <label className={theme.label}>Adresse</label>
-                  <textarea value={client.address} onChange={e => setClient(c => ({ ...c, address: e.target.value }))} rows={2} className={theme.input} />
+                  <label className="block text-xs mb-1.5" style={{ color: 'var(--sf-text-muted)' }}>Adresse</label>
+                  <textarea value={client.address} onChange={e => setClient(c => ({ ...c, address: e.target.value }))} rows={2} className={`${inputCls} resize-none`} style={inputStyle} />
                 </div>
                 <div>
-                  <label className={theme.label}>Note (optionnel)</label>
-                  <textarea value={note} onChange={e => setNote(e.target.value)} rows={2} className={theme.input} />
+                  <label className="block text-xs mb-1.5" style={{ color: 'var(--sf-text-muted)' }}>Note (optionnel)</label>
+                  <textarea value={note} onChange={e => setNote(e.target.value)} rows={2} className={`${inputCls} resize-none`} style={inputStyle} />
                 </div>
               </div>
             </div>
 
             {/* Étape 3 — Paiement */}
-            <div className={theme.panel}>
+            <div className={panelCls} style={panelStyle}>
               {sectionTitle(3, 'Paiement')}
               <div className="space-y-3">
-                <label className={`flex items-center gap-3 cursor-pointer rounded-xl border p-3.5 transition ${paymentMethod === 'cod' ? 'border-violet-500 bg-violet-50/50' : 'border-gray-200 hover:border-gray-300'}`}>
+                <label className="flex items-center gap-3 cursor-pointer rounded-xl p-3.5 transition" style={radioLabelStyle(paymentMethod === 'cod')}>
                   <input type="radio" name="payment_method" checked={paymentMethod === 'cod'} onChange={() => setPaymentMethod('cod')} className="accent-violet-600 w-4 h-4" />
-                  <span className="text-sm text-gray-700">Paiement à la livraison</span>
+                  <span className="text-sm" style={{ color: 'var(--sf-text)' }}>Paiement à la livraison</span>
                 </label>
-                <label className={`flex items-center gap-3 cursor-pointer rounded-xl border p-3.5 transition ${paymentMethod === 'chargily' ? 'border-violet-500 bg-violet-50/50' : 'border-gray-200 hover:border-gray-300'}`}>
+                <label className="flex items-center gap-3 cursor-pointer rounded-xl p-3.5 transition" style={radioLabelStyle(paymentMethod === 'chargily')}>
                   <input type="radio" name="payment_method" checked={paymentMethod === 'chargily'} onChange={() => setPaymentMethod('chargily')} className="accent-violet-600 w-4 h-4" />
-                  <span className="text-sm text-gray-700">Paiement en ligne (Chargily)</span>
+                  <span className="text-sm" style={{ color: 'var(--sf-text)' }}>Paiement en ligne (Chargily)</span>
                 </label>
               </div>
             </div>
@@ -375,15 +390,15 @@ export default function CheckoutPage() {
 
           {/* Résumé */}
           <div className="w-full lg:w-72 shrink-0 lg:sticky lg:top-24">
-            <div className={theme.panel}>
-              <h2 className="font-semibold text-gray-900 mb-4 text-center">Résumé</h2>
+            <div className={panelCls} style={panelStyle}>
+              <h2 className="font-semibold mb-4 text-center" style={{ color: 'var(--sf-text)' }}>Résumé</h2>
 
               {/* Code promo */}
               <div className="mb-4">
                 {appliedPromo ? (
-                  <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-200">
-                    <span className="text-sm text-emerald-700 font-medium">Code {appliedPromo.code} appliqué</span>
-                    <button type="button" onClick={removePromo} className="text-xs text-emerald-600 hover:text-emerald-800 underline cursor-pointer">Retirer</button>
+                  <div className="flex items-center justify-between px-3 py-2 rounded-lg ring-1 ring-inset ring-emerald-400/40" style={{ background: 'rgba(16,185,129,0.12)' }}>
+                    <span className="text-sm font-medium" style={{ color: '#6ee7b7' }}>Code {appliedPromo.code} appliqué</span>
+                    <button type="button" onClick={removePromo} className="text-xs underline cursor-pointer" style={{ color: '#6ee7b7' }}>Retirer</button>
                   </div>
                 ) : (
                   <div className="flex gap-2">
@@ -391,79 +406,83 @@ export default function CheckoutPage() {
                       value={promoCode}
                       onChange={e => setPromoCode(e.target.value.toUpperCase())}
                       placeholder="Code promo"
-                      className={`${theme.input} flex-1`}
+                      className={`${inputCls} flex-1`}
+                      style={inputStyle}
                     />
-                    <button type="button" onClick={applyPromo} disabled={checkingPromo || !promoCode.trim()} className={`${theme.btn.outlineLight} shrink-0 disabled:opacity-50`}>
+                    <button type="button" onClick={applyPromo} disabled={checkingPromo || !promoCode.trim()} className="shrink-0 disabled:opacity-50 px-4 py-2.5 rounded-lg text-sm font-medium transition"
+                      style={{ border: '1px solid var(--sf-header-border)', color: 'var(--sf-text)' }}>
                       {checkingPromo ? '…' : 'Appliquer'}
                     </button>
                   </div>
                 )}
-                {promoError && <p className={theme.errorText}>{promoError}</p>}
+                {promoError && <p className="text-sm mt-1.5" style={{ color: '#f87171' }}>{promoError}</p>}
               </div>
 
               {shippingRate && shippingRate.tarif_stopdesk != null && (
                 <div className="mb-4 space-y-2">
-                  <label className={`flex items-center justify-between gap-3 cursor-pointer rounded-xl border p-3 transition ${shippingOption === 'domicile' ? 'border-violet-500 bg-violet-50/50' : 'border-gray-200 hover:border-gray-300'}`}>
-                    <span className="flex items-center gap-2.5 text-sm text-gray-700">
+                  <label className="flex items-center justify-between gap-3 cursor-pointer rounded-xl p-3 transition" style={radioLabelStyle(shippingOption === 'domicile')}>
+                    <span className="flex items-center gap-2.5 text-sm" style={{ color: 'var(--sf-text)' }}>
                       <input type="radio" name="shipping_option" checked={shippingOption === 'domicile'} onChange={() => setShippingOption('domicile')} className="accent-violet-600 w-4 h-4" />
                       Livraison à domicile
                     </span>
-                    <span className="text-sm font-medium text-gray-900">{Number(shippingRate.tarif).toLocaleString('fr-DZ')} DZD</span>
+                    <span className="text-sm font-medium" style={{ color: 'var(--sf-text)' }}>{Number(shippingRate.tarif).toLocaleString('fr-DZ')} DZD</span>
                   </label>
-                  <label className={`flex items-center justify-between gap-3 cursor-pointer rounded-xl border p-3 transition ${shippingOption === 'stopdesk' ? 'border-violet-500 bg-violet-50/50' : 'border-gray-200 hover:border-gray-300'}`}>
-                    <span className="flex items-center gap-2.5 text-sm text-gray-700">
+                  <label className="flex items-center justify-between gap-3 cursor-pointer rounded-xl p-3 transition" style={radioLabelStyle(shippingOption === 'stopdesk')}>
+                    <span className="flex items-center gap-2.5 text-sm" style={{ color: 'var(--sf-text)' }}>
                       <input type="radio" name="shipping_option" checked={shippingOption === 'stopdesk'} onChange={() => setShippingOption('stopdesk')} className="accent-violet-600 w-4 h-4" />
                       Retrait en point relais
                     </span>
-                    <span className="text-sm font-medium text-gray-900">{Number(shippingRate.tarif_stopdesk).toLocaleString('fr-DZ')} DZD</span>
+                    <span className="text-sm font-medium" style={{ color: 'var(--sf-text)' }}>{Number(shippingRate.tarif_stopdesk).toLocaleString('fr-DZ')} DZD</span>
                   </label>
                 </div>
               )}
 
               {shippingOption === 'stopdesk' && (
                 <div className="mb-4">
-                  <label className={theme.label}>Bureau de retrait</label>
+                  <label className="block text-xs mb-1.5" style={{ color: 'var(--sf-text-muted)' }}>Bureau de retrait</label>
                   <Select
                     value={stationCode}
                     onChange={setStationCode}
                     options={desks.map(d => ({ value: d.code, label: `${d.name} — ${d.address}` }))}
                     placeholder={desksLoading ? 'Chargement des bureaux…' : desks.length ? 'Choisissez un bureau' : 'Aucun bureau disponible pour cette wilaya'}
                     disabled={desksLoading || desks.length === 0}
-                    className={theme.input}
-                    variant="light"
+                    className={inputCls}
+                    style={inputStyle}
+                    variant="dark"
                   />
                 </div>
               )}
 
               <div className="space-y-2 mb-4 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Sous-total</span>
-                  <span className="text-gray-900">{subtotal.toLocaleString('fr-DZ')} DZD</span>
+                  <span style={{ color: 'var(--sf-text-muted)' }}>Sous-total</span>
+                  <span style={{ color: 'var(--sf-text)' }}>{subtotal.toLocaleString('fr-DZ')} DZD</span>
                 </div>
                 {discountAmount > 0 && (
-                  <div className="flex justify-between text-emerald-600">
+                  <div className="flex justify-between" style={{ color: '#6ee7b7' }}>
                     <span>Réduction</span>
                     <span>-{discountAmount.toLocaleString('fr-DZ')} DZD</span>
                   </div>
                 )}
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Frais de livraison</span>
-                  <span className="text-gray-900">
+                  <span style={{ color: 'var(--sf-text-muted)' }}>Frais de livraison</span>
+                  <span style={{ color: 'var(--sf-text)' }}>
                     {shippingLoading ? '…' : `${shippingCost.toLocaleString('fr-DZ')} DZD`}
                   </span>
                 </div>
-                <div className="border-t border-gray-100 pt-2 mt-2 flex justify-between font-semibold">
-                  <span>Total</span>
-                  <span className="text-violet-700">{total.toLocaleString('fr-DZ')} DZD</span>
+                <div className="pt-2 mt-2 flex justify-between font-semibold" style={{ borderTop: '1px solid var(--sf-header-border)' }}>
+                  <span style={{ color: 'var(--sf-text)' }}>Total</span>
+                  <span style={{ color: 'var(--sf-primary)' }}>{total.toLocaleString('fr-DZ')} DZD</span>
                 </div>
               </div>
 
-              {error && <p className={theme.errorText}>{error}</p>}
+              {error && <p className="text-sm mb-2" style={{ color: '#f87171' }}>{error}</p>}
 
               <button
                 type="submit"
                 disabled={saving}
-                className={`${theme.btn.primary} w-full mt-1`}
+                className="w-full mt-1 py-3 rounded-lg text-sm font-semibold text-white transition disabled:opacity-60"
+                style={{ background: 'var(--sf-primary)' }}
               >
                 {saving ? 'Envoi…' : 'Confirmer la commande'}
               </button>

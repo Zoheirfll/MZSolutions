@@ -2,7 +2,6 @@ import { useEffect, useState, useCallback } from 'react'
 import { useParams, Link, useSearchParams } from 'react-router-dom'
 import StorefrontLayout from './StorefrontLayout'
 import publicApi from '../../api/publicApi'
-import { theme } from '../../theme'
 
 function PackageIcon(props) {
   return (
@@ -50,28 +49,34 @@ function ChevronRight(props) {
   )
 }
 
+const inputCls = 'w-full px-3 py-2 rounded-lg text-sm outline-none transition-colors'
+const inputStyle = { background: 'var(--sf-card-bg)', border: '1px solid var(--sf-header-border)', color: 'var(--sf-text)' }
+
 function ProductCard({ product, slug }) {
   return (
     <Link to={`/store/${slug}/products/${product.id}`}
-      className={`group ${theme.card} ${theme.cardHover} overflow-hidden block`}>
-      <div className="aspect-square bg-gray-100 overflow-hidden">
+      className="group rounded-2xl overflow-hidden border transition-all duration-300 hover:-translate-y-0.5 block"
+      style={{ background: 'var(--sf-card-bg)', borderColor: 'color-mix(in srgb, var(--sf-primary) 15%, transparent)' }}
+      onMouseEnter={e => { e.currentTarget.style.borderColor = 'color-mix(in srgb, var(--sf-primary) 40%, transparent)' }}
+      onMouseLeave={e => { e.currentTarget.style.borderColor = 'color-mix(in srgb, var(--sf-primary) 15%, transparent)' }}>
+      <div className="aspect-square overflow-hidden" style={{ background: 'var(--sf-primary-light)' }}>
         {product.image_url
           ? <img src={product.image_url} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-          : <div className="w-full h-full flex items-center justify-center text-gray-300"><PackageIcon className="w-10 h-10" /></div>
+          : <div className="w-full h-full flex items-center justify-center opacity-30"><PackageIcon className="w-10 h-10" /></div>
         }
       </div>
       <div className="p-3">
-        <p className="text-sm font-medium text-gray-900 truncate">{product.name}</p>
+        <p className="text-sm font-medium truncate" style={{ color: 'var(--sf-text)' }}>{product.name}</p>
         <div className="flex items-center gap-2 mt-1">
-          <span className="text-violet-700 font-semibold">{Number(product.price).toLocaleString('fr-DZ')} DZD</span>
+          <span className="font-semibold" style={{ color: 'var(--sf-primary)' }}>{Number(product.price).toLocaleString('fr-DZ')} DZD</span>
           {product.original_price ? (
-            <span className="text-xs text-gray-400 line-through">{Number(product.original_price).toLocaleString('fr-DZ')}</span>
+            <span className="text-xs line-through" style={{ color: 'var(--sf-text-muted)' }}>{Number(product.original_price).toLocaleString('fr-DZ')}</span>
           ) : product.compare_price && (
-            <span className="text-xs text-gray-400 line-through">{Number(product.compare_price).toLocaleString('fr-DZ')}</span>
+            <span className="text-xs line-through" style={{ color: 'var(--sf-text-muted)' }}>{Number(product.compare_price).toLocaleString('fr-DZ')}</span>
           )}
         </div>
         {product.free_shipping && (
-          <span className={`${theme.badge.success} mt-2`}>
+          <span className="inline-flex items-center gap-1 mt-2 text-[10px] font-semibold px-2 py-0.5 rounded-full ring-1 ring-inset ring-emerald-400/40" style={{ background: 'rgba(16,185,129,0.14)', color: '#6ee7b7' }}>
             <TruckIcon className="w-3 h-3" /> Livraison gratuite
           </span>
         )}
@@ -116,6 +121,10 @@ export default function StorefrontProductsPage() {
   useEffect(() => { fetchProducts() }, [fetchProducts])
 
   const totalPages = Math.ceil(total / PER_PAGE)
+  const pillCls = (active) => `px-3 py-1.5 rounded-lg text-sm border transition ${active ? 'text-white' : ''}`
+  const pillStyle = (active) => active
+    ? { background: 'var(--sf-primary)', borderColor: 'var(--sf-primary)' }
+    : { borderColor: 'var(--sf-header-border)', color: 'var(--sf-text-muted)' }
 
   return (
     <StorefrontLayout>
@@ -124,29 +133,29 @@ export default function StorefrontProductsPage() {
         {/* Sidebar filtres */}
         <aside className="w-full md:w-56 shrink-0 space-y-6">
           <div>
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Catégories</h3>
+            <h3 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--sf-text-muted)' }}>Catégories</h3>
             <div className="space-y-1.5">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="radio" name="cat" checked={!category} onChange={() => { setCategory(''); setPage(1) }} className="accent-violet-600" />
-                <span className="text-sm text-gray-700">Toutes</span>
+                <span className="text-sm" style={{ color: 'var(--sf-text)' }}>Toutes</span>
               </label>
               {categories.map(c => (
                 <label key={c.id} className="flex items-center gap-2 cursor-pointer">
                   <input type="radio" name="cat" checked={category === String(c.id)} onChange={() => { setCategory(String(c.id)); setPage(1) }} className="accent-violet-600" />
-                  <span className="text-sm text-gray-700">{c.name}</span>
+                  <span className="text-sm" style={{ color: 'var(--sf-text)' }}>{c.name}</span>
                 </label>
               ))}
             </div>
           </div>
 
           <div>
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Prix (DZD)</h3>
+            <h3 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--sf-text-muted)' }}>Prix (DZD)</h3>
             <div className="flex md:flex-col gap-2">
-              <input value={minPrice} onChange={e => { setMinPrice(e.target.value); setPage(1) }} type="number" min="0" placeholder="Min" className={theme.input} />
-              <input value={maxPrice} onChange={e => { setMaxPrice(e.target.value); setPage(1) }} type="number" min="0" placeholder="Max" className={theme.input} />
+              <input value={minPrice} onChange={e => { setMinPrice(e.target.value); setPage(1) }} type="number" min="0" placeholder="Min" className={inputCls} style={inputStyle} />
+              <input value={maxPrice} onChange={e => { setMaxPrice(e.target.value); setPage(1) }} type="number" min="0" placeholder="Max" className={inputCls} style={inputStyle} />
             </div>
             {(minPrice || maxPrice) && (
-              <button onClick={() => { setMinPrice(''); setMaxPrice(''); setPage(1) }} className="mt-2 text-xs text-violet-600 hover:underline">
+              <button onClick={() => { setMinPrice(''); setMaxPrice(''); setPage(1) }} className="mt-2 text-xs hover:underline" style={{ color: 'var(--sf-primary)' }}>
                 Effacer les prix
               </button>
             )}
@@ -156,24 +165,24 @@ export default function StorefrontProductsPage() {
         {/* Grille produits */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between mb-5">
-            <p className="text-sm text-gray-500">{total} produit{total !== 1 ? 's' : ''}</p>
+            <p className="text-sm" style={{ color: 'var(--sf-text-muted)' }}>{total} produit{total !== 1 ? 's' : ''}</p>
           </div>
 
           {loading ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
               {[...Array(12)].map((_, i) => (
-                <div key={i} className={`${theme.card} overflow-hidden`}>
-                  <div className={`aspect-square ${theme.skeleton} rounded-none`} />
+                <div key={i} className="rounded-2xl overflow-hidden border animate-pulse" style={{ background: 'var(--sf-card-bg)', borderColor: 'var(--sf-header-border)' }}>
+                  <div className="aspect-square" style={{ background: 'var(--sf-primary-light)' }} />
                   <div className="p-3 space-y-2">
-                    <div className={`h-3 ${theme.skeleton} w-3/4`} />
-                    <div className={`h-3 ${theme.skeleton} w-1/2`} />
+                    <div className="h-3 rounded w-3/4" style={{ background: 'var(--sf-primary-light)' }} />
+                    <div className="h-3 rounded w-1/2" style={{ background: 'var(--sf-primary-light)' }} />
                   </div>
                 </div>
               ))}
             </div>
           ) : products.length === 0 ? (
-            <div className={theme.emptyState}>
-              <SearchIcon className="w-12 h-12 text-gray-300 mb-3" />
+            <div className="flex flex-col items-center justify-center text-center py-16 px-6" style={{ color: 'var(--sf-text-muted)' }}>
+              <SearchIcon className="w-12 h-12 mb-3 opacity-30" />
               <p>Aucun produit trouvé.</p>
             </div>
           ) : (
@@ -185,16 +194,17 @@ export default function StorefrontProductsPage() {
           {/* Pagination */}
           {totalPages > 1 && (
             <div className="flex items-center justify-center gap-2 mt-8 flex-wrap">
-              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="p-2 rounded-lg border border-gray-300 text-gray-600 disabled:opacity-30 hover:bg-gray-50 transition">
+              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="p-2 rounded-lg border disabled:opacity-30 transition"
+                style={{ borderColor: 'var(--sf-header-border)', color: 'var(--sf-text-muted)' }}>
                 <ChevronLeft className="w-4 h-4" />
               </button>
               {[...Array(totalPages)].map((_, i) => (
-                <button key={i} onClick={() => setPage(i + 1)}
-                  className={`px-3 py-1.5 rounded-lg text-sm border transition ${page === i + 1 ? 'bg-violet-600 text-white border-violet-600' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}>
+                <button key={i} onClick={() => setPage(i + 1)} className={pillCls(page === i + 1)} style={pillStyle(page === i + 1)}>
                   {i + 1}
                 </button>
               ))}
-              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="p-2 rounded-lg border border-gray-300 text-gray-600 disabled:opacity-30 hover:bg-gray-50 transition">
+              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="p-2 rounded-lg border disabled:opacity-30 transition"
+                style={{ borderColor: 'var(--sf-header-border)', color: 'var(--sf-text-muted)' }}>
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
