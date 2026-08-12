@@ -137,6 +137,7 @@ export default function ParametresLivraisonPage() {
   const [departureWilaya, setDepartureWilaya] = useState('')
   const [apiId, setApiId]               = useState('')
   const [apiToken, setApiToken]         = useState('')
+  const [webhookSecret, setWebhookSecret] = useState('')
   const [isActive, setIsActive]         = useState(true)
   const [saving, setSaving]             = useState(false)
 
@@ -158,6 +159,7 @@ export default function ParametresLivraisonPage() {
     setDepartureWilaya(existing?.departure_wilaya || '')
     setApiId(existing?.api_id || '')
     setApiToken('')
+    setWebhookSecret('')
     setIsActive(existing ? existing.is_active : true)
     setModalCarrier(code)
   }
@@ -168,6 +170,7 @@ export default function ParametresLivraisonPage() {
     try {
       const existing = accountFor(modalCarrier)
       const payload = { name, departure_wilaya: departureWilaya, api_id: apiId, api_token: apiToken, is_active: isActive }
+      if (webhookSecret) payload.webhook_secret = webhookSecret
       if (existing) {
         await api.put(`/stores/me/carriers/${existing.id}/`, payload)
       } else {
@@ -376,6 +379,19 @@ export default function ParametresLivraisonPage() {
             <input value={apiId} onChange={e => setApiId(e.target.value)} placeholder="Entrez votre clé API" className={theme.inputDark + ' mb-3'} />
             <label className={theme.labelDark}>Entrez votre jeton API</label>
             <input value={apiToken} onChange={e => setApiToken(e.target.value)} type="password" placeholder="Entrez votre jeton API" className={theme.inputDark + ' mb-3'} />
+            {modalCarrier === 'yalidine' && (
+              <>
+                <label className={theme.labelDark}>URL du webhook (à coller dans votre dashboard Yalidine)</label>
+                <div className="mb-3">
+                  <CopyButton value={`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/public/webhooks/yalidine/`} label="URL du webhook Yalidine" />
+                </div>
+                <label className={theme.labelDark + ' mt-3'}>Clé secrète du webhook (générée par Yalidine)</label>
+                <input value={webhookSecret} onChange={e => setWebhookSecret(e.target.value)} type="password" placeholder="Laissez vide pour ne pas changer" className={theme.inputDark + ' mb-3'} />
+                <p className="text-xs mb-3" style={{ color: theme.dark.muted }}>
+                  {accountFor(modalCarrier)?.webhook_secret_masked ? `Clé actuelle : ${accountFor(modalCarrier).webhook_secret_masked}` : "Aucune clé enregistrée — le suivi automatique retombera sur une vérification toutes les 15 min plutôt qu'en temps réel."}
+                </p>
+              </>
+            )}
             <label className="flex items-center justify-between text-sm text-app-primary mb-5">
               Actif
               <StatusToggle active={isActive} onChange={() => setIsActive(v => !v)} />

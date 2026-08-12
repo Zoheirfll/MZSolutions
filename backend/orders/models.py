@@ -26,20 +26,42 @@ CALL_STATUS_CHOICES = [
 ]
 
 STATUS_CHOICES = [
-    ('scheduled',   'Programmée'),
-    ('pending',     'En attente de confirmation'),
-    ('no_answer_1', 'Non joignable — 1ère tentative'),
-    ('no_answer_2', 'Non joignable — 2ème tentative'),
-    ('no_answer_3', 'Non joignable — 3ème tentative'),
-    ('confirmed',   'Confirmée'),
-    ('shipped',     'Expédiée'),
-    ('delivered',   'Livrée'),
-    ('returned',    'Retournée'),
-    ('cancel_requested', "Demande d'annulation"),
-    ('cancelled',        'Annulée'),
+    ('scheduled',         'Programmée'),
+    ('pending',           'En attente de confirmation'),
+    ('no_answer_1',       'Non joignable — 1ère tentative'),
+    ('no_answer_2',       'Non joignable — 2ème tentative'),
+    ('no_answer_3',       'Non joignable — 3ème tentative'),
+    ('no_answer',         'Sans réponse'),
+    ('confirmed',         'Confirmée'),
+    ('preparing',         'Préparation de commande'),
+    ('prepared',          'Préparée'),
+    ('in_progress',       'En cours'),
+    ('shipped',           'Expédiée'),
+    ('out_for_delivery',  'Sorti en livraison'),
+    ('delivered',         'Livrée'),
+    ('returned',          'Retournée'),
+    ('cancel_requested',  "Demande d'annulation"),
+    ('cancelled',         'Annulée'),
+    ('duplicate',         'Commande double'),
+    ('fake',              'Commande fictive'),
 ]
 
 NO_ANSWER_STATUSES = ['no_answer_1', 'no_answer_2', 'no_answer_3']
+
+# Sous-statut de suivi transporteur, posé MANUELLEMENT par le confirmateur/
+# vendeur — indépendant du texte brut renvoyé par le transporteur
+# (`Order.carrier_status`). Sert de tag de triage sur les commandes en cours
+# de livraison (page "Suivi transporteur") : ex. "Injoignable" si le
+# transporteur n'arrive pas à joindre le client, "Accepté" si le client a
+# confirmé vouloir toujours le colis suite à une relance. N'affecte jamais
+# `Order.status` ni aucun effet de bord (contrairement aux transitions de
+# statut) — purement indicatif/organisationnel.
+TRACKING_SUBSTATUS_CHOICES = [
+    ('pending_processing', 'En attente de traitement'),
+    ('accepted',           'Accepté'),
+    ('cancelled',          'Annulé'),
+    ('unreachable',        'Injoignable'),
+]
 
 DELIVERY_CHOICES = [
     ('store',     'Vendu depuis le magasin'),
@@ -93,6 +115,7 @@ class CarrierAccount(models.Model):
     departure_wilaya  = models.CharField(max_length=100, blank=True)
     api_id            = models.CharField(max_length=100, blank=True)
     api_token         = models.CharField(max_length=200, blank=True)
+    webhook_secret    = models.CharField(max_length=200, blank=True)
     is_active         = models.BooleanField(default=True)
     is_default        = models.BooleanField(default=False)
     created_at        = models.DateTimeField(auto_now_add=True)
@@ -123,6 +146,7 @@ class Order(models.Model):
     shipping_cost = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     stop_desk     = models.BooleanField(default=False, help_text="Livraison en point relais (True) plutôt qu'à domicile (False) — affecte le tarif transporteur et le mode d'expédition envoyé à l'API")
     station_code  = models.CharField(max_length=20, blank=True, help_text="Code du bureau/point relais choisi (requis par certains transporteurs, ex: Noest, quand stop_desk=True)")
+    tracking_substatus = models.CharField(max_length=20, choices=TRACKING_SUBSTATUS_CHOICES, blank=True, help_text="Tag de triage manuel posé par le confirmateur sur une commande en cours de livraison — indépendant du statut brut du transporteur")
     total         = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     promo_code       = models.CharField(max_length=30, blank=True)
     discount_amount  = models.DecimalField(max_digits=12, decimal_places=2, default=0)

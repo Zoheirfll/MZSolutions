@@ -12,17 +12,25 @@ import { WILAYAS, getWilayaIdByName } from '../../data/wilayas'
 import { getCommunesForWilaya } from '../../data/communes'
 
 const STATUS_OPTIONS = [
-  { value: '',            label: 'Tous les statuts' },
-  { value: 'scheduled',   label: 'Programmée' },
-  { value: 'pending',     label: 'En attente de confirmation' },
-  { value: 'no_answer_1', label: 'Non joignable — 1ère tentative' },
-  { value: 'no_answer_2', label: 'Non joignable — 2ème tentative' },
-  { value: 'no_answer_3', label: 'Non joignable — 3ème tentative' },
-  { value: 'confirmed',   label: 'Confirmée' },
-  { value: 'shipped',     label: 'Expédiée' },
-  { value: 'delivered',   label: 'Livrée' },
-  { value: 'returned',    label: 'Retournée' },
-  { value: 'cancelled',   label: 'Annulée' },
+  { value: '',                 label: 'Tous les statuts' },
+  { value: 'scheduled',        label: 'Programmée' },
+  { value: 'pending',          label: 'En attente de confirmation' },
+  { value: 'no_answer_1',      label: 'Non joignable — 1ère tentative' },
+  { value: 'no_answer_2',      label: 'Non joignable — 2ème tentative' },
+  { value: 'no_answer_3',      label: 'Non joignable — 3ème tentative' },
+  { value: 'no_answer',        label: 'Sans réponse' },
+  { value: 'confirmed',        label: 'Confirmée' },
+  { value: 'preparing',        label: 'Préparation de commande' },
+  { value: 'prepared',         label: 'Préparée' },
+  { value: 'in_progress',      label: 'En cours' },
+  { value: 'shipped',          label: 'Expédiée' },
+  { value: 'out_for_delivery', label: 'Sorti en livraison' },
+  { value: 'delivered',        label: 'Livrée' },
+  { value: 'returned',         label: 'Retournée' },
+  { value: 'cancel_requested', label: "Demande d'annulation" },
+  { value: 'cancelled',        label: 'Annulée' },
+  { value: 'duplicate',        label: 'Commande double' },
+  { value: 'fake',             label: 'Commande fictive' },
 ]
 
 const PER_PAGE_OPTIONS = [10, 25, 50]

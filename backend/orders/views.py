@@ -1,3 +1,5 @@
+import hashlib
+import hmac
 import json
 from decimal import Decimal
 from datetime import date, timedelta
@@ -19,6 +21,7 @@ from .utils import assign_order_round_robin, assign_complaint_round_robin, send_
 from . import chargily
 from .carriers import get_carrier_client
 from .carriers.ecotrack import TrackingNotFoundError
+from .carriers.yalidine import YALIDINE_STATUS_MAP
 from core.permissions import IsOwnerOrAdminForWrites, is_owner_or_admin, has_permission
 from core.validators import validate_uploaded_file
 from core.pagination import parse_pagination
@@ -523,7 +526,8 @@ class OrderDetailView(APIView):
         wilaya_changed = 'wilaya' in request.data and request.data['wilaya'] != order.wilaya
 
         allowed = ['first_name', 'last_name', 'phone', 'wilaya', 'commune',
-                   'address', 'shipping_cost', 'delivery_type', 'note', 'stop_desk', 'station_code']
+                   'address', 'shipping_cost', 'delivery_type', 'note', 'stop_desk', 'station_code',
+                   'tracking_substatus']
         for field in allowed:
             if field in request.data:
                 setattr(order, field, request.data[field])
@@ -876,6 +880,7 @@ class CarrierAccountListCreateView(APIView):
             departure_wilaya  = request.data.get('departure_wilaya', ''),
             api_id            = request.data.get('api_id', ''),
             api_token         = request.data.get('api_token', ''),
+            webhook_secret    = request.data.get('webhook_secret', ''),
             is_active         = request.data.get('is_active', True),
             is_default        = request.data.get('is_default', False),
         )
@@ -899,7 +904,7 @@ class CarrierAccountDetailView(APIView):
             return Response({'detail': 'Modification réservée au propriétaire ou administrateur.'}, status=403)
         account, err = self._get(request, pk)
         if err: return err
-        for field in ['name', 'departure_wilaya', 'api_id', 'api_token', 'is_active', 'is_default']:
+        for field in ['name', 'departure_wilaya', 'api_id', 'api_token', 'webhook_secret', 'is_active', 'is_default']:
             if field in request.data:
                 setattr(account, field, request.data[field])
         account.save()
@@ -2435,6 +2440,99 @@ class AbandonedCartRemindView(APIView):
 
 SHIPMENT_STATUSES = ('confirmed', 'shipped', 'delivered', 'returned')
 
+# Regroupement du libellé brut transporteur (`Order.carrier_status`) en
+# "sous-statuts" génériques pour la page "Suivi transporteur" (alignée sur le
+# concurrent RiseCart, onglet "Gestion des échecs" dans "Suivi des
+# commandes") — mots-clés construits à partir de la liste officielle des
+# statuts Yalidine et des libellés Noest observés ; volontairement basé sur
+# des mots-clés (insensible accents/casse) plutôt qu'une liste figée par
+# transporteur, pour rester valable si d'autres transporteurs utilisent un
+# vocabulaire français similaire. Ordre = priorité de classement (le premier
+# mot-clé qui matche l'emporte).
+CARRIER_STATUS_BUCKETS = [
+    ('failed_attempt',     'Tentative échouée',        ['tentative echou', 'echec livraison', 'echoue', 'echouee']),
+    ('awaiting_client',    'En attente du client',     ['attente du client', 'sorti en livraison', 'pret pour livreur', 'en attente']),
+    ('in_transit',         'En localisation',          ['en localisation', 'en transit', 'recu a wilaya', 'ramasse']),
+    ('to_wilaya',          'Vers la wilaya',           ['vers wilaya', 'transfert', 'expedie', 'centre']),
+    ('pending_processing', 'En attente de traitement', ['pas encore', 'a verifier', 'preparation', 'pret a expedier', 'passation', 'bloque', 'debloque', 'created']),
+]
+
+
+def _strip_accents(text):
+    import unicodedata
+    return ''.join(c for c in unicodedata.normalize('NFKD', text) if not unicodedata.combining(c))
+
+
+def _carrier_status_bucket(carrier_status):
+    normalized = _strip_accents((carrier_status or '').lower())
+    for key, label, keywords in CARRIER_STATUS_BUCKETS:
+        if any(kw in normalized for kw in keywords):
+            return key, label
+    return 'other', 'Autre'
+
+
+class CarrierTrackingListView(APIView):
+    """Suivi des commandes en cours de livraison (confirmées/expédiées, pas
+    encore livrées/retournées/annulées), groupées par sous-statut transporteur
+    — vue alignée sur le concurrent RiseCart ("Gestion des échecs" dans
+    "Suivi des commandes") : boutons de filtre avec compteur par sous-statut
+    (Vers la wilaya, En localisation, En attente du client, Tentative
+    échouée, En attente de traitement), pas seulement les échecs. Différent
+    de FailureReasonsPage.jsx, qui couvre les échecs d'APPEL (no_answer_1/2/3,
+    avant confirmation) — ici ce sont les commandes déjà expédiées, suivies
+    chez le transporteur."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        store = _get_store(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+
+        qs = store.orders.filter(status__in=('confirmed', 'shipped')).exclude(carrier_tracking_number='')
+
+        search = request.query_params.get('search', '').strip()
+        if search:
+            qs = qs.filter(
+                Q(first_name__icontains=search) |
+                Q(last_name__icontains=search) |
+                Q(phone__icontains=search) |
+                Q(carrier_tracking_number__icontains=search)
+            )
+
+        # Compteurs par sous-statut calculés sur l'ensemble filtré (recherche
+        # incluse, avant pagination) — le classement en bucket dépend du texte
+        # libre `carrier_status`, impossible à agréger proprement en SQL ici,
+        # donc fait en Python (volumes de commandes en transit toujours faibles).
+        all_statuses = list(qs.values_list('carrier_status', flat=True))
+        counts = {}
+        for cs in all_statuses:
+            key, label = _carrier_status_bucket(cs)
+            counts.setdefault(key, {'key': key, 'label': label, 'count': 0})
+            counts[key]['count'] += 1
+        buckets = sorted(counts.values(), key=lambda b: -b['count'])
+
+        bucket_filter = request.query_params.get('bucket')
+        if bucket_filter:
+            matching_ids = [
+                o.id for o in qs.only('id', 'carrier_status')
+                if _carrier_status_bucket(o.carrier_status)[0] == bucket_filter
+            ]
+            qs = qs.filter(id__in=matching_ids)
+
+        qs = qs.order_by('-created_at')
+
+        page, per_page = parse_pagination(request, default_per_page=20)
+        total = qs.count()
+        qs = qs[(page - 1) * per_page: page * per_page]
+
+        return Response({
+            'count':    total,
+            'page':     page,
+            'per_page': per_page,
+            'buckets':  buckets,
+            'results':  OrderSerializer(qs, many=True).data,
+        })
+
 
 class ShipmentListView(APIView):
     """Suivi centralisé des commandes en cours/déjà expédiées (page
@@ -2585,3 +2683,70 @@ class OrderSyncTrackingView(APIView):
             return Response({'detail': "Impossible de récupérer le statut auprès du transporteur."}, status=502)
 
         return Response(OrderDetailSerializer(order).data)
+
+
+class YalidineWebhookView(APIView):
+    """Réception temps réel des événements Yalidine (`parcel_status_updated`
+    notamment) — voir yalidine.app/app/dev/docs/webhooks. Une seule URL pour
+    tous les vendeurs (chaque compte Yalidine configure son propre webhook
+    vers cette même URL dans son dashboard) ; le tracking porté par le
+    premier événement du payload sert à retrouver la commande, donc la
+    boutique, donc le `CarrierAccount.webhook_secret` à utiliser pour vérifier
+    la signature — même principe que `shop_domain` pour les webhooks Shopify."""
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        # Challenge-Response Check (CRC) — Yalidine valide la propriété de
+        # l'URL à la création du webhook et périodiquement ensuite. Doit
+        # toujours répondre, sans authentification (pas d'account connu à ce
+        # stade), sous peine de désactivation automatique du webhook.
+        subscribe = request.query_params.get('subscribe')
+        crc_token = request.query_params.get('crc_token')
+        if subscribe is not None and crc_token is not None:
+            return HttpResponse(crc_token, content_type='text/plain')
+        return Response(status=400)
+
+    def post(self, request):
+        raw_body = request.body
+        try:
+            payload = json.loads(raw_body or b'{}')
+        except json.JSONDecodeError:
+            return Response(status=200)
+
+        events = payload.get('events') or []
+        if not events:
+            return Response(status=200)
+
+        first_tracking = events[0].get('data', {}).get('tracking')
+        order = Order.objects.filter(carrier_tracking_number=first_tracking).select_related('store', 'carrier').first()
+        if not order or not order.carrier or not order.carrier.webhook_secret:
+            # Commande/compte inconnu de ce côté, ou webhook_secret non
+            # configuré — on répond 200 quand même pour ne pas déclencher de
+            # retries Yalidine qui n'aboutiront jamais.
+            return Response(status=200)
+
+        signature = request.headers.get('X-Yalidine-Signature', '')
+        expected = hmac.new(order.carrier.webhook_secret.encode(), raw_body, hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(signature, expected):
+            return Response(status=403)
+
+        if payload.get('type') == 'parcel_status_updated':
+            for event in events:
+                data = event.get('data', {})
+                tracking = data.get('tracking')
+                label = data.get('status')
+                if not tracking or not label:
+                    continue
+                evt_order = Order.objects.filter(carrier_tracking_number=tracking, store=order.store).first()
+                if not evt_order:
+                    continue
+                evt_order.carrier_status = label
+                evt_order.save(update_fields=['carrier_status'])
+                mapped = YALIDINE_STATUS_MAP.get(label)
+                if mapped and mapped != evt_order.status and evt_order.status not in ('delivered', 'returned', 'cancelled'):
+                    _transition_order_status(
+                        order.store, evt_order, mapped, changed_by=None,
+                        note=f"Mise à jour automatique (webhook Yalidine) — statut transporteur : {label}",
+                    )
+
+        return Response(status=200)

@@ -53,6 +53,7 @@ urlpatterns = [
     path('api/public/complaints/', __import__('orders.views', fromlist=['PublicComplaintCreateView']).PublicComplaintCreateView.as_view()),
     path('api/public/exchanges/', __import__('orders.views', fromlist=['PublicExchangeCreateView']).PublicExchangeCreateView.as_view()),
     path('api/public/webhooks/chargily/', __import__('orders.views', fromlist=['ChargilyWebhookView']).ChargilyWebhookView.as_view()),
+    path('api/public/webhooks/yalidine/', __import__('orders.views', fromlist=['YalidineWebhookView']).YalidineWebhookView.as_view()),
     path('api/public/webhooks/incoming/<str:key>/', __import__('webhooks.views', fromlist=['PublicIncomingWebhookView']).PublicIncomingWebhookView.as_view()),
     path('api/public/abandoned-carts/', __import__('orders.views', fromlist=['PublicAbandonedCartView']).PublicAbandonedCartView.as_view()),
     path('api/public/abandoned-carts/recover/', __import__('orders.views', fromlist=['PublicMarkCartRecoveredView']).PublicMarkCartRecoveredView.as_view()),

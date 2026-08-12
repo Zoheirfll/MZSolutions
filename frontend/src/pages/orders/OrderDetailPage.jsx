@@ -14,12 +14,19 @@ const STATUS_CHOICES = [
   { value: 'no_answer_1',      label: 'Non joignable — 1ère tentative' },
   { value: 'no_answer_2',      label: 'Non joignable — 2ème tentative' },
   { value: 'no_answer_3',      label: 'Non joignable — 3ème tentative' },
+  { value: 'no_answer',        label: 'Sans réponse' },
   { value: 'confirmed',        label: 'Confirmée' },
+  { value: 'preparing',        label: 'Préparation de commande' },
+  { value: 'prepared',         label: 'Préparée' },
+  { value: 'in_progress',      label: 'En cours' },
   { value: 'shipped',          label: 'Expédiée' },
+  { value: 'out_for_delivery', label: 'Sorti en livraison' },
   { value: 'delivered',        label: 'Livrée' },
   { value: 'returned',         label: 'Retournée' },
   { value: 'cancel_requested', label: "Demande d'annulation" },
   { value: 'cancelled',        label: 'Annulée' },
+  { value: 'duplicate',        label: 'Commande double' },
+  { value: 'fake',             label: 'Commande fictive' },
 ]
 
 // Mapping statut → badge (aligné sur OrdersPage.jsx) :
@@ -30,19 +37,28 @@ const STATUS_COLORS = {
   no_answer_1:      'bg-amber-900/30 text-amber-400 ring-1 ring-amber-500/20',
   no_answer_2:      'bg-amber-900/30 text-amber-400 ring-1 ring-amber-500/20',
   no_answer_3:      'bg-amber-900/30 text-amber-400 ring-1 ring-amber-500/20',
+  no_answer:        'bg-amber-900/30 text-amber-400 ring-1 ring-amber-500/20',
   confirmed:        'bg-emerald-900/30 text-emerald-400 ring-1 ring-emerald-500/20',
+  preparing:        'bg-blue-900/30 text-blue-400 ring-1 ring-blue-500/20',
+  prepared:         'bg-blue-900/30 text-blue-400 ring-1 ring-blue-500/20',
+  in_progress:      'bg-blue-900/30 text-blue-400 ring-1 ring-blue-500/20',
   shipped:          'bg-emerald-900/30 text-emerald-400 ring-1 ring-emerald-500/20',
+  out_for_delivery: 'bg-blue-900/30 text-blue-400 ring-1 ring-blue-500/20',
   delivered:        'bg-emerald-900/30 text-emerald-400 ring-1 ring-emerald-500/20',
   returned:         'bg-red-900/30 text-red-400 ring-1 ring-red-500/20',
   cancel_requested: 'bg-red-900/30 text-red-400 ring-1 ring-red-500/20',
   cancelled:        'bg-red-900/30 text-red-400 ring-1 ring-red-500/20',
+  duplicate:        'bg-(--bg-card-alt) text-app-muted-light ring-1 ring-(--border-color-hover)',
+  fake:             'bg-(--bg-card-alt) text-app-muted-light ring-1 ring-(--border-color-hover)',
 }
 const STATUS_FALLBACK = 'bg-violet-500/10 text-app-muted-light ring-1 ring-violet-500/15'
 
 const STATUS_DOT = {
-  pending: 'bg-amber-400', no_answer_1: 'bg-amber-400', no_answer_2: 'bg-amber-400', no_answer_3: 'bg-amber-400',
-  confirmed: 'bg-emerald-400', shipped: 'bg-emerald-400', delivered: 'bg-emerald-400',
+  pending: 'bg-amber-400', no_answer_1: 'bg-amber-400', no_answer_2: 'bg-amber-400', no_answer_3: 'bg-amber-400', no_answer: 'bg-amber-400',
+  confirmed: 'bg-emerald-400', preparing: 'bg-blue-400', prepared: 'bg-blue-400', in_progress: 'bg-blue-400',
+  shipped: 'bg-emerald-400', out_for_delivery: 'bg-blue-400', delivered: 'bg-emerald-400',
   returned: 'bg-red-400', cancel_requested: 'bg-red-400', cancelled: 'bg-red-400',
+  duplicate: 'bg-(--text-muted-light)', fake: 'bg-(--text-muted-light)',
 }
 
 function Icon({ path, className = 'w-4 h-4' }) {

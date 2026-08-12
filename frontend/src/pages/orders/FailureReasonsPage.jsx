@@ -17,6 +17,7 @@ const COMMON_REASONS = [
 const TABS = [
   { key: 'raisons',   label: 'Raisons' },
   { key: 'historique', label: 'Historique des échecs' },
+  { key: 'suivi_transporteur', label: 'Suivi transporteur' },
 ]
 
 function CloseIcon(props) {
@@ -357,6 +358,206 @@ function HistoryTab({ reasons, initialFilters }) {
   )
 }
 
+function RefreshIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14" {...props}>
+      <path d="M21 2v6h-6M3 22v-6h6" />
+      <path d="M3.51 9a9 9 0 0114.85-3.36L21 8M3 16l2.64 2.36A9 9 0 0020.49 15" />
+    </svg>
+  )
+}
+
+function DownloadIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14" {...props}>
+      <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
+    </svg>
+  )
+}
+
+function exportCsv(rows) {
+  const header = ['ID', 'Nom', 'Téléphone', 'Wilaya', 'Commune', 'Prix total', 'Suivi', 'Sous-statut', 'Remarque']
+  const lines = rows.map(o => [
+    o.id, `${o.first_name} ${o.last_name}`.trim(), o.phone, o.wilaya, o.commune,
+    o.total, o.carrier_tracking_number || '', o.carrier_status || '', (o.note || '').replace(/\n/g, ' '),
+  ])
+  const csv = [header, ...lines].map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n')
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'suivi-transporteur.csv'
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+}
+
+const SUBSTATUS_OPTIONS = [
+  { value: '',                    label: '—' },
+  { value: 'pending_processing',  label: 'En attente de traitement' },
+  { value: 'accepted',            label: 'Accepté' },
+  { value: 'cancelled',           label: 'Annulé' },
+  { value: 'unreachable',         label: 'Injoignable' },
+]
+
+function CarrierTrackingTab() {
+  const navigate = useNavigate()
+  const [data, setData] = useState({ results: [], count: 0, buckets: [] })
+  const [search, setSearch] = useState('')
+  const [bucket, setBucket] = useState('')
+  const [page, setPage] = useState(1)
+  const [loading, setLoading] = useState(true)
+  const [savingId, setSavingId] = useState(null)
+  const perPage = 20
+
+  const updateSubstatus = async (order, value) => {
+    setSavingId(order.id)
+    setData(prev => ({ ...prev, results: prev.results.map(o => o.id === order.id ? { ...o, tracking_substatus: value } : o) }))
+    try {
+      await api.put(`/orders/${order.id}/`, { tracking_substatus: value })
+    } catch {
+      fetchData()
+    } finally {
+      setSavingId(null)
+    }
+  }
+
+  const fetchData = useCallback(() => {
+    setLoading(true)
+    const params = new URLSearchParams({ page, per_page: perPage })
+    if (search) params.set('search', search)
+    if (bucket) params.set('bucket', bucket)
+    api.get(`/orders/carrier-tracking/?${params}`)
+      .then(({ data }) => setData(data))
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [page, search, bucket])
+
+  useEffect(() => { fetchData() }, [fetchData])
+  useEffect(() => { setPage(1) }, [search, bucket])
+
+  const totalPages = Math.max(1, Math.ceil(data.count / perPage))
+
+  return (
+    <>
+      <div className="flex flex-wrap items-center gap-2 mb-5">
+        {data.buckets.map(b => (
+          <button
+            key={b.key}
+            onClick={() => setBucket(prev => prev === b.key ? '' : b.key)}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border transition cursor-pointer
+              ${bucket === b.key ? 'bg-violet-600 border-violet-600 text-white' : 'text-app-muted-light hover:text-app-primary'}`}
+            style={bucket === b.key ? undefined : { borderColor: theme.dark.border }}
+          >
+            <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${bucket === b.key ? 'bg-white/20' : 'bg-violet-500/15 text-violet-300'}`}>
+              {b.count}
+            </span>
+            {b.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex items-center justify-between mb-5 gap-3 flex-wrap">
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Nom, téléphone ou suivi…"
+          className="px-3.5 py-2.5 rounded-lg border text-sm text-app-primary bg-transparent outline-none focus:border-violet-500 transition w-full sm:w-72"
+          style={{ borderColor: theme.dark.border }}
+        />
+        <div className="flex items-center gap-2">
+          <button onClick={fetchData} className={theme.btn.icon} title="Rafraîchir">
+            <RefreshIcon />
+          </button>
+          <button onClick={() => exportCsv(data.results)} disabled={!data.results.length} className={theme.btn.icon + ' disabled:opacity-30'} title="Exporter en CSV">
+            <DownloadIcon />
+          </button>
+          <button onClick={() => navigate('/dashboard/commandes/nouvelle')} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white bg-violet-600 hover:bg-violet-500 transition">
+            <PlusIcon />
+            Créer une commande
+          </button>
+        </div>
+      </div>
+
+      <p className="text-sm mb-3" style={{ color: theme.dark.muted }}>{data.count} commande{data.count !== 1 ? 's' : ''} en cours de livraison.</p>
+
+      <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border }}>
+        <table className="w-full text-sm min-w-200">
+          <thead style={{ background: theme.dark.sidebar }}>
+            <tr className="text-left text-xs border-b" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
+              <th className="px-4 py-3 font-medium">SUIVI</th>
+              <th className="px-4 py-3 font-medium">CLIENT</th>
+              <th className="px-4 py-3 font-medium">COMMUNE</th>
+              <th className="px-4 py-3 font-medium">REMARQUE</th>
+              <th className="px-4 py-3 font-medium">ÉTAT TRANSPORTEUR</th>
+              <th className="px-4 py-3 font-medium">SOUS-STATUT</th>
+              <th className="px-4 py-3 font-medium">PRIX TOTAL</th>
+              <th className="px-4 py-3 font-medium">DATE</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan={8} className="py-16">
+                <div className="flex items-center justify-center gap-2 text-app-muted">
+                  <svg className="w-5 h-5 animate-spin text-violet-500" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                  </svg>
+                  Chargement…
+                </div>
+              </td></tr>
+            ) : data.results.length === 0 ? (
+              <tr><td colSpan={8}>
+                <div className={theme.emptyState}>
+                  <p>Aucune donnée</p>
+                </div>
+              </td></tr>
+            ) : data.results.map(o => (
+              <tr key={o.id} onClick={() => navigate(`/dashboard/commandes/${o.id}`)}
+                className="border-b hover:bg-violet-500/5 transition cursor-pointer" style={{ borderColor: theme.dark.borderRowHover }}>
+                <td className="px-4 py-3">
+                  <p className="font-mono text-xs text-violet-300">{o.carrier_tracking_number || '—'}</p>
+                  <p className="text-xs" style={{ color: theme.dark.muted }}>{o.carrier_label}</p>
+                </td>
+                <td className="px-4 py-3">
+                  <p className="text-app-primary font-medium">{o.first_name} {o.last_name}</p>
+                  <p className="text-xs font-mono" style={{ color: theme.dark.muted }}>{o.phone}</p>
+                </td>
+                <td className="px-4 py-3 text-app-muted-light">{o.commune}</td>
+                <td className="px-4 py-3 text-app-muted-light max-w-40 truncate">{o.note || '—'}</td>
+                <td className="px-4 py-3">
+                  <span className={theme.badge.warning}>{o.carrier_status || '—'}</span>
+                </td>
+                <td className="px-4 py-3" onClick={e => e.stopPropagation()} style={{ minWidth: 180 }}>
+                  <Select
+                    value={o.tracking_substatus || ''}
+                    onChange={v => updateSubstatus(o, v)}
+                    options={SUBSTATUS_OPTIONS}
+                    disabled={savingId === o.id}
+                    className="px-2.5 py-1.5 rounded-lg border text-xs text-app-primary"
+                    style={{ background: 'transparent', borderColor: theme.dark.border }}
+                  />
+                </td>
+                <td className="px-4 py-3 text-app-primary">{Number(o.total).toLocaleString('fr-DZ')} DZD</td>
+                <td className="px-4 py-3 text-app-muted text-xs">{new Date(o.created_at).toLocaleDateString('fr-DZ')}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {data.count > perPage && (
+        <div className="flex items-center justify-end gap-2 mt-4 text-sm" style={{ color: theme.dark.muted }}>
+          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">← Précédent</button>
+          <span className={theme.badge.info}>{page}/{totalPages}</span>
+          <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">Suivant →</button>
+        </div>
+      )}
+    </>
+  )
+}
+
 export default function FailureReasonsPage() {
   const [tab, setTab] = useState('raisons')
   const [reasons, setReasons] = useState([])
@@ -443,8 +644,10 @@ export default function FailureReasonsPage() {
           onMove={moveReason}
           onFilterHistory={goToHistoryForReason}
         />
-      ) : (
+      ) : tab === 'historique' ? (
         <HistoryTab reasons={reasons} initialFilters={historyFilters} />
+      ) : (
+        <CarrierTrackingTab />
       )}
     </DashboardLayout>
   )

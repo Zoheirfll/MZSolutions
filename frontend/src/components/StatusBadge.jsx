@@ -8,12 +8,19 @@ const ORDER_STATUS_VARIANT = {
   no_answer_1:      'warning',
   no_answer_2:      'warning',
   no_answer_3:      'warning',
+  no_answer:        'warning',
   confirmed:        'success',
+  preparing:        'info',
+  prepared:         'info',
+  in_progress:      'info',
   shipped:          'info',
+  out_for_delivery: 'info',
   delivered:        'success',
   returned:         'danger',
   cancel_requested: 'danger',
   cancelled:        'danger',
+  duplicate:        'neutral',
+  fake:             'neutral',
 }
 
 const ORDER_STATUS_LABEL = {
@@ -22,12 +29,19 @@ const ORDER_STATUS_LABEL = {
   no_answer_1:      'Non joignable — 1ère tentative',
   no_answer_2:      'Non joignable — 2ème tentative',
   no_answer_3:      'Non joignable — 3ème tentative',
+  no_answer:        'Sans réponse',
   confirmed:        'Confirmée',
+  preparing:        'Préparation de commande',
+  prepared:         'Préparée',
+  in_progress:      'En cours',
   shipped:          'Expédiée',
+  out_for_delivery: 'Sorti en livraison',
   delivered:        'Livrée',
   returned:         'Retournée',
   cancel_requested: 'Annulation demandée',
   cancelled:        'Annulée',
+  duplicate:        'Commande double',
+  fake:             'Commande fictive',
 }
 
 export default function StatusBadge({ status, label, variant, children }) {

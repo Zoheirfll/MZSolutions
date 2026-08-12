@@ -9,14 +9,16 @@ from .models import (
 
 
 class CarrierAccountSerializer(serializers.ModelSerializer):
-    carrier_label     = serializers.SerializerMethodField()
-    api_token         = serializers.CharField(write_only=True, required=False, allow_blank=True)
-    api_token_masked  = serializers.SerializerMethodField()
+    carrier_label         = serializers.SerializerMethodField()
+    api_token             = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    api_token_masked      = serializers.SerializerMethodField()
+    webhook_secret        = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    webhook_secret_masked = serializers.SerializerMethodField()
 
     class Meta:
         model  = CarrierAccount
         fields = ['id', 'carrier', 'carrier_label', 'name', 'departure_wilaya', 'api_id', 'api_token', 'api_token_masked',
-                  'is_active', 'is_default', 'created_at']
+                  'webhook_secret', 'webhook_secret_masked', 'is_active', 'is_default', 'created_at']
         read_only_fields = ['id', 'created_at']
 
     def get_carrier_label(self, obj):
@@ -26,6 +28,11 @@ class CarrierAccountSerializer(serializers.ModelSerializer):
         if not obj.api_token:
             return ''
         return '•' * max(0, len(obj.api_token) - 4) + obj.api_token[-4:]
+
+    def get_webhook_secret_masked(self, obj):
+        if not obj.webhook_secret:
+            return ''
+        return '•' * max(0, len(obj.webhook_secret) - 4) + obj.webhook_secret[-4:]
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
@@ -112,6 +119,7 @@ class OrderSerializer(serializers.ModelSerializer):
     payment_method_label = serializers.SerializerMethodField()
     carrier_label        = serializers.SerializerMethodField()
     cancellation_note     = serializers.SerializerMethodField()
+    tracking_substatus_label = serializers.SerializerMethodField()
 
     class Meta:
         model  = Order
@@ -122,7 +130,7 @@ class OrderSerializer(serializers.ModelSerializer):
             'delivery_type', 'payment_method', 'payment_method_label', 'note',
             'items_count', 'confirmateur_name', 'created_at', 'scheduled_at',
             'carrier', 'carrier_label', 'carrier_tracking_number', 'carrier_status',
-            'stop_desk', 'station_code',
+            'stop_desk', 'station_code', 'tracking_substatus', 'tracking_substatus_label',
             'cancellation_note',
         ]
 
@@ -137,6 +145,9 @@ class OrderSerializer(serializers.ModelSerializer):
 
     def get_carrier_label(self, obj):
         return obj.carrier.get_carrier_display() if obj.carrier else None
+
+    def get_tracking_substatus_label(self, obj):
+        return obj.get_tracking_substatus_display() if obj.tracking_substatus else None
 
     def get_cancellation_note(self, obj):
         # Note attachée par le vendeur au moment de la demande d'annulation

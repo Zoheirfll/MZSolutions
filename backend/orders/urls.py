@@ -11,6 +11,7 @@ from .views import (
     ComplaintListView, ComplaintDetailView, ComplaintStatusView, ComplaintMessageCreateView, ComplaintAssignmentView,
     ExchangeListView, ExchangeDetailView, ExchangeStatusView,
     ShipmentListView, OrderLabelView, OrderRetryShipmentView, OrderSyncTrackingView, OrderAssignCarrierView,
+    CarrierTrackingListView,
 )
 from .stats_views import (
     OrdersStatsDetailView, ReturnsStatsView, FailureStatsView, StockSalesStatsView,
@@ -33,6 +34,7 @@ urlpatterns = [
     path('exchanges/<int:pk>/',                   ExchangeDetailView.as_view()),
     path('exchanges/<int:pk>/status/',            ExchangeStatusView.as_view()),
     path('shipments/',                            ShipmentListView.as_view()),
+    path('carrier-tracking/',                     CarrierTrackingListView.as_view()),
     path('',                                      OrderListCreateView.as_view()),
     path('stats/',                                OrderStatsView.as_view()),
     path('stats/confirmation/',                   ConfirmationRateView.as_view()),
