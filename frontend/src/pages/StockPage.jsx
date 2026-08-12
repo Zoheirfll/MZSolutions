@@ -52,7 +52,7 @@ function AdjustModal({ item, onClose, onSaved }) {
   const [note, setNote]         = useState('')
   const [saving, setSaving]     = useState(false)
   const [error, setError]       = useState('')
-  const inputCls = 'w-full px-3.5 py-2.5 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 transition'
+  const inputCls = 'w-full px-3.5 py-2.5 rounded-lg border text-sm text-app-primary bg-transparent outline-none focus:border-violet-500 transition'
   const bdrStyle = { borderColor: theme.dark.border }
 
   const submit = async e => {
@@ -77,26 +77,26 @@ function AdjustModal({ item, onClose, onSaved }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: 'rgba(0,0,0,0.7)' }} onClick={onClose}>
       <div className="w-full max-w-md rounded-xl border p-6" style={{ background: theme.dark.card, borderColor: theme.dark.border }} onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-1">
-          <h3 className="font-semibold text-gray-200">Ajuster le stock</h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-300 transition cursor-pointer"><CloseIcon /></button>
+          <h3 className="font-semibold text-app-primary">Ajuster le stock</h3>
+          <button onClick={onClose} className="text-app-muted hover:text-app-primary transition cursor-pointer"><CloseIcon /></button>
         </div>
         <p className="text-xs mb-5" style={{ color: theme.dark.muted }}>
           {item.product_name}{item.variant_name ? ` — ${item.variant_name} : ${item.option_value}` : ''} · Stock actuel : {item.stock}
         </p>
         <form onSubmit={submit} className="space-y-4">
           <div>
-            <label className="block text-xs text-gray-400 mb-1.5">Quantité (positive = entrée, négative = sortie) *</label>
+            <label className="block text-xs text-app-muted-light mb-1.5">Quantité (positive = entrée, négative = sortie) *</label>
             <input type="number" value={quantity} onChange={e => setQuantity(e.target.value)} required
               className={inputCls} style={bdrStyle} placeholder="Ex : 10 ou -3" />
           </div>
           <div>
-            <label className="block text-xs text-gray-400 mb-1.5">Note (optionnel)</label>
+            <label className="block text-xs text-app-muted-light mb-1.5">Note (optionnel)</label>
             <input value={note} onChange={e => setNote(e.target.value)}
               className={inputCls} style={bdrStyle} placeholder="Ex : Réception fournisseur, casse, inventaire…" />
           </div>
           {error && <p className="text-red-400 text-xs">{error}</p>}
           <div className="flex justify-end gap-3 pt-1">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-400 hover:text-gray-200 cursor-pointer transition">Fermer</button>
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-app-muted-light hover:text-app-primary cursor-pointer transition">Fermer</button>
             <button type="submit" disabled={saving} className={theme.btn.primary + ' text-sm disabled:opacity-60'}>
               {saving ? '…' : 'Ajuster'}
             </button>
@@ -122,8 +122,8 @@ function MovementsModal({ item, onClose }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: 'rgba(0,0,0,0.7)' }} onClick={onClose}>
       <div className="w-full max-w-lg rounded-xl border p-6 max-h-[85vh] overflow-y-auto" style={{ background: theme.dark.card, borderColor: theme.dark.border }} onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
-          <h3 className="font-semibold text-gray-200">Mouvements de stock — {item.product_name}</h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-300 transition cursor-pointer"><CloseIcon /></button>
+          <h3 className="font-semibold text-app-primary">Mouvements de stock — {item.product_name}</h3>
+          <button onClick={onClose} className="text-app-muted hover:text-app-primary transition cursor-pointer"><CloseIcon /></button>
         </div>
         {loading ? (
           <p className="text-sm text-center py-8" style={{ color: theme.dark.muted }}>Chargement…</p>
@@ -134,7 +134,7 @@ function MovementsModal({ item, onClose }) {
             {movements.map(m => (
               <div key={m.id} className="flex items-center justify-between gap-3 rounded-lg px-3 py-2.5" style={{ background: theme.dark.sidebar }}>
                 <div>
-                  <p className="text-sm text-gray-200">{m.reason_label}{m.option_value ? ` — ${m.option_value}` : ''}</p>
+                  <p className="text-sm text-app-primary">{m.reason_label}{m.option_value ? ` — ${m.option_value}` : ''}</p>
                   <p className="text-xs" style={{ color: theme.dark.muted }}>{new Date(m.created_at).toLocaleString('fr-DZ')}{m.note ? ` · ${m.note}` : ''}</p>
                 </div>
                 <span className={`text-sm font-semibold shrink-0 ${m.quantity >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
@@ -145,7 +145,7 @@ function MovementsModal({ item, onClose }) {
           </div>
         )}
         <div className="flex justify-end mt-5">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-400 hover:text-gray-200 cursor-pointer transition">Fermer</button>
+          <button onClick={onClose} className="px-4 py-2 text-sm text-app-muted-light hover:text-app-primary cursor-pointer transition">Fermer</button>
         </div>
       </div>
     </div>
@@ -224,7 +224,7 @@ export default function StockPage() {
       {/* Réglage seuil */}
       <div className="rounded-xl border p-5 mb-5 flex items-center gap-4" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
         <div className="flex-1">
-          <p className="text-sm font-medium text-gray-200 mb-0.5">Seuil d'alerte stock bas</p>
+          <p className="text-sm font-medium text-app-primary mb-0.5">Seuil d'alerte stock bas</p>
           <p className="text-xs" style={{ color: theme.dark.muted }}>Les produits avec un stock ≤ à ce seuil sont signalés ci-dessous.</p>
         </div>
         <div className="flex items-center gap-3">
@@ -232,7 +232,7 @@ export default function StockPage() {
             type="number" min="0"
             value={threshold}
             onChange={e => setThreshold(Number(e.target.value))}
-            className="w-20 px-3 py-2 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 text-center"
+            className="w-20 px-3 py-2 rounded-lg border text-sm text-app-primary bg-transparent outline-none focus:border-violet-500 text-center"
             style={{ borderColor: theme.dark.border }}
           />
           <button
@@ -255,20 +255,20 @@ export default function StockPage() {
 
       {/* Inventaire complet */}
       <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
-        <h2 className="text-base font-semibold text-gray-200">Inventaire complet</h2>
+        <h2 className="text-base font-semibold text-app-primary">Inventaire complet</h2>
         <div className="flex items-center gap-2 flex-wrap">
           <input
             value={search}
             onChange={e => { setSearch(e.target.value); setPage(1) }}
             placeholder="Recherche par produit"
-            className="px-3.5 py-2 rounded-lg text-sm text-gray-200 border outline-none focus:border-violet-500 transition w-full sm:w-56"
+            className="px-3.5 py-2 rounded-lg text-sm text-app-primary border outline-none focus:border-violet-500 transition w-full sm:w-56"
             style={{ background: theme.dark.card, borderColor: theme.dark.border }}
           />
           <div className="w-52">
             <Select value={stockFilter} onChange={v => { setStockFilter(v); setPage(1) }} options={STOCK_FILTER_OPTIONS} variant="dark" />
           </div>
           <button onClick={handleExport} disabled={exporting || inventory.count === 0}
-            className="px-3.5 py-2 rounded-lg text-sm font-medium border text-gray-300 hover:bg-white/5 disabled:opacity-50 transition cursor-pointer flex items-center gap-1.5"
+            className="px-3.5 py-2 rounded-lg text-sm font-medium border text-app-primary hover:bg-white/5 disabled:opacity-50 transition cursor-pointer flex items-center gap-1.5"
             style={{ borderColor: theme.dark.border }}>
             <DownloadIcon /> {exporting ? 'Export…' : 'Exporter'}
           </button>
@@ -302,19 +302,19 @@ export default function StockPage() {
             ) : inventory.results.length === 0 ? (
               <tr>
                 <td colSpan={6}>
-                  <div className="flex flex-col items-center justify-center text-center py-12 px-6 text-gray-500">
+                  <div className="flex flex-col items-center justify-center text-center py-12 px-6 text-app-muted">
                     <p className="text-sm">Aucun produit trouvé.</p>
                   </div>
                 </td>
               </tr>
             ) : inventory.results.map((item, i) => (
               <tr key={i} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
-                <td className="px-4 py-3 text-gray-200 font-medium">
+                <td className="px-4 py-3 text-app-primary font-medium">
                   <button onClick={() => navigate(`/dashboard/produits/${item.product_id}/modifier`)} className="hover:text-violet-300 transition cursor-pointer">{item.product_name}</button>
                 </td>
-                <td className="px-4 py-3 text-gray-400">{item.variant_name || '—'}</td>
-                <td className="px-4 py-3 text-gray-400">{item.option_value || '—'}</td>
-                <td className="px-4 py-3 text-gray-500 text-xs font-mono">{item.sku || '—'}</td>
+                <td className="px-4 py-3 text-app-muted-light">{item.variant_name || '—'}</td>
+                <td className="px-4 py-3 text-app-muted-light">{item.option_value || '—'}</td>
+                <td className="px-4 py-3 text-app-muted text-xs font-mono">{item.sku || '—'}</td>
                 <td className="px-4 py-3">
                   <span className={item.stock === 0 ? theme.badge.danger : item.stock <= (inventory.threshold ?? lowStock.threshold) ? theme.badge.warning : theme.badge.success}>
                     {item.stock}
@@ -323,7 +323,7 @@ export default function StockPage() {
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-1">
                     <button onClick={() => setAdjustingItem(item)} className="p-1.5 rounded text-violet-300 hover:bg-violet-600/20 transition cursor-pointer" title="Ajuster le stock"><AdjustIcon /></button>
-                    <button onClick={() => setHistoryItem(item)} className="p-1.5 rounded text-gray-300 hover:bg-white/10 transition cursor-pointer" title="Historique des mouvements"><HistoryIcon /></button>
+                    <button onClick={() => setHistoryItem(item)} className="p-1.5 rounded text-app-primary hover:bg-white/10 transition cursor-pointer" title="Historique des mouvements"><HistoryIcon /></button>
                   </div>
                 </td>
               </tr>
@@ -338,7 +338,7 @@ export default function StockPage() {
             <span>{inventory.count} article{inventory.count !== 1 ? 's' : ''} — Lignes par page :</span>
             <Select value={perPage} onChange={v => { setPerPage(Number(v)); setPage(1) }}
               options={PER_PAGE_OPTIONS.map(n => ({ value: n, label: n }))}
-              className="px-2 py-1 rounded-lg border text-gray-300 text-xs"
+              className="px-2 py-1 rounded-lg border text-app-primary text-xs"
               style={{ background: theme.dark.card, borderColor: theme.dark.border, minWidth: 64 }} />
           </div>
           <div className="flex items-center gap-2">

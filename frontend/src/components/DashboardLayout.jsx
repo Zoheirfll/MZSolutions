@@ -606,12 +606,17 @@ export default function DashboardLayout({ children, title }) {
                 </span>
               )}
             </button>
-            {/* Réservé aux pages déjà converties au bi-thème (Dashboard, Équipe) — les ~45
-                autres pages du dashboard consomment encore des couleurs Tailwind codées en
-                dur (text-gray-*) qui ne suivent pas data-theme, donc y afficher le toggle
-                casserait la lisibilité en mode clair. Retirer cette garde au fur et à mesure
-                que le reste du dashboard est converti (voir CLAUDE.md, section Thème). */}
-            {(location.pathname === '/dashboard' || location.pathname === '/dashboard/equipe') && (
+            {/* Réservé aux pages déjà converties au bi-thème — le reste du dashboard
+                consomme encore des couleurs Tailwind codées en dur (text-gray-*) qui ne
+                suivent pas data-theme, donc y afficher le toggle casserait la lisibilité
+                en mode clair. Étendre cette liste au fur et à mesure que d'autres pages
+                sont converties (voir CLAUDE.md, section Thème — chantier epic-mode-clair-rollout). */}
+            {(location.pathname === '/dashboard' || location.pathname === '/dashboard/equipe'
+              || location.pathname.startsWith('/dashboard/commandes')
+              || location.pathname.startsWith('/dashboard/produits')
+              || location.pathname.startsWith('/dashboard/clients')
+              || location.pathname === '/dashboard/stock'
+            ) && (
               <button
                 onClick={toggleTheme}
                 data-testid="theme-toggle"

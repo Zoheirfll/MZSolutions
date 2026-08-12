@@ -55,7 +55,7 @@ function AlertIcon(props) {
 
 function Spinner({ label = 'Chargement…' }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-2 py-12 text-gray-500">
+    <div className="flex flex-col items-center justify-center gap-2 py-12 text-app-muted">
       <svg className="animate-spin" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
         <circle cx="12" cy="12" r="9" opacity="0.25" />
         <path d="M21 12a9 9 0 0 0-9-9" strokeLinecap="round" />
@@ -67,9 +67,9 @@ function Spinner({ label = 'Chargement…' }) {
 
 function EmptyState({ icon, title, subtitle }) {
   return (
-    <div className="flex flex-col items-center justify-center text-center py-14 px-6 text-gray-500">
-      {icon && <div className="mb-3 text-gray-600">{icon}</div>}
-      <p className="text-sm font-medium text-gray-300">{title}</p>
+    <div className="flex flex-col items-center justify-center text-center py-14 px-6 text-app-muted">
+      {icon && <div className="mb-3 text-app-muted">{icon}</div>}
+      <p className="text-sm font-medium text-app-primary">{title}</p>
       {subtitle && <p className="text-xs mt-1" style={{ color: theme.dark.muted }}>{subtitle}</p>}
     </div>
   )
@@ -165,14 +165,14 @@ export default function ProductsPage() {
             value={search}
             onChange={e => { setSearch(e.target.value); setPage(1) }}
             placeholder="Recherche par produit"
-            className="px-4 py-2 rounded-lg text-sm text-gray-200 border outline-none focus:border-violet-500 transition w-full sm:w-55"
+            className="px-4 py-2 rounded-lg text-sm text-app-primary border outline-none focus:border-violet-500 transition w-full sm:w-55"
             style={{ background: theme.dark.card, borderColor: theme.dark.border }}
           />
           <Select
             value={catSearch}
             onChange={v => { setCatSearch(v); setPage(1) }}
             options={[{ value: '', label: 'Toutes les catégories' }, ...categories.map(c => ({ value: c.name, label: c.name }))]}
-            className="px-4 py-2 rounded-lg text-sm text-gray-200 border w-full sm:w-55"
+            className="px-4 py-2 rounded-lg text-sm text-app-primary border w-full sm:w-55"
             style={{ background: theme.dark.card, borderColor: theme.dark.border }}
           />
         </div>
@@ -189,7 +189,7 @@ export default function ProductsPage() {
       <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border }}>
         <table className="w-full text-sm min-w-180">
           <thead style={{ background: theme.dark.sidebar }}>
-            <tr className="text-left text-xs text-gray-500 border-b" style={{ borderColor: theme.dark.border }}>
+            <tr className="text-left text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
               <th className="px-4 py-3 w-10"><input type="checkbox" checked={allChecked} onChange={toggleAll} className="accent-violet-600" /></th>
               <th className="px-4 py-3 font-medium w-10">ID</th>
               <th className="px-4 py-3 font-medium w-16">IMAGE</th>
@@ -217,14 +217,14 @@ export default function ProductsPage() {
                 <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                   <input type="checkbox" checked={selected.has(p.id)} onChange={() => toggleRow(p.id)} className="accent-violet-600" />
                 </td>
-                <td className="px-4 py-3 text-gray-500 text-xs">{p.id}</td>
+                <td className="px-4 py-3 text-app-muted text-xs">{p.id}</td>
                 <td className="px-4 py-3">
                   {firstImage(p)
                     ? <img src={firstImage(p)} alt={p.name} className="w-10 h-10 object-cover rounded-lg" />
-                    : <div className="w-10 h-10 rounded-lg flex items-center justify-center text-gray-600" style={{ background: theme.dark.card }}><ImageIcon width={16} height={16} /></div>
+                    : <div className="w-10 h-10 rounded-lg flex items-center justify-center text-app-muted" style={{ background: theme.dark.card }}><ImageIcon width={16} height={16} /></div>
                   }
                 </td>
-                <td className="px-4 py-3 text-gray-200 font-medium max-w-45 truncate">{p.name}</td>
+                <td className="px-4 py-3 text-app-primary font-medium max-w-45 truncate">{p.name}</td>
                 <td className="px-4 py-3 text-violet-300 font-semibold">{Number(p.price).toLocaleString('fr-DZ')} DZD</td>
                 <td className="px-4 py-3">
                   {p.active_promotion ? (
@@ -237,19 +237,19 @@ export default function ProductsPage() {
                       </span>
                     </div>
                   ) : (
-                    <span className="text-gray-600">—</span>
+                    <span className="text-app-muted">—</span>
                   )}
                 </td>
-                <td className="px-4 py-3 text-gray-400">
+                <td className="px-4 py-3 text-app-muted-light">
                   {p.category_names?.length > 0 ? p.category_names.join(', ') : '—'}
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-1.5">
-                    <span className={isLowStock ? 'text-red-400 font-semibold' : 'text-gray-300'}>{stockQty}</span>
+                    <span className={isLowStock ? 'text-red-400 font-semibold' : 'text-app-primary'}>{stockQty}</span>
                     {isLowStock && <AlertIcon className="text-red-400 shrink-0" />}
                   </div>
                 </td>
-                <td className="px-4 py-3 text-gray-500">{p.sold_count}</td>
+                <td className="px-4 py-3 text-app-muted">{p.sold_count}</td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
                     <button
@@ -276,13 +276,13 @@ export default function ProductsPage() {
 
       {/* Pagination */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-4">
-        <div className="flex items-center gap-2 text-xs text-gray-500">
+        <div className="flex items-center gap-2 text-xs text-app-muted">
           <span>Lignes par page :</span>
           <Select
             value={perPage}
             onChange={v => { setPerPage(Number(v)); setPage(1) }}
             options={PER_PAGE_OPTIONS.map(n => ({ value: n, label: n }))}
-            className="px-2 py-1 rounded border text-gray-300 text-xs"
+            className="px-2 py-1 rounded border text-app-primary text-xs"
             style={{ background: theme.dark.card, borderColor: theme.dark.border, minWidth: 64 }}
           />
           <span>{data.count} produit{data.count !== 1 ? 's' : ''}</span>
@@ -291,7 +291,7 @@ export default function ProductsPage() {
           <button
             onClick={() => setPage(p => Math.max(1, p - 1))}
             disabled={page === 1}
-            className="px-3 py-1.5 rounded text-sm text-gray-400 hover:text-gray-200 disabled:opacity-40 transition cursor-pointer disabled:cursor-not-allowed"
+            className="px-3 py-1.5 rounded text-sm text-app-muted-light hover:text-app-primary disabled:opacity-40 transition cursor-pointer disabled:cursor-not-allowed"
           >← Précédent</button>
           {Array.from({ length: totalPages }, (_, i) => i + 1).slice(
             Math.max(0, page - 3), Math.min(totalPages, page + 2)
@@ -306,7 +306,7 @@ export default function ProductsPage() {
           <button
             onClick={() => setPage(p => Math.min(totalPages, p + 1))}
             disabled={page === totalPages}
-            className="px-3 py-1.5 rounded text-sm text-gray-400 hover:text-gray-200 disabled:opacity-40 transition cursor-pointer disabled:cursor-not-allowed"
+            className="px-3 py-1.5 rounded text-sm text-app-muted-light hover:text-app-primary disabled:opacity-40 transition cursor-pointer disabled:cursor-not-allowed"
           >Suivant →</button>
         </div>
       </div>

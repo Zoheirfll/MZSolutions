@@ -158,7 +158,7 @@ function IconMenu({ icon, title, children, panelClassName = 'w-56', panelAlign =
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(o => !o)}
-        className={triggerClassName || 'w-9 h-9 rounded-lg border flex items-center justify-center text-gray-400 hover:text-gray-200 hover:bg-white/5 transition'}
+        className={triggerClassName || 'w-9 h-9 rounded-lg border flex items-center justify-center text-app-muted-light hover:text-app-primary hover:bg-white/5 transition'}
         style={triggerStyle || (triggerClassName ? undefined : { borderColor: theme.dark.border })}
         title={title}
         aria-haspopup="true"
@@ -185,7 +185,7 @@ function MenuItem({ onClick, children, active }) {
       type="button"
       onClick={onClick}
       className={`w-full flex items-center justify-between gap-2 text-left px-3.5 py-2 text-sm transition-colors duration-100 cursor-pointer ${
-        active ? 'bg-violet-600/20 text-violet-300' : 'text-gray-300 hover:bg-white/6'
+        active ? 'bg-violet-600/20 text-violet-300' : 'text-app-primary hover:bg-white/6'
       }`}
     >
       <span>{children}</span>
@@ -202,7 +202,7 @@ function CheckMenuItem({ onClick, children, checked }) {
     <button
       type="button"
       onClick={onClick}
-      className="w-full flex items-center gap-2.5 text-left px-3.5 py-2 text-sm text-gray-300 hover:bg-white/6 transition-colors duration-100 cursor-pointer"
+      className="w-full flex items-center gap-2.5 text-left px-3.5 py-2 text-sm text-app-primary hover:bg-white/6 transition-colors duration-100 cursor-pointer"
     >
       <span
         className={`shrink-0 w-4 h-4 rounded flex items-center justify-center ring-1 ring-inset transition-colors ${
@@ -288,7 +288,7 @@ function FilterModal({ filters, onClose, onApply }) {
   }, [])
 
   const set = (key) => (v) => setForm(f => ({ ...f, [key]: v }))
-  const inputCls = 'w-full px-3 py-2 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 transition [color-scheme:dark]'
+  const inputCls = 'w-full px-3 py-2 rounded-lg border text-sm text-app-primary bg-transparent outline-none focus:border-violet-500 transition [color-scheme:dark]'
   const bdrStyle = { borderColor: theme.dark.border, background: theme.dark.sidebar }
 
   return (
@@ -298,7 +298,7 @@ function FilterModal({ filters, onClose, onApply }) {
         style={{ background: theme.dark.card, borderColor: theme.dark.border }}
         onClick={e => e.stopPropagation()}
       >
-        <h2 className="text-lg font-semibold text-gray-100 mb-5">Filtrage</h2>
+        <h2 className="text-lg font-semibold text-app-primary mb-5">Filtrage</h2>
 
         <div className="mb-4">
           <label className="block text-xs mb-1.5" style={{ color: theme.dark.muted }}>Sélectionner la date</label>
@@ -376,11 +376,11 @@ function FilterModal({ filters, onClose, onApply }) {
           >
             <span className="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform" style={{ transform: form.duplicates_only ? 'translateX(18px)' : 'translateX(2px)' }} />
           </button>
-          <span className="text-sm text-gray-300">Afficher les doubles commandes</span>
+          <span className="text-sm text-app-primary">Afficher les doubles commandes</span>
         </label>
 
         <div className="flex justify-between gap-3">
-          <button onClick={() => setForm(EMPTY_FILTERS)} className="px-4 py-2 text-sm text-gray-400 hover:text-gray-200 transition">Réinitialiser</button>
+          <button onClick={() => setForm(EMPTY_FILTERS)} className="px-4 py-2 text-sm text-app-muted-light hover:text-app-primary transition">Réinitialiser</button>
           <div className="flex gap-3">
             <button onClick={onClose} className="px-4 py-2 text-sm text-red-400 hover:text-red-300 transition">Fermer</button>
             <button onClick={() => onApply(form)} className={theme.btn.primary}>Appliquer</button>
@@ -406,7 +406,7 @@ function QuickEditModal({ order, onClose, onSaved }) {
     api.get('/orders/failure-reasons/?active=1').then(({ data }) => setFailureReasons(data)).catch(() => {})
   }, [])
 
-  const inputCls = 'w-full px-3 py-2 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 transition [color-scheme:dark]'
+  const inputCls = 'w-full px-3 py-2 rounded-lg border text-sm text-app-primary bg-transparent outline-none focus:border-violet-500 transition [color-scheme:dark]'
   const bdrStyle = { borderColor: theme.dark.border, background: theme.dark.sidebar }
   const showFailureReason = NO_ANSWER_STATUSES.includes(status)
 
@@ -433,12 +433,12 @@ function QuickEditModal({ order, onClose, onSaved }) {
         style={{ background: theme.dark.card, borderColor: theme.dark.border }}
         onClick={e => e.stopPropagation()}
       >
-        <h2 className="text-lg font-semibold text-gray-100 mb-5">État de la commande</h2>
+        <h2 className="text-lg font-semibold text-app-primary mb-5">État de la commande</h2>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           <div>
             <label className="block text-xs mb-1.5" style={{ color: theme.dark.muted }}>Statut actuel</label>
-            <p className="text-sm text-gray-200 font-medium py-2">{order.status_label}</p>
+            <p className="text-sm text-app-primary font-medium py-2">{order.status_label}</p>
           </div>
           <div>
             <label className="block text-xs mb-1.5" style={{ color: theme.dark.muted }}>Sélectionner un nouveau statut</label>
@@ -525,17 +525,17 @@ function HistoryModal({ orderId, onClose }) {
         style={{ background: theme.dark.card, borderColor: theme.dark.border }}
         onClick={e => e.stopPropagation()}
       >
-        <h2 className="text-lg font-semibold text-gray-100 mb-5">Historique de la commande N° {orderId}</h2>
+        <h2 className="text-lg font-semibold text-app-primary mb-5">Historique de la commande N° {orderId}</h2>
 
         {loading ? (
-          <p className="text-center text-gray-500 py-8">Chargement…</p>
+          <p className="text-center text-app-muted py-8">Chargement…</p>
         ) : (
           <>
             {order?.note && (
               <p className="text-center text-sm text-violet-300 font-medium mb-5">Note : {order.note}</p>
             )}
             {!order?.history?.length ? (
-              <p className="text-center text-gray-500 py-4">Aucun historique</p>
+              <p className="text-center text-app-muted py-4">Aucun historique</p>
             ) : (
               <div className="space-y-4 border-l pl-4" style={{ borderColor: theme.dark.border }}>
                 {order.history.map(h => (
@@ -544,7 +544,7 @@ function HistoryModal({ orderId, onClose }) {
                     <span className="inline-block mt-1">
                       <StatusBadge status={h.status} label={h.status_label} />
                     </span>
-                    {h.note && <p className="text-xs text-gray-400 mt-1">{h.note}</p>}
+                    {h.note && <p className="text-xs text-app-muted-light mt-1">{h.note}</p>}
                   </div>
                 ))}
               </div>
@@ -699,7 +699,7 @@ export default function OrdersPage() {
               triggerClassName={theme.btn.secondary}
             >
               {(close) => confirmateurs.length === 0 ? (
-                <p className="px-3.5 py-2 text-sm text-gray-500">Aucun confirmateur actif</p>
+                <p className="px-3.5 py-2 text-sm text-app-muted">Aucun confirmateur actif</p>
               ) : confirmateurs.map(c => (
                 <MenuItem key={c.id} onClick={() => { close(); handleBulkAssign(c.id) }}>
                   {c.first_name} {c.last_name}
@@ -719,20 +719,20 @@ export default function OrdersPage() {
             value={statusF}
             onChange={setStatusF}
             options={STATUS_OPTIONS}
-            className="px-3 py-2 rounded-lg border text-sm text-gray-200 outline-none w-full sm:w-auto"
+            className="px-3 py-2 rounded-lg border text-sm text-app-primary outline-none w-full sm:w-auto"
             style={{ background: theme.dark.card, borderColor: theme.dark.border, minWidth: 200 }}
           />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Recherche nom, téléphone…"
-            className="px-3 py-2 rounded-lg border text-sm text-gray-200 outline-none focus:border-violet-500 transition w-full sm:w-55"
+            className="px-3 py-2 rounded-lg border text-sm text-app-primary outline-none focus:border-violet-500 transition w-full sm:w-55"
             style={{ background: theme.dark.card, borderColor: theme.dark.border }}
           />
         </div>
         )}
         <div className="flex items-center gap-2">
-          <button onClick={fetchOrders} className="w-9 h-9 rounded-lg border flex items-center justify-center text-gray-400 hover:text-gray-200 hover:bg-white/5 transition" style={{ borderColor: theme.dark.border }} title="Actualiser">
+          <button onClick={fetchOrders} className="w-9 h-9 rounded-lg border flex items-center justify-center text-app-muted-light hover:text-app-primary hover:bg-white/5 transition" style={{ borderColor: theme.dark.border }} title="Actualiser">
             <RefreshIcon />
           </button>
 
@@ -759,7 +759,7 @@ export default function OrdersPage() {
 
           <button
             onClick={() => setShowFilterModal(true)}
-            className="h-9 px-3 rounded-lg border flex items-center gap-2 text-gray-400 hover:text-gray-200 hover:bg-white/5 transition relative"
+            className="h-9 px-3 rounded-lg border flex items-center gap-2 text-app-muted-light hover:text-app-primary hover:bg-white/5 transition relative"
             style={{ borderColor: theme.dark.border }}
             title="Filtrage"
           >
@@ -808,7 +808,7 @@ export default function OrdersPage() {
                 className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ring-1 ring-inset transition cursor-pointer ${
                   active
                     ? 'bg-violet-500/10 text-violet-300 ring-violet-500/20 hover:bg-violet-500/15'
-                    : 'bg-white/6 text-gray-400 ring-white/10 hover:bg-white/10'
+                    : 'bg-white/6 text-app-muted-light ring-white/10 hover:bg-white/10'
                 }`}
               >
                 {count} {s.label}
@@ -833,7 +833,7 @@ export default function OrdersPage() {
           <tbody>
             {loading ? (
               <tr><td colSpan={visibleCols.size + 2} className="py-16">
-                <div className="flex items-center justify-center gap-2 text-gray-500">
+                <div className="flex items-center justify-center gap-2 text-app-muted">
                   <svg className="w-5 h-5 animate-spin text-violet-500" viewBox="0 0 24 24" fill="none">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
@@ -861,11 +861,11 @@ export default function OrdersPage() {
                 <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                   <input type="checkbox" checked={selected.has(o.id)} onChange={() => toggleRow(o.id)} className="accent-violet-600" />
                 </td>
-                {visibleCols.has('id') && <td className="px-4 py-3 text-gray-500">#{o.id}</td>}
-                {visibleCols.has('name') && <td className="px-4 py-3 text-gray-200 font-medium">{o.first_name} {o.last_name}</td>}
-                {visibleCols.has('phone') && <td className="px-4 py-3 text-gray-300">{o.phone}</td>}
-                {visibleCols.has('wilaya') && <td className="px-4 py-3 text-gray-300">{o.wilaya}</td>}
-                {visibleCols.has('total') && <td className="px-4 py-3 text-gray-200 font-semibold">{Number(o.total).toLocaleString('fr-DZ')} DZD</td>}
+                {visibleCols.has('id') && <td className="px-4 py-3 text-app-muted">#{o.id}</td>}
+                {visibleCols.has('name') && <td className="px-4 py-3 text-app-primary font-medium">{o.first_name} {o.last_name}</td>}
+                {visibleCols.has('phone') && <td className="px-4 py-3 text-app-primary">{o.phone}</td>}
+                {visibleCols.has('wilaya') && <td className="px-4 py-3 text-app-primary">{o.wilaya}</td>}
+                {visibleCols.has('total') && <td className="px-4 py-3 text-app-primary font-semibold">{Number(o.total).toLocaleString('fr-DZ')} DZD</td>}
                 {visibleCols.has('status') && (
                   <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                     <button onClick={() => setQuickEdit(o)} className="hover:opacity-80 transition">
@@ -873,13 +873,13 @@ export default function OrdersPage() {
                     </button>
                   </td>
                 )}
-                {visibleCols.has('commune') && <td className="px-4 py-3 text-gray-400">{o.commune || '—'}</td>}
-                {visibleCols.has('note') && <td className="px-4 py-3 text-gray-400 max-w-40 truncate" title={o.note}>{o.note || '—'}</td>}
-                {visibleCols.has('date') && <td className="px-4 py-3 text-gray-400 whitespace-nowrap">{new Date(o.created_at).toLocaleDateString('fr-DZ')}</td>}
-                {visibleCols.has('carrier') && <td className="px-4 py-3 text-gray-400">{o.carrier_label || '—'}</td>}
-                {visibleCols.has('confirmateur') && <td className="px-4 py-3 text-gray-400">{o.confirmateur_name || '—'}</td>}
+                {visibleCols.has('commune') && <td className="px-4 py-3 text-app-muted-light">{o.commune || '—'}</td>}
+                {visibleCols.has('note') && <td className="px-4 py-3 text-app-muted-light max-w-40 truncate" title={o.note}>{o.note || '—'}</td>}
+                {visibleCols.has('date') && <td className="px-4 py-3 text-app-muted-light whitespace-nowrap">{new Date(o.created_at).toLocaleDateString('fr-DZ')}</td>}
+                {visibleCols.has('carrier') && <td className="px-4 py-3 text-app-muted-light">{o.carrier_label || '—'}</td>}
+                {visibleCols.has('confirmateur') && <td className="px-4 py-3 text-app-muted-light">{o.confirmateur_name || '—'}</td>}
                 <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
-                  <button onClick={() => setHistoryId(o.id)} className="text-gray-400 hover:text-violet-400 transition" title="Historique">
+                  <button onClick={() => setHistoryId(o.id)} className="text-app-muted-light hover:text-violet-400 transition" title="Historique">
                     <HistoryIcon />
                   </button>
                 </td>
@@ -897,7 +897,7 @@ export default function OrdersPage() {
             Lignes par page :
             <Select value={perPage} onChange={v => { setPerPage(Number(v)); setPage(1) }}
               options={PER_PAGE_OPTIONS.map(n => ({ value: n, label: n }))}
-              className="px-2 py-1 rounded-lg border text-gray-300 text-xs"
+              className="px-2 py-1 rounded-lg border text-app-primary text-xs"
               style={{ background: theme.dark.card, borderColor: theme.dark.border, minWidth: 64 }} />
           </div>
           <div className="flex items-center gap-1">

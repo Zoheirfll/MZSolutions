@@ -84,7 +84,7 @@ function CategoryTreeNode({ node, depth, selectedIds, onToggle }) {
     <>
       <label className="flex items-center gap-2 px-1 py-0.5 rounded hover:bg-white/5 cursor-pointer" style={{ paddingLeft: 4 + depth * 16 }}>
         <input type="checkbox" checked={checked} onChange={() => onToggle(node.id)} className="accent-violet-500" />
-        <span className="text-sm text-gray-300">{node.name}</span>
+        <span className="text-sm text-app-primary">{node.name}</span>
       </label>
       {node.children.map(child => (
         <CategoryTreeNode key={child.id} node={child} depth={depth + 1} selectedIds={selectedIds} onToggle={onToggle} />
@@ -103,7 +103,7 @@ function Toggle({ label, value, onChange }) {
       >
         <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${value ? 'left-5' : 'left-0.5'}`} />
       </button>
-      {label && <span className="text-sm text-gray-300">{label}</span>}
+      {label && <span className="text-sm text-app-primary">{label}</span>}
     </div>
   )
 }
@@ -116,7 +116,7 @@ function VariantBlock({ productId, variant, onDeleted, onUpdated }) {
   const [saving, setSaving]     = useState(false)
   const optImgRefs              = useRef({})
 
-  const inputCls = `w-full px-3 py-2 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 transition [color-scheme:dark]`
+  const inputCls = `w-full px-3 py-2 rounded-lg border text-sm text-app-primary bg-transparent outline-none focus:border-violet-500 transition [color-scheme:dark]`
   const bdrStyle = { borderColor: theme.dark.border }
 
   const saveVariant = async () => {
@@ -179,14 +179,14 @@ function VariantBlock({ productId, variant, onDeleted, onUpdated }) {
     <div className="rounded-xl border mb-3 overflow-hidden" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
       {/* Header variante */}
       <div className="flex items-center gap-3 px-4 py-3 border-b" style={{ borderColor: theme.dark.border }}>
-        <DragHandleIcon className="text-gray-600 cursor-grab shrink-0" />
+        <DragHandleIcon className="text-app-muted cursor-grab shrink-0" />
         <div className="flex-1 flex items-center gap-3">
           <input
             value={name}
             onChange={e => setName(e.target.value)}
             onBlur={saveVariant}
             placeholder="Nom de la variante (ex: Couleur)"
-            className="flex-1 px-2 py-1 rounded text-sm text-gray-200 bg-transparent border-b outline-none focus:border-violet-500 transition"
+            className="flex-1 px-2 py-1 rounded text-sm text-app-primary bg-transparent border-b outline-none focus:border-violet-500 transition"
             style={{ borderColor: theme.dark.border }}
           />
           <input
@@ -194,12 +194,12 @@ function VariantBlock({ productId, variant, onDeleted, onUpdated }) {
             onChange={e => setSubName(e.target.value)}
             onBlur={saveVariant}
             placeholder="Nom des sous-options (ex: Taille)"
-            className="flex-1 px-2 py-1 rounded text-sm text-gray-200 bg-transparent border-b outline-none focus:border-violet-500 transition"
+            className="flex-1 px-2 py-1 rounded text-sm text-app-primary bg-transparent border-b outline-none focus:border-violet-500 transition"
             style={{ borderColor: theme.dark.border }}
           />
         </div>
         <button onClick={deleteVariant} className="w-8 h-8 flex items-center justify-center rounded bg-red-600/20 text-red-400 hover:bg-red-600/40 transition"><TrashIcon /></button>
-        <button onClick={() => setExpanded(e => !e)} className="w-8 h-8 flex items-center justify-center rounded text-gray-400 hover:bg-white/10 transition">
+        <button onClick={() => setExpanded(e => !e)} className="w-8 h-8 flex items-center justify-center rounded text-app-muted-light hover:bg-white/10 transition">
           {expanded ? '▾' : '▸'}
         </button>
       </div>
@@ -213,7 +213,7 @@ function VariantBlock({ productId, variant, onDeleted, onUpdated }) {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Toggle value={opt.is_active} onChange={v => { updateOption(opt.id, { is_active: v }); saveOption({ ...opt, is_active: v }) }} />
-                  <span className="text-sm text-gray-400 font-medium">Option {idx + 1}</span>
+                  <span className="text-sm text-app-muted-light font-medium">Option {idx + 1}</span>
                 </div>
                 <button onClick={() => deleteOption(opt.id)} className="w-7 h-7 flex items-center justify-center rounded bg-red-600/15 text-red-400 hover:bg-red-600/30 transition"><TrashIcon /></button>
               </div>
@@ -222,7 +222,7 @@ function VariantBlock({ productId, variant, onDeleted, onUpdated }) {
                 {/* Left — champs */}
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-xs text-gray-400 mb-1">Valeur de l'option</label>
+                    <label className="block text-xs text-app-muted-light mb-1">Valeur de l'option</label>
                     <input
                       value={opt.value}
                       onChange={e => updateOption(opt.id, { value: e.target.value })}
@@ -232,7 +232,7 @@ function VariantBlock({ productId, variant, onDeleted, onUpdated }) {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-400 mb-1">Stock de l'option</label>
+                    <label className="block text-xs text-app-muted-light mb-1">Stock de l'option</label>
                     <input
                       type="number" min="0"
                       value={opt.stock}
@@ -243,7 +243,7 @@ function VariantBlock({ productId, variant, onDeleted, onUpdated }) {
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="block text-xs text-gray-400 mb-1">Prix de l'option <span className="text-gray-600">DZD</span></label>
+                      <label className="block text-xs text-app-muted-light mb-1">Prix de l'option <span className="text-app-muted">DZD</span></label>
                       <input
                         type="number" min="0" step="0.01"
                         value={opt.price || ''}
@@ -254,7 +254,7 @@ function VariantBlock({ productId, variant, onDeleted, onUpdated }) {
                       />
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-400 mb-1">Prix d'achat <span className="text-gray-600">DZD</span></label>
+                      <label className="block text-xs text-app-muted-light mb-1">Prix d'achat <span className="text-app-muted">DZD</span></label>
                       <input
                         type="number" min="0" step="0.01"
                         value={opt.cost_price || ''}
@@ -266,7 +266,7 @@ function VariantBlock({ productId, variant, onDeleted, onUpdated }) {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-400 mb-1">SKU</label>
+                    <label className="block text-xs text-app-muted-light mb-1">SKU</label>
                     <input
                       value={opt.sku}
                       onChange={e => updateOption(opt.id, { sku: e.target.value })}
@@ -305,8 +305,8 @@ function VariantBlock({ productId, variant, onDeleted, onUpdated }) {
                       className="border-2 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-violet-500 transition aspect-square"
                       style={{ borderColor: theme.dark.border }}
                     >
-                      <ImagePlaceholderIcon className="text-gray-600 mb-2" />
-                      <span className="text-xs text-gray-500 text-center px-2">Drag and drop or <span className="text-violet-400">browse</span> to upload</span>
+                      <ImagePlaceholderIcon className="text-app-muted mb-2" />
+                      <span className="text-xs text-app-muted text-center px-2">Drag and drop or <span className="text-violet-400">browse</span> to upload</span>
                       <span className="text-xs mt-1" style={{ color: theme.dark.muted }}>PNG, JPG, GIF up to 5MB each</span>
                     </div>
                   )}
@@ -344,7 +344,7 @@ const EMPTY_DRAFT_OPTION = () => ({
 // pouvoir remplir les variantes (incohérence relevée par l'utilisateur).
 function DraftVariantBlock({ variant, onChange, onDelete }) {
   const [expanded, setExpanded] = useState(true)
-  const inputCls = `w-full px-3 py-2 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 transition [color-scheme:dark]`
+  const inputCls = `w-full px-3 py-2 rounded-lg border text-sm text-app-primary bg-transparent outline-none focus:border-violet-500 transition [color-scheme:dark]`
   const bdrStyle = { borderColor: theme.dark.border }
 
   const patch = (fields) => onChange({ ...variant, ...fields })
@@ -357,25 +357,25 @@ function DraftVariantBlock({ variant, onChange, onDelete }) {
   return (
     <div className="rounded-xl border mb-3 overflow-hidden" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
       <div className="flex items-center gap-3 px-4 py-3 border-b" style={{ borderColor: theme.dark.border }}>
-        <DragHandleIcon className="text-gray-600 cursor-grab shrink-0" />
+        <DragHandleIcon className="text-app-muted cursor-grab shrink-0" />
         <div className="flex-1 flex items-center gap-3">
           <input
             value={variant.name}
             onChange={e => patch({ name: e.target.value })}
             placeholder="Nom de la variante (ex: Couleur)"
-            className="flex-1 px-2 py-1 rounded text-sm text-gray-200 bg-transparent border-b outline-none focus:border-violet-500 transition"
+            className="flex-1 px-2 py-1 rounded text-sm text-app-primary bg-transparent border-b outline-none focus:border-violet-500 transition"
             style={{ borderColor: theme.dark.border }}
           />
           <input
             value={variant.sub_option_name}
             onChange={e => patch({ sub_option_name: e.target.value })}
             placeholder="Nom des sous-options (ex: Taille)"
-            className="flex-1 px-2 py-1 rounded text-sm text-gray-200 bg-transparent border-b outline-none focus:border-violet-500 transition"
+            className="flex-1 px-2 py-1 rounded text-sm text-app-primary bg-transparent border-b outline-none focus:border-violet-500 transition"
             style={{ borderColor: theme.dark.border }}
           />
         </div>
         <button type="button" onClick={onDelete} className="w-8 h-8 flex items-center justify-center rounded bg-red-600/20 text-red-400 hover:bg-red-600/40 transition"><TrashIcon /></button>
-        <button type="button" onClick={() => setExpanded(e => !e)} className="w-8 h-8 flex items-center justify-center rounded text-gray-400 hover:bg-white/10 transition">
+        <button type="button" onClick={() => setExpanded(e => !e)} className="w-8 h-8 flex items-center justify-center rounded text-app-muted-light hover:bg-white/10 transition">
           <ChevronIcon direction={expanded ? 'up' : 'down'} />
         </button>
       </div>
@@ -387,33 +387,33 @@ function DraftVariantBlock({ variant, onChange, onDelete }) {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Toggle value={opt.is_active} onChange={v => updateOption(opt.tempId, { is_active: v })} />
-                  <span className="text-sm text-gray-400 font-medium">Option {idx + 1}</span>
+                  <span className="text-sm text-app-muted-light font-medium">Option {idx + 1}</span>
                 </div>
                 <button type="button" onClick={() => deleteOption(opt.tempId)} className="w-7 h-7 flex items-center justify-center rounded bg-red-600/15 text-red-400 hover:bg-red-600/30 transition"><TrashIcon /></button>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1">Valeur de l'option</label>
+                  <label className="block text-xs text-app-muted-light mb-1">Valeur de l'option</label>
                   <input value={opt.value} onChange={e => updateOption(opt.tempId, { value: e.target.value })} className={inputCls} style={bdrStyle} placeholder="ex: Rouge" />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1">Stock de l'option</label>
+                  <label className="block text-xs text-app-muted-light mb-1">Stock de l'option</label>
                   <input type="number" min="0" value={opt.stock} onChange={e => updateOption(opt.tempId, { stock: Number(e.target.value) })} className={inputCls} style={bdrStyle} />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1">Prix de l'option <span className="text-gray-600">DZD</span></label>
+                  <label className="block text-xs text-app-muted-light mb-1">Prix de l'option <span className="text-app-muted">DZD</span></label>
                   <input type="number" min="0" step="0.01" value={opt.price} onChange={e => updateOption(opt.tempId, { price: e.target.value })} className={inputCls} style={bdrStyle} placeholder="0" />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1">Prix d'achat <span className="text-gray-600">DZD</span></label>
+                  <label className="block text-xs text-app-muted-light mb-1">Prix d'achat <span className="text-app-muted">DZD</span></label>
                   <input type="number" min="0" step="0.01" value={opt.cost_price} onChange={e => updateOption(opt.tempId, { cost_price: e.target.value })} className={inputCls} style={bdrStyle} placeholder="0" />
                 </div>
               </div>
               <div>
-                <label className="block text-xs text-gray-400 mb-1">SKU</label>
+                <label className="block text-xs text-app-muted-light mb-1">SKU</label>
                 <input value={opt.sku} onChange={e => updateOption(opt.tempId, { sku: e.target.value })} className={inputCls} style={bdrStyle} placeholder="sku" />
               </div>
               <Toggle
@@ -609,7 +609,7 @@ export default function ProductFormPage() {
     setVariants(data)
   }
 
-  const inputCls = `w-full px-3.5 py-2.5 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 transition [color-scheme:dark]`
+  const inputCls = `w-full px-3.5 py-2.5 rounded-lg border text-sm text-app-primary bg-transparent outline-none focus:border-violet-500 transition [color-scheme:dark]`
   const bdrStyle = { borderColor: theme.dark.border }
 
   return (
@@ -624,7 +624,7 @@ export default function ProductFormPage() {
                 key={s}
                 onClick={() => setSection(s)}
                 className={`w-full text-left px-4 py-3 text-sm border-b transition ${
-                  section === s ? 'text-violet-300 bg-violet-600/10' : 'text-gray-400 hover:text-gray-200 hover:bg-white/3'
+                  section === s ? 'text-violet-300 bg-violet-600/10' : 'text-app-muted-light hover:text-app-primary hover:bg-white/3'
                 }`}
                 style={{ borderColor: theme.dark.border }}
               >
@@ -643,14 +643,14 @@ export default function ProductFormPage() {
               <div className="rounded-xl border p-6 space-y-5" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
                 <div className="grid grid-cols-3 gap-4">
                   <div className="col-span-1">
-                    <label className="block text-xs text-gray-400 mb-1.5">Nom *</label>
+                    <label className="block text-xs text-app-muted-light mb-1.5">Nom *</label>
                     <input name="name" value={form.name} onChange={change} required className={inputCls} style={bdrStyle} placeholder="Nom du produit" />
                     {errors.name && <p className="text-red-400 text-xs mt-1">{errors.name}</p>}
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-400 mb-1.5">Catégories</label>
+                    <label className="block text-xs text-app-muted-light mb-1.5">Catégories</label>
                     <div className="rounded-lg border p-2 max-h-32 overflow-y-auto space-y-0.5" style={{ borderColor: theme.dark.border }}>
-                      {categories.length === 0 && <p className="text-xs text-gray-500 px-1">Aucune catégorie</p>}
+                      {categories.length === 0 && <p className="text-xs text-app-muted px-1">Aucune catégorie</p>}
                       {categoryTree.map(node => (
                         <CategoryTreeNode
                           key={node.id}
@@ -663,39 +663,39 @@ export default function ProductFormPage() {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-400 mb-1.5">Stock</label>
+                    <label className="block text-xs text-app-muted-light mb-1.5">Stock</label>
                     <input name="stock" type="number" min="0" value={form.stock} onChange={change} className={inputCls} style={bdrStyle} placeholder="0" />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-xs text-gray-400 mb-1.5">Prix de vente * <span className="text-gray-600">DZD</span></label>
+                    <label className="block text-xs text-app-muted-light mb-1.5">Prix de vente * <span className="text-app-muted">DZD</span></label>
                     <input name="price" type="number" min="0" step="0.01" value={form.price} onChange={change} required className={inputCls} style={bdrStyle} placeholder="0" />
                     {errors.price && <p className="text-red-400 text-xs mt-1">{errors.price}</p>}
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-400 mb-1.5">Prix hors remise <span className="text-gray-600">DZD</span></label>
+                    <label className="block text-xs text-app-muted-light mb-1.5">Prix hors remise <span className="text-app-muted">DZD</span></label>
                     <input name="compare_price" type="number" min="0" step="0.01" value={form.compare_price} onChange={change} className={inputCls} style={bdrStyle} placeholder="0" />
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-400 mb-1.5">Prix d'achat <span className="text-gray-600">DZD</span></label>
+                    <label className="block text-xs text-app-muted-light mb-1.5">Prix d'achat <span className="text-app-muted">DZD</span></label>
                     <input name="cost_price" type="number" min="0" step="0.01" value={form.cost_price} onChange={change} className={inputCls} style={bdrStyle} placeholder="0" />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-xs text-gray-400 mb-1.5">SKU</label>
+                    <label className="block text-xs text-app-muted-light mb-1.5">SKU</label>
                     <input name="sku" value={form.sku} onChange={change} className={inputCls} style={bdrStyle} placeholder="Référence produit" />
                     {errors.sku && <p className="text-red-400 text-xs mt-1">{errors.sku}</p>}
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-400 mb-1.5">Poids <span className="text-gray-600">Kg</span></label>
+                    <label className="block text-xs text-app-muted-light mb-1.5">Poids <span className="text-app-muted">Kg</span></label>
                     <input name="weight" type="number" min="0" step="0.01" value={form.weight} onChange={change} className={inputCls} style={bdrStyle} placeholder="0.00" />
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-400 mb-1.5">Fournisseur</label>
+                    <label className="block text-xs text-app-muted-light mb-1.5">Fournisseur</label>
                     <Select
                       value={form.supplier}
                       onChange={v => setForm(f => ({ ...f, supplier: v }))}
@@ -715,7 +715,7 @@ export default function ProductFormPage() {
                     ['Produit actif', 'is_active'],
                   ].map(([label, name]) => (
                     <div key={name} className="flex items-center justify-between py-2">
-                      <span className="text-sm text-gray-300">{label}</span>
+                      <span className="text-sm text-app-primary">{label}</span>
                       <Toggle value={form[name]} onChange={v => setForm(f => ({ ...f, [name]: v }))} />
                     </div>
                   ))}
@@ -726,7 +726,7 @@ export default function ProductFormPage() {
             {/* ── Description ── */}
             {section === 'Description' && (
               <div className="rounded-xl border p-6" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-                <label className="block text-xs text-gray-400 mb-2">Description du produit</label>
+                <label className="block text-xs text-app-muted-light mb-2">Description du produit</label>
                 <textarea
                   name="description"
                   value={form.description}
@@ -752,8 +752,8 @@ export default function ProductFormPage() {
                   className="border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition hover:border-violet-500"
                   style={{ borderColor: theme.dark.border }}
                 >
-                  <ImagePlaceholderIcon className="mx-auto mb-3 text-gray-500" width={36} height={36} />
-                  <p className="text-gray-400 text-sm">Glissez-déposez ou cliquez pour uploader</p>
+                  <ImagePlaceholderIcon className="mx-auto mb-3 text-app-muted" width={36} height={36} />
+                  <p className="text-app-muted-light text-sm">Glissez-déposez ou cliquez pour uploader</p>
                   <p className="text-xs mt-1" style={{ color: theme.dark.muted }}>PNG, JPG, GIF — max 5MB chacun</p>
                   {!isEdit && <p className="text-xs mt-2" style={{ color: theme.dark.muted }}>Envoyées à l'enregistrement du produit</p>}
                 </div>
@@ -846,7 +846,7 @@ export default function ProductFormPage() {
               <div className="rounded-xl border p-6 space-y-5" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-xs text-gray-400">Titre (balise &lt;title&gt;)</label>
+                    <label className="block text-xs text-app-muted-light">Titre (balise &lt;title&gt;)</label>
                     <span className="text-xs" style={{ color: form.meta_title.length > 70 ? '#f87171' : theme.dark.muted }}>{form.meta_title.length}/70</span>
                   </div>
                   <input
@@ -857,7 +857,7 @@ export default function ProductFormPage() {
                 </div>
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-xs text-gray-400">Meta description</label>
+                    <label className="block text-xs text-app-muted-light">Meta description</label>
                     <span className="text-xs" style={{ color: form.meta_description.length > 160 ? '#f87171' : theme.dark.muted }}>{form.meta_description.length}/160</span>
                   </div>
                   <textarea
@@ -869,13 +869,13 @@ export default function ProductFormPage() {
 
                 {/* Aperçu façon résultat Google */}
                 <div>
-                  <p className="text-xs text-gray-400 mb-2">Aperçu dans les résultats de recherche</p>
+                  <p className="text-xs text-app-muted-light mb-2">Aperçu dans les résultats de recherche</p>
                   <div className="rounded-lg border p-4" style={{ background: theme.dark.sidebar, borderColor: theme.dark.border }}>
                     <p className="text-xs text-emerald-400 truncate">
                       {user?.store_slug ? `mzsolutions.app/store/${user.store_slug}/products/${id || '…'}` : 'mzsolutions.app/store/…'}
                     </p>
                     <p className="text-[#8ab4f8] text-lg truncate mt-0.5">{form.meta_title || form.name || 'Titre du produit'}</p>
-                    <p className="text-sm text-gray-400 mt-0.5 line-clamp-2">
+                    <p className="text-sm text-app-muted-light mt-0.5 line-clamp-2">
                       {form.meta_description || form.description || 'La description du produit apparaîtra ici.'}
                     </p>
                   </div>
@@ -885,7 +885,7 @@ export default function ProductFormPage() {
 
             {/* Footer actions */}
             <div className="mt-4 flex items-center justify-between">
-              <button type="button" onClick={() => navigate('/dashboard/produits')} className="text-sm text-gray-400 hover:text-gray-200 transition">
+              <button type="button" onClick={() => navigate('/dashboard/produits')} className="text-sm text-app-muted-light hover:text-app-primary transition">
                 ← Retour à la liste
               </button>
               <button

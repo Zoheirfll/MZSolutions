@@ -60,7 +60,7 @@ function ChevronIcon({ open, ...props }) {
 
 function Spinner() {
   return (
-    <div className="flex items-center justify-center gap-2 py-12 text-gray-500">
+    <div className="flex items-center justify-center gap-2 py-12 text-app-muted">
       <svg className="animate-spin" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
         <circle cx="12" cy="12" r="9" opacity="0.25" />
         <path d="M21 12a9 9 0 0 0-9-9" strokeLinecap="round" />
@@ -72,9 +72,9 @@ function Spinner() {
 
 function EmptyState({ icon, title, subtitle }) {
   return (
-    <div className="flex flex-col items-center justify-center text-center py-14 px-6 text-gray-500">
-      {icon && <div className="mb-3 text-gray-600">{icon}</div>}
-      <p className="text-sm font-medium text-gray-300">{title}</p>
+    <div className="flex flex-col items-center justify-center text-center py-14 px-6 text-app-muted">
+      {icon && <div className="mb-3 text-app-muted">{icon}</div>}
+      <p className="text-sm font-medium text-app-primary">{title}</p>
       {subtitle && <p className="text-xs mt-1" style={{ color: theme.dark.muted }}>{subtitle}</p>}
     </div>
   )
@@ -99,7 +99,7 @@ function Modal({ cat, parentOptions, onClose, onSaved }) {
   const [image, setImage]   = useState(null)
   const [saving, setSaving] = useState(false)
 
-  const inputCls = `w-full px-3.5 py-2.5 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 transition [color-scheme:dark]`
+  const inputCls = `w-full px-3.5 py-2.5 rounded-lg border text-sm text-app-primary bg-transparent outline-none focus:border-violet-500 transition [color-scheme:dark]`
   const bdrStyle = { borderColor: theme.dark.border }
 
   const submit = async e => {
@@ -125,16 +125,16 @@ function Modal({ cat, parentOptions, onClose, onSaved }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
       <div className="w-full max-w-md rounded-xl border p-6" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
         <div className="flex items-center justify-between mb-5">
-          <h3 className="font-semibold text-gray-200">{isEdit ? 'Modifier' : 'Nouvelle'} catégorie</h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-300 transition cursor-pointer"><CloseIcon /></button>
+          <h3 className="font-semibold text-app-primary">{isEdit ? 'Modifier' : 'Nouvelle'} catégorie</h3>
+          <button onClick={onClose} className="text-app-muted hover:text-app-primary transition cursor-pointer"><CloseIcon /></button>
         </div>
         <form onSubmit={submit} className="space-y-4">
           <div>
-            <label className="block text-xs text-gray-400 mb-1.5">Nom *</label>
+            <label className="block text-xs text-app-muted-light mb-1.5">Nom *</label>
             <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required className={inputCls} style={bdrStyle} placeholder="Nom de la catégorie" />
           </div>
           <div>
-            <label className="block text-xs text-gray-400 mb-1.5">Catégorie parente (optionnel)</label>
+            <label className="block text-xs text-app-muted-light mb-1.5">Catégorie parente (optionnel)</label>
             <Select
               value={form.parent}
               onChange={v => setForm(f => ({ ...f, parent: v }))}
@@ -145,15 +145,15 @@ function Modal({ cat, parentOptions, onClose, onSaved }) {
             />
           </div>
           <div>
-            <label className="block text-xs text-gray-400 mb-1.5">Image</label>
-            <input type="file" accept="image/*" onChange={e => setImage(e.target.files[0])} className="text-xs text-gray-400" />
+            <label className="block text-xs text-app-muted-light mb-1.5">Image</label>
+            <input type="file" accept="image/*" onChange={e => setImage(e.target.files[0])} className="text-xs text-app-muted-light" />
           </div>
           <div className="flex items-center gap-3">
             <input type="checkbox" id="active" checked={form.is_active} onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} className="accent-violet-500 cursor-pointer" />
-            <label htmlFor="active" className="text-sm text-gray-300">Catégorie active</label>
+            <label htmlFor="active" className="text-sm text-app-primary">Catégorie active</label>
           </div>
           <div className="flex justify-end gap-3 pt-2">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-400 hover:text-gray-200 transition cursor-pointer">Annuler</button>
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-app-muted-light hover:text-app-primary transition cursor-pointer">Annuler</button>
             <button type="submit" disabled={saving} className={theme.btn.primary + ' text-sm px-5 py-2'}>
               {saving ? 'Enregistrement…' : isEdit ? 'Mettre à jour' : 'Créer'}
             </button>
@@ -247,7 +247,7 @@ export default function CategoriesPage() {
 
         {cat.image_url
           ? <img src={cat.image_url} alt={cat.name} className="w-9 h-9 object-cover rounded-lg shrink-0" />
-          : <div className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-500 shrink-0" style={{ background: theme.dark.sidebar }}><TagIcon width={16} height={16} /></div>
+          : <div className="w-9 h-9 rounded-lg flex items-center justify-center text-app-muted shrink-0" style={{ background: theme.dark.sidebar }}><TagIcon width={16} height={16} /></div>
         }
 
         {tab !== 'corbeille' && (
@@ -259,7 +259,7 @@ export default function CategoriesPage() {
           </button>
         )}
 
-        <span className="flex-1 text-gray-200 text-sm font-medium">
+        <span className="flex-1 text-app-primary text-sm font-medium">
           {cat.name}
           {cat.children_count > 0 && (
             <span className="ml-2 text-xs" style={{ color: theme.dark.muted }}>
@@ -280,14 +280,14 @@ export default function CategoriesPage() {
           ) : (
             <>
               {!indent && (
-                <button onClick={() => setModal({ parent: cat.id })} className="w-7 h-7 rounded flex items-center justify-center text-gray-400 hover:bg-white/10 transition cursor-pointer" title="Ajouter une sous-catégorie"><PlusIcon width={14} height={14} /></button>
+                <button onClick={() => setModal({ parent: cat.id })} className="w-7 h-7 rounded flex items-center justify-center text-app-muted-light hover:bg-white/10 transition cursor-pointer" title="Ajouter une sous-catégorie"><PlusIcon width={14} height={14} /></button>
               )}
               <button onClick={() => setModal(cat)} className="w-7 h-7 rounded flex items-center justify-center text-emerald-400 hover:bg-emerald-900/20 transition cursor-pointer" title="Modifier"><EditIcon /></button>
             </>
           )}
           <button onClick={() => handleDelete(cat.id)} className="w-7 h-7 rounded flex items-center justify-center text-red-400 hover:bg-red-900/20 transition cursor-pointer" title="Supprimer"><TrashIcon /></button>
           {!indent && cat.children_count > 0 && (
-            <button onClick={() => fetchChildren(cat.id)} className="w-7 h-7 rounded flex items-center justify-center text-gray-400 hover:bg-white/10 transition cursor-pointer">
+            <button onClick={() => fetchChildren(cat.id)} className="w-7 h-7 rounded flex items-center justify-center text-app-muted-light hover:bg-white/10 transition cursor-pointer">
               <ChevronIcon open={!!expanded[cat.id]} />
             </button>
           )}
@@ -363,7 +363,7 @@ export default function CategoriesPage() {
               value={perPage}
               onChange={v => { setPerPage(Number(v)); setPage(1) }}
               options={PER_PAGE_OPTS.map(n => ({ value: n, label: n }))}
-              className="px-2 py-1 rounded border text-gray-300 text-xs"
+              className="px-2 py-1 rounded border text-app-primary text-xs"
               style={{ background: theme.dark.card, borderColor: theme.dark.border, minWidth: 64 }}
             />
           </div>
@@ -373,7 +373,7 @@ export default function CategoriesPage() {
           <button
             onClick={() => setPage(p => Math.max(1, p - 1))}
             disabled={page === 1}
-            className="px-3 py-1.5 rounded text-sm text-gray-400 hover:text-gray-200 disabled:opacity-40 transition cursor-pointer disabled:cursor-not-allowed"
+            className="px-3 py-1.5 rounded text-sm text-app-muted-light hover:text-app-primary disabled:opacity-40 transition cursor-pointer disabled:cursor-not-allowed"
           >← Précédent</button>
           {Array.from({ length: totalPages }, (_, i) => i + 1).slice(
             Math.max(0, page - 3), Math.min(totalPages, page + 2)
@@ -388,7 +388,7 @@ export default function CategoriesPage() {
           <button
             onClick={() => setPage(p => Math.min(totalPages, p + 1))}
             disabled={page === totalPages}
-            className="px-3 py-1.5 rounded text-sm text-gray-400 hover:text-gray-200 disabled:opacity-40 transition cursor-pointer disabled:cursor-not-allowed"
+            className="px-3 py-1.5 rounded text-sm text-app-muted-light hover:text-app-primary disabled:opacity-40 transition cursor-pointer disabled:cursor-not-allowed"
           >Suivant →</button>
         </div>
       </div>

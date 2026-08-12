@@ -37,7 +37,7 @@ const STATUS_COLORS = {
   cancel_requested: 'bg-red-900/30 text-red-400 ring-1 ring-red-500/20',
   cancelled:        'bg-red-900/30 text-red-400 ring-1 ring-red-500/20',
 }
-const STATUS_FALLBACK = 'bg-gray-800 text-gray-400 ring-1 ring-white/10'
+const STATUS_FALLBACK = 'bg-gray-800 text-app-muted-light ring-1 ring-white/10'
 
 const STATUS_DOT = {
   pending: 'bg-amber-400', no_answer_1: 'bg-amber-400', no_answer_2: 'bg-amber-400', no_answer_3: 'bg-amber-400',
@@ -76,7 +76,7 @@ function InfoTile({ icon, label, value, highlight }) {
       </div>
       <div className="min-w-0">
         <p className="text-[11px] uppercase tracking-wide" style={{ color: theme.dark.muted }}>{label}</p>
-        <p className={`text-sm font-medium truncate ${highlight ? 'text-violet-300' : 'text-gray-200'}`}>{value}</p>
+        <p className={`text-sm font-medium truncate ${highlight ? 'text-violet-300' : 'text-app-primary'}`}>{value}</p>
       </div>
     </div>
   )
@@ -92,7 +92,7 @@ function SectionCard({ icon, title, right, children }) {
               <Icon path={icon} className="w-3.5 h-3.5" />
             </div>
           )}
-          <h2 className="font-semibold text-gray-200 text-sm">{title}</h2>
+          <h2 className="font-semibold text-app-primary text-sm">{title}</h2>
         </div>
         {right}
       </div>
@@ -436,12 +436,12 @@ export default function OrderDetailPage() {
     } catch {} finally { setSavingAssign(false) }
   }
 
-  const inputCls = 'w-full px-3.5 py-2.5 rounded-xl border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 transition [color-scheme:dark]'
+  const inputCls = 'w-full px-3.5 py-2.5 rounded-xl border text-sm text-app-primary bg-transparent outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 transition [color-scheme:dark]'
   const bdrStyle = { borderColor: theme.dark.border }
 
   if (loading) return (
     <DashboardLayout title="Commande">
-      <div className="flex items-center justify-center gap-2 text-gray-500 py-24">
+      <div className="flex items-center justify-center gap-2 text-app-muted py-24">
         <svg className="w-5 h-5 animate-spin text-violet-500" viewBox="0 0 24 24" fill="none">
           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
@@ -459,7 +459,7 @@ export default function OrderDetailPage() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3 mb-5">
         <button onClick={() => navigate('/dashboard/commandes')}
-          className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-200 transition">
+          className="inline-flex items-center gap-1.5 text-sm text-app-muted-light hover:text-app-primary transition">
           <Icon path={ICONS.back} className="w-4 h-4" />
           Retour aux commandes
         </button>
@@ -479,7 +479,7 @@ export default function OrderDetailPage() {
                 {initials}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="font-semibold text-gray-100 truncate">{order.first_name} {order.last_name}</p>
+                <p className="font-semibold text-app-primary truncate">{order.first_name} {order.last_name}</p>
                 <p className="text-xs" style={{ color: theme.dark.muted }}>Commande #{order.id} · {new Date(order.created_at).toLocaleDateString('fr-DZ')}</p>
               </div>
             </div>
@@ -520,7 +520,7 @@ export default function OrderDetailPage() {
                 </div>
                 <div>
                   <p className="text-[11px] uppercase tracking-wide" style={{ color: theme.dark.muted }}>Note</p>
-                  <p className="text-sm text-gray-300">{order.note}</p>
+                  <p className="text-sm text-app-primary">{order.note}</p>
                 </div>
               </div>
             )}
@@ -535,24 +535,24 @@ export default function OrderDetailPage() {
                   value={itemSearch}
                   onChange={e => { setItemSearch(e.target.value); setChangingRowKey(null) }}
                   placeholder="Rechercher un produit à ajouter…"
-                  className="w-full px-3.5 py-2.5 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 transition"
+                  className="w-full px-3.5 py-2.5 rounded-lg border text-sm text-app-primary bg-transparent outline-none focus:border-violet-500 transition"
                   style={{ borderColor: theme.dark.border }}
                 />
                 {(itemResults.length > 0 || itemSearching) && !changingRowKey && (
                   <div className="absolute z-20 left-0 right-0 top-full mt-1 rounded-lg border overflow-hidden shadow-xl max-h-72 overflow-y-auto" style={{ background: theme.dark.sidebar, borderColor: theme.dark.border }}>
-                    {itemSearching && <p className="px-4 py-3 text-xs text-gray-500">Recherche…</p>}
+                    {itemSearching && <p className="px-4 py-3 text-xs text-app-muted">Recherche…</p>}
                     {itemResults.map(p => {
                       const options = (p.variants || []).flatMap(v => v.options || [])
                       return (
                         <div key={p.id} className="border-b last:border-0" style={{ borderColor: theme.dark.border }}>
                           {options.length === 0 && (
-                            <button onClick={() => addProductToOrder(p)} className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 transition flex items-center justify-between">
+                            <button onClick={() => addProductToOrder(p)} className="w-full text-left px-4 py-2.5 text-sm text-app-primary hover:bg-white/5 transition flex items-center justify-between">
                               <span>{p.name}</span>
                               <span className="text-violet-300 text-xs">{Number(p.price).toLocaleString('fr-DZ')} DZD</span>
                             </button>
                           )}
                           {options.map(opt => (
-                            <button key={opt.id} onClick={() => addProductToOrder(p, opt)} className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-white/5 transition flex items-center justify-between">
+                            <button key={opt.id} onClick={() => addProductToOrder(p, opt)} className="w-full text-left px-4 py-2 text-sm text-app-primary hover:bg-white/5 transition flex items-center justify-between">
                               <span>{p.name} — {opt.value}</span>
                               <span className="text-violet-300 text-xs">{Number(opt.price ?? p.price).toLocaleString('fr-DZ')} DZD</span>
                             </button>
@@ -579,7 +579,7 @@ export default function OrderDetailPage() {
                   {localItems.filter(i => !i._delete).map(item => (
                     <Fragment key={item._key}>
                       <tr className="border-b last:border-0 hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
-                        <td className="py-3 px-1 text-gray-200 font-medium">
+                        <td className="py-3 px-1 text-app-primary font-medium">
                           {item.product_name}
                           {canEditOrder && (
                             <button onClick={() => { setChangingRowKey(k => k === item._key ? null : item._key); setItemSearch(''); setItemResults([]) }} className="ml-2 text-xs text-violet-400 hover:text-violet-300 transition cursor-pointer">
@@ -587,23 +587,23 @@ export default function OrderDetailPage() {
                             </button>
                           )}
                         </td>
-                        <td className="py-3 px-1 text-right text-gray-400">{Number(item.price).toLocaleString('fr-DZ')} DZD</td>
+                        <td className="py-3 px-1 text-right text-app-muted-light">{Number(item.price).toLocaleString('fr-DZ')} DZD</td>
                         <td className="py-3 px-1 text-center">
                           {canEditOrder ? (
                             <div className="flex items-center justify-center gap-1">
                               <button type="button" onClick={() => updateLocalQty(item._key, item.quantity - 1)}
-                                className="w-6 h-6 rounded border text-gray-400 hover:text-gray-200 text-xs cursor-pointer" style={{ borderColor: theme.dark.border }}>−</button>
-                              <span className="w-8 text-center text-gray-200">{item.quantity}</span>
+                                className="w-6 h-6 rounded border text-app-muted-light hover:text-app-primary text-xs cursor-pointer" style={{ borderColor: theme.dark.border }}>−</button>
+                              <span className="w-8 text-center text-app-primary">{item.quantity}</span>
                               <button type="button" onClick={() => updateLocalQty(item._key, item.quantity + 1)}
-                                className="w-6 h-6 rounded border text-gray-400 hover:text-gray-200 text-xs cursor-pointer" style={{ borderColor: theme.dark.border }}>+</button>
+                                className="w-6 h-6 rounded border text-app-muted-light hover:text-app-primary text-xs cursor-pointer" style={{ borderColor: theme.dark.border }}>+</button>
                             </div>
                           ) : (
-                            <span className="inline-flex items-center justify-center min-w-6 h-6 px-1.5 rounded-md text-xs font-semibold bg-white/5 text-gray-300">
+                            <span className="inline-flex items-center justify-center min-w-6 h-6 px-1.5 rounded-md text-xs font-semibold bg-white/5 text-app-primary">
                               {item.quantity}
                             </span>
                           )}
                         </td>
-                        <td className="py-3 px-1 text-right text-gray-100 font-semibold">
+                        <td className="py-3 px-1 text-right text-app-primary font-semibold">
                           {(item.price * item.quantity).toLocaleString('fr-DZ')} DZD
                         </td>
                         {canEditOrder && (
@@ -625,24 +625,24 @@ export default function OrderDetailPage() {
                                 onChange={e => setItemSearch(e.target.value)}
                                 placeholder="Rechercher le nouveau produit/variante…"
                                 autoFocus
-                                className="w-full px-3.5 py-2 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 transition"
+                                className="w-full px-3.5 py-2 rounded-lg border text-sm text-app-primary bg-transparent outline-none focus:border-violet-500 transition"
                                 style={{ borderColor: theme.dark.border }}
                               />
                               {(itemResults.length > 0 || itemSearching) && (
                                 <div className="relative z-20 mt-1 rounded-lg border overflow-hidden shadow-xl max-h-60 overflow-y-auto" style={{ background: theme.dark.sidebar, borderColor: theme.dark.border }}>
-                                  {itemSearching && <p className="px-4 py-3 text-xs text-gray-500">Recherche…</p>}
+                                  {itemSearching && <p className="px-4 py-3 text-xs text-app-muted">Recherche…</p>}
                                   {itemResults.map(p => {
                                     const options = (p.variants || []).flatMap(v => v.options || [])
                                     return (
                                       <div key={p.id} className="border-b last:border-0" style={{ borderColor: theme.dark.border }}>
                                         {options.length === 0 && (
-                                          <button onClick={() => changeRowProduct(item._key, p)} className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 transition flex items-center justify-between">
+                                          <button onClick={() => changeRowProduct(item._key, p)} className="w-full text-left px-4 py-2.5 text-sm text-app-primary hover:bg-white/5 transition flex items-center justify-between">
                                             <span>{p.name}</span>
                                             <span className="text-violet-300 text-xs">{Number(p.price).toLocaleString('fr-DZ')} DZD</span>
                                           </button>
                                         )}
                                         {options.map(opt => (
-                                          <button key={opt.id} onClick={() => changeRowProduct(item._key, p, opt)} className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-white/5 transition flex items-center justify-between">
+                                          <button key={opt.id} onClick={() => changeRowProduct(item._key, p, opt)} className="w-full text-left px-4 py-2 text-sm text-app-primary hover:bg-white/5 transition flex items-center justify-between">
                                             <span>{p.name} — {opt.value}</span>
                                             <span className="text-violet-300 text-xs">{Number(opt.price ?? p.price).toLocaleString('fr-DZ')} DZD</span>
                                           </button>
@@ -672,7 +672,7 @@ export default function OrderDetailPage() {
             <SectionCard icon={ICONS.truck} title="Livraison">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1.5">Wilaya</label>
+                  <label className="block text-xs text-app-muted-light mb-1.5">Wilaya</label>
                   <Select
                     value={editWilaya}
                     onChange={chooseWilaya}
@@ -682,7 +682,7 @@ export default function OrderDetailPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1.5">Commune</label>
+                  <label className="block text-xs text-app-muted-light mb-1.5">Commune</label>
                   <Select
                     value={editCommune}
                     onChange={chooseCommune}
@@ -696,24 +696,24 @@ export default function OrderDetailPage() {
                 {editRate && editRate.tarif_stopdesk != null && (
                   <div className="sm:col-span-2 grid grid-cols-2 gap-2">
                     <label className={`flex items-center justify-between gap-2 cursor-pointer rounded-lg border px-3 py-2 text-xs transition ${!editStopDesk ? 'border-violet-500 bg-violet-500/10' : ''}`} style={{ borderColor: !editStopDesk ? undefined : theme.dark.border }}>
-                      <span className="flex items-center gap-2 text-gray-300">
+                      <span className="flex items-center gap-2 text-app-primary">
                         <input type="radio" name="edit_stop_desk" checked={!editStopDesk} onChange={() => chooseStopDesk(false)} className="accent-violet-600 w-3.5 h-3.5" />
                         À domicile
                       </span>
-                      <span className="text-gray-400">{Number(editRate.tarif).toLocaleString('fr-DZ')} DZD</span>
+                      <span className="text-app-muted-light">{Number(editRate.tarif).toLocaleString('fr-DZ')} DZD</span>
                     </label>
                     <label className={`flex items-center justify-between gap-2 cursor-pointer rounded-lg border px-3 py-2 text-xs transition ${editStopDesk ? 'border-violet-500 bg-violet-500/10' : ''}`} style={{ borderColor: editStopDesk ? undefined : theme.dark.border }}>
-                      <span className="flex items-center gap-2 text-gray-300">
+                      <span className="flex items-center gap-2 text-app-primary">
                         <input type="radio" name="edit_stop_desk" checked={editStopDesk} onChange={() => chooseStopDesk(true)} className="accent-violet-600 w-3.5 h-3.5" />
                         Point relais
                       </span>
-                      <span className="text-gray-400">{Number(editRate.tarif_stopdesk).toLocaleString('fr-DZ')} DZD</span>
+                      <span className="text-app-muted-light">{Number(editRate.tarif_stopdesk).toLocaleString('fr-DZ')} DZD</span>
                     </label>
                   </div>
                 )}
                 {editStopDesk && (
                   <div className="sm:col-span-2">
-                    <label className="block text-xs text-gray-400 mb-1.5">Bureau de retrait</label>
+                    <label className="block text-xs text-app-muted-light mb-1.5">Bureau de retrait</label>
                     <Select
                       value={editStationCode}
                       onChange={chooseStationCode}
@@ -726,7 +726,7 @@ export default function OrderDetailPage() {
                   </div>
                 )}
                 <div className="sm:col-span-2">
-                  <label className="block text-xs text-gray-400 mb-1.5">Frais de livraison</label>
+                  <label className="block text-xs text-app-muted-light mb-1.5">Frais de livraison</label>
                   <input
                     type="number"
                     min="0"
@@ -762,14 +762,14 @@ export default function OrderDetailPage() {
             <div className="flex flex-col items-end gap-1.5 text-sm">
               <div className="flex justify-between w-full max-w-56">
                 <span style={{ color: theme.dark.muted }}>Sous-total</span>
-                <span className="text-gray-300">{localSubtotal.toLocaleString('fr-DZ')} DZD</span>
+                <span className="text-app-primary">{localSubtotal.toLocaleString('fr-DZ')} DZD</span>
               </div>
               <div className="flex justify-between w-full max-w-56">
                 <span style={{ color: theme.dark.muted }}>Livraison</span>
-                <span className="text-gray-300">{Number(order.shipping_cost).toLocaleString('fr-DZ')} DZD</span>
+                <span className="text-app-primary">{Number(order.shipping_cost).toLocaleString('fr-DZ')} DZD</span>
               </div>
               <div className="flex justify-between w-full max-w-56 pt-1.5 mt-1 border-t" style={{ borderColor: theme.dark.border }}>
-                <span className="text-gray-200 font-medium">Total</span>
+                <span className="text-app-primary font-medium">Total</span>
                 <span className="text-white font-bold text-base">{(localSubtotal + Number(order.shipping_cost)).toLocaleString('fr-DZ')} DZD</span>
               </div>
             </div>
@@ -788,7 +788,7 @@ export default function OrderDetailPage() {
                       style={{ boxShadow: `0 0 0 4px ${theme.dark.card}` }} />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between flex-wrap gap-1">
-                        <span className={`text-sm font-medium ${STATUS_COLORS[h.status]?.split(' ')[1] || 'text-gray-300'}`}>{h.status_label}</span>
+                        <span className={`text-sm font-medium ${STATUS_COLORS[h.status]?.split(' ')[1] || 'text-app-primary'}`}>{h.status_label}</span>
                         <span className="text-xs" style={{ color: theme.dark.muted }}>{new Date(h.changed_at).toLocaleString('fr-DZ')}</span>
                       </div>
                       <p className="text-xs mt-0.5" style={{ color: theme.dark.muted }}>par {h.changed_by_name}{h.note ? ` · ${h.note}` : ''}</p>
@@ -809,7 +809,7 @@ export default function OrderDetailPage() {
               <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.06)', color: '#a1a1aa' }}>
                 <Icon path={ICONS.status} className="w-3.5 h-3.5" />
               </div>
-              <h3 className="text-sm font-semibold text-gray-200">Changer le statut</h3>
+              <h3 className="text-sm font-semibold text-app-primary">Changer le statut</h3>
             </div>
             <Select value={newStatus} onChange={setNewStatus} options={STATUS_CHOICES} className={inputCls + ' mb-2'} style={{ ...bdrStyle, background: theme.dark.sidebar }} />
             {showFailureReason && (
@@ -845,7 +845,7 @@ export default function OrderDetailPage() {
                 <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.06)', color: '#a1a1aa' }}>
                   <Icon path={ICONS.shipping} className="w-3.5 h-3.5" />
                 </div>
-                <h3 className="text-sm font-semibold text-gray-200">Société de livraison</h3>
+                <h3 className="text-sm font-semibold text-app-primary">Société de livraison</h3>
               </div>
               <div className="mb-3 px-3 py-2 rounded-lg" style={{ background: theme.dark.sidebar }}>
                 <p className="text-sm text-violet-300 font-medium">
@@ -877,7 +877,7 @@ export default function OrderDetailPage() {
               <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.06)', color: '#a1a1aa' }}>
                 <Icon path={ICONS.team} className="w-3.5 h-3.5" />
               </div>
-              <h3 className="text-sm font-semibold text-gray-200">Confirmateur assigné</h3>
+              <h3 className="text-sm font-semibold text-app-primary">Confirmateur assigné</h3>
             </div>
             <div className="mb-3 px-3 py-2 rounded-lg" style={{ background: theme.dark.sidebar }}>
               <p className="text-sm text-violet-300 font-medium">

@@ -44,7 +44,7 @@ function ShieldIcon(props) {
 
 function Spinner({ label = 'Chargement…' }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-2 py-12 text-gray-500">
+    <div className="flex flex-col items-center justify-center gap-2 py-12 text-app-muted">
       <svg className="animate-spin" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
         <circle cx="12" cy="12" r="9" opacity="0.25" />
         <path d="M21 12a9 9 0 0 0-9-9" strokeLinecap="round" />
@@ -56,9 +56,9 @@ function Spinner({ label = 'Chargement…' }) {
 
 function EmptyState({ icon, title, subtitle }) {
   return (
-    <div className="flex flex-col items-center justify-center text-center py-14 px-6 text-gray-500">
-      {icon && <div className="mb-3 text-gray-600">{icon}</div>}
-      <p className="text-sm font-medium text-gray-300">{title}</p>
+    <div className="flex flex-col items-center justify-center text-center py-14 px-6 text-app-muted">
+      {icon && <div className="mb-3 text-app-muted">{icon}</div>}
+      <p className="text-sm font-medium text-app-primary">{title}</p>
       {subtitle && <p className="text-xs mt-1" style={{ color: theme.dark.muted }}>{subtitle}</p>}
     </div>
   )
@@ -105,7 +105,7 @@ export default function ClientsPage() {
           value={search}
           onChange={e => { setSearch(e.target.value); setPage(1) }}
           placeholder="Recherche par nom ou téléphone"
-          className="px-4 py-2 rounded-lg text-sm text-gray-200 border outline-none focus:border-violet-500 transition w-full sm:w-72"
+          className="px-4 py-2 rounded-lg text-sm text-app-primary border outline-none focus:border-violet-500 transition w-full sm:w-72"
           style={{ background: theme.dark.card, borderColor: theme.dark.border }}
         />
         <p className="text-sm" style={{ color: theme.dark.muted }}>{data.count} client{data.count !== 1 ? 's' : ''}</p>
@@ -114,7 +114,7 @@ export default function ClientsPage() {
       <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border }}>
         <table className="w-full text-sm min-w-200">
           <thead style={{ background: theme.dark.sidebar }}>
-            <tr className="text-left text-xs text-gray-500 border-b" style={{ borderColor: theme.dark.border }}>
+            <tr className="text-left text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
               <th className="px-4 py-3 font-medium">NOM COMPLET</th>
               <th className="px-4 py-3 font-medium">EMAIL</th>
               <th className="px-4 py-3 font-medium">TÉLÉPHONE</th>
@@ -135,14 +135,14 @@ export default function ClientsPage() {
               </td></tr>
             ) : data.results.map(c => (
               <tr key={c.phone} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
-                <td className="px-4 py-3 text-gray-200 font-medium">{c.first_name} {c.last_name}</td>
-                <td className="px-4 py-3 text-gray-400">{c.email || '—'}</td>
-                <td className="px-4 py-3 text-gray-300 font-mono text-xs">{c.phone}</td>
+                <td className="px-4 py-3 text-app-primary font-medium">{c.first_name} {c.last_name}</td>
+                <td className="px-4 py-3 text-app-muted-light">{c.email || '—'}</td>
+                <td className="px-4 py-3 text-app-primary font-mono text-xs">{c.phone}</td>
                 <td className="px-4 py-3">
                   <span className={theme.badge.info}>{c.orders_count}</span>
                 </td>
-                <td className="px-4 py-3 text-gray-400">{c.wilaya || '—'}</td>
-                <td className="px-4 py-3 text-gray-400">{c.commune || '—'}</td>
+                <td className="px-4 py-3 text-app-muted-light">{c.wilaya || '—'}</td>
+                <td className="px-4 py-3 text-app-muted-light">{c.commune || '—'}</td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     {c.is_risky
@@ -151,7 +151,7 @@ export default function ClientsPage() {
                     {c.is_blacklisted && <span className={theme.badge.danger}>Bloqué</span>}
                   </div>
                 </td>
-                <td className="px-4 py-3 text-gray-500 text-xs">{new Date(c.created_at).toLocaleDateString('fr-DZ')}</td>
+                <td className="px-4 py-3 text-app-muted text-xs">{new Date(c.created_at).toLocaleDateString('fr-DZ')}</td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-1">
                     <button onClick={() => setHistoryClient(c)} className="p-1.5 rounded text-violet-300 hover:bg-violet-600/20 transition cursor-pointer" title="Historique des commandes">
@@ -184,7 +184,7 @@ export default function ClientsPage() {
             Lignes par page :
             <Select value={perPage} onChange={v => { setPerPage(Number(v)); setPage(1) }}
               options={PER_PAGE_OPTIONS.map(n => ({ value: n, label: n }))}
-              className="px-2 py-1 rounded-lg border text-gray-300 text-xs"
+              className="px-2 py-1 rounded-lg border text-app-primary text-xs"
               style={{ background: theme.dark.card, borderColor: theme.dark.border, minWidth: 64 }} />
           </div>
           <div className="flex items-center gap-2">
