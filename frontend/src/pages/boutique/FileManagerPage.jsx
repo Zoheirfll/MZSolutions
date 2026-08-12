@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
+import Select from '../../components/Select'
 import api from '../../api/axios'
 import { theme } from '../../theme'
 
@@ -44,6 +45,10 @@ export default function FileManagerPage() {
   const [uploadProgress, setUploadProgress] = useState({ done: 0, total: 0 })
   const [copied,   setCopied]   = useState(null)
   const [deleting, setDeleting] = useState(null)
+  const [checked,  setChecked]  = useState(new Set())
+  const [bulkBusy, setBulkBusy] = useState(false)
+  const [movingId, setMovingId] = useState(null)
+  const [storage,  setStorage]  = useState(null)
   const fileInput = useRef()
 
   const loadFolders = () => api.get('/media/folders/').then(({ data }) => setFolders(data)).catch(() => {})
@@ -54,9 +59,41 @@ export default function FileManagerPage() {
     if (search) params.set('search', search)
     api.get(`/media/files/?${params}`).then(({ data }) => setFiles(data)).catch(() => {})
   }
+  const loadStorage = () => api.get('/media/storage/').then(({ data }) => setStorage(data)).catch(() => {})
 
-  useEffect(() => { loadFolders() }, [])
-  useEffect(() => { loadFiles() }, [selected, search])
+  useEffect(() => { loadFolders(); loadStorage() }, [])
+  useEffect(() => { loadFiles(); setChecked(new Set()) }, [selected, search])
+
+  const toggleCheck = (id) => setChecked(c => {
+    const next = new Set(c)
+    next.has(id) ? next.delete(id) : next.add(id)
+    return next
+  })
+
+  const bulkDelete = async () => {
+    if (checked.size === 0) return
+    if (!confirm(`Supprimer ${checked.size} fichier(s) ?`)) return
+    setBulkBusy(true)
+    try {
+      await api.post('/media/files/bulk-delete/', { ids: Array.from(checked) })
+      setChecked(new Set())
+      loadFiles()
+      loadStorage()
+    } finally {
+      setBulkBusy(false)
+    }
+  }
+
+  const moveFile = async (id, folderId) => {
+    setMovingId(id)
+    try {
+      await api.put(`/media/files/${id}/`, { folder: folderId || '' })
+      loadFolders()
+      loadFiles()
+    } finally {
+      setMovingId(null)
+    }
+  }
 
   const createFolder = async () => {
     if (!newFolder.trim()) return
@@ -91,6 +128,8 @@ export default function FileManagerPage() {
       setUploading(false)
       setUploadProgress({ done: 0, total: 0 })
       loadFiles()
+      loadFolders()
+      loadStorage()
       if (fileInput.current) fileInput.current.value = ''
     }
   }
@@ -101,6 +140,8 @@ export default function FileManagerPage() {
     await api.delete(`/media/files/${id}/`).catch(() => {})
     setDeleting(null)
     loadFiles()
+    loadFolders()
+    loadStorage()
   }
 
   const copyUrl = (url, id) => {
@@ -117,7 +158,12 @@ export default function FileManagerPage() {
 
         {/* Sidebar dossiers */}
         <div className="w-52 shrink-0 flex flex-col gap-1 overflow-y-auto">
-          <p className="text-[10px] font-semibold uppercase tracking-widest mb-2 px-1" style={{ color: theme.dark.muted }}>Dossiers</p>
+          <p className="text-[10px] font-semibold uppercase tracking-widest mb-1 px-1" style={{ color: theme.dark.muted }}>Dossiers</p>
+          {storage && (
+            <p className="text-[11px] mb-2 px-1" style={{ color: theme.dark.muted }}>
+              {formatSize(storage.total_size)} utilisés · {storage.count} fichier{storage.count !== 1 ? 's' : ''}
+            </p>
+          )}
 
           {/* Tous */}
           {[
@@ -177,6 +223,13 @@ export default function FileManagerPage() {
           {/* Toolbar */}
           <div className="flex items-center gap-3">
             <p className="text-sm font-semibold text-gray-300 flex-1">{activeLabel}</p>
+            {checked.size > 0 && (
+              <button type="button" onClick={bulkDelete} disabled={bulkBusy}
+                className="text-xs px-3 py-1.5 rounded-lg text-red-400 border cursor-pointer transition-colors"
+                style={{ borderColor: 'rgba(248,113,113,0.3)' }}>
+                {bulkBusy ? '…' : `Supprimer (${checked.size})`}
+              </button>
+            )}
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher…"
               className="text-sm px-3 py-1.5 rounded-xl outline-none w-48"
               style={{ background: theme.dark.card, border: `1px solid ${theme.dark.border}`, color: '#d1d5db' }} />
@@ -204,10 +257,13 @@ export default function FileManagerPage() {
             ) : (
               <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
                 {files.map(file => (
-                  <div key={file.id} className="group rounded-xl border overflow-hidden cursor-default transition-all"
-                    style={{ background: theme.dark.card, borderColor: theme.dark.border }}
+                  <div key={file.id} className="group relative rounded-xl border overflow-hidden cursor-default transition-all"
+                    style={{ background: theme.dark.card, borderColor: checked.has(file.id) ? '#7c3aed' : theme.dark.border }}
                     onMouseEnter={e => e.currentTarget.style.borderColor = '#7c3aed'}
-                    onMouseLeave={e => e.currentTarget.style.borderColor = theme.dark.border}>
+                    onMouseLeave={e => e.currentTarget.style.borderColor = checked.has(file.id) ? '#7c3aed' : theme.dark.border}>
+                    {/* Checkbox */}
+                    <input type="checkbox" checked={checked.has(file.id)} onChange={() => toggleCheck(file.id)}
+                      className={`absolute top-1.5 left-1.5 z-10 w-4 h-4 rounded cursor-pointer transition-opacity ${checked.has(file.id) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`} />
                     {/* Thumbnail */}
                     <div className="aspect-square flex items-center justify-center overflow-hidden"
                       style={{ background: theme.dark.app }}>
@@ -231,6 +287,15 @@ export default function FileManagerPage() {
                           {deleting === file.id ? '…' : '✕'}
                         </button>
                       </div>
+                      {folders.length > 0 && (
+                        <div className="mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Select value={file.folder || ''} onChange={v => moveFile(file.id, v)}
+                            disabled={movingId === file.id}
+                            options={[{ value: '', label: 'Sans dossier' }, ...folders.map(f => ({ value: f.id, label: f.name }))]}
+                            variant="dark" className="text-[10px] rounded-lg border px-1.5 py-1 w-full"
+                            style={{ background: theme.dark.app, borderColor: theme.dark.border }} />
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}

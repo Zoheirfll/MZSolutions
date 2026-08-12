@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
 import Select from '../../components/Select'
 import api from '../../api/axios'
@@ -30,6 +30,15 @@ function TrashIcon(props) {
   )
 }
 
+function PencilIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14" {...props}>
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </svg>
+  )
+}
+
 function CloseIcon(props) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18" {...props}>
@@ -40,8 +49,12 @@ function CloseIcon(props) {
 
 const money = v => `${Number(v || 0).toLocaleString('fr-DZ')} DZD`
 
-function CostModal({ onClose, onSaved }) {
-  const [form, setForm]     = useState(EMPTY_FORM)
+function CostModal({ cost, onClose, onSaved }) {
+  const isEdit = !!cost
+  const [form, setForm]     = useState(cost ? {
+    category: cost.category, label: cost.label, amount: cost.amount,
+    period_start: cost.period_start, period_end: cost.period_end, note: cost.note || '',
+  } : EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const [errors, setErrors] = useState({})
 
@@ -53,7 +66,8 @@ function CostModal({ onClose, onSaved }) {
     setSaving(true)
     setErrors({})
     try {
-      await api.post('/finance/costs/', form)
+      if (isEdit) await api.put(`/finance/costs/${cost.id}/`, form)
+      else await api.post('/finance/costs/', form)
       onSaved()
     } catch (err) {
       setErrors(err.response?.data || {})
@@ -63,10 +77,10 @@ function CostModal({ onClose, onSaved }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
-      <div className="w-full max-w-md rounded-xl border p-6" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: 'rgba(0,0,0,0.7)' }} onClick={onClose}>
+      <div className="w-full max-w-md rounded-xl border p-6" style={{ background: theme.dark.card, borderColor: theme.dark.border }} onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
-          <h3 className="font-semibold text-gray-200">Ajouter un coût</h3>
+          <h3 className="font-semibold text-gray-200">{isEdit ? 'Modifier le coût' : 'Ajouter un coût'}</h3>
           <button onClick={onClose} className="text-gray-500 hover:text-gray-300 transition cursor-pointer"><CloseIcon /></button>
         </div>
         <form onSubmit={submit} className="space-y-4">
@@ -98,6 +112,7 @@ function CostModal({ onClose, onSaved }) {
                 className={inputCls} style={bdrStyle} />
             </div>
           </div>
+          {errors.period_end && <p className="text-red-400 text-xs">{errors.period_end}</p>}
           {errors.period_start && <p className="text-red-400 text-xs">{errors.period_start}</p>}
           <div>
             <label className="block text-xs text-gray-400 mb-1.5">Note (optionnel)</label>
@@ -107,7 +122,7 @@ function CostModal({ onClose, onSaved }) {
           <div className="flex justify-end gap-3 pt-1">
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-400 hover:text-gray-200 cursor-pointer transition">Fermer</button>
             <button type="submit" disabled={saving} className={theme.btn.primary + ' text-sm disabled:opacity-60'}>
-              {saving ? '…' : 'Enregistrer'}
+              {saving ? '…' : isEdit ? 'Enregistrer' : 'Ajouter'}
             </button>
           </div>
         </form>
@@ -118,19 +133,24 @@ function CostModal({ onClose, onSaved }) {
 
 export default function CostsPage() {
   const [costs, setCosts]         = useState([])
+  const [search, setSearch]       = useState('')
   const [modalOpen, setModalOpen] = useState(false)
+  const [editingCost, setEditingCost] = useState(null)
   const [loading, setLoading]     = useState(true)
   const [categoryFilter, setCategoryFilter] = useState('')
 
-  const fetchCosts = () => {
+  const fetchCosts = useCallback(() => {
     setLoading(true)
-    api.get(`/finance/costs/${categoryFilter ? `?category=${categoryFilter}` : ''}`)
+    const params = new URLSearchParams()
+    if (categoryFilter) params.set('category', categoryFilter)
+    if (search) params.set('search', search)
+    api.get(`/finance/costs/?${params}`)
       .then(({ data }) => setCosts(data))
       .catch(() => {})
       .finally(() => setLoading(false))
-  }
+  }, [categoryFilter, search])
 
-  useEffect(() => { fetchCosts() }, [categoryFilter])
+  useEffect(() => { fetchCosts() }, [fetchCosts])
 
   const handleDelete = async (id) => {
     if (!confirm('Supprimer ce coût ?')) return
@@ -143,7 +163,7 @@ export default function CostsPage() {
   return (
     <DashboardLayout title="Coûts">
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-5">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {['', 'operational', 'marketing'].map(c => (
             <button key={c} onClick={() => setCategoryFilter(c)}
               className={`px-3.5 py-1.5 rounded-lg text-sm font-medium transition ${categoryFilter === c ? 'text-white bg-violet-600' : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'}`}
@@ -151,6 +171,13 @@ export default function CostsPage() {
               {c === '' ? 'Tous' : c === 'operational' ? 'Opérationnel' : 'Marketing'}
             </button>
           ))}
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Recherche par libellé"
+            className="px-3.5 py-1.5 rounded-lg text-sm text-gray-200 border outline-none focus:border-violet-500 transition"
+            style={{ background: theme.dark.card, borderColor: theme.dark.border }}
+          />
         </div>
         <button onClick={() => setModalOpen(true)} className={theme.btn.primary + ' text-sm shrink-0'}>
           <PlusIcon /> Ajouter un coût
@@ -159,6 +186,9 @@ export default function CostsPage() {
 
       {modalOpen && (
         <CostModal onClose={() => setModalOpen(false)} onSaved={() => { setModalOpen(false); fetchCosts() }} />
+      )}
+      {editingCost && (
+        <CostModal cost={editingCost} onClose={() => setEditingCost(null)} onSaved={() => { setEditingCost(null); fetchCosts() }} />
       )}
 
       <p className="text-sm mb-3" style={{ color: theme.dark.muted }}>Total affiché : <span className="text-gray-200 font-medium">{money(total)}</span></p>
@@ -188,7 +218,10 @@ export default function CostsPage() {
                 <td className="px-4 py-3 text-gray-200">{money(c.amount)}</td>
                 <td className="px-4 py-3 text-gray-400 text-xs">{c.period_start} → {c.period_end}</td>
                 <td className="px-4 py-3">
-                  <button onClick={() => handleDelete(c.id)} className="p-1.5 rounded text-red-400 hover:bg-red-900/20 transition cursor-pointer" title="Supprimer"><TrashIcon /></button>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => setEditingCost(c)} className="p-1.5 rounded text-gray-300 hover:bg-white/10 transition cursor-pointer" title="Modifier"><PencilIcon /></button>
+                    <button onClick={() => handleDelete(c.id)} className="p-1.5 rounded text-red-400 hover:bg-red-900/20 transition cursor-pointer" title="Supprimer"><TrashIcon /></button>
+                  </div>
                 </td>
               </tr>
             ))}

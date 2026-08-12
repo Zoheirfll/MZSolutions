@@ -18,6 +18,8 @@ class Store(models.Model):
     email = models.EmailField(blank=True)
     logo = models.ImageField(upload_to='store_logos/', blank=True, null=True,
                               validators=[validate_image_extension, validate_image_size])
+    meta_title       = models.CharField(max_length=70, blank=True, help_text="Balise <title> de la page d'accueil publique — retombe sur le nom de la boutique si vide")
+    meta_description = models.CharField(max_length=160, blank=True, help_text="Balise <meta name=\"description\"> de la page d'accueil — retombe sur la description si vide")
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -142,6 +144,8 @@ class StorePage(models.Model):
     title        = models.CharField(max_length=200)
     slug         = models.SlugField(max_length=100)
     content      = models.TextField(blank=True)
+    meta_title       = models.CharField(max_length=70, blank=True, help_text="Balise <title> de la page publique — retombe sur le titre si vide")
+    meta_description = models.CharField(max_length=160, blank=True, help_text="Balise <meta name=\"description\"> — retombe sur un extrait du contenu si vide")
     page_type    = models.CharField(max_length=20, choices=PAGE_TYPE_CHOICES, default='custom')
     is_published = models.BooleanField(default=True)
     order        = models.PositiveIntegerField(default=0)

@@ -1,5 +1,5 @@
 from django.db import transaction
-from django.db.models import Sum
+from django.db.models import Sum, Q
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -36,6 +36,18 @@ def _balance(store, dropshipper):
     earned = CommissionEntry.objects.filter(store=store, dropshipper=dropshipper).aggregate(s=Sum('amount'))['s'] or 0
     paid   = CommissionPayment.objects.filter(store=store, dropshipper=dropshipper).aggregate(s=Sum('amount'))['s'] or 0
     return earned, paid, earned - paid
+
+
+def _validate_commission_value(commission_type, value):
+    try:
+        value = float(value)
+    except (TypeError, ValueError):
+        return 'Valeur invalide.'
+    if value < 0:
+        return 'La valeur ne peut pas être négative.'
+    if commission_type == 'percentage' and value > 100:
+        return 'Un pourcentage ne peut pas dépasser 100%.'
+    return None
 
 
 class DropshipperProductListCreateView(APIView):
@@ -127,12 +139,15 @@ class CommissionListCreateView(APIView):
         except Product.DoesNotExist:
             return Response({'detail': 'Produit introuvable.'}, status=404)
 
+        commission_type = request.data.get('commission_type', 'percentage')
+        value = request.data.get('value', 0)
+        error = _validate_commission_value(commission_type, value)
+        if error:
+            return Response({'detail': error}, status=400)
+
         commission, _ = Commission.objects.update_or_create(
             store=store, dropshipper=dropshipper, product=product,
-            defaults={
-                'commission_type': request.data.get('commission_type', 'percentage'),
-                'value': request.data.get('value', 0),
-            },
+            defaults={'commission_type': commission_type, 'value': value},
         )
         return Response(CommissionSerializer(commission).data, status=201)
 
@@ -152,9 +167,13 @@ class CommissionDetailView(APIView):
     def put(self, request, pk):
         commission, err = self._get(request, pk)
         if err: return err
-        for field in ['commission_type', 'value']:
-            if field in request.data:
-                setattr(commission, field, request.data[field])
+        commission_type = request.data.get('commission_type', commission.commission_type)
+        value = request.data.get('value', commission.value)
+        error = _validate_commission_value(commission_type, value)
+        if error:
+            return Response({'detail': error}, status=400)
+        commission.commission_type = commission_type
+        commission.value = value
         commission.save()
         return Response(CommissionSerializer(commission).data)
 
@@ -174,14 +193,22 @@ class DropshipperListView(APIView):
             return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
         store = _get_store(request)
         members = store.team_members.filter(role='dropshipper', is_active=True)
+        search = request.query_params.get('search', '').strip()
+        if search:
+            members = members.filter(
+                Q(first_name__icontains=search) | Q(last_name__icontains=search) |
+                Q(email__icontains=search) | Q(phone__icontains=search)
+            )
         data = []
         for m in members:
             earned, paid, balance = _balance(store, m)
             data.append({
                 'id': m.id, 'first_name': m.first_name, 'last_name': m.last_name, 'email': m.email,
+                'phone': m.phone, 'wilaya': m.wilaya, 'commune': m.commune,
                 'products_count': DropshipperProduct.objects.filter(dropshipper=m).count(),
                 'total_earned': earned, 'total_paid': paid, 'balance': balance,
             })
+        data.sort(key=lambda d: d['balance'], reverse=True)
         return Response(DropshipperSummarySerializer(data, many=True).data)
 
 
@@ -211,13 +238,30 @@ class DropshipperDetailView(APIView):
         store, dropshipper, err = self._resolve(request, pk)
         if err: return err
         earned, paid, balance = _balance(store, dropshipper)
-        entries  = CommissionEntry.objects.filter(store=store, dropshipper=dropshipper).select_related('order_item', 'product')[:200]
-        payments = CommissionPayment.objects.filter(store=store, dropshipper=dropshipper)
+
+        def _paged(name):
+            try:
+                p = max(1, int(request.query_params.get(f'{name}_page', 1)))
+            except (TypeError, ValueError):
+                p = 1
+            return p, 10
+
+        entries_qs  = CommissionEntry.objects.filter(store=store, dropshipper=dropshipper).select_related('order_item', 'product')
+        payments_qs = CommissionPayment.objects.filter(store=store, dropshipper=dropshipper)
+        e_page, e_per = _paged('entries')
+        p_page, p_per = _paged('payments')
+        entries_count, payments_count = entries_qs.count(), payments_qs.count()
+        entries  = entries_qs[(e_page - 1) * e_per: e_page * e_per]
+        payments = payments_qs[(p_page - 1) * p_per: p_page * p_per]
+
         return Response({
             'id': dropshipper.id, 'first_name': dropshipper.first_name, 'last_name': dropshipper.last_name,
+            'phone': dropshipper.phone, 'wilaya': dropshipper.wilaya, 'commune': dropshipper.commune,
             'total_earned': earned, 'total_paid': paid, 'balance': balance,
             'entries':  CommissionEntrySerializer(entries, many=True).data,
+            'entries_count': entries_count, 'entries_page': e_page,
             'payments': CommissionPaymentSerializer(payments, many=True).data,
+            'payments_count': payments_count, 'payments_page': p_page,
         })
 
 

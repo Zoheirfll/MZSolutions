@@ -5,6 +5,20 @@ import RichEditor from '../../components/RichEditor'
 import Select from '../../components/Select'
 import api from '../../api/axios'
 import { theme } from '../../theme'
+import { useAuth } from '../../context/AuthContext'
+
+function parseApiError(data) {
+  if (!data) return 'Erreur.'
+  if (data.detail) return data.detail
+  if (data.non_field_errors) return data.non_field_errors[0]
+  if (data.slug) return `Slug : ${Array.isArray(data.slug) ? data.slug[0] : data.slug}`
+  const firstKey = Object.keys(data)[0]
+  if (firstKey) {
+    const v = data[firstKey]
+    return `${firstKey} : ${Array.isArray(v) ? v[0] : v}`
+  }
+  return 'Erreur.'
+}
 
 function slugify(str) {
   return str.toLowerCase()
@@ -24,10 +38,12 @@ const PAGE_TYPES = [
 export default function PageFormPage() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { user } = useAuth()
   const isEdit = Boolean(id)
 
   const [form, setForm] = useState({
     title: '', slug: '', content: '', page_type: 'custom', is_published: true, order: 0,
+    meta_title: '', meta_description: '',
   })
   const [slugManual, setSlugManual] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -57,7 +73,7 @@ export default function PageFormPage() {
       }
       navigate('/dashboard/boutique/pages')
     } catch (err) {
-      setError(err.response?.data?.detail || JSON.stringify(err.response?.data) || 'Erreur.')
+      setError(parseApiError(err.response?.data))
     } finally {
       setSaving(false)
     }
@@ -113,12 +129,36 @@ export default function PageFormPage() {
           <RichEditor value={form.content} onChange={html => setForm(f => ({ ...f, content: html }))} />
         </div>
 
+        {/* SEO */}
+        <div className="rounded-2xl p-5 border space-y-4" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: theme.dark.mutedLight }}>Référencement (SEO)</p>
+            <p className="text-xs" style={{ color: theme.dark.muted }}>Laissez vide pour utiliser le titre/un extrait du contenu par défaut.</p>
+          </div>
+          <div>
+            <label className={theme.labelDark}>Titre (balise &lt;title&gt;)</label>
+            <input value={form.meta_title || ''} onChange={e => setForm(f => ({ ...f, meta_title: e.target.value }))}
+              maxLength={70} className={theme.inputDark} placeholder={form.title || 'Titre de la page'} />
+          </div>
+          <div>
+            <label className={theme.labelDark}>Description (meta description)</label>
+            <textarea value={form.meta_description || ''} onChange={e => setForm(f => ({ ...f, meta_description: e.target.value }))}
+              rows={2} maxLength={160} className={`${theme.inputDark} resize-none`} placeholder="Résumé affiché dans les résultats Google" />
+          </div>
+        </div>
+
         {error && <p className={theme.errorText}>{error}</p>}
 
         <div className="flex items-center gap-3 pt-1">
           <button type="submit" disabled={saving} className={theme.btn.primary}>
             {saving ? 'Enregistrement…' : isEdit ? 'Mettre à jour' : 'Créer la page'}
           </button>
+          {isEdit && form.is_published && user?.store_slug && (
+            <a href={`/store/${user.store_slug}/pages/${form.slug}`} target="_blank" rel="noreferrer"
+              className="text-sm font-medium transition-colors" style={{ color: theme.dark.mutedLight }}>
+              Aperçu →
+            </a>
+          )}
           <button type="button" onClick={() => navigate('/dashboard/boutique/pages')}
             className={theme.btn.secondary}>
             Annuler

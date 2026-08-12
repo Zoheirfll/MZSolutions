@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import DashboardLayout from '../../components/DashboardLayout'
 import api from '../../api/axios'
 import { theme } from '../../theme'
+import { useAuth } from '../../context/AuthContext'
 
 const PAGE_TYPE_LABELS = {
   about: 'À propos', faq: 'FAQ', terms: 'Conditions', custom: 'Libre',
@@ -13,6 +14,7 @@ const PAGE_TYPE_BADGES = {
 }
 
 export default function PagesPage() {
+  const { user } = useAuth()
   const [pages,   setPages]   = useState([])
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState(null)
@@ -27,7 +29,12 @@ export default function PagesPage() {
   const remove = async (id) => {
     if (!confirm('Supprimer cette page ?')) return
     setDeleting(id)
-    await api.delete(`/stores/pages/${id}/`).catch(() => {})
+    try {
+      const { data } = await api.delete(`/stores/pages/${id}/`)
+      if (data?.menu_links_removed) {
+        alert(`Page supprimée. ${data.menu_links_removed} lien(s) pointant vers cette page ont aussi été retirés du menu de la boutique.`)
+      }
+    } catch {}
     setDeleting(null)
     load()
   }
@@ -88,6 +95,13 @@ export default function PagesPage() {
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
+                    {page.is_published && user?.store_slug && (
+                      <a href={`/store/${user.store_slug}/pages/${page.slug}`} target="_blank" rel="noreferrer"
+                        className="text-xs px-3 py-1 rounded-lg border transition-colors cursor-pointer"
+                        style={{ color: theme.dark.mutedLight, borderColor: theme.dark.border }}>
+                        Aperçu
+                      </a>
+                    )}
                     <Link to={`/dashboard/boutique/pages/${page.id}/modifier`}
                       className="text-xs px-3 py-1 rounded-lg border transition-colors cursor-pointer"
                       style={{ color: theme.dark.mutedLight, borderColor: theme.dark.border }}

@@ -1,15 +1,18 @@
+import csv
 from django.db.models import Q
+from django.http import HttpResponse
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
 
-from .models import Category, Product, ProductImage, ProductVariant, VariantOption, Supplier, SupplierCredit, SupplierPayment, ProductReview, Promotion
+from .models import (Category, Product, ProductImage, ProductVariant, VariantOption, Supplier,
+                      SupplierCredit, SupplierPayment, ProductReview, Promotion, StockMovement)
 from .serializers import (
     CategorySerializer, ProductSerializer, ProductImageSerializer,
     ProductVariantSerializer, VariantOptionSerializer,
     SupplierSerializer, SupplierCreditSerializer, SupplierPaymentSerializer,
-    ProductReviewSerializer, PromotionSerializer,
+    ProductReviewSerializer, PromotionSerializer, StockMovementSerializer,
 )
 from core.permissions import get_store as _get_store, IsOwnerOrAdminForWrites
 from core.pagination import parse_pagination
@@ -433,6 +436,12 @@ class InventoryListView(APIView):
         if search:
             products = products.filter(name__icontains=search)
 
+        try:
+            threshold = store.settings.low_stock_threshold
+        except Exception:
+            threshold = 5
+        stock_filter = request.query_params.get('stock_filter')  # 'low' | 'out'
+
         results = []
         for p in products:
             variants = list(p.variants.all())
@@ -441,30 +450,110 @@ class InventoryListView(APIView):
                 for v in variants:
                     for opt in v.options.all():
                         results.append({
-                            'product_id':   p.id,
-                            'product_name': p.name,
-                            'variant_name': v.name,
-                            'option_value': opt.value,
-                            'sku':          opt.sku,
-                            'stock':        opt.stock,
+                            'product_id':        p.id,
+                            'product_name':      p.name,
+                            'variant_option_id': opt.id,
+                            'variant_name':      v.name,
+                            'option_value':      opt.value,
+                            'sku':               opt.sku,
+                            'stock':             opt.stock,
                         })
             else:
                 # Pas de variantes, ou des variantes sans aucune option — le stock
                 # se gère alors directement sur le produit.
                 results.append({
-                    'product_id':   p.id,
-                    'product_name': p.name,
-                    'variant_name': None,
-                    'option_value': None,
-                    'sku':          p.sku,
-                    'stock':        p.stock,
+                    'product_id':        p.id,
+                    'product_name':      p.name,
+                    'variant_option_id': None,
+                    'variant_name':      None,
+                    'option_value':      None,
+                    'sku':               p.sku,
+                    'stock':             p.stock,
                 })
+
+        if stock_filter == 'out':
+            results = [r for r in results if r['stock'] == 0]
+        elif stock_filter == 'low':
+            results = [r for r in results if r['stock'] <= threshold]
+
+        if request.query_params.get('export') == 'csv':
+            response = HttpResponse(content_type='text/csv')
+            response['Content-Disposition'] = 'attachment; filename="inventaire.csv"'
+            writer = csv.writer(response)
+            writer.writerow(['Produit', 'Variante', 'Option', 'SKU', 'Stock'])
+            for r in results:
+                writer.writerow([r['product_name'], r['variant_name'] or '', r['option_value'] or '', r['sku'] or '', r['stock']])
+            return response
 
         page, per_page = parse_pagination(request, default_per_page=20)
         total    = len(results)
         results  = results[(page - 1) * per_page: page * per_page]
 
-        return Response({'count': total, 'page': page, 'per_page': per_page, 'results': results})
+        return Response({'count': total, 'page': page, 'per_page': per_page, 'threshold': threshold, 'results': results})
+
+
+class StockAdjustmentView(APIView):
+    """Ajustement manuel de stock (réception fournisseur, casse, inventaire
+    physique...) — jusqu'ici le stock ne bougeait que via une vente ou un
+    échange, aucun moyen de le corriger à la main sans passer par la fiche
+    produit (qui ne journalise pas de StockMovement)."""
+    permission_classes = [IsAuthenticated, IsOwnerOrAdminForWrites]
+
+    def post(self, request):
+        store = _get_store(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+
+        product_id = request.data.get('product_id')
+        variant_option_id = request.data.get('variant_option_id')
+        try:
+            quantity = int(request.data.get('quantity'))
+        except (TypeError, ValueError):
+            return Response({'detail': 'Quantité invalide.'}, status=400)
+        if quantity == 0:
+            return Response({'detail': 'La quantité ne peut pas être nulle.'}, status=400)
+
+        try:
+            product = store.products.get(pk=product_id)
+        except Product.DoesNotExist:
+            return Response({'detail': 'Produit introuvable.'}, status=404)
+
+        option = None
+        if variant_option_id:
+            try:
+                option = VariantOption.objects.get(pk=variant_option_id, variant__product=product)
+            except VariantOption.DoesNotExist:
+                return Response({'detail': 'Variante introuvable.'}, status=404)
+            option.stock = max(0, option.stock + quantity)
+            option.save(update_fields=['stock'])
+        else:
+            product.stock = max(0, product.stock + quantity)
+            product.save(update_fields=['stock'])
+
+        movement = StockMovement.objects.create(
+            store=store, product=product, variant_option=option,
+            quantity=quantity, reason='manual_adjustment', note=request.data.get('note', ''),
+        )
+        return Response(StockMovementSerializer(movement).data, status=201)
+
+
+class StockMovementListView(APIView):
+    """Historique des mouvements de stock (US-7.2.2 — StockMovement existait
+    déjà pour l'audit des échanges/ventes, jamais exposé côté dashboard)."""
+    permission_classes = [IsAuthenticated, IsOwnerOrAdminForWrites]
+
+    def get(self, request):
+        store = _get_store(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        qs = store.stock_movements.select_related('product', 'variant_option')
+        product_id = request.query_params.get('product')
+        if product_id:
+            qs = qs.filter(product_id=product_id)
+        page, per_page = parse_pagination(request, default_per_page=20)
+        total = qs.count()
+        qs = qs[(page - 1) * per_page: page * per_page]
+        return Response({'count': total, 'page': page, 'per_page': per_page, 'results': StockMovementSerializer(qs, many=True).data})
 
 
 # ─── Suppliers ───────────────────────────────────────────────────────────────
@@ -870,6 +959,8 @@ class PublicStoreView(APIView):
             'name':        store.name,
             'slug':        store.slug,
             'description': store.description,
+            'meta_title':       store.meta_title,
+            'meta_description': store.meta_description,
             'phone':       store.phone,
             'email':       store.email,
             'logo_url':    logo_url,
@@ -999,6 +1090,35 @@ class PublicCatalogFeedView(APIView):
   <description>Catalogue produits — {escape(store.name)}</description>{''.join(items)}
 </channel>
 </rss>"""
+        return HttpResponse(xml, content_type='application/xml; charset=utf-8')
+
+
+class PublicSitemapView(APIView):
+    """Sitemap XML standard (accueil, produits, pages publiées) pour
+    l'indexation SEO — n'existait pas du tout jusqu'ici, aucun moyen pour un
+    moteur de recherche de découvrir les URLs de la boutique publique."""
+    permission_classes = [AllowAny]
+
+    def get(self, request, slug):
+        from django.http import HttpResponse
+        from django.utils.html import escape
+        from django.conf import settings
+
+        store = _get_public_store(slug)
+        if not store:
+            return Response({'detail': 'Boutique introuvable.'}, status=404)
+
+        store_link = f"{settings.FRONTEND_URL}/store/{store.slug}"
+        urls = [store_link, f"{store_link}/products"]
+        for p in store.products.filter(is_active=True).values_list('id', flat=True):
+            urls.append(f"{store_link}/products/{p}")
+        for page_slug in store.pages.filter(is_published=True).values_list('slug', flat=True):
+            urls.append(f"{store_link}/pages/{page_slug}")
+
+        entries = ''.join(f"\n  <url><loc>{escape(u)}</loc></url>" for u in urls)
+        xml = f"""<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{entries}
+</urlset>"""
         return HttpResponse(xml, content_type='application/xml; charset=utf-8')
 
 

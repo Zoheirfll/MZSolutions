@@ -116,24 +116,44 @@ export default function StorefrontLayout({ children, storeOverride }) {
                   to: (item.url || '').replace('{slug}', slug),
                   label: item.label,
                   external: item.type === 'external',
+                  children: (item.children || []).map(c => ({
+                    to: (c.url || '').replace('{slug}', slug),
+                    label: c.label,
+                    external: c.type === 'external',
+                  })),
                 }))
               : [{ to: `/store/${slug}`, label: 'Accueil' }, { to: `/store/${slug}/products`, label: 'Produits' }]
-            ).map(({ to, label, external }) => (
-              external
-                ? <a key={to} href={to} target="_blank" rel="noreferrer"
-                    className="hidden sm:inline-block px-3 py-1.5 text-sm rounded-lg transition-all duration-150 font-medium"
-                    style={{ color: 'var(--sf-text-muted)' }}
-                    onMouseEnter={e => { e.currentTarget.style.color = 'var(--sf-primary)'; e.currentTarget.style.background = 'color-mix(in srgb, var(--sf-primary) 10%, transparent)' }}
-                    onMouseLeave={e => { e.currentTarget.style.color = 'var(--sf-text-muted)'; e.currentTarget.style.background = 'transparent' }}>
-                    {label}
-                  </a>
-                : <Link key={to} to={to}
-                    className="hidden sm:inline-block px-3 py-1.5 text-sm rounded-lg transition-all duration-150 font-medium"
-                    style={{ color: 'var(--sf-text-muted)' }}
-                    onMouseEnter={e => { e.currentTarget.style.color = 'var(--sf-primary)'; e.currentTarget.style.background = 'color-mix(in srgb, var(--sf-primary) 10%, transparent)' }}
-                    onMouseLeave={e => { e.currentTarget.style.color = 'var(--sf-text-muted)'; e.currentTarget.style.background = 'transparent' }}>
-                    {label}
-                  </Link>
+            ).map(({ to, label, external, children }) => (
+              <div key={to} className="relative hidden sm:block group">
+                {external
+                  ? <a href={to} target="_blank" rel="noreferrer"
+                      className="inline-block px-3 py-1.5 text-sm rounded-lg transition-all duration-150 font-medium"
+                      style={{ color: 'var(--sf-text-muted)' }}
+                      onMouseEnter={e => { e.currentTarget.style.color = 'var(--sf-primary)'; e.currentTarget.style.background = 'color-mix(in srgb, var(--sf-primary) 10%, transparent)' }}
+                      onMouseLeave={e => { e.currentTarget.style.color = 'var(--sf-text-muted)'; e.currentTarget.style.background = 'transparent' }}>
+                      {label}
+                    </a>
+                  : <Link to={to}
+                      className="inline-block px-3 py-1.5 text-sm rounded-lg transition-all duration-150 font-medium"
+                      style={{ color: 'var(--sf-text-muted)' }}
+                      onMouseEnter={e => { e.currentTarget.style.color = 'var(--sf-primary)'; e.currentTarget.style.background = 'color-mix(in srgb, var(--sf-primary) 10%, transparent)' }}
+                      onMouseLeave={e => { e.currentTarget.style.color = 'var(--sf-text-muted)'; e.currentTarget.style.background = 'transparent' }}>
+                      {label}
+                    </Link>}
+                {children?.length > 0 && (
+                  <div className="absolute left-0 top-full pt-1 hidden group-hover:block z-40 min-w-40">
+                    <div className="rounded-lg border shadow-lg py-1" style={{ background: 'var(--sf-card-bg)', borderColor: 'var(--sf-header-border)' }}>
+                      {children.map(c => (
+                        c.external
+                          ? <a key={c.to} href={c.to} target="_blank" rel="noreferrer"
+                              className="block px-3 py-2 text-sm whitespace-nowrap" style={{ color: 'var(--sf-text-muted)' }}>{c.label}</a>
+                          : <Link key={c.to} to={c.to}
+                              className="block px-3 py-2 text-sm whitespace-nowrap" style={{ color: 'var(--sf-text-muted)' }}>{c.label}</Link>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             ))}
             <Link to={`/store/${slug}/checkout`} aria-label="Panier"
               className="relative flex items-center gap-1.5 px-3 py-2 text-sm font-semibold rounded-xl transition-all duration-150 cursor-pointer"

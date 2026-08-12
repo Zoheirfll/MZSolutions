@@ -574,8 +574,13 @@ export default function OrdersPage() {
   const [historyId, setHistoryId] = useState(null)
   const [sort, setSort] = useState(SORT_OPTIONS[0])
   const [filters, setFilters] = useState(() => {
-    const confirmateur = new URLSearchParams(location.search).get('confirmateur')
-    return confirmateur ? { ...EMPTY_FILTERS, confirmateur } : EMPTY_FILTERS
+    const params = new URLSearchParams(location.search)
+    const fromUrl = {}
+    for (const key of Object.keys(EMPTY_FILTERS)) {
+      const value = params.get(key)
+      if (value) fromUrl[key] = value
+    }
+    return Object.keys(fromUrl).length ? { ...EMPTY_FILTERS, ...fromUrl } : EMPTY_FILTERS
   })
   const [showFilterModal, setShowFilterModal] = useState(false)
   const [statusCounts, setStatusCounts] = useState(null)

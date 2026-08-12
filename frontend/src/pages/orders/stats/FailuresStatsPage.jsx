@@ -2,29 +2,46 @@ import { useEffect, useState, useCallback } from 'react'
 import DashboardLayout from '../../../components/DashboardLayout'
 import api from '../../../api/axios'
 import { theme } from '../../../theme'
-import { usePeriod, PeriodFilter, Spinner } from './statsShared'
+import { usePeriod, PeriodFilter, Spinner, StatsToolbar, TrendBadge, StatsPagination, downloadCsv } from './statsShared'
 
 export default function FailuresStatsPage() {
   const { period, setPeriod, dateFrom, setDateFrom, dateTo, setDateTo, queryString, ready } = usePeriod()
   const [data, setData]       = useState(null)
   const [loading, setLoading] = useState(true)
+  const [page, setPage]       = useState(1)
+  const [exporting, setExporting] = useState(false)
+  const perPage = 20
 
   const fetchData = useCallback(() => {
     setLoading(true)
-    api.get(`/orders/stats/failures/?${queryString()}`)
+    api.get(`/orders/stats/failures/?${queryString()}&page=${page}&per_page=${perPage}`)
       .then(({ data }) => setData(data))
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [queryString])
+  }, [queryString, page])
 
   useEffect(() => { if (ready) fetchData() }, [fetchData, ready])
+  useEffect(() => { setPage(1) }, [queryString])
+
+  const handleExport = async () => {
+    setExporting(true)
+    try {
+      await downloadCsv(api, `/orders/stats/failures/?${queryString()}&export=csv`, 'echecs.csv')
+    } finally { setExporting(false) }
+  }
 
   return (
     <DashboardLayout title="Statistique des échecs">
-      <PeriodFilter period={period} setPeriod={setPeriod} dateFrom={dateFrom} setDateFrom={setDateFrom} dateTo={dateTo} setDateTo={setDateTo} />
+      <div className="flex items-center justify-between gap-3 mb-6 flex-wrap">
+        <PeriodFilter period={period} setPeriod={setPeriod} dateFrom={dateFrom} setDateFrom={setDateFrom} dateTo={dateTo} setDateTo={setDateTo} />
+        <StatsToolbar onRefresh={fetchData} onExport={handleExport} exporting={exporting} exportDisabled={!data?.total} />
+      </div>
       {loading || !data ? <Spinner /> : (
         <>
-          <p className="text-sm mb-5" style={{ color: theme.dark.muted }}>{data.total} tentative{data.total !== 1 ? 's' : ''} d'appel en échec sur la période.</p>
+          <p className="text-sm mb-5 flex items-center gap-2" style={{ color: theme.dark.muted }}>
+            {data.total} tentative{data.total !== 1 ? 's' : ''} d'appel en échec sur la période.
+            <TrendBadge pct={data.total_delta_pct} />
+          </p>
           <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border }}>
             <table className="w-full text-sm min-w-140">
               <thead style={{ background: theme.dark.sidebar }}>
@@ -54,6 +71,7 @@ export default function FailuresStatsPage() {
               </tbody>
             </table>
           </div>
+          <StatsPagination page={page} setPage={setPage} count={data.count} perPage={perPage} />
         </>
       )}
     </DashboardLayout>

@@ -30,48 +30,93 @@ function TrashIcon() {
 const TYPE_LABELS = { internal: 'Interne', external: 'Externe', page: 'Page' }
 const TYPE_COLORS = { internal: theme.badge.info, external: theme.badge.neutral, page: theme.badge.cyan }
 
-function SortableItem({ item, onUpdate, onRemove, pages, slug }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id })
-
+function ChildRow({ child, onUpdate, onRemove, pages, slug }) {
   return (
-    <div ref={setNodeRef}
-      style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }}
-      className="flex items-center gap-3 px-3 py-3 rounded-xl border transition-colors"
-      style2={{ borderColor: isDragging ? '#7c3aed' : theme.dark.border, background: theme.dark.card }}>
-
-      {/* Grip */}
-      <button {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing text-gray-600 hover:text-gray-400 shrink-0" type="button">
-        <GripIcon />
-      </button>
-
-      {/* Type badge */}
-      <span className={`${TYPE_COLORS[item.type] || theme.badge.neutral} shrink-0 text-[10px]`}>{TYPE_LABELS[item.type]}</span>
-
-      {/* Label */}
-      <input value={item.label} onChange={e => onUpdate({ ...item, label: e.target.value })}
+    <div className="flex items-center gap-3 px-3 py-2 rounded-lg border ml-8" style={{ borderColor: theme.dark.border, background: theme.dark.app }}>
+      <span className={`${TYPE_COLORS[child.type] || theme.badge.neutral} shrink-0 text-[10px]`}>{TYPE_LABELS[child.type]}</span>
+      <input value={child.label} onChange={e => onUpdate({ ...child, label: e.target.value })}
         className="flex-1 min-w-0 bg-transparent text-sm text-gray-200 outline-none border-b border-transparent focus:border-violet-500 transition-colors py-0.5"
         placeholder="Libellé" />
-
-      {/* URL/target */}
-      {item.type === 'page' ? (
-        <Select value={item.page_slug || ''} onChange={v => {
+      {child.type === 'page' ? (
+        <Select value={child.page_slug || ''} onChange={v => {
           const pg = pages.find(p => p.slug === v)
-          onUpdate({ ...item, page_slug: v, url: `/store/${slug}/pages/${v}`, label: item.label || pg?.title || '' })
+          onUpdate({ ...child, page_slug: v, url: `/store/${slug}/pages/${v}`, label: child.label || pg?.title || '' })
         }} options={pages.map(p => ({ value: p.slug, label: p.title }))}
           placeholder="-- Choisir page --"
-          className="text-xs rounded-lg border px-2 py-1 outline-none w-36 shrink-0"
-          style={{ background: theme.dark.app, borderColor: theme.dark.border, color: 'var(--sf-text-muted, #6b7280)' }} />
+          className="text-xs rounded-lg border px-2 py-1 outline-none w-32 shrink-0"
+          style={{ background: theme.dark.card, borderColor: theme.dark.border, color: 'var(--sf-text-muted, #6b7280)' }} />
       ) : (
-        <input value={item.url} onChange={e => onUpdate({ ...item, url: e.target.value })}
-          className="text-xs rounded-lg border px-2 py-1.5 outline-none w-48 shrink-0 font-mono"
-          style={{ background: theme.dark.app, borderColor: theme.dark.border, color: '#6b7280' }}
-          placeholder={item.type === 'external' ? 'https://…' : '/store/{slug}'} />
+        <input value={child.url} onChange={e => onUpdate({ ...child, url: e.target.value })}
+          className="text-xs rounded-lg border px-2 py-1.5 outline-none w-40 shrink-0 font-mono"
+          style={{ background: theme.dark.card, borderColor: theme.dark.border, color: '#6b7280' }}
+          placeholder={child.type === 'external' ? 'https://…' : '/store/{slug}'} />
       )}
-
-      {/* Delete */}
       <button type="button" onClick={onRemove} className="text-red-400 hover:text-red-300 shrink-0 cursor-pointer transition-colors">
         <TrashIcon />
       </button>
+    </div>
+  )
+}
+
+function SortableItem({ item, onUpdate, onRemove, pages, slug }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id })
+  const children = item.children || []
+
+  const addChild = (type) => onUpdate({ ...item, children: [...children, newItem(type, slug)] })
+  const updateChild = (updated) => onUpdate({ ...item, children: children.map(c => c.id === updated.id ? updated : c) })
+  const removeChild = (id) => onUpdate({ ...item, children: children.filter(c => c.id !== id) })
+
+  return (
+    <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }} className="space-y-2">
+      <div className="flex items-center gap-3 px-3 py-3 rounded-xl border transition-colors"
+        style2={{ borderColor: isDragging ? '#7c3aed' : theme.dark.border, background: theme.dark.card }}>
+
+        {/* Grip */}
+        <button {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing text-gray-600 hover:text-gray-400 shrink-0" type="button">
+          <GripIcon />
+        </button>
+
+        {/* Type badge */}
+        <span className={`${TYPE_COLORS[item.type] || theme.badge.neutral} shrink-0 text-[10px]`}>{TYPE_LABELS[item.type]}</span>
+
+        {/* Label */}
+        <input value={item.label} onChange={e => onUpdate({ ...item, label: e.target.value })}
+          className="flex-1 min-w-0 bg-transparent text-sm text-gray-200 outline-none border-b border-transparent focus:border-violet-500 transition-colors py-0.5"
+          placeholder="Libellé" />
+
+        {/* URL/target */}
+        {item.type === 'page' ? (
+          <Select value={item.page_slug || ''} onChange={v => {
+            const pg = pages.find(p => p.slug === v)
+            onUpdate({ ...item, page_slug: v, url: `/store/${slug}/pages/${v}`, label: item.label || pg?.title || '' })
+          }} options={pages.map(p => ({ value: p.slug, label: p.title }))}
+            placeholder="-- Choisir page --"
+            className="text-xs rounded-lg border px-2 py-1 outline-none w-36 shrink-0"
+            style={{ background: theme.dark.app, borderColor: theme.dark.border, color: 'var(--sf-text-muted, #6b7280)' }} />
+        ) : (
+          <input value={item.url} onChange={e => onUpdate({ ...item, url: e.target.value })}
+            className="text-xs rounded-lg border px-2 py-1.5 outline-none w-48 shrink-0 font-mono"
+            style={{ background: theme.dark.app, borderColor: theme.dark.border, color: '#6b7280' }}
+            placeholder={item.type === 'external' ? 'https://…' : '/store/{slug}'} />
+        )}
+
+        {/* Delete */}
+        <button type="button" onClick={onRemove} className="text-red-400 hover:text-red-300 shrink-0 cursor-pointer transition-colors">
+          <TrashIcon />
+        </button>
+      </div>
+
+      {children.map(child => (
+        <ChildRow key={child.id} child={child} onUpdate={updateChild} onRemove={() => removeChild(child.id)} pages={pages} slug={slug} />
+      ))}
+
+      <div className="ml-8 flex gap-2">
+        <button type="button" onClick={() => addChild('internal')}
+          className="text-[11px] px-2 py-1 rounded-lg border cursor-pointer transition-colors"
+          style={{ borderColor: theme.dark.border, color: theme.dark.muted }}>
+          + Sous-lien
+        </button>
+      </div>
     </div>
   )
 }

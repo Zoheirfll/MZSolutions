@@ -13,3 +13,10 @@ class CostSerializer(serializers.ModelSerializer):
 
     def get_category_label(self, obj):
         return dict(COST_CATEGORY_CHOICES).get(obj.category, obj.category)
+
+    def validate(self, data):
+        period_start = data.get('period_start', getattr(self.instance, 'period_start', None))
+        period_end   = data.get('period_end', getattr(self.instance, 'period_end', None))
+        if period_start and period_end and period_end < period_start:
+            raise serializers.ValidationError({'period_end': 'La date de fin doit être après la date de début.'})
+        return data

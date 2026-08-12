@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import DashboardLayout from '../components/DashboardLayout'
+import Select from '../components/Select'
 import { useAuth } from '../context/AuthContext'
 import api from '../api/axios'
 import { theme } from '../theme'
@@ -12,6 +13,12 @@ const TABS = [
   { value: 'meta',    label: 'Meta Commerce' },
 ]
 
+const LOG_CHANNEL_OPTIONS = [
+  { value: '',              label: 'Tous les canaux' },
+  { value: 'shopify',       label: 'Shopify' },
+  { value: 'google_sheets', label: 'Google Sheets' },
+]
+
 function Spinner() {
   return (
     <div className="flex items-center justify-center gap-2 text-gray-500 py-10">
@@ -21,6 +28,14 @@ function Spinner() {
       </svg>
       Chargement…
     </div>
+  )
+}
+
+function CheckIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="14" height="14" {...props}>
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
   )
 }
 
@@ -49,8 +64,8 @@ function ConnectModal({ channel, initial, onClose, onSaved }) {
   const urlLabel = channel === 'shopify' ? 'URL de la boutique (ex: monshop.myshopify.com)' : 'URL ou ID du Google Sheet'
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
-      <div className="w-full max-w-md rounded-xl border p-6" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: 'rgba(0,0,0,0.7)' }} onClick={onClose}>
+      <div className="w-full max-w-md rounded-xl border p-6" style={{ background: theme.dark.card, borderColor: theme.dark.border }} onClick={e => e.stopPropagation()}>
         <h3 className="font-semibold text-gray-200 mb-1">Connecter {label}</h3>
         <p className="text-xs mb-5" style={{ color: theme.dark.muted }}>
           Les accès API réels ne sont pas encore obtenus — la connexion est enregistrée et la synchronisation fonctionne en mode simulé (aucun appel réseau réel) en attendant.
@@ -83,7 +98,7 @@ function ConnectModal({ channel, initial, onClose, onSaved }) {
   )
 }
 
-function ChannelCard({ title, description, connection, onConnect, onSync, onDisconnect, syncing, pullDirection = 'pull', pullLabel = 'Importer les commandes' }) {
+function ChannelCard({ title, description, connection, onConnect, onSync, onDisconnect, syncingDirection, pullDirection = 'pull', pullLabel = 'Importer les commandes' }) {
   return (
     <div className="rounded-xl border p-5 flex flex-col gap-3" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
       <div>
@@ -98,11 +113,11 @@ function ChannelCard({ title, description, connection, onConnect, onSync, onDisc
             <p>Dernière synchro : <span className="text-gray-300">{connection.last_synced_at ? new Date(connection.last_synced_at).toLocaleString('fr-DZ') : 'jamais'}</span></p>
           </div>
           <div className="flex gap-2 flex-wrap">
-            <button onClick={() => onSync(connection, 'push')} disabled={syncing} className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-violet-600 hover:bg-violet-500 disabled:opacity-60 cursor-pointer transition">
-              {syncing ? '…' : 'Pousser le catalogue'}
+            <button onClick={() => onSync(connection, 'push')} disabled={!!syncingDirection} className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-violet-600 hover:bg-violet-500 disabled:opacity-60 cursor-pointer transition">
+              {syncingDirection === 'push' ? 'Envoi…' : 'Pousser le catalogue'}
             </button>
-            <button onClick={() => onSync(connection, pullDirection)} disabled={syncing} className="px-3 py-1.5 rounded-lg text-xs font-semibold border text-gray-300 hover:bg-white/5 disabled:opacity-60 cursor-pointer transition" style={{ borderColor: theme.dark.border }}>
-              {syncing ? '…' : pullLabel}
+            <button onClick={() => onSync(connection, pullDirection)} disabled={!!syncingDirection} className="px-3 py-1.5 rounded-lg text-xs font-semibold border text-gray-300 hover:bg-white/5 disabled:opacity-60 cursor-pointer transition" style={{ borderColor: theme.dark.border }}>
+              {syncingDirection === pullDirection ? 'Import…' : pullLabel}
             </button>
             <button onClick={() => onDisconnect(connection)} className="px-3 py-1.5 rounded-lg text-xs font-semibold text-red-400 hover:bg-red-900/20 cursor-pointer transition">
               Déconnecter
@@ -135,8 +150,8 @@ function ShopifyConnectModal({ onClose, onError }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
-      <div className="w-full max-w-md rounded-xl border p-6" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: 'rgba(0,0,0,0.7)' }} onClick={onClose}>
+      <div className="w-full max-w-md rounded-xl border p-6" style={{ background: theme.dark.card, borderColor: theme.dark.border }} onClick={e => e.stopPropagation()}>
         <h3 className="font-semibold text-gray-200 mb-1">Connecter Shopify</h3>
         <p className="text-xs mb-5" style={{ color: theme.dark.muted }}>
           Vous allez être redirigé vers Shopify pour autoriser MZSolutions à accéder à votre boutique. Aucune information sensible à saisir ici.
@@ -164,19 +179,25 @@ export default function SalesChannelsPage() {
   const [tab, setTab] = useState('stores')
   const [connections, setConnections] = useState([])
   const [logs, setLogs] = useState([])
+  const [logChannel, setLogChannel] = useState('')
   const [loading, setLoading] = useState(true)
   const [modalChannel, setModalChannel] = useState(null)
   const [shopifyModalOpen, setShopifyModalOpen] = useState(false)
-  const [syncingId, setSyncingId] = useState(null)
+  const [syncing, setSyncing] = useState(null) // { connectionId, direction }
   const [notice, setNotice] = useState('')
   const [noticeError, setNoticeError] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  const fetchConnections = () => api.get('/channels/connections/').then(({ data }) => setConnections(data))
+  const fetchLogs = useCallback(() => {
+    const params = new URLSearchParams()
+    if (logChannel) params.set('channel', logChannel)
+    return api.get(`/channels/logs/?${params}`).then(({ data }) => setLogs(data))
+  }, [logChannel])
 
   const fetchAll = () => {
     setLoading(true)
-    Promise.all([api.get('/channels/connections/'), api.get('/channels/logs/')])
-      .then(([c, l]) => { setConnections(c.data); setLogs(l.data) })
-      .catch(() => {})
-      .finally(() => setLoading(false))
+    Promise.all([fetchConnections(), fetchLogs()]).catch(() => {}).finally(() => setLoading(false))
   }
 
   useEffect(() => {
@@ -187,17 +208,32 @@ export default function SalesChannelsPage() {
       setNoticeError(false)
       window.history.replaceState({}, '', window.location.pathname)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  useEffect(() => { fetchLogs().catch(() => {}) }, [fetchLogs])
 
   const byChannel = key => connections.find(c => c.channel === key)
 
   const handleSync = async (connection, direction) => {
-    setSyncingId(connection.id)
+    setSyncing({ connectionId: connection.id, direction })
+    setNotice('')
     try {
-      await api.post(`/channels/connections/${connection.id}/sync/`, { direction })
-      fetchAll()
+      const { data } = await api.post(`/channels/connections/${connection.id}/sync/`, { direction })
+      if (data.status === 'success') {
+        setNotice(data.message || 'Synchronisation réussie.')
+        setNoticeError(false)
+      } else {
+        setNotice(data.message || 'La synchronisation a échoué.')
+        setNoticeError(true)
+      }
+      fetchConnections()
+      fetchLogs()
+    } catch (err) {
+      setNotice(err.response?.data?.detail || 'La synchronisation a échoué.')
+      setNoticeError(true)
     } finally {
-      setSyncingId(null)
+      setSyncing(null)
     }
   }
 
@@ -208,6 +244,12 @@ export default function SalesChannelsPage() {
   }
 
   const feedUrl = user?.store_slug ? `${API_BASE}/api/public/store/${user.store_slug}/catalog.xml` : ''
+
+  const copyFeedUrl = () => {
+    navigator.clipboard.writeText(feedUrl)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
 
   return (
     <DashboardLayout title="Canaux de vente">
@@ -236,7 +278,8 @@ export default function SalesChannelsPage() {
               <ChannelCard
                 title="Shopify" description="Connectez votre boutique Shopify — les commandes arrivent automatiquement dans MZSolutions."
                 connection={byChannel('shopify')} onConnect={() => setShopifyModalOpen(true)}
-                onSync={handleSync} onDisconnect={handleDisconnect} syncing={syncingId === byChannel('shopify')?.id}
+                onSync={handleSync} onDisconnect={handleDisconnect}
+                syncingDirection={syncing && byChannel('shopify') && syncing.connectionId === byChannel('shopify').id ? syncing.direction : null}
                 pullDirection="pull_products" pullLabel="Importer les produits"
               />
             </div>
@@ -247,7 +290,8 @@ export default function SalesChannelsPage() {
               <ChannelCard
                 title="Google Sheets" description="Synchronisez automatiquement vos données de commandes avec Google Sheets pour les rapports et l'analyse."
                 connection={byChannel('google_sheets')} onConnect={() => setModalChannel('google_sheets')}
-                onSync={handleSync} onDisconnect={handleDisconnect} syncing={syncingId === byChannel('google_sheets')?.id}
+                onSync={handleSync} onDisconnect={handleDisconnect}
+                syncingDirection={syncing && byChannel('google_sheets') && syncing.connectionId === byChannel('google_sheets').id ? syncing.direction : null}
               />
             </div>
           )}
@@ -260,12 +304,22 @@ export default function SalesChannelsPage() {
               </p>
               <div className="flex items-center gap-2">
                 <input readOnly value={feedUrl} className="flex-1 px-3.5 py-2.5 rounded-lg border text-sm text-gray-300 bg-transparent outline-none [color-scheme:dark]" style={{ borderColor: theme.dark.border }} />
-                <button onClick={() => navigator.clipboard.writeText(feedUrl)} className={theme.btn.primary + ' text-sm shrink-0'}>Copier</button>
+                <a href={feedUrl} target="_blank" rel="noreferrer" className="px-3.5 py-2.5 rounded-lg text-sm border text-gray-300 hover:bg-white/5 transition shrink-0" style={{ borderColor: theme.dark.border }}>
+                  Ouvrir
+                </a>
+                <button onClick={copyFeedUrl} className={theme.btn.primary + ' text-sm shrink-0 flex items-center gap-1.5'}>
+                  {copied ? <><CheckIcon /> Copié</> : 'Copier'}
+                </button>
               </div>
             </div>
           )}
 
-          <h2 className="font-semibold text-gray-200 mb-3">Journal de synchronisation</h2>
+          <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
+            <h2 className="font-semibold text-gray-200">Journal de synchronisation</h2>
+            <div className="w-52">
+              <Select value={logChannel} onChange={setLogChannel} options={LOG_CHANNEL_OPTIONS} variant="dark" />
+            </div>
+          </div>
           <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border }}>
             <table className="w-full text-sm min-w-140">
               <thead style={{ background: theme.dark.sidebar }}>

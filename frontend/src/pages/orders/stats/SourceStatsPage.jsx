@@ -3,12 +3,13 @@ import { PieChart, Pie, Cell, Legend, Tooltip, ResponsiveContainer } from 'recha
 import DashboardLayout from '../../../components/DashboardLayout'
 import api from '../../../api/axios'
 import { theme } from '../../../theme'
-import { usePeriod, PeriodFilter, Spinner, money, PIE_COLORS } from './statsShared'
+import { usePeriod, PeriodFilter, Spinner, money, PIE_COLORS, StatsToolbar, TrendBadge, downloadCsv } from './statsShared'
 
 export default function SourceStatsPage() {
   const { period, setPeriod, dateFrom, setDateFrom, dateTo, setDateTo, queryString, ready } = usePeriod()
   const [results, setResults] = useState([])
   const [loading, setLoading] = useState(true)
+  const [exporting, setExporting] = useState(false)
 
   const fetchData = useCallback(() => {
     setLoading(true)
@@ -20,9 +21,19 @@ export default function SourceStatsPage() {
 
   useEffect(() => { if (ready) fetchData() }, [fetchData, ready])
 
+  const handleExport = async () => {
+    setExporting(true)
+    try {
+      await downloadCsv(api, `/orders/stats/sources/?${queryString()}&export=csv`, 'sources.csv')
+    } finally { setExporting(false) }
+  }
+
   return (
     <DashboardLayout title="Statistiques des sources">
-      <PeriodFilter period={period} setPeriod={setPeriod} dateFrom={dateFrom} setDateFrom={setDateFrom} dateTo={dateTo} setDateTo={setDateTo} />
+      <div className="flex items-center justify-between gap-3 mb-6 flex-wrap">
+        <PeriodFilter period={period} setPeriod={setPeriod} dateFrom={dateFrom} setDateFrom={setDateFrom} dateTo={dateTo} setDateTo={setDateTo} />
+        <StatsToolbar onRefresh={fetchData} onExport={handleExport} exporting={exporting} exportDisabled={results.length === 0} />
+      </div>
       {loading ? <Spinner /> : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="rounded-xl border p-5" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
@@ -57,7 +68,12 @@ export default function SourceStatsPage() {
                 ) : results.map(r => (
                   <tr key={r.source} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
                     <td className="px-4 py-3 text-gray-200">{r.source}</td>
-                    <td className="px-4 py-3 text-gray-300">{r.orders_count}</td>
+                    <td className="px-4 py-3 text-gray-300">
+                      <div className="flex items-center gap-2">
+                        {r.orders_count}
+                        <TrendBadge pct={r.orders_count_delta_pct} />
+                      </div>
+                    </td>
                     <td className="px-4 py-3"><span className={theme.badge.success}>{r.confirmed_count}</span></td>
                     <td className="px-4 py-3 text-gray-200">{money(r.revenue)}</td>
                   </tr>

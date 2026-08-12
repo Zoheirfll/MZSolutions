@@ -81,7 +81,10 @@ export default function ThemePage() {
   })
   const [saving, setSaving] = useState(false)
   const [saved,  setSaved]  = useState(false)
+  const [colorErrors, setColorErrors] = useState({})
   const storeSlug = user?.store_slug
+
+  const HEX_RE = /^#[0-9a-fA-F]{6}$/
 
   useEffect(() => {
     api.get('/stores/me/settings/').then(({ data }) => {
@@ -96,6 +99,12 @@ export default function ThemePage() {
   }, [])
 
   const save = async () => {
+    const errs = {}
+    if (form.theme_primary && !HEX_RE.test(form.theme_primary)) errs.theme_primary = 'Format invalide — utilisez #RRGGBB (ex: #7c3aed).'
+    if (form.theme_secondary && !HEX_RE.test(form.theme_secondary)) errs.theme_secondary = 'Format invalide — utilisez #RRGGBB (ex: #4c1d95).'
+    setColorErrors(errs)
+    if (Object.keys(errs).length) return
+
     setSaving(true)
     try {
       await api.put('/stores/me/settings/', form)
@@ -172,6 +181,7 @@ export default function ThemePage() {
                     </button>
                   )}
                 </div>
+                {colorErrors.theme_primary && <p className="text-red-400 text-xs mt-1">{colorErrors.theme_primary}</p>}
               </div>
               <div>
                 <label className={theme.labelDark}>Couleur secondaire (hero)</label>
@@ -191,6 +201,7 @@ export default function ThemePage() {
                     </button>
                   )}
                 </div>
+                {colorErrors.theme_secondary && <p className="text-red-400 text-xs mt-1">{colorErrors.theme_secondary}</p>}
               </div>
             </div>
           </div>

@@ -82,7 +82,11 @@ export default function Dashboard() {
   }, [])
 
   const usedPct = quota ? Math.round((quota.orders_used / quota.orders_limit) * 100) : 0
-  const daysLeft = quota ? Math.max(0, Math.ceil((new Date(quota.trial_ends_at) - new Date()) / 86400000)) : 0
+  const daysLeftUntil = (dateStr) => Math.max(0, Math.ceil((new Date(dateStr) - new Date()) / 86400000))
+  const daysLeft = quota
+    ? (quota.is_subscription_active ? daysLeftUntil(quota.period_end) : daysLeftUntil(quota.trial_ends_at))
+    : 0
+  const daysLeftLabel = quota?.is_subscription_active ? "Jours avant renouvellement" : "Jours d'essai"
 
   const statValue = (key) => stats ? (key === 'total' ? stats.total : stats[key]?.count ?? 0) : 0
   const returnRate = globalStats?.total_orders
@@ -131,7 +135,7 @@ export default function Dashboard() {
               </div>
               <div className="w-px h-10 hidden sm:block" style={{ background: theme.dark.border }} />
               <div>
-                <p className="text-xs font-medium mb-1" style={{ color: theme.dark.muted }}>Jours d'essai</p>
+                <p className="text-xs font-medium mb-1" style={{ color: theme.dark.muted }}>{daysLeftLabel}</p>
                 <p className="text-3xl font-bold text-violet-300">{daysLeft}
                   <span className="text-sm font-normal ml-1" style={{ color: theme.dark.muted }}>jours</span>
                 </p>
@@ -149,10 +153,16 @@ export default function Dashboard() {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <span className={quota.is_trial_active ? theme.badge.success : theme.badge.danger}>
-                <span className={`w-1.5 h-1.5 rounded-full ${quota.is_trial_active ? 'bg-emerald-400' : 'bg-red-400'}`} />
-                {quota.is_trial_active ? 'Essai actif' : 'Expiré'}
-              </span>
+              {(() => {
+                const active = quota.is_trial_active || quota.is_subscription_active
+                const label = quota.is_subscription_active ? (quota.plan?.name ? `Abonnement ${quota.plan.name}` : 'Abonnement actif') : quota.is_trial_active ? 'Essai actif' : 'Expiré'
+                return (
+                  <span className={active ? theme.badge.success : theme.badge.danger}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${active ? 'bg-emerald-400' : 'bg-red-400'}`} />
+                    {label}
+                  </span>
+                )
+              })()}
               <button onClick={() => navigate('/dashboard/abonnement')} className={theme.btn.primary}>Mettre à niveau</button>
             </div>
           </div>

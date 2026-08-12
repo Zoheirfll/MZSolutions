@@ -12,6 +12,11 @@ def serve_react(request, path=''):
     response['ngrok-skip-browser-warning'] = 'true'
     return response
 
+def robots_txt(request):
+    return HttpResponse("User-agent: *\nAllow: /store/\nDisallow: /dashboard/\nDisallow: /api/\n",
+                         content_type='text/plain; charset=utf-8')
+
+
 def privacy_policy(request):
     return HttpResponse("""<!doctype html><html lang="fr"><head><meta charset="utf-8">
 <title>Politique de confidentialité — MZSolutions</title>
@@ -58,13 +63,15 @@ urlpatterns = [
     path('api/public/channels/shopify/webhooks/customers-redact/', __import__('channels.views', fromlist=['ShopifyCustomersRedactView']).ShopifyCustomersRedactView.as_view()),
     path('api/public/channels/shopify/webhooks/shop-redact/', __import__('channels.views', fromlist=['ShopifyShopRedactView']).ShopifyShopRedactView.as_view()),
     path('legal/privacy-policy/', privacy_policy),
+    path('robots.txt', robots_txt),
 ]
 
 # Stores pages & media
 from stores.views import (StorePageListCreateView, StorePageDetailView,
                            MediaFolderListCreateView, MediaFolderDeleteView,
-                           MediaFileListView, MediaFileUploadView, MediaFileDeleteView)
-from orders.views import CarrierAccountListCreateView, CarrierAccountDetailView
+                           MediaFileListView, MediaFileUploadView, MediaFileDeleteView,
+                           MediaFileBulkDeleteView, MediaStorageSummaryView)
+from orders.views import CarrierAccountListCreateView, CarrierAccountDetailView, CarrierRatesView, CarrierDesksView
 urlpatterns += [
     path('api/stores/pages/',           StorePageListCreateView.as_view()),
     path('api/stores/pages/<int:pk>/',  StorePageDetailView.as_view()),
@@ -73,8 +80,12 @@ urlpatterns += [
     path('api/media/files/',            MediaFileListView.as_view()),
     path('api/media/files/upload/',     MediaFileUploadView.as_view()),
     path('api/media/files/<int:pk>/',   MediaFileDeleteView.as_view()),
+    path('api/media/files/bulk-delete/', MediaFileBulkDeleteView.as_view()),
+    path('api/media/storage/',           MediaStorageSummaryView.as_view()),
     path('api/stores/me/carriers/',           CarrierAccountListCreateView.as_view()),
     path('api/stores/me/carriers/<int:pk>/',  CarrierAccountDetailView.as_view()),
+    path('api/stores/me/carriers/<int:pk>/rates/', CarrierRatesView.as_view()),
+    path('api/stores/me/carriers/<int:pk>/desks/', CarrierDesksView.as_view()),
 ]
 
 urlpatterns += [

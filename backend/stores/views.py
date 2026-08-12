@@ -1,3 +1,4 @@
+from django.db.models import Count
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -18,11 +19,11 @@ class MyStoreView(APIView):
             store = request.user.store
         except Store.DoesNotExist:
             return Response({'detail': 'Aucune boutique associée.'}, status=status.HTTP_404_NOT_FOUND)
-        return Response(StoreSerializer(store).data)
+        return Response(StoreSerializer(store, context={'request': request}).data)
 
     def put(self, request):
         store = request.user.store
-        serializer = StoreSerializer(store, data=request.data, partial=True)
+        serializer = StoreSerializer(store, data=request.data, partial=True, context={'request': request})
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data)
@@ -125,8 +126,38 @@ class StorePageDetailView(APIView):
     def delete(self, request, pk):
         page, err = self._get(request, pk)
         if err: return err
+        slug = page.slug
+        store = page.store
         page.delete()
-        return Response(status=204)
+
+        # Nettoyage auto du menu — un lien vers cette page devenait un lien
+        # mort silencieux (aucune détection avant cette passe), on retire
+        # désormais toute entrée (top-niveau ou sous-lien) qui la référençait.
+        removed = 0
+        try:
+            settings = store.settings
+            items = settings.menu_items or []
+
+            def _clean(list_items):
+                nonlocal removed
+                kept = []
+                for item in list_items:
+                    if item.get('type') == 'page' and item.get('page_slug') == slug:
+                        removed += 1
+                        continue
+                    if item.get('children'):
+                        item['children'] = _clean(item['children'])
+                    kept.append(item)
+                return kept
+
+            cleaned = _clean(items)
+            if removed:
+                settings.menu_items = cleaned
+                settings.save(update_fields=['menu_items'])
+        except Exception:
+            pass
+
+        return Response({'menu_links_removed': removed}, status=200)
 
 
 # ─── Gestionnaire de fichiers ─────────────────────────────────────────────────
@@ -238,6 +269,58 @@ class MediaFileDeleteView(APIView):
         mf.file.delete(save=False)
         mf.delete()
         return Response(status=204)
+
+    def put(self, request, pk):
+        """Déplace un fichier vers un autre dossier (ou la racine si
+        `folder` absent/null) — jusqu'ici le dossier n'était réglable qu'à
+        l'upload, aucun moyen de réorganiser après coup."""
+        store = _get_store_from_request(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        try:
+            mf = store.media_files.get(pk=pk)
+        except MediaFile.DoesNotExist:
+            return Response({'detail': 'Fichier introuvable.'}, status=404)
+        folder_id = request.data.get('folder')
+        if folder_id:
+            try:
+                mf.folder = store.media_folders.get(pk=folder_id)
+            except MediaFolder.DoesNotExist:
+                return Response({'detail': 'Dossier introuvable.'}, status=404)
+        else:
+            mf.folder = None
+        mf.save(update_fields=['folder'])
+        return Response(MediaFileSerializer(mf, context={'request': request}).data)
+
+
+class MediaFileBulkDeleteView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        store = _get_store_from_request(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        ids = request.data.get('ids', [])
+        qs = store.media_files.filter(pk__in=ids)
+        count = qs.count()
+        for mf in qs:
+            mf.file.delete(save=False)
+        qs.delete()
+        return Response({'deleted': count})
+
+
+class MediaStorageSummaryView(APIView):
+    """Espace de stockage total utilisé — les tailles étaient suivies
+    (MediaFile.size) mais jamais agrégées/affichées nulle part."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        store = _get_store_from_request(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        from django.db.models import Sum
+        agg = store.media_files.aggregate(total_size=Sum('size'), count=Count('id'))
+        return Response({'total_size': agg['total_size'] or 0, 'count': agg['count'] or 0})
 
 
 # ─── Pixels marketing (Epic 8.3) ──────────────────────────────────────────────

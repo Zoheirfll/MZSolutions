@@ -1,9 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
+import Select from '../../components/Select'
+import BlockPhoneModal from '../../components/BlockPhoneModal'
+import ClientOrdersModal from '../../components/ClientOrdersModal'
 import api from '../../api/axios'
 import { theme } from '../../theme'
 
-const EMPTY_FORM = { phone: '', message: '' }
+const PER_PAGE_OPTIONS = [10, 25, 50]
 
 function ShieldIcon(props) {
   return (
@@ -24,18 +27,29 @@ function TrashIcon(props) {
   )
 }
 
-function PlusIcon(props) {
+function PencilIcon(props) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="16" height="16" {...props}>
-      <path d="M12 5v14M5 12h14" />
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14" {...props}>
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
     </svg>
   )
 }
 
-function CloseIcon(props) {
+function HistoryIcon(props) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18" {...props}>
-      <path d="M18 6 6 18M6 6l12 12" />
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14" {...props}>
+      <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+      <path d="M3 3v5h5" />
+      <path d="M12 7v5l3 3" />
+    </svg>
+  )
+}
+
+function PlusIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="16" height="16" {...props}>
+      <path d="M12 5v14M5 12h14" />
     </svg>
   )
 }
@@ -62,74 +76,27 @@ function EmptyState({ icon, title, subtitle }) {
   )
 }
 
-function BlockModal({ onClose, onSaved }) {
-  const [form, setForm]     = useState(EMPTY_FORM)
-  const [saving, setSaving] = useState(false)
-  const [errors, setErrors] = useState({})
-
-  const inputCls = 'w-full px-3.5 py-2.5 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 transition [color-scheme:dark]'
-  const bdrStyle = { borderColor: theme.dark.border }
-
-  const submit = async e => {
-    e.preventDefault()
-    setSaving(true)
-    setErrors({})
-    try {
-      await api.post('/orders/blacklist/', form)
-      onSaved()
-    } catch (err) {
-      setErrors(err.response?.data || {})
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
-      <div className="w-full max-w-md rounded-xl border p-6" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-        <div className="flex items-center justify-between mb-5">
-          <h3 className="font-semibold text-gray-200">Bloquer un numéro de téléphone</h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-300 transition cursor-pointer"><CloseIcon /></button>
-        </div>
-        <form onSubmit={submit} className="space-y-4">
-          <div>
-            <label className="block text-xs text-gray-400 mb-1.5">Message</label>
-            <textarea value={form.message} onChange={e => setForm(f => ({ ...f, message: e.target.value }))} rows={3}
-              className={`${inputCls} resize-none`} style={bdrStyle}
-              placeholder="Entrez un message que vous devez montrer au client" />
-          </div>
-          <div>
-            <label className="block text-xs text-gray-400 mb-1.5">Numéro de téléphone *</label>
-            <input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} required
-              className={inputCls} style={bdrStyle} placeholder="Entrez un numéro de téléphone à bloquer" />
-            {errors.phone && <p className="text-red-400 text-xs mt-1">{errors.phone}</p>}
-          </div>
-          <div className="flex justify-end gap-3 pt-1">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-400 hover:text-gray-200 cursor-pointer transition">Fermer</button>
-            <button type="submit" disabled={saving} className="px-5 py-2 rounded-lg text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 cursor-pointer transition flex items-center gap-1.5">
-              <ShieldIcon width={14} height={14} /> {saving ? '…' : 'Bloquer'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  )
-}
-
 export default function BlacklistPage() {
-  const [entries, setEntries]     = useState([])
+  const [data, setData]         = useState({ results: [], count: 0 })
+  const [search, setSearch]     = useState('')
+  const [page, setPage]         = useState(1)
+  const [perPage, setPerPage]   = useState(10)
+  const [loading, setLoading]   = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
-  const [loading, setLoading]     = useState(true)
+  const [editingEntry, setEditingEntry] = useState(null)
+  const [historyEntry, setHistoryEntry] = useState(null)
 
-  const fetchEntries = () => {
+  const fetchEntries = useCallback(() => {
     setLoading(true)
-    api.get('/orders/blacklist/')
-      .then(({ data }) => setEntries(data))
+    const params = new URLSearchParams({ page, per_page: perPage })
+    if (search) params.set('search', search)
+    api.get(`/orders/blacklist/?${params}`)
+      .then(({ data }) => setData(data))
       .catch(() => {})
       .finally(() => setLoading(false))
-  }
+  }, [page, perPage, search])
 
-  useEffect(() => { fetchEntries() }, [])
+  useEffect(() => { fetchEntries() }, [fetchEntries])
 
   const handleDelete = async (id) => {
     if (!confirm('Débloquer ce numéro ?')) return
@@ -137,17 +104,34 @@ export default function BlacklistPage() {
     fetchEntries()
   }
 
+  const totalPages = Math.max(1, Math.ceil(data.count / perPage))
+
   return (
     <DashboardLayout title="Liste noire">
       {modalOpen && (
-        <BlockModal onClose={() => setModalOpen(false)} onSaved={() => { setModalOpen(false); fetchEntries() }} />
+        <BlockPhoneModal onClose={() => setModalOpen(false)} onSaved={() => { setModalOpen(false); fetchEntries() }} />
+      )}
+      {editingEntry && (
+        <BlockPhoneModal entry={editingEntry} onClose={() => setEditingEntry(null)} onSaved={() => { setEditingEntry(null); fetchEntries() }} />
+      )}
+      {historyEntry && (
+        <ClientOrdersModal phone={historyEntry.phone} name={historyEntry.phone} onClose={() => setHistoryEntry(null)} />
       )}
 
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-5">
-        <p className="text-sm" style={{ color: theme.dark.muted }}>{entries.length} numéro{entries.length !== 1 ? 's' : ''} bloqué{entries.length !== 1 ? 's' : ''}</p>
-        <button onClick={() => setModalOpen(true)} className={theme.btn.primary + ' text-sm shrink-0'}>
-          <PlusIcon /> Ajouter
-        </button>
+        <input
+          value={search}
+          onChange={e => { setSearch(e.target.value); setPage(1) }}
+          placeholder="Recherche par téléphone"
+          className="px-4 py-2 rounded-lg text-sm text-gray-200 border outline-none focus:border-violet-500 transition w-full sm:w-72"
+          style={{ background: theme.dark.card, borderColor: theme.dark.border }}
+        />
+        <div className="flex items-center gap-3 shrink-0">
+          <p className="text-sm" style={{ color: theme.dark.muted }}>{data.count} numéro{data.count !== 1 ? 's' : ''} bloqué{data.count !== 1 ? 's' : ''}</p>
+          <button onClick={() => setModalOpen(true)} className={theme.btn.primary + ' text-sm shrink-0'}>
+            <PlusIcon /> Ajouter
+          </button>
+        </div>
       </div>
 
       <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border }}>
@@ -165,11 +149,11 @@ export default function BlacklistPage() {
           <tbody>
             {loading ? (
               <tr><td colSpan={6}><Spinner /></td></tr>
-            ) : entries.length === 0 ? (
+            ) : data.results.length === 0 ? (
               <tr><td colSpan={6}>
                 <EmptyState icon={<ShieldIcon />} title="Aucun numéro bloqué" subtitle="Bloquez un client problématique pour empêcher ses futures commandes." />
               </td></tr>
-            ) : entries.map(e => (
+            ) : data.results.map(e => (
               <tr key={e.id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
                 <td className="px-4 py-3 text-gray-200 font-mono text-xs">{e.phone}</td>
                 <td className="px-4 py-3 text-gray-400 max-w-56 truncate" title={e.message}>{e.message || '—'}</td>
@@ -181,13 +165,34 @@ export default function BlacklistPage() {
                 </td>
                 <td className="px-4 py-3 text-gray-500 text-xs">{new Date(e.created_at).toLocaleDateString('fr-DZ')}</td>
                 <td className="px-4 py-3">
-                  <button onClick={() => handleDelete(e.id)} className="p-1.5 rounded text-red-400 hover:bg-red-900/20 transition cursor-pointer" title="Débloquer"><TrashIcon /></button>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => setHistoryEntry(e)} className="p-1.5 rounded text-violet-300 hover:bg-violet-600/20 transition cursor-pointer" title="Historique des commandes"><HistoryIcon /></button>
+                    <button onClick={() => setEditingEntry(e)} className="p-1.5 rounded text-gray-300 hover:bg-white/10 transition cursor-pointer" title="Modifier le message"><PencilIcon /></button>
+                    <button onClick={() => handleDelete(e.id)} className="p-1.5 rounded text-red-400 hover:bg-red-900/20 transition cursor-pointer" title="Débloquer"><TrashIcon /></button>
+                  </div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      {data.count > 0 && (
+        <div className="flex items-center justify-between mt-4 text-sm" style={{ color: theme.dark.muted }}>
+          <div className="flex items-center gap-2 text-xs">
+            Lignes par page :
+            <Select value={perPage} onChange={v => { setPerPage(Number(v)); setPage(1) }}
+              options={PER_PAGE_OPTIONS.map(n => ({ value: n, label: n }))}
+              className="px-2 py-1 rounded-lg border text-gray-300 text-xs"
+              style={{ background: theme.dark.card, borderColor: theme.dark.border, minWidth: 64 }} />
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-white/5 transition">← Précédent</button>
+            <span className={theme.badge.info}>{page}</span>
+            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-white/5 transition">Suivant →</button>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   )
 }

@@ -33,28 +33,42 @@ function Spinner() {
   )
 }
 
-function AddModal({ pixelType, onClose, onSaved }) {
-  const [pixelId, setPixelId] = useState('')
-  const [label, setLabel]     = useState('')
+function CheckIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="14" height="14" {...props}>
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
+  )
+}
+
+function PixelModal({ pixelType, pixel, onClose, onSaved }) {
+  const isEdit = !!pixel
+  const [pixelId, setPixelId] = useState(pixel?.pixel_id || '')
+  const [label, setLabel]     = useState(pixel?.label || '')
   const [saving, setSaving]   = useState(false)
+  const [error, setError]     = useState('')
   const inputCls = 'w-full px-3.5 py-2.5 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 transition'
   const bdrStyle = { borderColor: theme.dark.border }
 
   const submit = async e => {
     e.preventDefault()
     setSaving(true)
+    setError('')
     try {
-      await api.post('/stores/me/pixels/', { pixel_type: pixelType, pixel_id: pixelId, label })
+      if (isEdit) await api.put(`/stores/me/pixels/${pixel.id}/`, { pixel_id: pixelId, label })
+      else await api.post('/stores/me/pixels/', { pixel_type: pixelType, pixel_id: pixelId, label })
       onSaved()
+    } catch (err) {
+      setError(err.response?.data?.detail || err.response?.data?.pixel_id?.[0] || 'Erreur lors de l\'enregistrement.')
     } finally {
       setSaving(false)
     }
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
-      <div className="w-full max-w-md rounded-xl border p-6" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-        <h3 className="font-semibold text-gray-200 mb-5">Ajouter {TABS.find(t => t.value === pixelType)?.label}</h3>
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: 'rgba(0,0,0,0.7)' }} onClick={onClose}>
+      <div className="w-full max-w-md rounded-xl border p-6" style={{ background: theme.dark.card, borderColor: theme.dark.border }} onClick={e => e.stopPropagation()}>
+        <h3 className="font-semibold text-gray-200 mb-5">{isEdit ? 'Modifier' : 'Ajouter'} {TABS.find(t => t.value === pixelType)?.label}</h3>
         <form onSubmit={submit} className="space-y-4">
           <div>
             <label className="block text-xs text-gray-400 mb-1.5">Identifiant *</label>
@@ -66,10 +80,11 @@ function AddModal({ pixelType, onClose, onSaved }) {
             <input value={label} onChange={e => setLabel(e.target.value)} placeholder="Ex : Compte pub principal"
               className={inputCls} style={bdrStyle} />
           </div>
+          {error && <p className="text-red-400 text-xs">{error}</p>}
           <div className="flex justify-end gap-3 pt-1">
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-400 hover:text-gray-200 cursor-pointer transition">Fermer</button>
             <button type="submit" disabled={saving} className={theme.btn.primary + ' text-sm disabled:opacity-60'}>
-              {saving ? '…' : 'Ajouter'}
+              {saving ? '…' : isEdit ? 'Enregistrer' : 'Ajouter'}
             </button>
           </div>
         </form>
@@ -84,6 +99,9 @@ export default function MarketingPixelsPage() {
   const [pixels, setPixels]   = useState([])
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
+  const [editingPixel, setEditingPixel] = useState(null)
+  const [togglingId, setTogglingId] = useState(null)
+  const [copied, setCopied] = useState(false)
 
   const fetchPixels = () => {
     setLoading(true)
@@ -101,8 +119,24 @@ export default function MarketingPixelsPage() {
     fetchPixels()
   }
 
+  const toggleActive = async (p) => {
+    setTogglingId(p.id)
+    try {
+      await api.put(`/stores/me/pixels/${p.id}/`, { is_active: !p.is_active })
+      fetchPixels()
+    } finally {
+      setTogglingId(null)
+    }
+  }
+
   const catalogUrl = user?.store_slug ? `${API_BASE}/api/public/store/${user.store_slug}/catalog.xml` : ''
   const currentPixels = pixels.filter(p => p.pixel_type === tab)
+
+  const copyCatalogUrl = () => {
+    navigator.clipboard.writeText(catalogUrl)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
 
   return (
     <DashboardLayout title="Marketing">
@@ -123,7 +157,9 @@ export default function MarketingPixelsPage() {
           </p>
           <div className="flex items-center gap-2">
             <input readOnly value={catalogUrl} className="flex-1 px-3.5 py-2.5 rounded-lg border text-sm text-gray-300 bg-transparent outline-none" style={{ borderColor: theme.dark.border }} />
-            <button onClick={() => navigator.clipboard.writeText(catalogUrl)} className={theme.btn.primary + ' text-sm shrink-0'}>Copier</button>
+            <button onClick={copyCatalogUrl} className={theme.btn.primary + ' text-sm shrink-0 flex items-center gap-1.5'}>
+              {copied ? <><CheckIcon /> Copié</> : 'Copier'}
+            </button>
           </div>
         </div>
       ) : loading ? <Spinner /> : (
@@ -132,25 +168,35 @@ export default function MarketingPixelsPage() {
             <button onClick={() => setModalOpen(true)} className={theme.btn.primary + ' text-sm'}>+ Ajouter</button>
           </div>
           <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border }}>
-            <table className="w-full text-sm min-w-140">
+            <table className="w-full text-sm min-w-160">
               <thead style={{ background: theme.dark.sidebar }}>
                 <tr className="text-left text-xs text-gray-500 border-b" style={{ borderColor: theme.dark.border }}>
                   <th className="px-4 py-3 font-medium">NOM</th>
                   <th className="px-4 py-3 font-medium">IDENTIFIANT</th>
+                  <th className="px-4 py-3 font-medium">STATUT</th>
                   <th className="px-4 py-3 font-medium">AJOUTÉ LE</th>
                   <th className="px-4 py-3 font-medium">ACTIONS</th>
                 </tr>
               </thead>
               <tbody>
                 {currentPixels.length === 0 ? (
-                  <tr><td colSpan={4} className="px-4 py-10 text-center text-sm text-gray-500">Aucun pixel configuré pour l'instant.</td></tr>
+                  <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-gray-500">Aucun pixel configuré pour l'instant.</td></tr>
                 ) : currentPixels.map(p => (
                   <tr key={p.id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
                     <td className="px-4 py-3 text-gray-200">{p.label || '—'}</td>
                     <td className="px-4 py-3 text-gray-300 font-mono text-xs">{p.pixel_id}</td>
+                    <td className="px-4 py-3">
+                      <button onClick={() => toggleActive(p)} disabled={togglingId === p.id}
+                        className={(p.is_active ? theme.badge.success : theme.badge.neutral) + ' cursor-pointer disabled:opacity-50'}>
+                        {togglingId === p.id ? '…' : p.is_active ? 'Actif' : 'Inactif'}
+                      </button>
+                    </td>
                     <td className="px-4 py-3 text-gray-500 text-xs">{new Date(p.created_at).toLocaleDateString('fr-DZ')}</td>
                     <td className="px-4 py-3">
-                      <button onClick={() => handleDelete(p.id)} className="text-xs text-red-400 hover:bg-red-900/20 px-2 py-1 rounded transition cursor-pointer">Supprimer</button>
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => setEditingPixel(p)} className="text-xs text-gray-300 hover:bg-white/10 px-2 py-1 rounded transition cursor-pointer">Modifier</button>
+                        <button onClick={() => handleDelete(p.id)} className="text-xs text-red-400 hover:bg-red-900/20 px-2 py-1 rounded transition cursor-pointer">Supprimer</button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -161,7 +207,10 @@ export default function MarketingPixelsPage() {
       )}
 
       {modalOpen && (
-        <AddModal pixelType={tab} onClose={() => setModalOpen(false)} onSaved={() => { setModalOpen(false); fetchPixels() }} />
+        <PixelModal pixelType={tab} onClose={() => setModalOpen(false)} onSaved={() => { setModalOpen(false); fetchPixels() }} />
+      )}
+      {editingPixel && (
+        <PixelModal pixelType={tab} pixel={editingPixel} onClose={() => setEditingPixel(null)} onSaved={() => { setEditingPixel(null); fetchPixels() }} />
       )}
     </DashboardLayout>
   )

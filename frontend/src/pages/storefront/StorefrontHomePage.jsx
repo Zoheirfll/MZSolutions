@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import StorefrontLayout from './StorefrontLayout'
 import publicApi from '../../api/publicApi'
+import useDocumentMeta from '../../hooks/useDocumentMeta'
 
 function PackageIcon(props) {
   return (
@@ -92,6 +93,11 @@ export default function StorefrontHomePage() {
       setProducts(prodRes.data.results || [])
     }).catch(() => {}).finally(() => setLoading(false))
   }, [slug])
+
+  useDocumentMeta(
+    store?.meta_title || store?.name,
+    store?.meta_description || store?.description,
+  )
 
   return (
     <StorefrontLayout>

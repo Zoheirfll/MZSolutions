@@ -45,7 +45,8 @@ class StoreSettingsSerializer(serializers.ModelSerializer):
 class StorePageSerializer(serializers.ModelSerializer):
     class Meta:
         model  = StorePage
-        fields = ['id', 'title', 'slug', 'content', 'page_type', 'is_published', 'order', 'created_at', 'updated_at']
+        fields = ['id', 'title', 'slug', 'content', 'meta_title', 'meta_description',
+                  'page_type', 'is_published', 'order', 'created_at', 'updated_at']
         read_only_fields = ['id', 'created_at', 'updated_at']
 
 
@@ -77,5 +78,18 @@ class StoreSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Store
-        fields = ['id', 'name', 'slug', 'description', 'phone', 'email', 'logo', 'is_active', 'created_at', 'quota']
-        read_only_fields = ['id', 'slug', 'created_at', 'quota']
+        fields = ['id', 'name', 'slug', 'description', 'phone', 'email', 'logo',
+                  'meta_title', 'meta_description', 'is_active', 'created_at', 'quota']
+        read_only_fields = ['id', 'created_at', 'quota']
+
+    def validate_slug(self, value):
+        from django.utils.text import slugify
+        normalized = slugify(value)
+        if not normalized:
+            raise serializers.ValidationError("Slug invalide.")
+        qs = Store.objects.filter(slug=normalized)
+        if self.instance:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError("Cette URL est déjà utilisée par une autre boutique.")
+        return normalized

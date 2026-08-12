@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import DashboardLayout from '../../components/DashboardLayout'
 import api from '../../api/axios'
@@ -39,26 +39,43 @@ const money = v => `${Number(v || 0).toLocaleString('fr-DZ')} DZD`
 export default function DropshippersPage() {
   const navigate = useNavigate()
   const [dropshippers, setDropshippers] = useState([])
+  const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    api.get('/dropshipping/dropshippers/')
+  const fetchDropshippers = useCallback(() => {
+    setLoading(true)
+    const params = new URLSearchParams()
+    if (search) params.set('search', search)
+    api.get(`/dropshipping/dropshippers/?${params}`)
       .then(({ data }) => setDropshippers(data))
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [])
+  }, [search])
+
+  useEffect(() => { fetchDropshippers() }, [fetchDropshippers])
 
   return (
     <DashboardLayout title="Dropshipping">
-      <p className="text-sm mb-5" style={{ color: theme.dark.muted }}>
-        {dropshippers.length} dropshipper{dropshippers.length !== 1 ? 's' : ''} actif{dropshippers.length !== 1 ? 's' : ''}
-      </p>
+      <div className="flex items-center justify-between mb-5 gap-3 flex-wrap">
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Recherche par nom, email ou téléphone"
+          className="px-4 py-2 rounded-lg text-sm text-gray-200 border outline-none focus:border-violet-500 transition w-full sm:w-72"
+          style={{ background: theme.dark.card, borderColor: theme.dark.border }}
+        />
+        <p className="text-sm" style={{ color: theme.dark.muted }}>
+          {dropshippers.length} dropshipper{dropshippers.length !== 1 ? 's' : ''} actif{dropshippers.length !== 1 ? 's' : ''}
+        </p>
+      </div>
 
       <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border }}>
-        <table className="w-full text-sm min-w-180">
+        <table className="w-full text-sm min-w-220">
           <thead style={{ background: theme.dark.sidebar }}>
             <tr className="text-left text-xs text-gray-500 border-b" style={{ borderColor: theme.dark.border }}>
               <th className="px-4 py-3 font-medium">DROPSHIPPER</th>
+              <th className="px-4 py-3 font-medium">TÉLÉPHONE</th>
+              <th className="px-4 py-3 font-medium">WILAYA</th>
               <th className="px-4 py-3 font-medium">PRODUITS SÉLECTIONNÉS</th>
               <th className="px-4 py-3 font-medium">TOTAL GAGNÉ</th>
               <th className="px-4 py-3 font-medium">TOTAL PAYÉ</th>
@@ -68,14 +85,16 @@ export default function DropshippersPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={6}><Spinner /></td></tr>
+              <tr><td colSpan={8}><Spinner /></td></tr>
             ) : dropshippers.length === 0 ? (
-              <tr><td colSpan={6}>
+              <tr><td colSpan={8}>
                 <EmptyState title="Aucun dropshipper" subtitle="Invitez un membre d'équipe avec le rôle Dropshipper depuis la page Équipe." />
               </td></tr>
             ) : dropshippers.map(d => (
               <tr key={d.id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
                 <td className="px-4 py-3 text-gray-200">{d.first_name} {d.last_name}<br /><span className="text-xs text-gray-500">{d.email}</span></td>
+                <td className="px-4 py-3 text-gray-400 font-mono text-xs">{d.phone || '—'}</td>
+                <td className="px-4 py-3 text-gray-400">{d.wilaya || '—'}</td>
                 <td className="px-4 py-3 text-gray-400">{d.products_count}</td>
                 <td className="px-4 py-3 text-gray-300">{money(d.total_earned)}</td>
                 <td className="px-4 py-3 text-gray-400">{money(d.total_paid)}</td>

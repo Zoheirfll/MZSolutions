@@ -12,6 +12,25 @@ const GROUP_OPTIONS = [
 
 const money = v => `${Number(v || 0).toLocaleString('fr-DZ')} DZD`
 
+function trendLabel(current, previous) {
+  if (previous === undefined || previous === null) return null
+  const prev = Number(previous)
+  const curr = Number(current)
+  if (prev === 0) return null
+  const pct = ((curr - prev) / Math.abs(prev)) * 100
+  return `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}% vs préc.`
+}
+
+function DownloadIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="15" height="15" {...props}>
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <path d="M7 10l5 5 5-5" />
+      <path d="M12 15V3" />
+    </svg>
+  )
+}
+
 export default function ProfitabilityPage() {
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo,   setDateTo]   = useState('')
@@ -19,6 +38,7 @@ export default function ProfitabilityPage() {
   const [summary,  setSummary]  = useState(null)
   const [rows,     setRows]     = useState([])
   const [loading,  setLoading]  = useState(true)
+  const [exporting, setExporting] = useState(false)
 
   const fetchAll = useCallback(() => {
     setLoading(true)
@@ -43,6 +63,28 @@ export default function ProfitabilityPage() {
   const inputCls = 'px-3 py-1.5 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 [color-scheme:dark]'
   const bdrStyle = { borderColor: theme.dark.border }
 
+  const handleExport = async () => {
+    setExporting(true)
+    try {
+      const params = new URLSearchParams()
+      if (dateFrom) params.set('period_start', dateFrom)
+      if (dateTo)   params.set('period_end', dateTo)
+      params.set('group_by', groupBy)
+      params.set('export', 'csv')
+      const { data } = await api.get(`/finance/profitability/?${params}`, { responseType: 'blob' })
+      const url = window.URL.createObjectURL(new Blob([data]))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', `rentabilite-${groupBy}.csv`)
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
     <DashboardLayout title="Rentabilité">
       <div className="flex flex-wrap items-center gap-2 mb-6">
@@ -62,22 +104,31 @@ export default function ProfitabilityPage() {
             Basé sur {summary.orders_count} commande{summary.orders_count !== 1 ? 's' : ''} livrée{summary.orders_count !== 1 ? 's' : ''} sur la période sélectionnée.
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
-            <StatCard label="Revenus" value={money(summary.revenue)} color="blue" />
+            <StatCard label="Revenus" value={money(summary.revenue)} color="blue"
+              sub={summary.previous_period ? trendLabel(summary.revenue, summary.previous_period.revenue) : null} />
             <StatCard label="Coût produit" value={money(summary.product_cost)} color="orange" />
             <StatCard label="Commission dropshipper" value={money(summary.commission)} color="cyan" />
             <StatCard label="Coût opérationnel" value={money(summary.operational_cost)} color="orange" />
             <StatCard label="Coût marketing" value={money(summary.marketing_cost)} color="orange" />
-            <StatCard label="Profit net" value={money(summary.net_profit)} color={summary.net_profit >= 0 ? 'green' : 'red'} />
+            <StatCard label="Profit net" value={money(summary.net_profit)} color={summary.net_profit >= 0 ? 'green' : 'red'}
+              sub={summary.previous_period ? trendLabel(summary.net_profit, summary.previous_period.net_profit) : null} />
           </div>
 
-          <div className="flex items-center gap-2 mb-4">
-            {GROUP_OPTIONS.map(o => (
-              <button key={o.value} onClick={() => setGroupBy(o.value)}
-                className={`px-3.5 py-1.5 rounded-lg text-sm font-medium transition ${groupBy === o.value ? 'text-white bg-violet-600' : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'}`}
-                style={groupBy === o.value ? undefined : { border: `1px solid ${theme.dark.border}` }}>
-                {o.label}
-              </button>
-            ))}
+          <div className="flex items-center justify-between gap-2 mb-4 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap">
+              {GROUP_OPTIONS.map(o => (
+                <button key={o.value} onClick={() => setGroupBy(o.value)}
+                  className={`px-3.5 py-1.5 rounded-lg text-sm font-medium transition ${groupBy === o.value ? 'text-white bg-violet-600' : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'}`}
+                  style={groupBy === o.value ? undefined : { border: `1px solid ${theme.dark.border}` }}>
+                  {o.label}
+                </button>
+              ))}
+            </div>
+            <button onClick={handleExport} disabled={exporting || rows.length === 0}
+              className="px-3.5 py-1.5 rounded-lg text-sm font-medium border text-gray-300 hover:bg-white/5 disabled:opacity-50 transition cursor-pointer flex items-center gap-1.5"
+              style={{ borderColor: theme.dark.border }}>
+              <DownloadIcon /> {exporting ? 'Export…' : 'Exporter en CSV'}
+            </button>
           </div>
           <p className="text-xs mb-3" style={{ color: theme.dark.muted }}>
             Ne comprend que les coûts directement attribuables (produit + commission) — les coûts opérationnels/marketing ne sont pas ventilés ici, voir le résumé global ci-dessus.

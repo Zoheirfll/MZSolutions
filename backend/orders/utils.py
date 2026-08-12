@@ -22,6 +22,18 @@ def parse_period(request):
     return today - timedelta(days=7), today, None  # week (défaut)
 
 
+def previous_period(date_from, date_to):
+    """Période précédente de même durée, immédiatement avant `date_from` —
+    utilisé par les vues de statistiques (Epic 8.1) pour calculer une
+    tendance (+X%/-X%) par rapport à la période comparable précédente."""
+    from datetime import timedelta
+
+    span = (date_to - date_from).days
+    prev_to = date_from - timedelta(days=1)
+    prev_from = prev_to - timedelta(days=span)
+    return prev_from, prev_to
+
+
 def send_abandoned_cart_email(store, cart):
     """Envoie l'email de relance panier abandonné — factorisé pour être appelé
     aussi bien par la relance automatique (management command

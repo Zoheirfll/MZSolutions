@@ -28,7 +28,23 @@ export function usePeriod(initial = 'week') {
 
   const ready = period !== 'custom' || (dateFrom && dateTo)
 
-  return { period, setPeriod, dateFrom, setDateFrom, dateTo, setDateTo, queryString, ready }
+  // Bornes de dates résolues (ISO) quel que soit le type de période — pour le
+  // drill-down vers OrdersPage, qui filtre par date_from/date_to réels, pas
+  // par mot-clé "period=week". Mêmes règles que orders/utils.py::parse_period.
+  const resolvedRange = useCallback(() => {
+    const toIso = (d) => d.toISOString().slice(0, 10)
+    const today = new Date()
+    if (period === 'day') return { from: toIso(today), to: toIso(today) }
+    if (period === 'month') {
+      const from = new Date(today); from.setDate(from.getDate() - 30)
+      return { from: toIso(from), to: toIso(today) }
+    }
+    if (period === 'custom' && dateFrom && dateTo) return { from: dateFrom, to: dateTo }
+    const from = new Date(today); from.setDate(from.getDate() - 7)
+    return { from: toIso(from), to: toIso(today) }
+  }, [period, dateFrom, dateTo])
+
+  return { period, setPeriod, dateFrom, setDateFrom, dateTo, setDateTo, queryString, resolvedRange, ready }
 }
 
 export function PeriodFilter({ period, setPeriod, dateFrom, setDateFrom, dateTo, setDateTo }) {
@@ -76,3 +92,83 @@ export function Spinner() {
 export const money = v => `${Number(v || 0).toLocaleString('fr-DZ')} DZD`
 
 export const PIE_COLORS = ['#7c3aed', '#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#06b6d4', '#a855f7', '#84cc16']
+
+// Badge de tendance vs période précédente, réutilisé sur toutes les pages de
+// stats (pattern initialement propre à ConfirmationRatePage). `pct` = delta
+// déjà calculé côté serveur (`_pct_delta`, `null` si non comparable).
+export function TrendBadge({ pct }) {
+  if (pct === null || pct === undefined) return null
+  const positive = pct >= 0
+  return (
+    <span className={`text-xs font-medium ${positive ? 'text-emerald-400' : 'text-red-400'}`}>
+      {positive ? '+' : ''}{pct}% vs préc.
+    </span>
+  )
+}
+
+function DownloadIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14" {...props}>
+      <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
+    </svg>
+  )
+}
+
+function RefreshIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14" {...props}>
+      <path d="M21 2v6h-6M3 22v-6h6" />
+      <path d="M3.51 9a9 9 0 0114.85-3.36L21 8M3 16l2.64 2.36A9 9 0 0020.49 15" />
+    </svg>
+  )
+}
+
+// Barre d'actions commune (bouton Actualiser + Exporter en CSV), placée à
+// droite du PeriodFilter sur chaque page de stats.
+export function StatsToolbar({ onRefresh, onExport, exporting, exportDisabled }) {
+  return (
+    <div className="flex items-center gap-2">
+      <button onClick={onRefresh}
+        className="px-3 py-1.5 rounded-lg text-sm font-medium border text-gray-300 hover:bg-white/5 transition cursor-pointer flex items-center gap-1.5"
+        style={{ borderColor: theme.dark.border }}>
+        <RefreshIcon /> Actualiser
+      </button>
+      {onExport && (
+        <button onClick={onExport} disabled={exporting || exportDisabled}
+          className="px-3 py-1.5 rounded-lg text-sm font-medium border text-gray-300 hover:bg-white/5 disabled:opacity-50 transition cursor-pointer flex items-center gap-1.5"
+          style={{ borderColor: theme.dark.border }}>
+          <DownloadIcon /> {exporting ? 'Export…' : 'Exporter en CSV'}
+        </button>
+      )}
+    </div>
+  )
+}
+
+// Télécharge le CSV généré par le backend (`?export=csv`, même filtres que la
+// page) via un fetch authentifié (le lien direct <a href> n'inclurait pas le
+// header Authorization).
+export async function downloadCsv(api, url, filename) {
+  const { data } = await api.get(url, { responseType: 'blob' })
+  const blobUrl = window.URL.createObjectURL(new Blob([data]))
+  const link = document.createElement('a')
+  link.href = blobUrl
+  link.setAttribute('download', filename)
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.URL.revokeObjectURL(blobUrl)
+}
+
+// Pagination simple, réutilisée sur les pages stats listant produits/wilayas/
+// raisons d'échec/ventes de stock (bornées côté serveur depuis cette passe).
+export function StatsPagination({ page, setPage, count, perPage }) {
+  const totalPages = Math.max(1, Math.ceil(count / perPage))
+  if (count <= perPage) return null
+  return (
+    <div className="flex items-center justify-end gap-2 mt-3 text-sm" style={{ color: theme.dark.muted }}>
+      <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-white/5 transition">← Précédent</button>
+      <span className={theme.badge.info}>{page}/{totalPages}</span>
+      <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-white/5 transition">Suivant →</button>
+    </div>
+  )
+}

@@ -3,6 +3,11 @@ import { useParams, Link } from 'react-router-dom'
 import StorefrontLayout from './StorefrontLayout'
 import publicApi from '../../api/publicApi'
 import { sanitizeHtml } from '../../lib/sanitize'
+import useDocumentMeta from '../../hooks/useDocumentMeta'
+
+function stripHtml(html) {
+  return (html || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+}
 
 export default function StorefrontPagePage() {
   const { slug, pageSlug } = useParams()
@@ -16,6 +21,11 @@ export default function StorefrontPagePage() {
       .catch(() => setError(true))
       .finally(() => setLoading(false))
   }, [slug, pageSlug])
+
+  useDocumentMeta(
+    page?.meta_title || page?.title,
+    page?.meta_description || stripHtml(page?.content).slice(0, 160),
+  )
 
   return (
     <StorefrontLayout>

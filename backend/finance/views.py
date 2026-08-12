@@ -1,5 +1,8 @@
+import csv
+from datetime import date, timedelta
 from decimal import Decimal
 from django.db.models import Max, Q
+from django.http import HttpResponse
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -34,6 +37,9 @@ class CostListCreateView(APIView):
         category = request.query_params.get('category')
         if category:
             qs = qs.filter(category=category)
+        search = request.query_params.get('search', '').strip()
+        if search:
+            qs = qs.filter(label__icontains=search)
         period_start = request.query_params.get('period_start')
         period_end = request.query_params.get('period_end')
         if period_start:
@@ -151,6 +157,16 @@ class ProfitabilityView(APIView):
                 'profit': g['revenue'] - g['product_cost'] - g['commission'],
             })
         results.sort(key=lambda r: r['revenue'], reverse=True)
+
+        if request.query_params.get('export') == 'csv':
+            response = HttpResponse(content_type='text/csv')
+            response['Content-Disposition'] = f'attachment; filename="rentabilite-{group_by}.csv"'
+            writer = csv.writer(response)
+            writer.writerow(['Libellé', 'Commandes', 'Revenu', 'Coût produit', 'Commission', 'Profit'])
+            for r in results:
+                writer.writerow([r['label'], r['orders_count'], r['revenue'], r['product_cost'], r['commission'], r['profit']])
+            return response
+
         return Response(results)
 
 
@@ -188,6 +204,20 @@ class ProfitabilitySummaryView(APIView):
         operational = sum((c.amount for c in costs if c.category == 'operational'), Decimal('0'))
         marketing   = sum((c.amount for c in costs if c.category == 'marketing'), Decimal('0'))
 
+        net_profit = revenue - product_cost - commission - operational - marketing
+
+        previous = None
+        if period_start and period_end:
+            try:
+                start_date = date.fromisoformat(period_start)
+                end_date   = date.fromisoformat(period_end)
+                span = (end_date - start_date).days
+                prev_end   = start_date - timedelta(days=1)
+                prev_start = prev_end - timedelta(days=span)
+                previous = self._summary_for_period(store, prev_start.isoformat(), prev_end.isoformat())
+            except ValueError:
+                previous = None
+
         return Response({
             'orders_count':      orders_count,
             'revenue':           revenue,
@@ -195,5 +225,28 @@ class ProfitabilitySummaryView(APIView):
             'commission':        commission,
             'operational_cost':  operational,
             'marketing_cost':    marketing,
-            'net_profit':        revenue - product_cost - commission - operational - marketing,
+            'net_profit':        net_profit,
+            'previous_period':   previous,
         })
+
+    def _summary_for_period(self, store, period_start, period_end):
+        """Même calcul que get(), réutilisé pour la période précédente
+        (comparaison affichée sur ProfitabilityPage)."""
+        orders = _delivered_orders(store, period_start, period_end)
+        commission_by_item = {c.order_item_id: c.amount for c in CommissionEntry.objects.filter(store=store)}
+        revenue = product_cost = commission = Decimal('0')
+        for order in orders:
+            for item in order.items.all():
+                revenue += item.price * item.quantity
+                unit_cost = _line_cost(item)
+                if unit_cost is not None:
+                    product_cost += unit_cost * item.quantity
+                commission += commission_by_item.get(item.id, Decimal('0'))
+
+        costs = Cost.objects.filter(store=store, period_end__gte=period_start, period_start__lte=period_end)
+        operational = sum((c.amount for c in costs if c.category == 'operational'), Decimal('0'))
+        marketing   = sum((c.amount for c in costs if c.category == 'marketing'), Decimal('0'))
+        return {
+            'revenue': revenue,
+            'net_profit': revenue - product_cost - commission - operational - marketing,
+        }
