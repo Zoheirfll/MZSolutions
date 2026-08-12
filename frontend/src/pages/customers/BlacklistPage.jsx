@@ -107,7 +107,7 @@ export default function BlacklistPage() {
   const totalPages = Math.max(1, Math.ceil(data.count / perPage))
 
   return (
-    <DashboardLayout title="Liste noire">
+    <DashboardLayout title="Liste noire" subtitle="Si un client vous pose problème (fausses commandes, harcèlement, arnaque...), vous pouvez bloquer son numéro de téléphone ici. Dès qu'il essaiera de commander à nouveau sur votre boutique publique avec ce numéro, sa commande sera automatiquement refusée et il verra le message que vous avez écrit. Cette page vous montre aussi combien de fois un numéro bloqué a quand même essayé de commander depuis son blocage. Ce blocage ne concerne que votre boutique — les autres vendeurs sur MZSolutions ne sont pas affectés.">
       {modalOpen && (
         <BlockPhoneModal onClose={() => setModalOpen(false)} onSaved={() => { setModalOpen(false); fetchEntries() }} />
       )}

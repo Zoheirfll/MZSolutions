@@ -99,7 +99,7 @@ export default function ClientsPage() {
   const totalPages = Math.max(1, Math.ceil(data.count / perPage))
 
   return (
-    <DashboardLayout title="Clients">
+    <DashboardLayout title="Clients" subtitle={`Cette page rassemble tous les clients qui vous ont déjà commandé, même s'ils n'ont pas de compte — chaque client est reconnu simplement par son numéro de téléphone. Pour chacun, vous voyez combien de fois il a commandé, sa wilaya et sa commune, et s'il est marqué comme "à risque" (trop de commandes annulées ou retournées). Cliquez sur un client pour ouvrir l'historique complet de toutes ses commandes passées — pratique pour vérifier la fiabilité d'un client avant de le rappeler.`}>
       <div className="flex items-center justify-between mb-5 gap-3 flex-wrap">
         <input
           value={search}

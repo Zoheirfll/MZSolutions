@@ -299,7 +299,7 @@ export default function ReviewsPage() {
   const pageNums   = Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i + 1)
 
   return (
-    <DashboardLayout title="Avis">
+    <DashboardLayout title="Avis" subtitle="Quand un client laisse un avis (note + commentaire) sur un de vos produits, il n'apparaît pas tout de suite sur votre boutique — il attend votre validation ici, pour éviter les faux avis ou les messages inappropriés. Approuvez les avis que vous voulez rendre publics, ou rejetez les autres. Vous pouvez aussi ajouter vous-même un avis manuellement si besoin.">
       {modal && (
         <AddModal onClose={() => setModal(false)} onSaved={() => { setModal(false); fetchReviews() }} />
       )}

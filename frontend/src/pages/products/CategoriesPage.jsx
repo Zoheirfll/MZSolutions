@@ -300,7 +300,7 @@ export default function CategoriesPage() {
   )
 
   return (
-    <DashboardLayout title="Catégories">
+    <DashboardLayout title="Catégories" subtitle={`Cette page organise votre catalogue en rayons, comme dans un magasin : créez des catégories ("Vêtements", "Électronique"...) et éventuellement des sous-catégories à l'intérieur ("Vêtements > Homme"). Cela aide vos clients à naviguer plus facilement sur votre boutique. Si vous supprimez une catégorie, elle passe d'abord par une Corbeille — vous pouvez encore la restaurer avant qu'elle ne soit définitivement effacée.`}>
       {modal !== null && (
         <Modal
           cat={modal?.id ? modal : null}

@@ -127,7 +127,7 @@ export default function ComplaintDetailPage() {
   }
 
   return (
-    <DashboardLayout title={`Réclamation #${complaint.id}`}>
+    <DashboardLayout title={`Réclamation #${complaint.id}`} subtitle="Vous voyez ici toute la conversation autour de cette réclamation précise, dans l'ordre chronologique. Ajoutez un message pour répondre au client, ou changez le statut de la réclamation (Ouverte → En cours → Résolue) — chaque action que vous faites vient s'ajouter à l'historique en dessous, rien n'est jamais effacé, pour garder une trace complète de ce qui a été dit et fait.">
       <button onClick={() => navigate('/dashboard/reclamations')}
         className="inline-flex items-center gap-1.5 text-sm text-app-muted-light hover:text-app-primary transition mb-5">
         <BackIcon /> Retour aux réclamations

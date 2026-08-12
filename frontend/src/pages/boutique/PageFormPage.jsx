@@ -80,7 +80,7 @@ export default function PageFormPage() {
   }
 
   return (
-    <DashboardLayout title={isEdit ? 'Modifier la page' : 'Nouvelle page'}>
+    <DashboardLayout title={isEdit ? 'Modifier la page' : 'Nouvelle page'} subtitle="Ici vous rédigez le contenu d'une page de votre boutique (comme un article dans un traitement de texte) : donnez-lui un titre, écrivez le texte avec l'éditeur (gras, images, liens possibles), et choisissez l'adresse web (URL) où elle sera visible. Dès que vous enregistrez, la page est immédiatement en ligne et consultable par vos clients.">
       <form onSubmit={submit} className="max-w-3xl space-y-5">
 
         {/* Titre + type */}

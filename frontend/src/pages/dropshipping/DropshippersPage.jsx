@@ -55,7 +55,7 @@ export default function DropshippersPage() {
   useEffect(() => { fetchDropshippers() }, [fetchDropshippers])
 
   return (
-    <DashboardLayout title="Dropshipping">
+    <DashboardLayout title="Dropshipping" subtitle="Un dropshipper est une personne qui vend vos produits pour vous (par exemple sur les réseaux sociaux) sans gérer de stock, et qui touche une commission sur chaque vente livrée. Cette page liste tous vos dropshippers actifs avec leur solde : combien ils ont gagné au total, combien vous leur avez déjà payé, et combien il vous reste à leur verser. Cliquez sur un dropshipper pour définir combien il touche par produit (un pourcentage ou un montant fixe) et pour consulter le détail de chacune de ses ventes.">
       <div className="flex items-center justify-between mb-5 gap-3 flex-wrap">
         <input
           value={search}

@@ -19,8 +19,8 @@ export const theme = {
       'disabled:opacity-40 disabled:pointer-events-none cursor-pointer px-3.5 py-2 text-sm ' +
       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent',
     outline:
-      'inline-flex items-center justify-center gap-2 border border-white/25 bg-white/[0.06] text-gray-100 hover:bg-white/12 hover:border-white/35 ' +
-      'active:bg-white/16 rounded-lg transition-colors duration-150 cursor-pointer px-3.5 py-2 text-sm font-medium ' +
+      'inline-flex items-center justify-center gap-2 border border-(--border-color-hover) bg-(--bg-card-alt) text-app-primary hover:bg-violet-500/10 hover:border-violet-500/40 ' +
+      'active:bg-violet-500/15 rounded-lg transition-colors duration-150 cursor-pointer px-3.5 py-2 text-sm font-medium ' +
       'disabled:opacity-40 disabled:pointer-events-none ' +
       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400',
     // Variante claire de "outline" — pour les pages fond blanc (boutique publique).
@@ -31,7 +31,7 @@ export const theme = {
       'disabled:opacity-40 disabled:pointer-events-none ' +
       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400',
     ghost:
-      'inline-flex items-center justify-center gap-2 border border-white/12 text-gray-200 hover:text-white hover:bg-white/10 hover:border-white/25 active:bg-white/14 ' +
+      'inline-flex items-center justify-center gap-2 border border-(--border-color) text-app-primary hover:bg-violet-500/10 hover:border-violet-500/30 active:bg-violet-500/15 ' +
       'rounded-lg transition-colors duration-150 cursor-pointer px-3 py-1.5 text-sm font-medium ' +
       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400',
     danger:
@@ -40,12 +40,12 @@ export const theme = {
       'disabled:pointer-events-none cursor-pointer px-3.5 py-2 text-sm ' +
       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-2',
     icon:
-      'inline-flex items-center justify-center w-8 h-8 rounded-lg text-gray-300 hover:text-white ' +
-      'bg-white/[0.04] hover:bg-white/12 transition-colors duration-150 cursor-pointer ' +
+      'inline-flex items-center justify-center w-8 h-8 rounded-lg text-app-muted-light hover:text-app-primary ' +
+      'bg-(--bg-card-alt) hover:bg-violet-500/10 transition-colors duration-150 cursor-pointer ' +
       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400',
     secondary:
-      'inline-flex items-center justify-center gap-2 bg-white/12 hover:bg-white/18 border border-white/20 ' +
-      'text-gray-100 font-medium rounded-lg transition-colors duration-150 cursor-pointer px-3.5 py-2 text-sm ' +
+      'inline-flex items-center justify-center gap-2 bg-(--bg-card-alt) hover:bg-violet-500/10 border border-(--border-color-hover) ' +
+      'text-app-primary font-medium rounded-lg transition-colors duration-150 cursor-pointer px-3.5 py-2 text-sm ' +
       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400',
   },
 
@@ -84,11 +84,11 @@ export const theme = {
     danger:  'inline-flex items-center gap-1.5 bg-red-500/10 text-red-400 ring-1 ring-inset ring-red-500/20 px-2.5 py-1 rounded-md text-xs font-medium',
     warning: 'inline-flex items-center gap-1.5 bg-amber-500/10 text-amber-400 ring-1 ring-inset ring-amber-500/20 px-2.5 py-1 rounded-md text-xs font-medium',
     info:    'inline-flex items-center gap-1.5 bg-violet-500/10 text-violet-300 ring-1 ring-inset ring-violet-500/20 px-2.5 py-1 rounded-md text-xs font-medium',
-    neutral: 'inline-flex items-center gap-1.5 bg-white/6 text-gray-400 ring-1 ring-inset ring-white/10 px-2.5 py-1 rounded-md text-xs font-medium',
+    neutral: 'inline-flex items-center gap-1.5 bg-(--bg-card-alt) text-app-muted-light ring-1 ring-inset ring-(--border-color-hover) px-2.5 py-1 rounded-md text-xs font-medium',
     cyan:    'inline-flex items-center gap-1.5 bg-cyan-500/10 text-cyan-400 ring-1 ring-inset ring-cyan-500/20 px-2.5 py-1 rounded-md text-xs font-medium',
   },
 
-  skeleton: 'animate-pulse bg-white/6 rounded-lg',
+  skeleton: 'animate-pulse bg-(--bg-card-alt) rounded-lg',
   emptyState: 'flex flex-col items-center justify-center text-center py-16 px-6 text-app-muted',
 
   // Sidebar nav links — centralisé ici pour que "boutons pas assez visibles"

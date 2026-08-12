@@ -115,7 +115,7 @@ export default function AtRiskCustomersPage() {
   const totalPages = Math.max(1, Math.ceil(data.count / perPage))
 
   return (
-    <DashboardLayout title="Clients à risque">
+    <DashboardLayout title="Clients à risque" subtitle={`Cette page vous aide à repérer les clients potentiellement problématiques avant qu'ils ne vous commandent à nouveau. Un client est marqué "à risque" automatiquement s'il a annulé ou retourné trop de commandes récemment (vous pouvez régler ce seuil et la période observée en bas de page), ou vous pouvez le marquer vous-même manuellement. Important : être "à risque" ne bloque pas ses futures commandes — c'est juste un avertissement visuel pour vous, le confirmateur ou le livreur. Si vous voulez vraiment empêcher un client de commander, utilisez la page "Liste noire" à la place.`}>
       {/* Réglages du seuil */}
       <div className="rounded-xl border p-5 mb-5" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
         <h3 className="text-sm font-semibold text-app-primary mb-3">Seuil de détection automatique</h3>

@@ -152,14 +152,14 @@ export default function DropshipperDetailPage() {
   const bdrStyle = { borderColor: theme.dark.border }
 
   if (loading || !detail) {
-    return <DashboardLayout title="Dropshipper"><Spinner /></DashboardLayout>
+    return <DashboardLayout title="Dropshipper" subtitle={`Cette page vous permet de définir combien ce dropshipper précis touche pour chaque produit qu'il a sélectionné dans sa liste : soit un pourcentage du prix de vente, soit un montant fixe par unité vendue. Vous y voyez aussi tout l'historique de ses ventes et de ses paiements déjà reçus. Quand vous voulez le payer, cliquez sur "Marquer comme payé" : cela règle automatiquement tout le solde qu'il vous reste à lui devoir.`}><Spinner /></DashboardLayout>
   }
 
   const entriesTotalPages  = Math.max(1, Math.ceil((detail.entries_count || 0) / 10))
   const paymentsTotalPages = Math.max(1, Math.ceil((detail.payments_count || 0) / 10))
 
   return (
-    <DashboardLayout title={`${detail.first_name} ${detail.last_name}`}>
+    <DashboardLayout title={`${detail.first_name} ${detail.last_name}`} subtitle="Configurez la commission (pourcentage ou montant fixe) de ce dropshipper pour chaque produit sélectionné, consultez son solde et son historique, et marquez son solde comme payé.">
       <button onClick={() => navigate('/dashboard/dropshipping')} className="text-xs text-app-muted hover:text-app-primary transition mb-5 cursor-pointer">
         ← Retour à la liste des dropshippers
       </button>

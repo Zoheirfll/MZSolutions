@@ -62,7 +62,7 @@ export default function DropshipperMyProductsPage() {
   const bdrStyle = { borderColor: theme.dark.border }
 
   return (
-    <DashboardLayout title="Mes produits">
+    <DashboardLayout title="Mes produits" subtitle={`En tant que dropshipper, cette page vous permet de choisir quels produits du catalogue du vendeur vous voulez proposer à vos propres clients (par exemple sur vos réseaux sociaux). Cliquez sur "Ajouter" pour un produit que vous voulez vendre, ou "Retirer" pour ne plus le proposer. Vous n'avez aucun stock à gérer vous-même : quand vous vendez un produit, c'est le stock du vendeur principal qui diminue, pas le vôtre.`}>
       <p className="text-sm mb-4" style={{ color: theme.dark.muted }}>
         Choisissez les produits du catalogue que vous souhaitez promouvoir et vendre. Vous ne gérez pas de stock — le stock reste celui du vendeur.
       </p>

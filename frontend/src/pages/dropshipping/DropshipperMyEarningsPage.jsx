@@ -31,11 +31,11 @@ export default function DropshipperMyEarningsPage() {
   }, [user])
 
   if (loading || !detail) {
-    return <DashboardLayout title="Mes commissions"><Spinner /></DashboardLayout>
+    return <DashboardLayout title="Mes commissions" subtitle="Cette page vous montre, en tant que dropshipper, combien d'argent vous avez gagné en commissions sur vos ventes, combien le vendeur vous a déjà payé, et combien il vous reste à recevoir. Vous ne pouvez rien modifier ici, c'est juste pour suivre vos gains — vous verrez aussi le détail de chaque vente qui vous a rapporté une commission et chaque paiement déjà reçu."><Spinner /></DashboardLayout>
   }
 
   return (
-    <DashboardLayout title="Mes commissions">
+    <DashboardLayout title="Mes commissions" subtitle="Votre solde de commissions en lecture seule (gagné − déjà payé) ainsi que l'historique détaillé de chaque commission générée et de chaque paiement reçu du vendeur.">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <div className="rounded-xl border p-4" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
           <p className="text-xs mb-1" style={{ color: theme.dark.muted }}>Total gagné</p>

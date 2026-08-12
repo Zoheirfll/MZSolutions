@@ -684,7 +684,7 @@ export default function OrdersPage() {
   }
 
   return (
-    <DashboardLayout title="Commandes">
+    <DashboardLayout title="Commandes" subtitle="C'est le cœur de votre activité : la liste de toutes les commandes reçues par votre boutique. Filtrez par statut (en attente, confirmée, livrée...) ou recherchez un client précis. Vous pouvez changer le statut d'une commande directement depuis cette liste sans l'ouvrir (avec une note et la wilaya/commune si besoin), voir l'historique de ses changements via l'icône dédiée, ou cliquer dessus pour ouvrir tous les détails.">
       {/* Header */}
       <div className="flex items-center justify-between mb-5 gap-3 flex-wrap">
         {selected.size > 0 ? (

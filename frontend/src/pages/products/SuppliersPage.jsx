@@ -174,7 +174,7 @@ export default function SuppliersPage() {
   }
 
   return (
-    <DashboardLayout title="Fournisseurs">
+    <DashboardLayout title="Fournisseurs" subtitle="Cette page liste les fournisseurs chez qui vous achetez vos produits, avec leurs coordonnées. Depuis la fiche de chaque fournisseur, vous pouvez suivre ce qu'il vous a accordé en crédit et ce que vous lui avez déjà versé.">
       {modal !== null && (
         <SupplierModal
           supplier={modal?.id ? modal : null}

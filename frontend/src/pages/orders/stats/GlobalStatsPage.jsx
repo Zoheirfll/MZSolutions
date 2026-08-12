@@ -25,7 +25,7 @@ export default function GlobalStatsPage() {
   useEffect(() => { if (ready) fetchData() }, [fetchData, ready])
 
   return (
-    <DashboardLayout title="Statistiques globales">
+    <DashboardLayout title="Statistiques globales" subtitle="Cette page vous donne les chiffres clés de votre activité sur la période choisie, en un seul coup d'œil : combien de commandes, quel pourcentage confirmé, combien livrées/retournées/annulées, votre chiffre d'affaires total et le montant moyen d'une commande.">
       <div className="flex items-center justify-between gap-3 mb-6 flex-wrap">
         <PeriodFilter period={period} setPeriod={setPeriod} dateFrom={dateFrom} setDateFrom={setDateFrom} dateTo={dateTo} setDateTo={setDateTo} />
         <StatsToolbar onRefresh={fetchData} />

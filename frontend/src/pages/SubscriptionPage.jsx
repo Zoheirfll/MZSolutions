@@ -45,7 +45,7 @@ export default function SubscriptionPage() {
   }
 
   return (
-    <DashboardLayout title="Abonnement">
+    <DashboardLayout title="Abonnement" subtitle={`Cette page vous montre où vous en êtes dans votre période d'essai gratuit ou votre abonnement payant (combien de commandes il vous reste, combien de jours). Elle affiche aussi les différents paliers d'abonnement disponibles avec leurs prix mensuels ou annuels. En cliquant sur "Commencer", vous êtes redirigé vers un paiement sécurisé (Chargily) ; votre abonnement n'est activé qu'une fois le paiement confirmé, pas avant.`}>
       {loading ? <Spinner /> : (
         <>
           {quota && (() => {

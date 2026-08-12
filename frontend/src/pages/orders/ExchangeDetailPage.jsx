@@ -79,7 +79,7 @@ export default function ExchangeDetailPage() {
   }
 
   return (
-    <DashboardLayout title={`Échange #${exchange.id}`}>
+    <DashboardLayout title={`Échange #${exchange.id}`} subtitle="Cette page vous montre le détail complet d'une demande d'échange précise : quel article le client veut renvoyer, quelle variante il souhaite recevoir à la place, et pourquoi. Vous décidez ici d'approuver ou de refuser la demande. Si vous approuvez, le stock est automatiquement corrigé des deux côtés (article rendu remis en stock, nouvelle variante déduite), sans manipulation supplémentaire de votre part.">
       <button onClick={() => navigate('/dashboard/echanges')}
         className="inline-flex items-center gap-1.5 text-sm text-app-muted-light hover:text-app-primary transition mb-5">
         <BackIcon /> Retour aux échanges

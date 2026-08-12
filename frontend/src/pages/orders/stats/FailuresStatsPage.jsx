@@ -31,7 +31,7 @@ export default function FailuresStatsPage() {
   }
 
   return (
-    <DashboardLayout title="Statistique des échecs">
+    <DashboardLayout title="Statistique des échecs" subtitle="Cette page vous montre, sous forme de graphique, quelles sont les raisons qui reviennent le plus souvent quand vos confirmateurs n'arrivent pas à valider une commande par téléphone. Cela vous aide à comprendre pourquoi vous perdez des ventes : trop de clients injoignables ? Trop d'annulations pour cause de délai ? Choisissez la période à analyser en haut de page.">
       <div className="flex items-center justify-between gap-3 mb-6 flex-wrap">
         <PeriodFilter period={period} setPeriod={setPeriod} dateFrom={dateFrom} setDateFrom={setDateFrom} dateTo={dateTo} setDateTo={setDateTo} />
         <StatsToolbar onRefresh={fetchData} onExport={handleExport} exporting={exporting} exportDisabled={!data?.total} />

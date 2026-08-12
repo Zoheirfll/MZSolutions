@@ -60,7 +60,7 @@ export default function ConfirmationRatePage() {
   }))
 
   return (
-    <DashboardLayout title="Taux de confirmation">
+    <DashboardLayout title="Taux de confirmation" subtitle="Le taux de confirmation, c'est le pourcentage de commandes que vos confirmateurs arrivent à valider auprès du client par téléphone (plutôt que non-joignable, annulée ou retournée). Cette page affiche ce taux global sur la période choisie, son évolution jour par jour, et surtout un classement de chaque confirmateur selon sa performance — pratique pour savoir qui travaille bien et qui a besoin d'aide.">
       <PeriodFilter period={period} setPeriod={setPeriod} dateFrom={dateFrom} setDateFrom={setDateFrom} dateTo={dateTo} setDateTo={setDateTo} />
 
       {loading ? <Spinner /> : !data ? (

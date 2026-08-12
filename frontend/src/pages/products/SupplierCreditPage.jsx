@@ -167,7 +167,7 @@ export default function SupplierCreditPage() {
   }
 
   return (
-    <DashboardLayout title="Crédit Fournisseur">
+    <DashboardLayout title="Crédit Fournisseur" subtitle="Cette page enregistre les crédits (avances, délais de paiement...) que vos fournisseurs vous ont accordés. Comparez-les aux versements que vous avez déjà effectués pour connaître précisément ce que vous devez encore à chacun.">
       {modal && (
         <AddModal
           suppliers={suppliers}

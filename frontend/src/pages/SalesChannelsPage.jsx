@@ -252,7 +252,7 @@ export default function SalesChannelsPage() {
   }
 
   return (
-    <DashboardLayout title="Canaux de vente">
+    <DashboardLayout title="Canaux de vente" subtitle={`Cette page connecte votre boutique MZSolutions à d'autres plateformes de vente. Si vous avez aussi une boutique Shopify, connectez-la en un clic pour que vos commandes Shopify arrivent automatiquement ici. Vous pouvez aussi synchroniser un fichier Google Sheets manuellement. Enfin, l'onglet "Meta Commerce" vous donne une adresse à copier-coller dans Facebook/Instagram Shopping ou Google Merchant Center pour qu'ils affichent automatiquement votre catalogue de produits — aucune connexion technique nécessaire pour cette dernière option.`}>
       <p className="text-sm mb-5" style={{ color: theme.dark.muted }}>
         Connectez vos applications et services pour centraliser vos données et vos flux de travail.
       </p>

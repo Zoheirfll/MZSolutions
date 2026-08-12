@@ -68,7 +68,7 @@ export default function StorePage() {
   const inputCls = `w-full px-3.5 py-2.5 rounded-lg border text-sm text-app-primary bg-transparent outline-none transition focus:border-violet-500`
 
   return (
-    <DashboardLayout title="Ma Boutique">
+    <DashboardLayout title="Ma Boutique" subtitle={`Cette page rassemble les informations générales de votre boutique : son nom, son logo, son numéro de téléphone et son email de contact affichés aux clients. Vous y voyez aussi l'adresse web publique de votre boutique (que vous pouvez copier pour la partager) et pouvez la modifier si besoin. La section "Référencement (SEO)" tout en bas contrôle ce qui s'affiche quand quelqu'un cherche votre boutique sur Google — le titre et la description du résultat.`}>
       <div className="max-w-2xl">
 
         {/* URL publique */}
@@ -80,10 +80,10 @@ export default function StorePage() {
           {slugEditing ? (
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
               <div className="flex-1 flex items-center px-4 py-3 rounded-lg border font-mono text-sm"
-                style={{ borderColor: '#3d2d6e', background: '#0f0f1f' }}>
+                style={{ borderColor: 'rgba(124,58,237,0.3)', background: 'rgba(124,58,237,0.08)' }}>
                 <span className="text-app-muted mr-1 shrink-0">/store/</span>
                 <input value={form.slug ?? ''} onChange={e => setForm(f => ({ ...f, slug: e.target.value }))}
-                  className="flex-1 bg-transparent outline-none text-violet-300" />
+                  className="flex-1 bg-transparent outline-none text-violet-400 font-semibold" />
               </div>
               <button type="button" onClick={() => { setSlugEditing(false); setForm(f => ({ ...f, slug: store.slug })) }}
                 className="px-4 py-3 rounded-lg text-sm text-app-muted-light hover:text-app-primary transition">Annuler</button>
@@ -91,22 +91,22 @@ export default function StorePage() {
           ) : (
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
               <div
-                className="flex-1 flex items-center px-4 py-3 rounded-lg border text-violet-300 font-mono text-sm overflow-x-auto"
-                style={{ borderColor: '#3d2d6e', background: '#0f0f1f' }}
+                className="flex-1 flex items-center px-4 py-3 rounded-lg border text-violet-400 font-semibold font-mono text-sm overflow-x-auto"
+                style={{ borderColor: 'rgba(124,58,237,0.3)', background: 'rgba(124,58,237,0.08)' }}
               >
                 <span className="truncate">{publicUrl}</span>
               </div>
               <button
                 type="button"
                 onClick={handleCopy}
-                className="inline-flex items-center gap-1.5 px-4 py-3 rounded-lg text-sm font-medium transition"
-                style={{ background: copied ? '#16a34a22' : '#ffffff10', color: copied ? '#4ade80' : '#a78bfa' }}
+                className="inline-flex items-center gap-1.5 px-4 py-3 rounded-lg text-sm font-semibold transition"
+                style={{ background: copied ? 'rgba(16,185,129,0.15)' : 'rgba(124,58,237,0.12)', color: copied ? '#34d399' : '#8b5cf6' }}
               >
                 {copied ? 'Copié' : 'Copier'}
               </button>
               <button type="button" onClick={() => setSlugEditing(true)}
-                className="px-4 py-3 rounded-lg text-sm font-medium transition"
-                style={{ background: '#ffffff10', color: '#a78bfa' }}>
+                className="px-4 py-3 rounded-lg text-sm font-semibold transition"
+                style={{ background: 'rgba(124,58,237,0.12)', color: '#8b5cf6' }}>
                 Modifier
               </button>
             </div>

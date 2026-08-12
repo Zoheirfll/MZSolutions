@@ -40,7 +40,7 @@ export default function PagesPage() {
   }
 
   return (
-    <DashboardLayout title="Pages personnalisées">
+    <DashboardLayout title="Pages personnalisées" subtitle={`Cette page permet de créer vos propres pages de contenu pour la boutique, comme "À propos de nous", "Conditions générales de vente" ou une FAQ. Vous écrivez le texte avec un éditeur simple (comme Word), et la page devient immédiatement consultable par vos clients à une adresse dédiée. Une fois créée, vous pouvez l'ajouter au menu de navigation de la boutique depuis la page "Éditeur de menu", pour que les clients la trouvent facilement.`}>
       <div className="flex items-center justify-between mb-5">
         <p className="text-sm" style={{ color: theme.dark.muted }}>
           Créez des pages statiques visibles sur votre boutique (À propos, FAQ, CGV…)

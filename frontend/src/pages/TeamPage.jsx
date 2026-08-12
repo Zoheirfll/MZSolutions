@@ -397,7 +397,7 @@ export default function TeamPage() {
   }
 
   return (
-    <DashboardLayout title="Équipe">
+    <DashboardLayout title="Équipe" subtitle="Cette page gère toutes les personnes qui travaillent avec vous sur la boutique. Invitez un nouveau membre par email en choisissant son rôle : Administrateur (accès large), Confirmateur (appelle les clients pour valider les commandes) ou Dropshipper (revend vos produits contre commission). La personne reçoit un email avec un lien pour créer son accès. Vous pouvez aussi désactiver puis réactiver un membre, ou ajuster ses permissions individuellement en plus de celles de son rôle.">
       {showModal && (
         <Modal
           role={activeTab === 'retirer' ? 'confirmateur' : activeTab}
@@ -445,7 +445,7 @@ export default function TeamPage() {
       </div>
 
       {invited && (
-        <div className="mb-4 flex items-center gap-2 px-4 py-3 rounded-lg text-sm text-emerald-400 border" style={{ background: '#0d2218', borderColor: '#16a34a44' }}>
+        <div className="mb-4 flex items-center gap-2 px-4 py-3 rounded-lg text-sm text-emerald-400 border border-emerald-500/25 bg-emerald-500/10">
           <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
           </svg>

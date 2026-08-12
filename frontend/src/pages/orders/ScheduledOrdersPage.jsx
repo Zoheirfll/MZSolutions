@@ -77,7 +77,7 @@ export default function ScheduledOrdersPage() {
   }
 
   return (
-    <DashboardLayout title="Commandes programmées">
+    <DashboardLayout title="Commandes programmées" subtitle={`Ce sont les commandes que vous avez préparées à l'avance pour un envoi futur (via le bouton "Programmer l'envoi" lors de la création). Tant qu'elles n'ont pas atteint leur date prévue, elles n'utilisent ni votre stock ni votre quota de commandes — elles s'activent automatiquement au bon moment. Depuis cette page, vous pouvez aussi les envoyer tout de suite avant la date prévue, changer la date programmée, ou les annuler si le client se rétracte.`}>
       <p className="text-sm mb-5" style={{ color: theme.dark.muted }}>
         Ces commandes ont été préparées à l'avance et s'activeront automatiquement à la date prévue (stock, quota et assignation appliqués à ce moment-là).
       </p>

@@ -42,7 +42,7 @@ export default function OrdersStatsPage() {
   }))
 
   return (
-    <DashboardLayout title="Statistiques commandes">
+    <DashboardLayout title="Statistiques commandes" subtitle="Cette page trace un graphique montrant combien de commandes vous recevez chaque jour sur la période choisie, pour repérer vos tendances (jours forts, baisses...), ainsi qu'un camembert montrant la proportion de commandes dans chaque statut.">
       <div className="flex items-center justify-between gap-3 mb-6 flex-wrap">
         <PeriodFilter period={period} setPeriod={setPeriod} dateFrom={dateFrom} setDateFrom={setDateFrom} dateTo={dateTo} setDateTo={setDateTo} />
         <StatsToolbar onRefresh={fetchData} onExport={handleExport} exporting={exporting} exportDisabled={!data?.total} />

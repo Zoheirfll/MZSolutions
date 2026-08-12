@@ -122,7 +122,7 @@ export default function ThemePage() {
   )
 
   return (
-    <DashboardLayout title="Thème & Apparence">
+    <DashboardLayout title="Thème & Apparence" subtitle={`Cette page change l'apparence de votre boutique en ligne publique — celle que vos clients voient et où ils passent commande. Choisissez un modèle de design tout prêt (dont un thème sombre "Noir"), puis personnalisez la couleur principale pour qu'elle corresponde à votre marque. Attention : ceci ne modifie que la boutique publique, pas ce tableau de bord que vous utilisez vous-même — les deux ont des thèmes indépendants.`}>
       <div className="flex flex-col xl:flex-row gap-6 items-start">
 
         {/* ── Éditeur ── */}

@@ -72,7 +72,7 @@ export default function ExchangesPage() {
   const totalPages = Math.max(1, Math.ceil(data.count / perPage))
 
   return (
-    <DashboardLayout title="Échanges">
+    <DashboardLayout title="Échanges" subtitle="Un client qui a reçu, par exemple, la mauvaise taille peut demander un échange directement sur votre boutique, sans compte — juste son téléphone et sa commande. Cette page liste ces demandes. Quand vous approuvez un échange, tout se fait automatiquement : le stock de l'article rendu est remis en stock, et celui de la nouvelle variante envoyée est déduit — vous n'avez rien à ajuster à la main.">
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-5">
         <div className="flex items-center gap-1 p-1 rounded-xl w-fit" style={{ background: theme.dark.card, border: `1px solid ${theme.dark.border}` }}>
           {FILTERS.map(f => (

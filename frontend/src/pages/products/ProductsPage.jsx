@@ -149,7 +149,7 @@ export default function ProductsPage() {
   const firstImage = (p) => p.images?.[0]?.image_url
 
   return (
-    <DashboardLayout title="Produits">
+    <DashboardLayout title="Produits" subtitle="C'est la liste complète de tous les produits que vous vendez, avec leur prix, leur stock et leur catégorie. Recherchez un produit par son nom, ou cliquez dessus pour modifier ses photos, son prix, ses variantes ou le désactiver temporairement sans le supprimer.">
       {/* Header */}
       <div className="flex items-center justify-between mb-5 gap-3 flex-wrap">
         {selected.size > 0 ? (

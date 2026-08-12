@@ -156,7 +156,7 @@ export default function ShipmentsPage() {
   const carrierOptions = [{ value: '', label: 'Tous les transporteurs' }, ...carriers.map(c => ({ value: c.id, label: c.name || c.carrier }))]
 
   return (
-    <DashboardLayout title="Expéditions">
+    <DashboardLayout title="Expéditions" subtitle={`Cette page suit vos commandes déjà expédiées chez le transporteur : où en est la livraison, si elle a été remise au livreur, livrée ou retournée. Vous pouvez rafraîchir le statut manuellement ("synchroniser") ou télécharger l'étiquette de livraison en PDF à coller sur le colis avant l'enlèvement.`}>
 
       <div className="flex flex-wrap gap-3 mb-4">
         <input

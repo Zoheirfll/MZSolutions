@@ -171,7 +171,7 @@ export default function PermissionsPage() {
   ]
 
   return (
-    <DashboardLayout title="Permissions">
+    <DashboardLayout title="Permissions" subtitle="Cette page vous permet de décider ce que chaque type de membre de votre équipe (administrateur, confirmateur, dropshipper) a le droit de voir dans le tableau de bord. Par exemple, vous pouvez cacher la section Finances à vos confirmateurs. Attention : ce réglage contrôle uniquement ce qu'un rôle peut consulter — les actions comme créer, modifier ou supprimer restent toujours réservées aux administrateurs, quoi que vous cochiez ici.">
       <p className="text-sm mb-4" style={{ color: theme.dark.muted }}>
         Personnalise ce que chaque rôle peut voir dans le tableau de bord, ou affine les permissions d'une personne précise au-dessus de son rôle. Les actions de création/modification/suppression restent toujours réservées au propriétaire et aux administrateurs, quel que soit ce réglage.
       </p>

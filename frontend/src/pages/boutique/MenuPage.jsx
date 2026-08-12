@@ -180,7 +180,7 @@ export default function MenuPage() {
   }
 
   return (
-    <DashboardLayout title="Éditeur de menu">
+    <DashboardLayout title="Éditeur de menu" subtitle={`Cette page contrôle le menu de navigation que vos clients voient en haut de votre boutique publique. Vous pouvez y ajouter des liens vers vos catégories de produits, vers vos pages personnalisées (comme "À propos"), ou même vers un site externe. Glissez-déposez pour changer l'ordre des liens, et créez des sous-menus si besoin — comme un menu déroulant dans un magasin en ligne classique.`}>
       <div className="max-w-2xl space-y-4">
         <p className="text-sm mb-4" style={{ color: theme.dark.muted }}>
           Glissez-déposez pour réorganiser. Les liens apparaîtront dans la navigation de votre boutique.

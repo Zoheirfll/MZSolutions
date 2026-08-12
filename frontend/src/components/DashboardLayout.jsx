@@ -128,7 +128,49 @@ const ICONS = {
   ),
 }
 
-export default function DashboardLayout({ children, title }) {
+function PageInfoButton({ text }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onClick = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    const onKey = e => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('mousedown', onClick)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onClick)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  if (!text) return null
+
+  return (
+    <div className="relative shrink-0" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        aria-label="Informations sur cette page"
+        aria-expanded={open}
+        className="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold border border-(--border-color-hover) text-app-muted-light hover:text-violet-400 hover:border-violet-500/40 hover:bg-violet-500/10 transition-colors duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+      >
+        ?
+      </button>
+      {open && (
+        <div
+          className="absolute z-50 top-7 left-0 w-[calc(100vw-2.5rem)] max-w-md rounded-xl border p-4 text-sm leading-relaxed text-app-primary shadow-xl space-y-2"
+          style={{ background: theme.dark.sidebar, borderColor: theme.dark.borderHover, boxShadow: '0 12px 32px rgba(0,0,0,0.35)' }}
+        >
+          <p className="text-[11px] font-semibold tracking-widest text-violet-400">À QUOI SERT CETTE PAGE</p>
+          <div className="whitespace-pre-line">{text}</div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default function DashboardLayout({ children, title, subtitle }) {
   const { user, logout } = useAuth()
   const { theme: currentTheme, toggleTheme } = useTheme()
   const teamRole = user?.team_role || null
@@ -590,7 +632,10 @@ export default function DashboardLayout({ children, title }) {
             >
               {ICONS.menu}
             </button>
-            <h1 className="text-base sm:text-lg font-semibold text-app-primary truncate">{title}</h1>
+            <div className="min-w-0 flex items-center gap-2">
+              <h1 className="text-base sm:text-lg font-semibold text-app-primary truncate">{title}</h1>
+              <PageInfoButton text={subtitle} />
+            </div>
           </div>
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             {/* Cloche stock bas */}
@@ -640,9 +685,8 @@ export default function DashboardLayout({ children, title }) {
           </div>
         </header>
         {showQuotaAlert && (!teamRole || teamRole === 'admin') && (
-          <div className="flex items-center justify-between gap-3 px-5 sm:px-8 py-2.5 text-sm shrink-0"
-            style={{ background: '#3b0f0f', borderBottom: '1px solid #7f1d1d' }}>
-            <span className="text-red-200">
+          <div className="flex items-center justify-between gap-3 px-5 sm:px-8 py-2.5 text-sm shrink-0 bg-red-500/10 border-b border-red-500/25">
+            <span className="text-red-400">
               {usedPct >= 80 && daysLeft !== null && daysLeft <= 3
                 ? `Essai gratuit : ${quota.orders_remaining} commande${quota.orders_remaining !== 1 ? 's' : ''} restante${quota.orders_remaining !== 1 ? 's' : ''}, se termine dans ${daysLeft} jour${daysLeft !== 1 ? 's' : ''}.`
                 : usedPct >= 80
@@ -650,7 +694,7 @@ export default function DashboardLayout({ children, title }) {
                 : `Essai gratuit : se termine dans ${daysLeft} jour${daysLeft !== 1 ? 's' : ''}.`}
             </span>
             <button onClick={() => navigate('/dashboard/abonnement')}
-              className="px-3 py-1 rounded-lg text-xs font-semibold bg-white text-red-900 hover:bg-red-100 transition cursor-pointer shrink-0">
+              className="px-3 py-1 rounded-lg text-xs font-semibold bg-red-600 text-white hover:bg-red-500 transition cursor-pointer shrink-0">
               Mettre à niveau
             </button>
           </div>

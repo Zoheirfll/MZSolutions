@@ -34,7 +34,7 @@ export default function StockSalesStatsPage() {
   const totalUnits = results.reduce((s, r) => s + r.units_sold, 0)
 
   return (
-    <DashboardLayout title="Statistique vente de stock">
+    <DashboardLayout title="Statistique vente de stock" subtitle="Cette page vous montre combien d'unités de chaque produit ont réellement été vendues sur la période choisie, produit par produit — pratique pour savoir quels articles se vendent le mieux et lesquels réapprovisionner en priorité.">
       <div className="flex items-center justify-between gap-3 mb-6 flex-wrap">
         <PeriodFilter period={period} setPeriod={setPeriod} dateFrom={dateFrom} setDateFrom={setDateFrom} dateTo={dateTo} setDateTo={setDateTo} />
         <StatsToolbar onRefresh={fetchData} onExport={handleExport} exporting={exporting} exportDisabled={results.length === 0} />

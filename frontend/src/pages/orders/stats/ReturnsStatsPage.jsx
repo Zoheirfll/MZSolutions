@@ -47,7 +47,7 @@ export default function ReturnsStatsPage() {
   }))
 
   return (
-    <DashboardLayout title="Statistique retours">
+    <DashboardLayout title="Statistique retours" subtitle="Cette page mesure combien de commandes vous reviennent en retour, et quel pourcentage cela représente par rapport à toutes vos commandes traitées. Un taux de retour élevé peut signaler un souci de qualité produit, de description trompeuse ou de mauvaise gestion des livraisons — surveillez son évolution jour par jour ici.">
       <div className="flex items-center justify-between gap-3 mb-6 flex-wrap">
         <PeriodFilter period={period} setPeriod={setPeriod} dateFrom={dateFrom} setDateFrom={setDateFrom} dateTo={dateTo} setDateTo={setDateTo} />
         <StatsToolbar onRefresh={fetchData} onExport={handleExport} exporting={exporting} exportDisabled={!data?.total_orders} />

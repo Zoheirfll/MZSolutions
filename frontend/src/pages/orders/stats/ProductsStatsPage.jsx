@@ -40,7 +40,7 @@ export default function ProductsStatsPage() {
   const results = data.results || []
 
   return (
-    <DashboardLayout title="Statistiques des produits">
+    <DashboardLayout title="Statistiques des produits" subtitle="Cette page analyse la performance de chaque produit individuellement sur la période choisie : combien de fois il a été commandé, son taux de confirmation, dans quelle wilaya il se vend le mieux, et par quel canal (boutique en ligne, dropshipper...) il est le plus demandé.">
       <div className="flex items-center justify-between gap-3 mb-6 flex-wrap">
         <PeriodFilter period={period} setPeriod={setPeriod} dateFrom={dateFrom} setDateFrom={setDateFrom} dateTo={dateTo} setDateTo={setDateTo} />
         <StatsToolbar onRefresh={fetchData} onExport={handleExport} exporting={exporting} exportDisabled={results.length === 0} />

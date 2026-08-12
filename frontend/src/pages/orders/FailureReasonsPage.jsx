@@ -413,7 +413,7 @@ export default function FailureReasonsPage() {
   }
 
   return (
-    <DashboardLayout title="Raisons d'échec">
+    <DashboardLayout title="Raisons d'échec" subtitle={`Quand un confirmateur appelle un client et n'arrive pas à confirmer la commande, il doit choisir une raison ("ne répond pas", "a changé d'avis"...). L'onglet "Raisons" sert à créer et modifier la liste de ces motifs proposés à vos confirmateurs. L'onglet "Historique des échecs" vous montre chaque tentative ratée, avec des filtres par raison, par confirmateur ou par client — utile pour repérer un problème récurrent (un confirmateur qui échoue souvent, un motif très fréquent...).`}>
       {modal !== null && (
         <ReasonModal
           reason={modal?.id ? modal : null}

@@ -139,7 +139,7 @@ export default function MarketingPixelsPage() {
   }
 
   return (
-    <DashboardLayout title="Marketing">
+    <DashboardLayout title="Marketing" subtitle={`Cette page sert à brancher vos outils de publicité en ligne (Facebook Ads, TikTok Ads, Google Analytics) sur votre boutique. Si vous faites de la pub sur Facebook ou TikTok, ces plateformes ont besoin d'un code (un "pixel") pour savoir quand quelqu'un visite votre boutique, ajoute un produit au panier ou achète — ça leur permet de mieux cibler vos publicités et de mesurer leur efficacité. Vous n'avez qu'à coller l'identifiant fourni par Facebook/TikTok/Google dans le bon onglet, MZSolutions s'occupe d'injecter le code automatiquement sur votre boutique. Vous pouvez ajouter plusieurs identifiants du même type si vous gérez plusieurs comptes publicitaires.`}>
       <div className="flex items-center gap-2 mb-6 flex-wrap">
         {TABS.map(t => (
           <button key={t.value} onClick={() => setTab(t.value)}

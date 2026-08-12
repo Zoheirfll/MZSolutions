@@ -198,7 +198,7 @@ export default function ParametresLivraisonPage() {
   }
 
   return (
-    <DashboardLayout title="Paramètres livraison">
+    <DashboardLayout title="Paramètres livraison" subtitle={`Cette page sert à relier votre boutique à une société de livraison (Yalidine, Noest, ZR Express...). Vous devez d'abord créer un compte professionnel chez le transporteur de votre choix, ce qui vous donne une clé et un jeton d'accès à coller ici. Une fois connecté, choisissez ce compte comme transporteur "par défaut" : dès qu'une commande passe au statut Confirmée, l'expédition est créée automatiquement chez ce transporteur, avec un numéro de suivi généré tout seul. Vous pouvez connecter plusieurs transporteurs à la fois si vous travaillez avec plusieurs sociétés.`}>
       {/* Tabs */}
       <div className="flex items-center gap-1 mb-6 p-1 rounded-xl w-fit" style={{ background: theme.dark.card, border: `1px solid ${theme.dark.border}` }}>
         {TABS.map(t => (

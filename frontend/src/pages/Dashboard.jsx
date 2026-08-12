@@ -94,7 +94,7 @@ export default function Dashboard() {
     : 0
 
   return (
-    <DashboardLayout title="Tableau de bord">
+    <DashboardLayout title="Tableau de bord" subtitle="C'est la première page que vous voyez en vous connectant. Elle résume l'état de votre boutique en un coup d'œil : combien de commandes vous avez reçues, combien sont confirmées, expédiées, livrées, retournées ou annulées. Vous y voyez aussi combien de commandes il vous reste sur votre période d'essai ou votre abonnement, une carte de l'Algérie montrant où viennent vos ventes par wilaya, et un graphique de l'évolution de vos commandes sur les 15 derniers jours. Aucune action n'est requise ici, c'est juste pour vous informer rapidement.">
       {/* Welcome */}
       <div className="mb-7 flex items-center justify-between">
         <div>
@@ -114,7 +114,7 @@ export default function Dashboard() {
       </div>
 
       {error && (
-        <div className="rounded-xl border px-4 py-3 mb-6 text-sm" style={{ background: '#3b0f0f', borderColor: '#7f1d1d', color: '#fca5a5' }}>
+        <div className="rounded-xl border px-4 py-3 mb-6 text-sm bg-red-500/10 border-red-500/25 text-red-400">
           Impossible de charger certaines statistiques. Réessayez en rechargeant la page.
         </div>
       )}
@@ -122,9 +122,9 @@ export default function Dashboard() {
       {/* Trial quota banner */}
       {quota && (
         <div className="rounded-2xl p-5 border mb-6 relative overflow-hidden"
-          style={{ background: theme.dark.card, borderColor: '#2d1b5e' }}>
+          style={{ background: theme.dark.card, borderColor: 'rgba(124,58,237,0.25)' }}>
           <div className="absolute inset-0 pointer-events-none"
-            style={{ background: 'radial-gradient(ellipse at top left, #7c3aed14, transparent 60%)' }} />
+            style={{ background: 'radial-gradient(ellipse at top left, rgba(124,58,237,0.08), transparent 60%)' }} />
           <div className="relative flex flex-wrap items-center justify-between gap-4">
             <div className="flex flex-wrap items-center gap-6">
               <div>

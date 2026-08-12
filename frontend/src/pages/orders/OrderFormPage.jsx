@@ -151,7 +151,7 @@ export default function OrderFormPage() {
   const bdrStyle = { borderColor: theme.dark.border }
 
   return (
-    <DashboardLayout title="Nouvelle commande">
+    <DashboardLayout title="Nouvelle commande" subtitle="Utilisez cette page quand un client vous passe commande directement (par téléphone, en magasin, sur les réseaux sociaux...) plutôt que via votre boutique en ligne. Choisissez les produits, la quantité, la wilaya/commune du client, et le transporteur — le tarif de livraison se remplit automatiquement selon la destination. Vous pouvez aussi programmer l'envoi à une date future si le client ne veut pas être livré tout de suite : la commande ne consommera votre quota et votre stock qu'au moment de son activation.">
       <div className="flex flex-col lg:flex-row gap-6 items-start">
 
         {/* ── Colonne gauche ── */}

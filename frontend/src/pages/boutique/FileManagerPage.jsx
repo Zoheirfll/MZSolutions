@@ -153,7 +153,7 @@ export default function FileManagerPage() {
     : 'Tous les fichiers'
 
   return (
-    <DashboardLayout title="Gestionnaire de fichiers">
+    <DashboardLayout title="Gestionnaire de fichiers" subtitle="Cette page stocke toutes les images et fichiers que vous utilisez pour décorer votre boutique (logo, bannières, images dans vos pages personnalisées). Vous pouvez y déposer un nouveau fichier, copier son adresse (URL) pour la réutiliser ailleurs, le renommer, le déplacer dans un dossier, ou en supprimer plusieurs en même temps. L'espace total déjà utilisé est indiqué en haut de la page.">
       <div className="flex gap-4 h-[calc(100vh-10rem)] min-h-[500px]">
 
         {/* Sidebar dossiers */}

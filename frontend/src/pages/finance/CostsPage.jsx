@@ -161,7 +161,7 @@ export default function CostsPage() {
   const total = costs.reduce((s, c) => s + Number(c.amount), 0)
 
   return (
-    <DashboardLayout title="Coûts">
+    <DashboardLayout title="Coûts" subtitle={`Cette page sert à enregistrer les dépenses de votre activité qui ne sont pas liées à un produit précis : loyer, salaires, publicité Facebook, abonnements... Donnez un nom libre à chaque dépense, son montant et la période qu'elle couvre (par exemple "Facebook Ads — juillet", 15 000 DA, du 1er au 31 juillet). Ces coûts ne sont pas répartis produit par produit, mais ils sont automatiquement inclus dans le calcul de votre profit net global sur la page Rentabilité.`}>
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-5">
         <div className="flex items-center gap-2 flex-wrap">
           {['', 'operational', 'marketing'].map(c => (

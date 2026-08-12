@@ -122,7 +122,7 @@ export default function CancellationsPage({ mode }) {
   const colCount   = isRequests ? 9 : 8
 
   return (
-    <DashboardLayout title={isRequests ? "Demande d'annulation" : 'Annulation confirmée'}>
+    <DashboardLayout title={isRequests ? "Demande d'annulation" : 'Annulation confirmée'} subtitle="Cette page regroupe tout ce qui touche aux annulations de commande : d'un côté les demandes d'annulation qui attendent votre décision, de l'autre l'historique des commandes déjà annulées définitivement. Basculez entre les deux onglets selon ce que vous cherchez.">
 
       <div className="mb-4">
         <input

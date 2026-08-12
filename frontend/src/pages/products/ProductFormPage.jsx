@@ -613,7 +613,7 @@ export default function ProductFormPage() {
   const bdrStyle = { borderColor: theme.dark.border }
 
   return (
-    <DashboardLayout title={isEdit ? 'Modifier le produit' : 'Ajouter un produit'}>
+    <DashboardLayout title={isEdit ? 'Modifier le produit' : 'Ajouter un produit'} subtitle="C'est ici que vous créez ou modifiez un produit de votre catalogue : son nom, sa description, son prix, ses photos, et ses catégories. Si votre produit existe en plusieurs versions (par exemple différentes couleurs ou tailles), ajoutez des variantes — chacune peut avoir son propre prix, stock et image. La section SEO tout en bas contrôle comment ce produit apparaît dans les résultats de recherche Google.">
       <div className="flex gap-5 h-full">
 
         {/* Section nav gauche */}

@@ -455,7 +455,7 @@ export default function OrderDetailPage() {
   const initials = `${order.first_name?.[0] ?? ''}${order.last_name?.[0] ?? ''}`.toUpperCase() || '?'
 
   return (
-    <DashboardLayout title={`Commande #${order.id}`}>
+    <DashboardLayout title={`Commande #${order.id}`} subtitle={`C'est la fiche complète d'une commande précise. Vous pouvez y changer son statut étape par étape (en attente → confirmée → expédiée → livrée...) — dès qu'elle passe à "Confirmée", l'expédition est créée automatiquement chez votre transporteur par défaut. Vous voyez aussi le numéro de suivi transporteur, pouvez réassigner un autre confirmateur si besoin, et consulter en bas une frise chronologique de tout ce qui s'est passé sur cette commande depuis sa création.`}>
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3 mb-5">
         <button onClick={() => navigate('/dashboard/commandes')}

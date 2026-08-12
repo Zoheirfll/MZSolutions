@@ -241,7 +241,7 @@ export default function CouponsPage() {
   }
 
   return (
-    <DashboardLayout title="Coupons">
+    <DashboardLayout title="Coupons" subtitle={`Un coupon, c'est un code que le client doit taper lui-même au moment de payer sur votre boutique (par exemple "BIENVENUE10" pour 10% de réduction). Cette page vous permet d'en créer : choisissez le montant de réduction, une date de début et de fin si besoin, un nombre maximum d'utilisations, et éventuellement de le limiter à certains produits ou catégories seulement. Le code se copie facilement pour le partager à vos clients sur les réseaux sociaux.`}>
       {modal !== null && (
         <CouponModal
           coupon={modal?.id ? modal : null}

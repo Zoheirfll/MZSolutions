@@ -86,7 +86,7 @@ export default function ProfitabilityPage() {
   }
 
   return (
-    <DashboardLayout title="Rentabilité">
+    <DashboardLayout title="Rentabilité" subtitle={`Cette page calcule combien vous gagnez réellement, pas juste combien vous vendez. Elle ne compte que les commandes déjà livrées (une commande annulée ou en cours ne compte pas encore) : pour chacune, elle soustrait le prix d'achat du produit et la commission éventuelle d'un dropshipper. Vous pouvez voir ce détail par produit, par wilaya ou par canal de vente. En haut, un résumé global va plus loin en retirant aussi vos coûts opérationnels et marketing saisis dans la page "Coûts", pour obtenir votre profit net réel sur la période.`}>
       <div className="flex flex-wrap items-center gap-2 mb-6">
         <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className={inputCls} style={bdrStyle} />
         <span className="text-app-muted text-sm">→</span>

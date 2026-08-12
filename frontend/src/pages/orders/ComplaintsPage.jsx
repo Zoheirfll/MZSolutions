@@ -74,7 +74,7 @@ export default function ComplaintsPage() {
   const totalPages = Math.max(1, Math.ceil(data.count / perPage))
 
   return (
-    <DashboardLayout title="Réclamations">
+    <DashboardLayout title="Réclamations" subtitle="Quand un client a un problème avec sa commande (produit cassé, retard, erreur...), il peut déposer une réclamation directement sur votre boutique publique, sans avoir besoin de créer un compte — juste avec son numéro de téléphone et son numéro de commande. Cette page liste toutes ces réclamations. Ouvrez-en une pour discuter avec le client (chaque message reste dans un historique permanent) et faites avancer son statut au fur et à mesure : Ouverte → En cours → Résolue.">
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-5">
         <div className="flex items-center gap-1 p-1 rounded-xl w-fit" style={{ background: theme.dark.card, border: `1px solid ${theme.dark.border}` }}>
           {FILTERS.map(f => (

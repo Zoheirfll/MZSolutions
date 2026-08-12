@@ -41,7 +41,7 @@ export default function WilayaStatsPage() {
   const results = data.results || []
 
   return (
-    <DashboardLayout title="Statistiques par wilaya">
+    <DashboardLayout title="Statistiques par wilaya" subtitle="Cette page classe vos ventes par wilaya de livraison : combien de commandes viennent de chaque wilaya, leur taux de confirmation et le revenu généré. Cela vous aide à repérer vos zones géographiques les plus rentables, ou celles où le taux de confirmation est faible (peut-être à cause de délais de livraison trop longs).">
       <div className="flex items-center justify-between gap-3 mb-6 flex-wrap">
         <PeriodFilter period={period} setPeriod={setPeriod} dateFrom={dateFrom} setDateFrom={setDateFrom} dateTo={dateTo} setDateTo={setDateTo} />
         <StatsToolbar onRefresh={fetchData} onExport={handleExport} exporting={exporting} exportDisabled={results.length === 0} />

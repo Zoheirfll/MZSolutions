@@ -222,7 +222,7 @@ export default function AutoPromotionsPage() {
   }
 
   return (
-    <DashboardLayout title="Réductions automatiques">
+    <DashboardLayout title="Réductions automatiques" subtitle="Contrairement à un code promo que le client doit taper, une réduction automatique s'applique toute seule, sans rien à saisir : vous choisissez un ou plusieurs produits (ou catégories entières), un pourcentage ou montant de réduction, et dès que vous l'activez, le prix barré apparaît directement sur la fiche produit de votre boutique publique — un peu comme une promotion en magasin, visible par tous.">
       {modal !== null && (
         <AutoPromoModal
           promo={modal?.id ? modal : null}

@@ -192,7 +192,7 @@ export default function AbandonedCartsPage() {
   }
 
   return (
-    <DashboardLayout title="Paniers abandonnés">
+    <DashboardLayout title="Paniers abandonnés" subtitle="Un panier abandonné, c'est un client qui a mis des produits dans son panier sur votre boutique en ligne mais qui est parti sans finaliser sa commande. Cette page les liste pour que vous puissiez les recontacter vous-même (par téléphone si le client l'a renseigné) et essayer de récupérer la vente.">
       {/* Réglage délai de relance automatique */}
       <div className="rounded-xl border p-5 mb-5 flex items-center gap-4 flex-wrap" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
         <div className="flex-1 min-w-60">

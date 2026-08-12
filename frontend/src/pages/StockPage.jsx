@@ -220,7 +220,7 @@ export default function StockPage() {
   const totalPages = Math.max(1, Math.ceil(inventory.count / perPage))
 
   return (
-    <DashboardLayout title="Stock & Inventaire">
+    <DashboardLayout title="Stock & Inventaire" subtitle="Cette page surveille votre stock. En haut, elle liste les produits dont le stock est descendu sous un seuil que vous pouvez régler vous-même (par exemple, être alerté dès qu'il reste moins de 5 unités), pour éviter la rupture de stock. En bas, vous trouvez l'inventaire complet de tous vos produits et de leurs variantes avec leur stock actuel, recherchable si vous voulez vérifier un article précis.">
       {/* Réglage seuil */}
       <div className="rounded-xl border p-5 mb-5 flex items-center gap-4" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
         <div className="flex-1">

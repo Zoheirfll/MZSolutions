@@ -29,7 +29,7 @@ export default function SourceStatsPage() {
   }
 
   return (
-    <DashboardLayout title="Statistiques des sources">
+    <DashboardLayout title="Statistiques des sources" subtitle="Cette page compare vos différents canaux de vente : les commandes passées directement sur votre boutique en ligne, celles que vous avez saisies vous-même manuellement, et celles apportées par vos dropshippers. MZSolutions détecte automatiquement la source de chaque commande, vous n'avez rien à indiquer vous-même. Utile pour savoir quel canal vous rapporte le plus.">
       <div className="flex items-center justify-between gap-3 mb-6 flex-wrap">
         <PeriodFilter period={period} setPeriod={setPeriod} dateFrom={dateFrom} setDateFrom={setDateFrom} dateTo={dateTo} setDateTo={setDateTo} />
         <StatsToolbar onRefresh={fetchData} onExport={handleExport} exporting={exporting} exportDisabled={results.length === 0} />

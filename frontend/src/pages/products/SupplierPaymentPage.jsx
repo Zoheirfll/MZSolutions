@@ -108,7 +108,7 @@ export default function SupplierPaymentPage() {
   }
 
   return (
-    <DashboardLayout title="Versement Fournisseur">
+    <DashboardLayout title="Versement Fournisseur" subtitle="Cette page garde une trace de chaque paiement que vous avez déjà effectué à vos fournisseurs, pour que vous puissiez suivre facilement ce qui a été réglé et ce qu'il vous reste éventuellement à payer.">
       {modal && (
         <AddModal
           suppliers={suppliers}

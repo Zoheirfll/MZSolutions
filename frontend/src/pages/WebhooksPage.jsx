@@ -129,7 +129,7 @@ export default function WebhooksPage() {
   const incomingUrl = incomingKey ? `${API_BASE}/api/public/webhooks/incoming/${incomingKey.key}/` : ''
 
   return (
-    <DashboardLayout title="Webhooks">
+    <DashboardLayout title="Webhooks" subtitle={`Cette page est destinée aux utilisateurs avancés qui veulent connecter MZSolutions à d'autres outils automatiquement, sans intervention manuelle (par exemple via Zapier, Make ou n8n). Section "Sortants" : donnez une adresse web, et MZSolutions lui enverra automatiquement un signal à chaque événement que vous choisissez (nouvelle commande, commande livrée...). Section "Entrants" : vous obtenez une adresse propre à votre boutique où d'autres outils peuvent vous envoyer des informations. Tout ce qui transite est journalisé en bas de page pour vérifier que ça fonctionne. Si vous ne savez pas ce qu'est une "URL" ou un "webhook", vous n'avez probablement pas besoin de cette page.`}>
       <p className="text-sm mb-2" style={{ color: theme.dark.muted }}>
         Envoyez les événements de votre boutique vers d'autres systèmes en temps réel — ERP, comptabilité, partenaires logistiques, ou vos propres intégrations (Zapier, Make, n8n...).
       </p>
