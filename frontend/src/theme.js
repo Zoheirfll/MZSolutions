@@ -97,12 +97,12 @@ export const theme = {
     item: {
       base: 'relative flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors duration-150 border border-transparent',
       active: 'bg-white/10 border-white/15 text-app-primary font-medium',
-      inactive: 'text-gray-300 hover:text-app-primary hover:bg-white/6 hover:border-white/10',
+      inactive: 'text-app-muted-light hover:text-app-primary hover:bg-white/6 hover:border-white/10',
     },
     subItem: {
       base: 'flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-colors duration-150 border border-transparent',
       active: 'bg-white/10 border-white/15 text-app-primary font-medium',
-      inactive: 'text-gray-300 hover:text-app-primary hover:bg-white/6 hover:border-white/10',
+      inactive: 'text-app-muted-light hover:text-app-primary hover:bg-white/6 hover:border-white/10',
     },
   },
 

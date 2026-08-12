@@ -2194,6 +2194,105 @@ class FailureReasonListView(APIView):
         return Response(s.data, status=status.HTTP_201_CREATED)
 
 
+class FailureReasonAttemptsView(APIView):
+    """Liste des tentatives d'appel enregistrées pour une raison d'échec
+    précise — permet au vendeur de retrouver quels clients/commandes ont
+    échoué pour cette raison, pas juste le compteur agrégé (`usage_count`)."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        store = _get_store(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        try:
+            reason = store.failure_reasons.get(pk=pk)
+        except FailureReason.DoesNotExist:
+            return Response({'detail': 'Introuvable.'}, status=404)
+
+        qs = (CallAttempt.objects
+              .filter(order__store=store, failure_reason=reason)
+              .select_related('order', 'agent')
+              .order_by('-attempted_at'))
+
+        page, per_page = parse_pagination(request, default_per_page=20)
+        count = qs.count()
+        qs = qs[(page - 1) * per_page: page * per_page]
+
+        results = [{
+            'id':              a.id,
+            'order_id':        a.order_id,
+            'client_name':     f"{a.order.first_name} {a.order.last_name}".strip(),
+            'phone':           a.order.phone,
+            'attempt_number':  a.attempt_number,
+            'agent_name':      f"{a.agent.first_name} {a.agent.last_name}".strip() if a.agent else None,
+            'note':            a.note,
+            'attempted_at':    a.attempted_at,
+        } for a in qs]
+
+        return Response({'results': results, 'count': count, 'page': page, 'per_page': per_page})
+
+
+class FailureHistoryListView(APIView):
+    """Historique complet des tentatives d'appel en échec, toutes raisons
+    confondues, avec filtres — jusqu'ici seul un compteur agrégé par raison
+    (usage_count) existait, aucune vue transversale filtrable."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        store = _get_store(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+
+        qs = (CallAttempt.objects
+              .filter(order__store=store)
+              .exclude(failure_reason__isnull=True)
+              .select_related('order', 'agent', 'failure_reason')
+              .order_by('-attempted_at'))
+
+        reason_id = request.query_params.get('reason')
+        if reason_id:
+            qs = qs.filter(failure_reason_id=reason_id)
+
+        agent_id = request.query_params.get('agent')
+        if agent_id:
+            qs = qs.filter(agent_id=agent_id)
+
+        date_from = request.query_params.get('date_from')
+        if date_from:
+            qs = qs.filter(attempted_at__date__gte=date_from)
+
+        date_to = request.query_params.get('date_to')
+        if date_to:
+            qs = qs.filter(attempted_at__date__lte=date_to)
+
+        search = request.query_params.get('search', '').strip()
+        if search:
+            qs = qs.filter(
+                Q(order__first_name__icontains=search) |
+                Q(order__last_name__icontains=search) |
+                Q(order__phone__icontains=search)
+            )
+
+        page, per_page = parse_pagination(request, default_per_page=20)
+        count = qs.count()
+        qs = qs[(page - 1) * per_page: page * per_page]
+
+        results = [{
+            'id':              a.id,
+            'order_id':        a.order_id,
+            'client_name':     f"{a.order.first_name} {a.order.last_name}".strip(),
+            'phone':           a.order.phone,
+            'attempt_number':  a.attempt_number,
+            'reason_id':       a.failure_reason_id,
+            'reason_label':    a.failure_reason.label if a.failure_reason else None,
+            'agent_name':      f"{a.agent.first_name} {a.agent.last_name}".strip() if a.agent else None,
+            'note':            a.note,
+            'attempted_at':    a.attempted_at,
+        } for a in qs]
+
+        return Response({'results': results, 'count': count, 'page': page, 'per_page': per_page})
+
+
 class FailureReasonDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
