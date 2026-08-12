@@ -5,14 +5,20 @@ from accounts.models import User
 
 
 class TeamMemberSerializer(serializers.ModelSerializer):
+    invite_expired = serializers.ReadOnlyField()
+    is_activated   = serializers.SerializerMethodField()
+
     class Meta:
         model = TeamMember
         fields = [
             'id', 'role', 'first_name', 'last_name', 'email', 'phone',
-            'is_active', 'invited_at', 'activated_at',
+            'is_active', 'invited_at', 'activated_at', 'invite_expired', 'is_activated',
             'wilaya', 'commune', 'address',
         ]
         read_only_fields = ['id', 'invited_at', 'activated_at', 'is_active']
+
+    def get_is_activated(self, obj):
+        return obj.user_id is not None
 
 
 class InviteSerializer(serializers.Serializer):
@@ -41,6 +47,8 @@ class AcceptInvitationSerializer(serializers.Serializer):
             member = TeamMember.objects.get(invite_token=value, is_active=False, user__isnull=True)
         except TeamMember.DoesNotExist:
             raise serializers.ValidationError("Lien d'invitation invalide ou déjà utilisé.")
+        if member.invite_expired:
+            raise serializers.ValidationError("Ce lien d'invitation a expiré (48h). Demandez au propriétaire de la boutique de renvoyer l'invitation.")
         self._member = member
         return value
 

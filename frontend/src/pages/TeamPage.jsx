@@ -9,7 +9,7 @@ const TABS = [
   { key: 'admin',        label: 'Administrateurs' },
   { key: 'confirmateur', label: 'Confirmateurs' },
   { key: 'dropshipper',  label: 'Dropshippers' },
-  { key: 'retirer',      label: 'Retirer' },
+  { key: 'inactifs',     label: 'Membres désactivés' },
 ]
 
 const ROLE_LABELS = { admin: 'Admin', confirmateur: 'Confirmateur', dropshipper: 'Dropshipper' }
@@ -251,7 +251,7 @@ function MemberPermissionsModal({ member, onClose }) {
   )
 }
 
-function MembersTable({ members, onToggle, onManagePermissions }) {
+function MembersTable({ members, onToggle, onManagePermissions, onReactivate, onResend, resending }) {
   if (!members.length) {
     return (
       <div className="flex flex-col items-center justify-center text-center py-16 px-6 text-app-muted">
@@ -288,27 +288,55 @@ function MembersTable({ members, onToggle, onManagePermissions }) {
                 </span>
               </td>
               <td className="py-3 pr-4">
-                <span className={m.is_active ? theme.badge.success : theme.badge.warning}>
-                  {m.is_active ? 'Actif' : 'En attente'}
-                </span>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {m.is_active ? (
+                    <span className={theme.badge.success}>Actif</span>
+                  ) : m.is_activated ? (
+                    <span className={theme.badge.danger}>Désactivé</span>
+                  ) : (
+                    <>
+                      <span className={theme.badge.warning}>En attente</span>
+                      {m.invite_expired && <span className={theme.badge.danger}>Invitation expirée</span>}
+                    </>
+                  )}
+                </div>
               </td>
               <td className="py-3 pr-4 text-app-muted text-xs">
                 {new Date(m.invited_at).toLocaleDateString('fr-FR')}
               </td>
               <td className="py-3">
                 <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => onManagePermissions(m)}
-                    className="text-xs text-app-muted hover:text-app-primary transition"
-                  >
-                    Permissions
-                  </button>
-                  <button
-                    onClick={() => onToggle(m)}
-                    className="text-xs text-red-400 hover:text-red-300 transition"
-                  >
-                    Désactiver
-                  </button>
+                  {m.is_active ? (
+                    <>
+                      <button
+                        onClick={() => onManagePermissions(m)}
+                        className="text-xs text-app-muted hover:text-app-primary transition"
+                      >
+                        Permissions
+                      </button>
+                      <button
+                        onClick={() => onToggle(m)}
+                        className="text-xs text-red-400 hover:text-red-300 transition"
+                      >
+                        Désactiver
+                      </button>
+                    </>
+                  ) : m.is_activated ? (
+                    <button
+                      onClick={() => onReactivate(m)}
+                      className="text-xs text-emerald-400 hover:text-emerald-300 transition"
+                    >
+                      Réactiver
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => onResend(m)}
+                      disabled={resending === m.id}
+                      className="text-xs text-violet-400 hover:text-violet-300 transition disabled:opacity-50"
+                    >
+                      {resending === m.id ? '…' : "Renvoyer l'invitation"}
+                    </button>
+                  )}
                 </div>
               </td>
             </tr>
@@ -325,16 +353,17 @@ export default function TeamPage() {
   const [showModal, setShowModal] = useState(false)
   const [invited, setInvited]     = useState(false)
   const [permissionsMember, setPermissionsMember] = useState(null)
+  const [resending, setResending] = useState(null)
 
   const fetchMembers = () => {
-    const role = activeTab === 'retirer' ? 'confirmateur' : activeTab
-    api.get(`/team/members/?role=${role}`).then(({ data }) => setMembers(data)).catch(() => {})
+    if (activeTab === 'inactifs') {
+      api.get('/team/members/?is_active=0').then(({ data }) => setMembers(data)).catch(() => {})
+    } else {
+      api.get(`/team/members/?role=${activeTab}`).then(({ data }) => setMembers(data)).catch(() => {})
+    }
   }
 
-  useEffect(() => {
-    if (activeTab !== 'retirer') fetchMembers()
-    else setMembers([])
-  }, [activeTab])
+  useEffect(() => { fetchMembers() }, [activeTab])
 
   const handleSaved = () => {
     setShowModal(false)
@@ -347,6 +376,24 @@ export default function TeamPage() {
     if (!confirm(`Désactiver ${m.first_name} ${m.last_name} ?`)) return
     await api.delete(`/team/members/${m.id}/`)
     fetchMembers()
+  }
+
+  const handleReactivate = async (m) => {
+    if (!confirm(`Réactiver ${m.first_name} ${m.last_name} ?`)) return
+    await api.post(`/team/members/${m.id}/reactivate/`)
+    fetchMembers()
+  }
+
+  const handleResend = async (m) => {
+    setResending(m.id)
+    try {
+      await api.post(`/team/members/${m.id}/resend-invite/`)
+      fetchMembers()
+    } catch (err) {
+      alert(err.response?.data?.detail || "Erreur lors du renvoi de l'invitation.")
+    } finally {
+      setResending(null)
+    }
   }
 
   return (
@@ -384,7 +431,7 @@ export default function TeamPage() {
           ))}
         </div>
 
-        {activeTab !== 'retirer' && (
+        {activeTab !== 'inactifs' && (
           <button
             onClick={() => setShowModal(true)}
             className={theme.btn.primary + ' text-sm'}
@@ -407,19 +454,14 @@ export default function TeamPage() {
       )}
 
       <div className="rounded-xl border p-5" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-        {activeTab === 'retirer' ? (
-          <div className="text-center py-16">
-            <svg className="w-10 h-10 mx-auto mb-4 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.66 0-3 .9-3 2s1.34 2 3 2 3 .9 3 2-1.34 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V6m0 10v2m9-8a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <p className="text-app-muted font-medium">Relevés de paiement</p>
-            <p className="text-sm mt-2" style={{ color: theme.dark.muted }}>
-              Disponible au Sprint 6 — Finances & Paiements
-            </p>
-          </div>
-        ) : (
-          <MembersTable members={members} onToggle={handleToggle} onManagePermissions={setPermissionsMember} />
-        )}
+        <MembersTable
+          members={members}
+          onToggle={handleToggle}
+          onManagePermissions={setPermissionsMember}
+          onReactivate={handleReactivate}
+          onResend={handleResend}
+          resending={resending}
+        />
       </div>
     </DashboardLayout>
   )

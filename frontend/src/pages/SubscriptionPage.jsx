@@ -48,22 +48,44 @@ export default function SubscriptionPage() {
     <DashboardLayout title="Abonnement">
       {loading ? <Spinner /> : (
         <>
-          {quota && (
-            <div className="rounded-xl border p-5 mb-8" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-              {quota.plan ? (
-                <p className="text-sm text-gray-300">
-                  Palier actuel : <span className="font-semibold text-violet-300">{quota.plan.name}</span>
-                  {' — '}{quota.orders_used} / {quota.orders_limit >= 10**9 ? '∞' : quota.orders_limit} commandes utilisées
-                  {quota.period_end && <> — renouvellement le {new Date(quota.period_end).toLocaleDateString('fr-DZ')}</>}
-                </p>
-              ) : (
-                <p className="text-sm text-gray-300">
-                  Essai gratuit : <span className="font-semibold text-violet-300">{quota.orders_remaining} / {quota.orders_limit}</span> commandes restantes,
-                  se termine le {new Date(quota.trial_ends_at).toLocaleDateString('fr-DZ')}
-                </p>
-              )}
-            </div>
-          )}
+          {quota && (() => {
+            const active = quota.is_trial_active || quota.is_subscription_active
+            return (
+              <div className="rounded-xl border p-5 mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                style={{ background: theme.dark.card, borderColor: active ? theme.dark.border : '#7f1d1d' }}>
+                <div>
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className={active ? theme.badge.success : theme.badge.danger}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${active ? 'bg-emerald-400' : 'bg-red-400'}`} />
+                      {quota.is_subscription_active ? (quota.plan?.name ? `Abonnement ${quota.plan.name} actif` : 'Abonnement actif')
+                        : quota.is_trial_active ? 'Essai gratuit actif' : 'Expiré'}
+                    </span>
+                  </div>
+                  {quota.is_subscription_active ? (
+                    <p className="text-sm text-gray-300">
+                      {quota.orders_used} / {quota.orders_limit >= 10 ** 9 ? '∞' : quota.orders_limit} commandes utilisées
+                      {quota.period_end && <> — renouvellement le {new Date(quota.period_end).toLocaleDateString('fr-DZ')}</>}
+                    </p>
+                  ) : quota.is_trial_active ? (
+                    <p className="text-sm text-gray-300">
+                      <span className="font-semibold text-violet-300">{quota.orders_remaining} / {quota.orders_limit}</span> commandes restantes,
+                      se termine le {new Date(quota.trial_ends_at).toLocaleDateString('fr-DZ')}
+                    </p>
+                  ) : (
+                    <p className="text-sm" style={{ color: '#fca5a5' }}>
+                      Votre essai a pris fin le {new Date(quota.trial_ends_at).toLocaleDateString('fr-DZ')} — les nouvelles commandes sont bloquées tant qu'aucun abonnement n'est actif.
+                    </p>
+                  )}
+                </div>
+                {!active && (
+                  <button onClick={() => document.getElementById('plans-grid')?.scrollIntoView({ behavior: 'smooth' })}
+                    className={theme.btn.primary + ' shrink-0'}>
+                    Choisir un palier
+                  </button>
+                )}
+              </div>
+            )
+          })()}
 
           {error && <p className="text-red-400 text-sm mb-4">{error}</p>}
 
@@ -78,7 +100,7 @@ export default function SubscriptionPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+          <div id="plans-grid" className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
             {plans.map((plan, i) => {
               const price = cycle === 'yearly' ? plan.price_yearly : plan.price_monthly
               const isCurrent = quota?.plan?.id === plan.id

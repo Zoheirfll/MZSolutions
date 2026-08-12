@@ -1,7 +1,11 @@
 import secrets
+from datetime import timedelta
 from django.db import models
 from django.conf import settings
+from django.utils import timezone
 from stores.models import Store
+
+INVITE_VALIDITY = timedelta(hours=48)
 
 
 class TeamMember(models.Model):
@@ -33,6 +37,12 @@ class TeamMember(models.Model):
         if not self.invite_token:
             self.invite_token = secrets.token_urlsafe(32)
         super().save(*args, **kwargs)
+
+    @property
+    def invite_expired(self):
+        """L'email d'invitation annonce "48h" mais rien ne le vérifiait avant
+        cette passe — un lien resterait valide indéfiniment."""
+        return self.user_id is None and timezone.now() > self.invited_at + INVITE_VALIDITY
 
     def __str__(self):
         return f"{self.first_name} {self.last_name} ({self.role}) — {self.store.name}"

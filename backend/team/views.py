@@ -1,12 +1,14 @@
 import logging
 from django.conf import settings
 from django.core.mail import send_mail
+from django.utils import timezone
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
 
 from .models import TeamMember, RolePermission, TeamMemberPermission, PERMISSION_CATALOG, ROLES_WITH_PERMISSIONS, get_effective_permissions
+import secrets
 from .serializers import InviteSerializer, TeamMemberSerializer, AcceptInvitationSerializer
 from accounts.serializers import get_tokens, UserSerializer
 from core.permissions import IsOwnerOrAdminForWrites, is_owner_or_admin
@@ -22,6 +24,28 @@ def _get_store(request):
             return request.user.team_membership.store
         except Exception:
             return None
+
+
+def _send_invite_email(member):
+    link = f"{settings.FRONTEND_URL}/accept-invitation?token={member.invite_token}"
+    role_label = dict(TeamMember.ROLES).get(member.role, member.role)
+    try:
+        send_mail(
+            subject=f"Invitation à rejoindre {member.store.name} sur MZSolutions",
+            message=(
+                f"Bonjour {member.first_name},\n\n"
+                f"Vous avez été invité(e) à rejoindre la boutique « {member.store.name} » "
+                f"en tant que {role_label}.\n\n"
+                f"Cliquez sur le lien ci-dessous pour activer votre compte :\n{link}\n\n"
+                f"Ce lien expire dans 48h.\n\n"
+                f"L'équipe MZSolutions"
+            ),
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[member.email],
+            fail_silently=False,
+        )
+    except Exception as e:
+        logger.error(f"Invitation email failed: {e}")
 
 
 class InviteView(APIView):
@@ -57,25 +81,7 @@ class InviteView(APIView):
                 if role_defaults.get(key, False) != value:
                     TeamMemberPermission.objects.create(member=member, permission=key, enabled=value)
 
-        link = f"{settings.FRONTEND_URL}/accept-invitation?token={member.invite_token}"
-        role_label = dict(TeamMember.ROLES).get(member.role, member.role)
-        try:
-            send_mail(
-                subject=f"Invitation à rejoindre {store.name} sur MZSolutions",
-                message=(
-                    f"Bonjour {member.first_name},\n\n"
-                    f"Vous avez été invité(e) à rejoindre la boutique « {store.name} » "
-                    f"en tant que {role_label}.\n\n"
-                    f"Cliquez sur le lien ci-dessous pour activer votre compte :\n{link}\n\n"
-                    f"Ce lien expire dans 48h.\n\n"
-                    f"L'équipe MZSolutions"
-                ),
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[member.email],
-                fail_silently=False,
-            )
-        except Exception as e:
-            logger.error(f"Invitation email failed: {e}")
+        _send_invite_email(member)
 
         return Response(TeamMemberSerializer(member).data, status=status.HTTP_201_CREATED)
 
@@ -91,6 +97,9 @@ class TeamListView(APIView):
         role = request.query_params.get('role')
         if role:
             qs = qs.filter(role=role)
+        is_active = request.query_params.get('is_active')
+        if is_active is not None:
+            qs = qs.filter(is_active=is_active in ('1', 'true', 'True'))
         return Response(TeamMemberSerializer(qs, many=True).data)
 
 
@@ -124,6 +133,49 @@ class TeamMemberDetailView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+class TeamMemberReactivateView(APIView):
+    """Réactive un membre précédemment désactivé — jusqu'ici `is_active` était
+    en lecture seule dans le serializer, rendant la désactivation irréversible
+    une fois le compte activé (user renseigné). Ne concerne pas les invitations
+    jamais acceptées (user=None) — utiliser le renvoi d'invitation pour ce cas."""
+    permission_classes = [IsAuthenticated, IsOwnerOrAdminForWrites]
+
+    def post(self, request, pk):
+        store = _get_store(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        try:
+            member = store.team_members.get(pk=pk)
+        except TeamMember.DoesNotExist:
+            return Response({'detail': 'Membre introuvable.'}, status=404)
+        if member.user_id is None:
+            return Response({'detail': "Cette invitation n'a jamais été acceptée — renvoyez l'invitation plutôt que de réactiver."}, status=400)
+        member.is_active = True
+        member.save(update_fields=['is_active'])
+        return Response(TeamMemberSerializer(member).data)
+
+
+class TeamMemberResendInviteView(APIView):
+    """Renvoie l'email d'invitation avec un nouveau token et remet le
+    compteur des 48h à zéro — jusqu'ici un lien perdu ou expiré forçait à
+    supprimer puis réinviter le membre."""
+    permission_classes = [IsAuthenticated, IsOwnerOrAdminForWrites]
+
+    def post(self, request, pk):
+        store = _get_store(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        try:
+            member = store.team_members.get(pk=pk, user__isnull=True, is_active=False)
+        except TeamMember.DoesNotExist:
+            return Response({'detail': "Membre introuvable ou déjà activé."}, status=404)
+        member.invite_token = secrets.token_urlsafe(32)
+        member.invited_at = timezone.now()
+        member.save(update_fields=['invite_token', 'invited_at'])
+        _send_invite_email(member)
+        return Response(TeamMemberSerializer(member).data)
+
+
 class AcceptInvitationView(APIView):
     permission_classes = [AllowAny]
     throttle_scope = 'invitation'
@@ -136,6 +188,8 @@ class AcceptInvitationView(APIView):
             )
         except TeamMember.DoesNotExist:
             return Response({'detail': 'Lien invalide ou déjà utilisé.'}, status=400)
+        if member.invite_expired:
+            return Response({'detail': "Ce lien d'invitation a expiré (48h). Demandez au propriétaire de la boutique de renvoyer l'invitation."}, status=400)
         return Response({
             'first_name': member.first_name,
             'last_name':  member.last_name,
