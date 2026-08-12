@@ -54,7 +54,7 @@ function CloseIcon(props) {
 
 function Spinner({ label = 'Chargement…' }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-2 py-12 text-gray-500">
+    <div className="flex flex-col items-center justify-center gap-2 py-12 text-app-muted">
       <svg className="animate-spin" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
         <circle cx="12" cy="12" r="9" opacity="0.25" />
         <path d="M21 12a9 9 0 0 0-9-9" strokeLinecap="round" />
@@ -66,9 +66,9 @@ function Spinner({ label = 'Chargement…' }) {
 
 function EmptyState({ icon, title, subtitle }) {
   return (
-    <div className="flex flex-col items-center justify-center text-center py-14 px-6 text-gray-500">
-      {icon && <div className="mb-3 text-gray-600">{icon}</div>}
-      <p className="text-sm font-medium text-gray-300">{title}</p>
+    <div className="flex flex-col items-center justify-center text-center py-14 px-6 text-app-muted">
+      {icon && <div className="mb-3 text-app-muted">{icon}</div>}
+      <p className="text-sm font-medium text-app-primary">{title}</p>
       {subtitle && <p className="text-xs mt-1" style={{ color: theme.dark.muted }}>{subtitle}</p>}
     </div>
   )
@@ -85,7 +85,7 @@ function SupplierModal({ supplier, onClose, onSaved }) {
   const [saving, setSaving] = useState(false)
   const [errors, setErrors] = useState({})
 
-  const inputCls = `w-full px-3.5 py-2.5 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 transition [color-scheme:dark]`
+  const inputCls = `w-full px-3.5 py-2.5 rounded-lg border text-sm text-app-primary bg-transparent outline-none focus:border-violet-500 transition [color-scheme:dark]`
   const bdrStyle = { borderColor: theme.dark.border }
 
   const submit = async e => {
@@ -110,38 +110,38 @@ function SupplierModal({ supplier, onClose, onSaved }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
       <div className="w-full max-w-lg rounded-xl border p-6" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
         <div className="flex items-center justify-between mb-5">
-          <h3 className="font-semibold text-gray-200">{supplier?.id ? 'Modifier le fournisseur' : 'Nouveau fournisseur'}</h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-300 transition cursor-pointer"><CloseIcon /></button>
+          <h3 className="font-semibold text-app-primary">{supplier?.id ? 'Modifier le fournisseur' : 'Nouveau fournisseur'}</h3>
+          <button onClick={onClose} className="text-app-muted hover:text-app-primary transition cursor-pointer"><CloseIcon /></button>
         </div>
         <form onSubmit={submit} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs text-gray-400 mb-1.5">Prénom *</label>
+              <label className="block text-xs text-app-muted-light mb-1.5">Prénom *</label>
               <input value={form.first_name} onChange={e => setForm(f => ({ ...f, first_name: e.target.value }))} required className={inputCls} style={bdrStyle} placeholder="Prénom" />
               {errors.first_name && <p className="text-red-400 text-xs mt-1">{errors.first_name}</p>}
             </div>
             <div>
-              <label className="block text-xs text-gray-400 mb-1.5">Nom *</label>
+              <label className="block text-xs text-app-muted-light mb-1.5">Nom *</label>
               <input value={form.last_name} onChange={e => setForm(f => ({ ...f, last_name: e.target.value }))} required className={inputCls} style={bdrStyle} placeholder="Nom" />
               {errors.last_name && <p className="text-red-400 text-xs mt-1">{errors.last_name}</p>}
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs text-gray-400 mb-1.5">Email</label>
+              <label className="block text-xs text-app-muted-light mb-1.5">Email</label>
               <input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} className={inputCls} style={bdrStyle} placeholder="email@example.com" />
             </div>
             <div>
-              <label className="block text-xs text-gray-400 mb-1.5">Téléphone</label>
+              <label className="block text-xs text-app-muted-light mb-1.5">Téléphone</label>
               <input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} className={inputCls} style={bdrStyle} placeholder="+213…" />
             </div>
           </div>
           <div>
-            <label className="block text-xs text-gray-400 mb-1.5">Adresse</label>
+            <label className="block text-xs text-app-muted-light mb-1.5">Adresse</label>
             <textarea value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} rows={3} className={`${inputCls} resize-none`} style={bdrStyle} placeholder="Adresse complète…" />
           </div>
           <div className="flex justify-end gap-3 pt-1">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-400 hover:text-gray-200 cursor-pointer transition">Annuler</button>
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-app-muted-light hover:text-app-primary cursor-pointer transition">Annuler</button>
             <button type="submit" disabled={saving} className="px-5 py-2 rounded-lg text-sm font-semibold text-white bg-violet-600 hover:bg-violet-500 disabled:opacity-60 cursor-pointer transition">
               {saving ? '…' : supplier?.id ? 'Mettre à jour' : 'Créer'}
             </button>
@@ -214,17 +214,17 @@ export default function SuppliersPage() {
                 <EmptyState icon={<TruckIcon />} title="Aucun fournisseur" subtitle="Ajoutez votre premier fournisseur pour commencer." />
               </td></tr>
             ) : suppliers.map(s => (
-              <tr key={s.id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
-                <td className="px-4 py-3 text-gray-200">{s.first_name}</td>
-                <td className="px-4 py-3 text-gray-200">{s.last_name}</td>
-                <td className="px-4 py-3 text-gray-400">{s.email || '—'}</td>
-                <td className="px-4 py-3 text-gray-400">{s.phone || '—'}</td>
+              <tr key={s.id} className="border-b hover:bg-violet-500/5 transition" style={{ borderColor: theme.dark.borderRowHover }}>
+                <td className="px-4 py-3 text-app-primary">{s.first_name}</td>
+                <td className="px-4 py-3 text-app-primary">{s.last_name}</td>
+                <td className="px-4 py-3 text-app-muted-light">{s.email || '—'}</td>
+                <td className="px-4 py-3 text-app-muted-light">{s.phone || '—'}</td>
                 <td className="px-4 py-3 font-semibold text-sm">
                   <span className={s.balance >= 0 ? 'text-red-300' : 'text-emerald-400'}>
                     {Number(s.balance || 0).toLocaleString('fr-DZ')} DZD
                   </span>
                 </td>
-                <td className="px-4 py-3 text-gray-500 text-xs">
+                <td className="px-4 py-3 text-app-muted text-xs">
                   {new Date(s.created_at).toLocaleDateString('fr-DZ')}
                 </td>
                 <td className="px-4 py-3">

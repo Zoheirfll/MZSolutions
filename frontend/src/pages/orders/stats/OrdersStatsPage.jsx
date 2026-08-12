@@ -55,7 +55,7 @@ export default function OrdersStatsPage() {
           </p>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="rounded-xl border p-5" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-              <p className="text-sm font-medium text-gray-300 mb-4">Évolution quotidienne</p>
+              <p className="text-sm font-medium text-app-primary mb-4">Évolution quotidienne</p>
               <ResponsiveContainer width="100%" height={260}>
                 <BarChart data={dailyChart}>
                   <CartesianGrid strokeDasharray="3 3" stroke={theme.dark.border} vertical={false} />
@@ -67,9 +67,9 @@ export default function OrdersStatsPage() {
               </ResponsiveContainer>
             </div>
             <div className="rounded-xl border p-5" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-              <p className="text-sm font-medium text-gray-300 mb-4">Répartition par statut <span className="font-normal text-xs" style={{ color: theme.dark.muted }}>(cliquer pour voir les commandes)</span></p>
+              <p className="text-sm font-medium text-app-primary mb-4">Répartition par statut <span className="font-normal text-xs" style={{ color: theme.dark.muted }}>(cliquer pour voir les commandes)</span></p>
               {data.by_status.length === 0 ? (
-                <p className="text-sm text-gray-500 py-16 text-center">Aucune commande sur cette période.</p>
+                <p className="text-sm text-app-muted py-16 text-center">Aucune commande sur cette période.</p>
               ) : (
                 <ResponsiveContainer width="100%" height={260}>
                   <PieChart>

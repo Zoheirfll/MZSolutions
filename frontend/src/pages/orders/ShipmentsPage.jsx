@@ -163,14 +163,14 @@ export default function ShipmentsPage() {
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder="Recherche nom, téléphone, tracking"
-          className="px-3 py-2 rounded-lg border text-sm text-gray-200 outline-none focus:border-violet-500 transition w-full sm:w-64"
+          className="px-3 py-2 rounded-lg border text-sm text-app-primary outline-none focus:border-violet-500 transition w-full sm:w-64"
           style={{ background: theme.dark.card, borderColor: theme.dark.border }}
         />
         <Select value={statusFilter} onChange={setStatusFilter} options={STATUS_OPTIONS}
-          className="px-3 py-2 rounded-lg border text-gray-200 text-sm"
+          className="px-3 py-2 rounded-lg border text-app-primary text-sm"
           style={{ background: theme.dark.card, borderColor: theme.dark.border, minWidth: 180 }} />
         <Select value={carrierFilter} onChange={setCarrierFilter} options={carrierOptions}
-          className="px-3 py-2 rounded-lg border text-gray-200 text-sm"
+          className="px-3 py-2 rounded-lg border text-app-primary text-sm"
           style={{ background: theme.dark.card, borderColor: theme.dark.border, minWidth: 200 }} />
       </div>
 
@@ -197,7 +197,7 @@ export default function ShipmentsPage() {
           <tbody>
             {loading ? (
               <tr><td colSpan={8} className="py-16">
-                <div className="flex items-center justify-center gap-2 text-gray-500">
+                <div className="flex items-center justify-center gap-2 text-app-muted">
                   <svg className="w-5 h-5 animate-spin text-violet-500" viewBox="0 0 24 24" fill="none">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
@@ -213,14 +213,14 @@ export default function ShipmentsPage() {
               <tr
                 key={o.id}
                 onClick={() => navigate(`/dashboard/commandes/${o.id}`)}
-                className="border-b hover:bg-white/2 transition cursor-pointer"
+                className="border-b hover:bg-violet-500/5 transition cursor-pointer"
                 style={{ borderColor: theme.dark.borderRowHover }}
               >
-                <td className="px-4 py-3 text-gray-500">#{o.id}</td>
-                <td className="px-4 py-3 text-gray-200 font-medium">{o.first_name} {o.last_name}</td>
-                <td className="px-4 py-3 text-gray-300">{o.wilaya}</td>
-                <td className="px-4 py-3 text-gray-300">{o.carrier_label || '—'}</td>
-                <td className="px-4 py-3 text-gray-400 font-mono text-xs">{o.carrier_tracking_number || '—'}</td>
+                <td className="px-4 py-3 text-app-muted">#{o.id}</td>
+                <td className="px-4 py-3 text-app-primary font-medium">{o.first_name} {o.last_name}</td>
+                <td className="px-4 py-3 text-app-primary">{o.wilaya}</td>
+                <td className="px-4 py-3 text-app-primary">{o.carrier_label || '—'}</td>
+                <td className="px-4 py-3 text-app-muted-light font-mono text-xs">{o.carrier_tracking_number || '—'}</td>
                 <td className="px-4 py-3">
                   <StatusBadge status={o.status} />
                   {o.carrier_status && o.carrier_status !== 'created' && (
@@ -237,7 +237,7 @@ export default function ShipmentsPage() {
                       <DownloadIcon /> {downloadingId === o.id ? '…' : 'Étiquette'}
                     </button>
                   ) : (
-                    <span className="text-gray-600 text-xs">—</span>
+                    <span className="text-app-muted text-xs">—</span>
                   )}
                 </td>
                 <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
@@ -253,13 +253,13 @@ export default function ShipmentsPage() {
                     <button
                       onClick={() => syncTracking(o)}
                       disabled={syncingId === o.id}
-                      className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded text-gray-300 border hover:bg-white/5 transition disabled:opacity-50"
+                      className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded text-app-primary border hover:bg-violet-500/5 transition disabled:opacity-50"
                       style={{ borderColor: theme.dark.border }}
                     >
                       <RefreshIcon /> {syncingId === o.id ? '…' : 'Actualiser'}
                     </button>
                   ) : (
-                    <span className="text-gray-600 text-xs">—</span>
+                    <span className="text-app-muted text-xs">—</span>
                   )}
                 </td>
               </tr>
@@ -275,11 +275,11 @@ export default function ShipmentsPage() {
             Lignes par page :
             <Select value={perPage} onChange={v => { setPerPage(Number(v)); setPage(1) }}
               options={PER_PAGE_OPTIONS.map(n => ({ value: n, label: n }))}
-              className="px-2 py-1 rounded-lg border text-gray-300 text-xs"
+              className="px-2 py-1 rounded-lg border text-app-primary text-xs"
               style={{ background: theme.dark.card, borderColor: theme.dark.border, minWidth: 64 }} />
           </div>
           <div className="flex items-center gap-1">
-            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-2 py-1 rounded disabled:opacity-30 hover:bg-white/5 flex items-center justify-center">
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-2 py-1 rounded disabled:opacity-30 hover:bg-violet-500/5 flex items-center justify-center">
               <ChevronLeftIcon />
             </button>
             {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i + 1).map(n => (
@@ -288,7 +288,7 @@ export default function ShipmentsPage() {
                 {n}
               </button>
             ))}
-            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="px-2 py-1 rounded disabled:opacity-30 hover:bg-white/5 flex items-center justify-center">
+            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="px-2 py-1 rounded disabled:opacity-30 hover:bg-violet-500/5 flex items-center justify-center">
               <ChevronRightIcon />
             </button>
           </div>

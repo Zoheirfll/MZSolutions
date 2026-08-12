@@ -35,7 +35,7 @@ function ChildRow({ child, onUpdate, onRemove, pages, slug }) {
     <div className="flex items-center gap-3 px-3 py-2 rounded-lg border ml-8" style={{ borderColor: theme.dark.border, background: theme.dark.app }}>
       <span className={`${TYPE_COLORS[child.type] || theme.badge.neutral} shrink-0 text-[10px]`}>{TYPE_LABELS[child.type]}</span>
       <input value={child.label} onChange={e => onUpdate({ ...child, label: e.target.value })}
-        className="flex-1 min-w-0 bg-transparent text-sm text-gray-200 outline-none border-b border-transparent focus:border-violet-500 transition-colors py-0.5"
+        className="flex-1 min-w-0 bg-transparent text-sm text-app-primary outline-none border-b border-transparent focus:border-violet-500 transition-colors py-0.5"
         placeholder="Libellé" />
       {child.type === 'page' ? (
         <Select value={child.page_slug || ''} onChange={v => {
@@ -72,7 +72,7 @@ function SortableItem({ item, onUpdate, onRemove, pages, slug }) {
         style2={{ borderColor: isDragging ? '#7c3aed' : theme.dark.border, background: theme.dark.card }}>
 
         {/* Grip */}
-        <button {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing text-gray-600 hover:text-gray-400 shrink-0" type="button">
+        <button {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing text-app-muted hover:text-app-muted-light shrink-0" type="button">
           <GripIcon />
         </button>
 
@@ -81,7 +81,7 @@ function SortableItem({ item, onUpdate, onRemove, pages, slug }) {
 
         {/* Label */}
         <input value={item.label} onChange={e => onUpdate({ ...item, label: e.target.value })}
-          className="flex-1 min-w-0 bg-transparent text-sm text-gray-200 outline-none border-b border-transparent focus:border-violet-500 transition-colors py-0.5"
+          className="flex-1 min-w-0 bg-transparent text-sm text-app-primary outline-none border-b border-transparent focus:border-violet-500 transition-colors py-0.5"
           placeholder="Libellé" />
 
         {/* URL/target */}

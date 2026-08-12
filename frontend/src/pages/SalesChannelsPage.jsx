@@ -21,7 +21,7 @@ const LOG_CHANNEL_OPTIONS = [
 
 function Spinner() {
   return (
-    <div className="flex items-center justify-center gap-2 text-gray-500 py-10">
+    <div className="flex items-center justify-center gap-2 text-app-muted py-10">
       <svg className="w-5 h-5 animate-spin text-violet-500" viewBox="0 0 24 24" fill="none">
         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
@@ -46,7 +46,7 @@ function ConnectModal({ channel, initial, onClose, onSaved }) {
     api_secret: '',
   })
   const [saving, setSaving] = useState(false)
-  const inputCls = 'w-full px-3.5 py-2.5 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 transition [color-scheme:dark]'
+  const inputCls = 'w-full px-3.5 py-2.5 rounded-lg border text-sm text-app-primary bg-transparent outline-none focus:border-violet-500 transition [color-scheme:dark]'
   const bdrStyle = { borderColor: theme.dark.border }
 
   const submit = async e => {
@@ -66,28 +66,28 @@ function ConnectModal({ channel, initial, onClose, onSaved }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: 'rgba(0,0,0,0.7)' }} onClick={onClose}>
       <div className="w-full max-w-md rounded-xl border p-6" style={{ background: theme.dark.card, borderColor: theme.dark.border }} onClick={e => e.stopPropagation()}>
-        <h3 className="font-semibold text-gray-200 mb-1">Connecter {label}</h3>
+        <h3 className="font-semibold text-app-primary mb-1">Connecter {label}</h3>
         <p className="text-xs mb-5" style={{ color: theme.dark.muted }}>
           Les accès API réels ne sont pas encore obtenus — la connexion est enregistrée et la synchronisation fonctionne en mode simulé (aucun appel réseau réel) en attendant.
         </p>
         <form onSubmit={submit} className="space-y-4">
           <div>
-            <label className="block text-xs text-gray-400 mb-1.5">{urlLabel}</label>
+            <label className="block text-xs text-app-muted-light mb-1.5">{urlLabel}</label>
             <input value={form.shop_url} onChange={e => setForm(f => ({ ...f, shop_url: e.target.value }))}
               className={inputCls} style={bdrStyle} />
           </div>
           <div>
-            <label className="block text-xs text-gray-400 mb-1.5">Clé API (optionnel pour l'instant)</label>
+            <label className="block text-xs text-app-muted-light mb-1.5">Clé API (optionnel pour l'instant)</label>
             <input value={form.api_key} onChange={e => setForm(f => ({ ...f, api_key: e.target.value }))}
               className={inputCls} style={bdrStyle} />
           </div>
           <div>
-            <label className="block text-xs text-gray-400 mb-1.5">Secret API (optionnel pour l'instant)</label>
+            <label className="block text-xs text-app-muted-light mb-1.5">Secret API (optionnel pour l'instant)</label>
             <input type="password" value={form.api_secret} onChange={e => setForm(f => ({ ...f, api_secret: e.target.value }))}
               className={inputCls} style={bdrStyle} />
           </div>
           <div className="flex justify-end gap-3 pt-1">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-400 hover:text-gray-200 cursor-pointer transition">Fermer</button>
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-app-muted-light hover:text-app-primary cursor-pointer transition">Fermer</button>
             <button type="submit" disabled={saving} className={theme.btn.primary + ' text-sm disabled:opacity-60'}>
               {saving ? '…' : 'Connecter'}
             </button>
@@ -102,21 +102,21 @@ function ChannelCard({ title, description, connection, onConnect, onSync, onDisc
   return (
     <div className="rounded-xl border p-5 flex flex-col gap-3" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
       <div>
-        <p className="font-semibold text-gray-200">{title}</p>
+        <p className="font-semibold text-app-primary">{title}</p>
         <p className="text-xs mt-1" style={{ color: theme.dark.muted }}>{description}</p>
       </div>
       {connection ? (
         <>
           <div className="text-xs space-y-1" style={{ color: theme.dark.muted }}>
-            <p>URL : <span className="text-gray-300">{connection.shop_url || '—'}</span></p>
+            <p>URL : <span className="text-app-primary">{connection.shop_url || '—'}</span></p>
             {connection.oauth_connected && <p><span className={theme.badge.success}>Connecté via OAuth</span></p>}
-            <p>Dernière synchro : <span className="text-gray-300">{connection.last_synced_at ? new Date(connection.last_synced_at).toLocaleString('fr-DZ') : 'jamais'}</span></p>
+            <p>Dernière synchro : <span className="text-app-primary">{connection.last_synced_at ? new Date(connection.last_synced_at).toLocaleString('fr-DZ') : 'jamais'}</span></p>
           </div>
           <div className="flex gap-2 flex-wrap">
             <button onClick={() => onSync(connection, 'push')} disabled={!!syncingDirection} className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-violet-600 hover:bg-violet-500 disabled:opacity-60 cursor-pointer transition">
               {syncingDirection === 'push' ? 'Envoi…' : 'Pousser le catalogue'}
             </button>
-            <button onClick={() => onSync(connection, pullDirection)} disabled={!!syncingDirection} className="px-3 py-1.5 rounded-lg text-xs font-semibold border text-gray-300 hover:bg-white/5 disabled:opacity-60 cursor-pointer transition" style={{ borderColor: theme.dark.border }}>
+            <button onClick={() => onSync(connection, pullDirection)} disabled={!!syncingDirection} className="px-3 py-1.5 rounded-lg text-xs font-semibold border text-app-primary hover:bg-violet-500/5 disabled:opacity-60 cursor-pointer transition" style={{ borderColor: theme.dark.border }}>
               {syncingDirection === pullDirection ? 'Import…' : pullLabel}
             </button>
             <button onClick={() => onDisconnect(connection)} className="px-3 py-1.5 rounded-lg text-xs font-semibold text-red-400 hover:bg-red-900/20 cursor-pointer transition">
@@ -134,7 +134,7 @@ function ChannelCard({ title, description, connection, onConnect, onSync, onDisc
 function ShopifyConnectModal({ onClose, onError }) {
   const [shop, setShop] = useState('')
   const [connecting, setConnecting] = useState(false)
-  const inputCls = 'w-full px-3.5 py-2.5 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 transition [color-scheme:dark]'
+  const inputCls = 'w-full px-3.5 py-2.5 rounded-lg border text-sm text-app-primary bg-transparent outline-none focus:border-violet-500 transition [color-scheme:dark]'
   const bdrStyle = { borderColor: theme.dark.border }
 
   const submit = async e => {
@@ -152,18 +152,18 @@ function ShopifyConnectModal({ onClose, onError }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: 'rgba(0,0,0,0.7)' }} onClick={onClose}>
       <div className="w-full max-w-md rounded-xl border p-6" style={{ background: theme.dark.card, borderColor: theme.dark.border }} onClick={e => e.stopPropagation()}>
-        <h3 className="font-semibold text-gray-200 mb-1">Connecter Shopify</h3>
+        <h3 className="font-semibold text-app-primary mb-1">Connecter Shopify</h3>
         <p className="text-xs mb-5" style={{ color: theme.dark.muted }}>
           Vous allez être redirigé vers Shopify pour autoriser MZSolutions à accéder à votre boutique. Aucune information sensible à saisir ici.
         </p>
         <form onSubmit={submit} className="space-y-4">
           <div>
-            <label className="block text-xs text-gray-400 mb-1.5">Domaine de votre boutique Shopify</label>
+            <label className="block text-xs text-app-muted-light mb-1.5">Domaine de votre boutique Shopify</label>
             <input value={shop} onChange={e => setShop(e.target.value)} placeholder="monshop.myshopify.com"
               className={inputCls} style={bdrStyle} required />
           </div>
           <div className="flex justify-end gap-3 pt-1">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-400 hover:text-gray-200 cursor-pointer transition">Fermer</button>
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-app-muted-light hover:text-app-primary cursor-pointer transition">Fermer</button>
             <button type="submit" disabled={connecting} className={theme.btn.primary + ' text-sm disabled:opacity-60'}>
               {connecting ? '…' : 'Continuer vers Shopify'}
             </button>
@@ -264,7 +264,7 @@ export default function SalesChannelsPage() {
       <div className="flex items-center gap-2 mb-6 flex-wrap">
         {TABS.map(t => (
           <button key={t.value} onClick={() => setTab(t.value)}
-            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition ${tab === t.value ? 'text-white bg-violet-600' : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'}`}
+            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition ${tab === t.value ? 'text-white bg-violet-600' : 'text-app-muted-light hover:text-app-primary hover:bg-violet-500/5'}`}
             style={tab === t.value ? undefined : { border: `1px solid ${theme.dark.border}` }}>
             {t.label}
           </button>
@@ -298,13 +298,13 @@ export default function SalesChannelsPage() {
 
           {tab === 'meta' && (
             <div className="rounded-xl border p-5 mb-8" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-              <p className="font-semibold text-gray-200 mb-1">Intégration des Publicités Meta (Facebook/Instagram)</p>
+              <p className="font-semibold text-app-primary mb-1">Intégration des Publicités Meta (Facebook/Instagram)</p>
               <p className="text-xs mb-4" style={{ color: theme.dark.muted }}>
                 Contrairement à Shopify/Google Sheets, cette intégration ne nécessite aucune clé API de votre part : copiez l'URL ci-dessous dans Meta Commerce Manager (Catalogue → Ajouter des articles → Flux de données programmé). Meta viendra lire automatiquement votre catalogue à cette adresse.
               </p>
               <div className="flex items-center gap-2">
-                <input readOnly value={feedUrl} className="flex-1 px-3.5 py-2.5 rounded-lg border text-sm text-gray-300 bg-transparent outline-none [color-scheme:dark]" style={{ borderColor: theme.dark.border }} />
-                <a href={feedUrl} target="_blank" rel="noreferrer" className="px-3.5 py-2.5 rounded-lg text-sm border text-gray-300 hover:bg-white/5 transition shrink-0" style={{ borderColor: theme.dark.border }}>
+                <input readOnly value={feedUrl} className="flex-1 px-3.5 py-2.5 rounded-lg border text-sm text-app-primary bg-transparent outline-none [color-scheme:dark]" style={{ borderColor: theme.dark.border }} />
+                <a href={feedUrl} target="_blank" rel="noreferrer" className="px-3.5 py-2.5 rounded-lg text-sm border text-app-primary hover:bg-violet-500/5 transition shrink-0" style={{ borderColor: theme.dark.border }}>
                   Ouvrir
                 </a>
                 <button onClick={copyFeedUrl} className={theme.btn.primary + ' text-sm shrink-0 flex items-center gap-1.5'}>
@@ -315,7 +315,7 @@ export default function SalesChannelsPage() {
           )}
 
           <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
-            <h2 className="font-semibold text-gray-200">Journal de synchronisation</h2>
+            <h2 className="font-semibold text-app-primary">Journal de synchronisation</h2>
             <div className="w-52">
               <Select value={logChannel} onChange={setLogChannel} options={LOG_CHANNEL_OPTIONS} variant="dark" />
             </div>
@@ -323,7 +323,7 @@ export default function SalesChannelsPage() {
           <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border }}>
             <table className="w-full text-sm min-w-140">
               <thead style={{ background: theme.dark.sidebar }}>
-                <tr className="text-left text-xs text-gray-500 border-b" style={{ borderColor: theme.dark.border }}>
+                <tr className="text-left text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
                   <th className="px-4 py-3 font-medium">CANAL</th>
                   <th className="px-4 py-3 font-medium">SENS</th>
                   <th className="px-4 py-3 font-medium">STATUT</th>
@@ -333,16 +333,16 @@ export default function SalesChannelsPage() {
               </thead>
               <tbody>
                 {logs.length === 0 ? (
-                  <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-gray-500">Aucune synchronisation pour l'instant.</td></tr>
+                  <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-app-muted">Aucune synchronisation pour l'instant.</td></tr>
                 ) : logs.map(l => (
-                  <tr key={l.id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
-                    <td className="px-4 py-3 text-gray-200">{l.channel_label}</td>
-                    <td className="px-4 py-3 text-gray-400">{l.direction_label}</td>
+                  <tr key={l.id} className="border-b hover:bg-violet-500/5 transition" style={{ borderColor: theme.dark.borderRowHover }}>
+                    <td className="px-4 py-3 text-app-primary">{l.channel_label}</td>
+                    <td className="px-4 py-3 text-app-muted-light">{l.direction_label}</td>
                     <td className="px-4 py-3">
                       <span className={l.status === 'success' ? theme.badge.success : theme.badge.danger}>{l.status === 'success' ? 'Succès' : 'Erreur'}</span>
                     </td>
-                    <td className="px-4 py-3 text-gray-400 max-w-80 truncate" title={l.message}>{l.message}</td>
-                    <td className="px-4 py-3 text-gray-500 text-xs">{new Date(l.started_at).toLocaleString('fr-DZ')}</td>
+                    <td className="px-4 py-3 text-app-muted-light max-w-80 truncate" title={l.message}>{l.message}</td>
+                    <td className="px-4 py-3 text-app-muted text-xs">{new Date(l.started_at).toLocaleString('fr-DZ')}</td>
                   </tr>
                 ))}
               </tbody>

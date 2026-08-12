@@ -27,7 +27,7 @@ function ExchangeIcon(props) {
 
 function Spinner({ label = 'Chargement…' }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-2 py-12 text-gray-500">
+    <div className="flex flex-col items-center justify-center gap-2 py-12 text-app-muted">
       <svg className="animate-spin" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
         <circle cx="12" cy="12" r="9" opacity="0.25" />
         <path d="M21 12a9 9 0 0 0-9-9" strokeLinecap="round" />
@@ -39,9 +39,9 @@ function Spinner({ label = 'Chargement…' }) {
 
 function EmptyState({ icon, title, subtitle }) {
   return (
-    <div className="flex flex-col items-center justify-center text-center py-14 px-6 text-gray-500">
-      {icon && <div className="mb-3 text-gray-600">{icon}</div>}
-      <p className="text-sm font-medium text-gray-300">{title}</p>
+    <div className="flex flex-col items-center justify-center text-center py-14 px-6 text-app-muted">
+      {icon && <div className="mb-3 text-app-muted">{icon}</div>}
+      <p className="text-sm font-medium text-app-primary">{title}</p>
       {subtitle && <p className="text-xs mt-1" style={{ color: theme.dark.muted }}>{subtitle}</p>}
     </div>
   )
@@ -80,7 +80,7 @@ export default function ExchangesPage() {
               key={f.value}
               onClick={() => { setFilter(f.value); setPage(1) }}
               className={`px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer ${
-                filter === f.value ? 'bg-violet-600 text-white' : 'text-gray-400 hover:text-gray-200'
+                filter === f.value ? 'bg-violet-600 text-white' : 'text-app-muted-light hover:text-app-primary'
               }`}
             >
               {f.label}
@@ -91,7 +91,7 @@ export default function ExchangesPage() {
           value={search}
           onChange={e => { setSearch(e.target.value); setPage(1) }}
           placeholder="Recherche par téléphone, nom, produit"
-          className="px-4 py-2 rounded-lg text-sm text-gray-200 border outline-none focus:border-violet-500 transition w-full sm:w-64"
+          className="px-4 py-2 rounded-lg text-sm text-app-primary border outline-none focus:border-violet-500 transition w-full sm:w-64"
           style={{ background: theme.dark.card, borderColor: theme.dark.border }}
         />
       </div>
@@ -99,7 +99,7 @@ export default function ExchangesPage() {
       <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border }}>
         <table className="w-full text-sm min-w-200">
           <thead style={{ background: theme.dark.sidebar }}>
-            <tr className="text-left text-xs text-gray-500 border-b" style={{ borderColor: theme.dark.border }}>
+            <tr className="text-left text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
               <th className="px-4 py-3 font-medium">COMMANDE</th>
               <th className="px-4 py-3 font-medium">CLIENT</th>
               <th className="px-4 py-3 font-medium">ARTICLE</th>
@@ -118,14 +118,14 @@ export default function ExchangesPage() {
               </td></tr>
             ) : data.results.map(e => (
               <tr key={e.id} onClick={() => navigate(`/dashboard/echanges/${e.id}`)}
-                className="border-b hover:bg-white/2 transition cursor-pointer" style={{ borderColor: theme.dark.borderRowHover }}>
+                className="border-b hover:bg-violet-500/5 transition cursor-pointer" style={{ borderColor: theme.dark.borderRowHover }}>
                 <td className="px-4 py-3 text-violet-300 font-mono text-xs">{e.order_display}</td>
-                <td className="px-4 py-3 text-gray-300 font-mono text-xs">{e.order_phone}</td>
-                <td className="px-4 py-3 text-gray-200 font-medium max-w-48 truncate">{e.original_product}</td>
+                <td className="px-4 py-3 text-app-primary font-mono text-xs">{e.order_phone}</td>
+                <td className="px-4 py-3 text-app-primary font-medium max-w-48 truncate">{e.original_product}</td>
                 <td className="px-4 py-3">
                   <span className={theme.badge.info}>{e.replacement_value}</span>
                 </td>
-                <td className="px-4 py-3 text-gray-400 max-w-48 truncate" title={e.reason}>{e.reason || '—'}</td>
+                <td className="px-4 py-3 text-app-muted-light max-w-48 truncate" title={e.reason}>{e.reason || '—'}</td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-1.5">
                     <span className={STATUS_BADGE[e.status] || theme.badge.neutral}>{e.status_label}</span>
@@ -136,7 +136,7 @@ export default function ExchangesPage() {
                     )}
                   </div>
                 </td>
-                <td className="px-4 py-3 text-gray-500 text-xs">{new Date(e.created_at).toLocaleString('fr-DZ')}</td>
+                <td className="px-4 py-3 text-app-muted text-xs">{new Date(e.created_at).toLocaleString('fr-DZ')}</td>
               </tr>
             ))}
           </tbody>
@@ -147,9 +147,9 @@ export default function ExchangesPage() {
         <div className="flex items-center justify-between mt-4 text-sm" style={{ color: theme.dark.muted }}>
           <p>{data.count} échange{data.count !== 1 ? 's' : ''}</p>
           <div className="flex items-center gap-2">
-            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-white/5 transition">← Précédent</button>
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">← Précédent</button>
             <span className={theme.badge.info}>{page}</span>
-            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-white/5 transition">Suivant →</button>
+            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">Suivant →</button>
           </div>
         </div>
       )}

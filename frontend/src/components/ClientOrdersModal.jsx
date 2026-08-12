@@ -32,8 +32,8 @@ export default function ClientOrdersModal({ phone, name, onClose }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: 'rgba(0,0,0,0.7)' }} onClick={onClose}>
       <div className="w-full max-w-lg rounded-xl border p-6 max-h-[85vh] overflow-y-auto" style={{ background: theme.dark.card, borderColor: theme.dark.border }} onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-1">
-          <h3 className="font-semibold text-gray-200">Historique — {name || 'Client'}</h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-300 transition cursor-pointer"><CloseIcon /></button>
+          <h3 className="font-semibold text-app-primary">Historique — {name || 'Client'}</h3>
+          <button onClick={onClose} className="text-app-muted hover:text-app-primary transition cursor-pointer"><CloseIcon /></button>
         </div>
         <p className="text-xs font-mono mb-5" style={{ color: theme.dark.muted }}>{phone}</p>
 
@@ -47,15 +47,15 @@ export default function ClientOrdersModal({ phone, name, onClose }) {
               <button
                 key={o.id}
                 onClick={() => navigate(`/dashboard/commandes/${o.id}`)}
-                className="w-full flex items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-white/5 transition cursor-pointer"
+                className="w-full flex items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-violet-500/5 transition cursor-pointer"
                 style={{ background: theme.dark.sidebar }}
               >
                 <div>
-                  <p className="text-sm text-gray-200 font-medium">#{o.id}</p>
+                  <p className="text-sm text-app-primary font-medium">#{o.id}</p>
                   <p className="text-xs" style={{ color: theme.dark.muted }}>{new Date(o.created_at).toLocaleDateString('fr-DZ')}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-300">{Number(o.total).toLocaleString('fr-DZ')} DZD</span>
+                  <span className="text-sm text-app-primary">{Number(o.total).toLocaleString('fr-DZ')} DZD</span>
                   <StatusBadge status={o.status} label={o.status_label} />
                 </div>
               </button>
@@ -64,7 +64,7 @@ export default function ClientOrdersModal({ phone, name, onClose }) {
         )}
 
         <div className="flex justify-end mt-5">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-400 hover:text-gray-200 cursor-pointer transition">Fermer</button>
+          <button onClick={onClose} className="px-4 py-2 text-sm text-app-muted-light hover:text-app-primary cursor-pointer transition">Fermer</button>
         </div>
       </div>
     </div>

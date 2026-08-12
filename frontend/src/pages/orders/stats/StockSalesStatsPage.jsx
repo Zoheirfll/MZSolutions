@@ -50,7 +50,7 @@ export default function StockSalesStatsPage() {
           <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border }}>
             <table className="w-full text-sm min-w-140">
               <thead style={{ background: theme.dark.sidebar }}>
-                <tr className="text-left text-xs text-gray-500 border-b" style={{ borderColor: theme.dark.border }}>
+                <tr className="text-left text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
                   <th className="px-4 py-3 font-medium">PRODUIT</th>
                   <th className="px-4 py-3 font-medium">UNITÉS VENDUES</th>
                   <th className="px-4 py-3 font-medium">MOUVEMENTS</th>
@@ -58,17 +58,17 @@ export default function StockSalesStatsPage() {
               </thead>
               <tbody>
                 {results.length === 0 ? (
-                  <tr><td colSpan={3} className="px-4 py-10 text-center text-sm text-gray-500">Aucune vente sur cette période.</td></tr>
+                  <tr><td colSpan={3} className="px-4 py-10 text-center text-sm text-app-muted">Aucune vente sur cette période.</td></tr>
                 ) : results.map(r => (
-                  <tr key={r.product_id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
-                    <td className="px-4 py-3 text-gray-200">{r.product_name}</td>
-                    <td className="px-4 py-3 text-gray-300">
+                  <tr key={r.product_id} className="border-b hover:bg-violet-500/5 transition" style={{ borderColor: theme.dark.borderRowHover }}>
+                    <td className="px-4 py-3 text-app-primary">{r.product_name}</td>
+                    <td className="px-4 py-3 text-app-primary">
                       <div className="flex items-center gap-2">
                         {r.units_sold}
                         <TrendBadge pct={r.units_sold_delta_pct} />
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-gray-500">{r.movements}</td>
+                    <td className="px-4 py-3 text-app-muted">{r.movements}</td>
                   </tr>
                 ))}
               </tbody>

@@ -268,7 +268,7 @@ export default function StockPage() {
             <Select value={stockFilter} onChange={v => { setStockFilter(v); setPage(1) }} options={STOCK_FILTER_OPTIONS} variant="dark" />
           </div>
           <button onClick={handleExport} disabled={exporting || inventory.count === 0}
-            className="px-3.5 py-2 rounded-lg text-sm font-medium border text-app-primary hover:bg-white/5 disabled:opacity-50 transition cursor-pointer flex items-center gap-1.5"
+            className="px-3.5 py-2 rounded-lg text-sm font-medium border text-app-primary hover:bg-violet-500/5 disabled:opacity-50 transition cursor-pointer flex items-center gap-1.5"
             style={{ borderColor: theme.dark.border }}>
             <DownloadIcon /> {exporting ? 'Export…' : 'Exporter'}
           </button>
@@ -308,7 +308,7 @@ export default function StockPage() {
                 </td>
               </tr>
             ) : inventory.results.map((item, i) => (
-              <tr key={i} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
+              <tr key={i} className="border-b hover:bg-violet-500/5 transition" style={{ borderColor: theme.dark.borderRowHover }}>
                 <td className="px-4 py-3 text-app-primary font-medium">
                   <button onClick={() => navigate(`/dashboard/produits/${item.product_id}/modifier`)} className="hover:text-violet-300 transition cursor-pointer">{item.product_name}</button>
                 </td>
@@ -323,7 +323,7 @@ export default function StockPage() {
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-1">
                     <button onClick={() => setAdjustingItem(item)} className="p-1.5 rounded text-violet-300 hover:bg-violet-600/20 transition cursor-pointer" title="Ajuster le stock"><AdjustIcon /></button>
-                    <button onClick={() => setHistoryItem(item)} className="p-1.5 rounded text-app-primary hover:bg-white/10 transition cursor-pointer" title="Historique des mouvements"><HistoryIcon /></button>
+                    <button onClick={() => setHistoryItem(item)} className="p-1.5 rounded text-app-primary hover:bg-violet-500/10 transition cursor-pointer" title="Historique des mouvements"><HistoryIcon /></button>
                   </div>
                 </td>
               </tr>
@@ -342,9 +342,9 @@ export default function StockPage() {
               style={{ background: theme.dark.card, borderColor: theme.dark.border, minWidth: 64 }} />
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-white/5 transition">← Précédent</button>
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">← Précédent</button>
             <span className={theme.badge.info}>{page}</span>
-            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-white/5 transition">Suivant →</button>
+            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">Suivant →</button>
           </div>
         </div>
       )}

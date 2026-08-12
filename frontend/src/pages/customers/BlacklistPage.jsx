@@ -154,7 +154,7 @@ export default function BlacklistPage() {
                 <EmptyState icon={<ShieldIcon />} title="Aucun numéro bloqué" subtitle="Bloquez un client problématique pour empêcher ses futures commandes." />
               </td></tr>
             ) : data.results.map(e => (
-              <tr key={e.id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
+              <tr key={e.id} className="border-b hover:bg-violet-500/5 transition" style={{ borderColor: theme.dark.borderRowHover }}>
                 <td className="px-4 py-3 text-app-primary font-mono text-xs">{e.phone}</td>
                 <td className="px-4 py-3 text-app-muted-light max-w-56 truncate" title={e.message}>{e.message || '—'}</td>
                 <td className="px-4 py-3">
@@ -167,7 +167,7 @@ export default function BlacklistPage() {
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-1">
                     <button onClick={() => setHistoryEntry(e)} className="p-1.5 rounded text-violet-300 hover:bg-violet-600/20 transition cursor-pointer" title="Historique des commandes"><HistoryIcon /></button>
-                    <button onClick={() => setEditingEntry(e)} className="p-1.5 rounded text-app-primary hover:bg-white/10 transition cursor-pointer" title="Modifier le message"><PencilIcon /></button>
+                    <button onClick={() => setEditingEntry(e)} className="p-1.5 rounded text-app-primary hover:bg-violet-500/10 transition cursor-pointer" title="Modifier le message"><PencilIcon /></button>
                     <button onClick={() => handleDelete(e.id)} className="p-1.5 rounded text-red-400 hover:bg-red-900/20 transition cursor-pointer" title="Débloquer"><TrashIcon /></button>
                   </div>
                 </td>
@@ -187,9 +187,9 @@ export default function BlacklistPage() {
               style={{ background: theme.dark.card, borderColor: theme.dark.border, minWidth: 64 }} />
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-white/5 transition">← Précédent</button>
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">← Précédent</button>
             <span className={theme.badge.info}>{page}</span>
-            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-white/5 transition">Suivant →</button>
+            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">Suivant →</button>
           </div>
         </div>
       )}

@@ -143,7 +143,7 @@ function Modal({ role, onClose, onSaved }) {
               <label className="block text-xs text-app-muted mb-2">Permissions</label>
               <div className="max-h-48 overflow-y-auto rounded-lg border divide-y" style={{ borderColor: theme.dark.border }}>
                 {catalog.map(({ key, label }) => (
-                  <label key={key} className="flex items-center gap-2.5 px-3 py-2 text-sm text-app-primary cursor-pointer hover:bg-white/5 transition">
+                  <label key={key} className="flex items-center gap-2.5 px-3 py-2 text-sm text-app-primary cursor-pointer hover:bg-violet-500/5 transition">
                     <input
                       type="checkbox"
                       checked={!!form.permissions[key]}
@@ -238,7 +238,7 @@ function MemberPermissionsModal({ member, onClose }) {
                 <button
                   onClick={() => toggle(key, enabled)}
                   disabled={saving === key}
-                  className={`w-9 h-5 rounded-full transition-colors duration-150 relative cursor-pointer disabled:opacity-60 shrink-0 ${enabled ? 'bg-violet-600' : 'bg-white/10'}`}
+                  className={`w-9 h-5 rounded-full transition-colors duration-150 relative cursor-pointer disabled:opacity-60 shrink-0 ${enabled ? 'bg-violet-600' : 'bg-violet-500/15'}`}
                 >
                   <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-150 ${enabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
                 </button>
@@ -255,7 +255,7 @@ function MembersTable({ members, onToggle, onManagePermissions, onReactivate, on
   if (!members.length) {
     return (
       <div className="flex flex-col items-center justify-center text-center py-16 px-6 text-app-muted">
-        <svg className="w-10 h-10 mb-3 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <svg className="w-10 h-10 mb-3 text-app-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m9-2.13a4 4 0 10-8 0 4 4 0 008 0zm6 4v.01M3 16v.01" />
         </svg>
         <p className="text-sm">Aucun membre dans cette catégorie.</p>

@@ -21,13 +21,13 @@ function EditDateModal({ order, onClose, onSaved }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
       <div className="w-full max-w-sm rounded-xl border p-5 sm:p-6" style={{ background: theme.dark.card, borderColor: theme.dark.border }} onClick={e => e.stopPropagation()}>
-        <h2 className="text-lg font-semibold text-gray-100 mb-4">Modifier la date d'envoi</h2>
+        <h2 className="text-lg font-semibold text-app-primary mb-4">Modifier la date d'envoi</h2>
         <input
           type="datetime-local"
           value={value}
           min={minValue}
           onChange={e => setValue(e.target.value)}
-          className="w-full px-3 py-2 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 transition [color-scheme:dark]"
+          className="w-full px-3 py-2 rounded-lg border text-sm text-app-primary bg-transparent outline-none focus:border-violet-500 transition [color-scheme:dark]"
           style={{ borderColor: theme.dark.border }}
         />
         <div className="flex justify-end gap-3 mt-5">
@@ -98,7 +98,7 @@ export default function ScheduledOrdersPage() {
           <tbody>
             {loading ? (
               <tr><td colSpan={7} className="py-16">
-                <div className="flex items-center justify-center gap-2 text-gray-500">
+                <div className="flex items-center justify-center gap-2 text-app-muted">
                   <svg className="w-5 h-5 animate-spin text-violet-500" viewBox="0 0 24 24" fill="none">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
@@ -117,13 +117,13 @@ export default function ScheduledOrdersPage() {
                 </div>
               </td></tr>
             ) : orders.map(o => (
-              <tr key={o.id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
-                <td className="px-4 py-3 text-gray-500 cursor-pointer" onClick={() => navigate(`/dashboard/commandes/${o.id}`)}>#{o.id}</td>
-                <td className="px-4 py-3 text-gray-200 font-medium cursor-pointer" onClick={() => navigate(`/dashboard/commandes/${o.id}`)}>{o.first_name} {o.last_name}</td>
-                <td className="px-4 py-3 text-gray-300">{o.phone}</td>
-                <td className="px-4 py-3 text-gray-300">{o.wilaya}</td>
-                <td className="px-4 py-3 text-gray-200 font-semibold">{Number(o.total).toLocaleString('fr-DZ')} DZD</td>
-                <td className="px-4 py-3 text-gray-300 whitespace-nowrap">
+              <tr key={o.id} className="border-b hover:bg-violet-500/5 transition" style={{ borderColor: theme.dark.borderRowHover }}>
+                <td className="px-4 py-3 text-app-muted cursor-pointer" onClick={() => navigate(`/dashboard/commandes/${o.id}`)}>#{o.id}</td>
+                <td className="px-4 py-3 text-app-primary font-medium cursor-pointer" onClick={() => navigate(`/dashboard/commandes/${o.id}`)}>{o.first_name} {o.last_name}</td>
+                <td className="px-4 py-3 text-app-primary">{o.phone}</td>
+                <td className="px-4 py-3 text-app-primary">{o.wilaya}</td>
+                <td className="px-4 py-3 text-app-primary font-semibold">{Number(o.total).toLocaleString('fr-DZ')} DZD</td>
+                <td className="px-4 py-3 text-app-primary whitespace-nowrap">
                   {o.scheduled_at ? new Date(o.scheduled_at).toLocaleString('fr-DZ', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}
                 </td>
                 <td className="px-4 py-3">

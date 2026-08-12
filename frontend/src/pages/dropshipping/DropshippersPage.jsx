@@ -14,7 +14,7 @@ function UsersIcon(props) {
 
 function Spinner() {
   return (
-    <div className="flex flex-col items-center justify-center gap-2 py-12 text-gray-500">
+    <div className="flex flex-col items-center justify-center gap-2 py-12 text-app-muted">
       <svg className="animate-spin" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
         <circle cx="12" cy="12" r="9" opacity="0.25" />
         <path d="M21 12a9 9 0 0 0-9-9" strokeLinecap="round" />
@@ -26,9 +26,9 @@ function Spinner() {
 
 function EmptyState({ title, subtitle }) {
   return (
-    <div className="flex flex-col items-center justify-center text-center py-14 px-6 text-gray-500">
-      <div className="mb-3 text-gray-600"><UsersIcon width={28} height={28} /></div>
-      <p className="text-sm font-medium text-gray-300">{title}</p>
+    <div className="flex flex-col items-center justify-center text-center py-14 px-6 text-app-muted">
+      <div className="mb-3 text-app-muted"><UsersIcon width={28} height={28} /></div>
+      <p className="text-sm font-medium text-app-primary">{title}</p>
       {subtitle && <p className="text-xs mt-1" style={{ color: theme.dark.muted }}>{subtitle}</p>}
     </div>
   )
@@ -61,7 +61,7 @@ export default function DropshippersPage() {
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder="Recherche par nom, email ou téléphone"
-          className="px-4 py-2 rounded-lg text-sm text-gray-200 border outline-none focus:border-violet-500 transition w-full sm:w-72"
+          className="px-4 py-2 rounded-lg text-sm text-app-primary border outline-none focus:border-violet-500 transition w-full sm:w-72"
           style={{ background: theme.dark.card, borderColor: theme.dark.border }}
         />
         <p className="text-sm" style={{ color: theme.dark.muted }}>
@@ -72,7 +72,7 @@ export default function DropshippersPage() {
       <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border }}>
         <table className="w-full text-sm min-w-220">
           <thead style={{ background: theme.dark.sidebar }}>
-            <tr className="text-left text-xs text-gray-500 border-b" style={{ borderColor: theme.dark.border }}>
+            <tr className="text-left text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
               <th className="px-4 py-3 font-medium">DROPSHIPPER</th>
               <th className="px-4 py-3 font-medium">TÉLÉPHONE</th>
               <th className="px-4 py-3 font-medium">WILAYA</th>
@@ -91,19 +91,19 @@ export default function DropshippersPage() {
                 <EmptyState title="Aucun dropshipper" subtitle="Invitez un membre d'équipe avec le rôle Dropshipper depuis la page Équipe." />
               </td></tr>
             ) : dropshippers.map(d => (
-              <tr key={d.id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
-                <td className="px-4 py-3 text-gray-200">{d.first_name} {d.last_name}<br /><span className="text-xs text-gray-500">{d.email}</span></td>
-                <td className="px-4 py-3 text-gray-400 font-mono text-xs">{d.phone || '—'}</td>
-                <td className="px-4 py-3 text-gray-400">{d.wilaya || '—'}</td>
-                <td className="px-4 py-3 text-gray-400">{d.products_count}</td>
-                <td className="px-4 py-3 text-gray-300">{money(d.total_earned)}</td>
-                <td className="px-4 py-3 text-gray-400">{money(d.total_paid)}</td>
+              <tr key={d.id} className="border-b hover:bg-violet-500/5 transition" style={{ borderColor: theme.dark.borderRowHover }}>
+                <td className="px-4 py-3 text-app-primary">{d.first_name} {d.last_name}<br /><span className="text-xs text-app-muted">{d.email}</span></td>
+                <td className="px-4 py-3 text-app-muted-light font-mono text-xs">{d.phone || '—'}</td>
+                <td className="px-4 py-3 text-app-muted-light">{d.wilaya || '—'}</td>
+                <td className="px-4 py-3 text-app-muted-light">{d.products_count}</td>
+                <td className="px-4 py-3 text-app-primary">{money(d.total_earned)}</td>
+                <td className="px-4 py-3 text-app-muted-light">{money(d.total_paid)}</td>
                 <td className="px-4 py-3">
                   <span className={Number(d.balance) > 0 ? theme.badge.warning : theme.badge.neutral}>{money(d.balance)}</span>
                 </td>
                 <td className="px-4 py-3">
                   <button onClick={() => navigate(`/dashboard/dropshipping/${d.id}`)}
-                    className="px-3 py-1.5 rounded-lg text-xs border text-violet-300 hover:bg-white/5 transition cursor-pointer"
+                    className="px-3 py-1.5 rounded-lg text-xs border text-violet-300 hover:bg-violet-500/5 transition cursor-pointer"
                     style={{ borderColor: theme.dark.border }}>
                     Gérer
                   </button>

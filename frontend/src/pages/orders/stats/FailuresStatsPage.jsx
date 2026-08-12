@@ -45,7 +45,7 @@ export default function FailuresStatsPage() {
           <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border }}>
             <table className="w-full text-sm min-w-140">
               <thead style={{ background: theme.dark.sidebar }}>
-                <tr className="text-left text-xs text-gray-500 border-b" style={{ borderColor: theme.dark.border }}>
+                <tr className="text-left text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
                   <th className="px-4 py-3 font-medium">RAISON</th>
                   <th className="px-4 py-3 font-medium">NOMBRE</th>
                   <th className="px-4 py-3 font-medium">PART</th>
@@ -53,17 +53,17 @@ export default function FailuresStatsPage() {
               </thead>
               <tbody>
                 {data.by_reason.length === 0 ? (
-                  <tr><td colSpan={3} className="px-4 py-10 text-center text-sm text-gray-500">Aucun échec sur cette période.</td></tr>
+                  <tr><td colSpan={3} className="px-4 py-10 text-center text-sm text-app-muted">Aucun échec sur cette période.</td></tr>
                 ) : data.by_reason.map(r => (
-                  <tr key={r.reason_id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
-                    <td className="px-4 py-3 text-gray-200">{r.label}</td>
-                    <td className="px-4 py-3 text-gray-300">{r.count}</td>
+                  <tr key={r.reason_id} className="border-b hover:bg-violet-500/5 transition" style={{ borderColor: theme.dark.borderRowHover }}>
+                    <td className="px-4 py-3 text-app-primary">{r.label}</td>
+                    <td className="px-4 py-3 text-app-primary">{r.count}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <div className="flex-1 h-1.5 rounded-full max-w-32" style={{ background: theme.dark.border }}>
                           <div className="h-full rounded-full bg-red-500" style={{ width: `${r.percentage}%` }} />
                         </div>
-                        <span className="text-gray-400 text-xs">{r.percentage}%</span>
+                        <span className="text-app-muted-light text-xs">{r.percentage}%</span>
                       </div>
                     </td>
                   </tr>

@@ -12,7 +12,7 @@ const ROLE_LABELS = {
 
 function Spinner() {
   return (
-    <div className="flex flex-col items-center justify-center gap-2 py-12 text-gray-500">
+    <div className="flex flex-col items-center justify-center gap-2 py-12 text-app-muted">
       <svg className="animate-spin" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
         <circle cx="12" cy="12" r="9" opacity="0.25" />
         <path d="M21 12a9 9 0 0 0-9-9" strokeLinecap="round" />
@@ -57,7 +57,7 @@ function RoleMatrix() {
     <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border }}>
       <table className="w-full text-sm min-w-140">
         <thead style={{ background: theme.dark.sidebar }}>
-          <tr className="text-left text-xs text-gray-500 border-b" style={{ borderColor: theme.dark.border }}>
+          <tr className="text-left text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
             <th className="px-4 py-3 font-medium">PERMISSION</th>
             {data.roles.map(role => (
               <th key={role} className="px-4 py-3 font-medium text-center">{ROLE_LABELS[role] || role}</th>
@@ -66,8 +66,8 @@ function RoleMatrix() {
         </thead>
         <tbody>
           {data.catalog.map(({ key, label }) => (
-            <tr key={key} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
-              <td className="px-4 py-3 text-gray-200">{label}</td>
+            <tr key={key} className="border-b hover:bg-violet-500/5 transition" style={{ borderColor: theme.dark.borderRowHover }}>
+              <td className="px-4 py-3 text-app-primary">{label}</td>
               {data.roles.map(role => {
                 const enabled = data.matrix[role]?.[key]
                 const busy = saving === `${role}:${key}`
@@ -76,7 +76,7 @@ function RoleMatrix() {
                     <button
                       onClick={() => toggle(role, key, enabled)}
                       disabled={busy}
-                      className={`w-9 h-5 rounded-full transition-colors duration-150 relative cursor-pointer disabled:opacity-60 ${enabled ? 'bg-violet-600' : 'bg-white/10'}`}
+                      className={`w-9 h-5 rounded-full transition-colors duration-150 relative cursor-pointer disabled:opacity-60 ${enabled ? 'bg-violet-600' : 'bg-violet-500/15'}`}
                       title={enabled ? 'Activé — cliquer pour désactiver' : 'Désactivé — cliquer pour activer'}
                     >
                       <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-150 ${enabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
@@ -130,7 +130,7 @@ function MemberMatrix({ memberId }) {
           const busy = saving === key
           return (
             <div key={key} className="flex items-center justify-between gap-3 px-4 py-3">
-              <span className="text-sm text-gray-200 flex items-center gap-2">
+              <span className="text-sm text-app-primary flex items-center gap-2">
                 {label}
                 {is_custom && (
                   <span className="text-xs px-1.5 py-0.5 rounded-full bg-violet-600/20 text-violet-300">
@@ -141,7 +141,7 @@ function MemberMatrix({ memberId }) {
               <button
                 onClick={() => toggle(key, enabled)}
                 disabled={busy}
-                className={`w-9 h-5 rounded-full transition-colors duration-150 relative cursor-pointer disabled:opacity-60 shrink-0 ${enabled ? 'bg-violet-600' : 'bg-white/10'}`}
+                className={`w-9 h-5 rounded-full transition-colors duration-150 relative cursor-pointer disabled:opacity-60 shrink-0 ${enabled ? 'bg-violet-600' : 'bg-violet-500/15'}`}
                 title={enabled ? 'Activé — cliquer pour désactiver' : 'Désactivé — cliquer pour activer'}
               >
                 <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-150 ${enabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
@@ -181,7 +181,7 @@ export default function PermissionsPage() {
           value={target}
           onChange={setTarget}
           options={options}
-          className="w-full px-3.5 py-2.5 rounded-lg border text-sm text-gray-200 bg-transparent"
+          className="w-full px-3.5 py-2.5 rounded-lg border text-sm text-app-primary bg-transparent"
           style={{ borderColor: theme.dark.border }}
         />
       </div>

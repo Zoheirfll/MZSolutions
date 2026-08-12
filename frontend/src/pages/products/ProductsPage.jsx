@@ -213,7 +213,7 @@ export default function ProductsPage() {
               const stockQty = p.total_stock ?? p.stock
               const isLowStock = threshold != null && stockQty <= threshold
               return (
-              <tr key={p.id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
+              <tr key={p.id} className="border-b hover:bg-violet-500/5 transition" style={{ borderColor: theme.dark.borderRowHover }}>
                 <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                   <input type="checkbox" checked={selected.has(p.id)} onChange={() => toggleRow(p.id)} className="accent-violet-600" />
                 </td>

@@ -79,13 +79,13 @@ function RemindMenu({ cart, busy, onWhatsapp, onEmail }) {
         >
           <button
             onClick={() => { setOpen(false); onWhatsapp() }}
-            className="w-full text-left px-3.5 py-2 text-sm text-gray-300 hover:bg-white/6 transition-colors duration-100 cursor-pointer"
+            className="w-full text-left px-3.5 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition-colors duration-100 cursor-pointer"
           >
             Par WhatsApp
           </button>
           <button
             onClick={() => { setOpen(false); onEmail() }}
-            className="w-full text-left px-3.5 py-2 text-sm text-gray-300 hover:bg-white/6 transition-colors duration-100 cursor-pointer"
+            className="w-full text-left px-3.5 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition-colors duration-100 cursor-pointer"
           >
             Par email
           </button>
@@ -104,17 +104,17 @@ function ItemsModal({ cart, onClose }) {
         style={{ background: theme.dark.card, borderColor: theme.dark.border }}
         onClick={e => e.stopPropagation()}
       >
-        <h2 className="text-lg font-semibold text-gray-100 mb-1">Panier de {cart.first_name} {cart.last_name}</h2>
+        <h2 className="text-lg font-semibold text-app-primary mb-1">Panier de {cart.first_name} {cart.last_name}</h2>
         <p className="text-xs mb-4" style={{ color: theme.dark.muted }}>{cart.phone}</p>
 
         {items.length === 0 ? (
-          <p className="text-sm text-gray-500 py-6 text-center">Aucun détail d'article enregistré.</p>
+          <p className="text-sm text-app-muted py-6 text-center">Aucun détail d'article enregistré.</p>
         ) : (
           <div className="space-y-2 mb-4">
             {items.map((item, i) => (
               <div key={i} className="flex items-center justify-between text-sm rounded-lg px-3 py-2" style={{ background: theme.dark.sidebar }}>
                 <div>
-                  <p className="text-gray-200">{item.product_name || 'Article'}</p>
+                  <p className="text-app-primary">{item.product_name || 'Article'}</p>
                   <p className="text-xs" style={{ color: theme.dark.muted }}>Qté : {item.quantity}</p>
                 </div>
                 <p className="text-violet-300 font-medium">{Number((item.price || 0) * (item.quantity || 1)).toLocaleString('fr-DZ')} DA</p>
@@ -124,7 +124,7 @@ function ItemsModal({ cart, onClose }) {
         )}
 
         <div className="border-t pt-3 flex justify-between text-sm font-semibold" style={{ borderColor: theme.dark.border }}>
-          <span className="text-gray-300">Total</span>
+          <span className="text-app-primary">Total</span>
           <span className="text-white">{Number(cart.total).toLocaleString('fr-DZ')} DA</span>
         </div>
 
@@ -196,7 +196,7 @@ export default function AbandonedCartsPage() {
       {/* Réglage délai de relance automatique */}
       <div className="rounded-xl border p-5 mb-5 flex items-center gap-4 flex-wrap" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
         <div className="flex-1 min-w-60">
-          <p className="text-sm font-medium text-gray-200 mb-0.5">Relance automatique par email</p>
+          <p className="text-sm font-medium text-app-primary mb-0.5">Relance automatique par email</p>
           <p className="text-xs" style={{ color: theme.dark.muted }}>
             Un email de relance est envoyé automatiquement (paniers avec email renseigné) après ce délai sans finalisation — nécessite la tâche planifiée <code>send_abandoned_cart_reminders</code>.
           </p>
@@ -206,7 +206,7 @@ export default function AbandonedCartsPage() {
             type="number" min="1"
             value={delayHours}
             onChange={e => setDelayHours(Number(e.target.value))}
-            className="w-20 px-3 py-2 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 text-center"
+            className="w-20 px-3 py-2 rounded-lg border text-sm text-app-primary bg-transparent outline-none focus:border-violet-500 text-center"
             style={{ borderColor: theme.dark.border }}
           />
           <span className="text-xs" style={{ color: theme.dark.muted }}>heure(s)</span>
@@ -223,7 +223,7 @@ export default function AbandonedCartsPage() {
             className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer ${
               tab === t.key
                 ? 'bg-violet-600 text-white shadow-sm'
-                : 'text-gray-400 hover:text-gray-200'
+                : 'text-app-muted-light hover:text-app-primary'
             }`}>
             {t.label}
           </button>
@@ -237,7 +237,7 @@ export default function AbandonedCartsPage() {
             <thead>
               <tr style={{ background: theme.dark.card, borderBottom: `1px solid ${theme.dark.border}` }}>
                 {['Date', 'Client', 'Email', 'Wilaya', 'Articles', 'Total', 'Statut', ''].map(h => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">{h}</th>
+                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-app-muted">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -254,8 +254,8 @@ export default function AbandonedCartsPage() {
                 ))
               ) : carts.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-16 text-center text-gray-500">
-                    <svg className="w-10 h-10 mx-auto mb-3 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <td colSpan={8} className="px-4 py-16 text-center text-app-muted">
+                    <svg className="w-10 h-10 mx-auto mb-3 text-app-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                       <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/>
                     </svg>
@@ -268,16 +268,16 @@ export default function AbandonedCartsPage() {
                   style={{ borderBottom: `1px solid ${theme.dark.border}`, background: theme.dark.app }}
                   onMouseEnter={e => e.currentTarget.style.background = theme.dark.card}
                   onMouseLeave={e => e.currentTarget.style.background = theme.dark.app}>
-                  <td className="px-4 py-3 text-gray-400 whitespace-nowrap">
+                  <td className="px-4 py-3 text-app-muted-light whitespace-nowrap">
                     {new Date(cart.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                   </td>
                   <td className="px-4 py-3">
-                    <p className="text-gray-200 font-medium">{cart.first_name} {cart.last_name}</p>
-                    <p className="text-gray-500 text-xs">{cart.phone}</p>
+                    <p className="text-app-primary font-medium">{cart.first_name} {cart.last_name}</p>
+                    <p className="text-app-muted text-xs">{cart.phone}</p>
                   </td>
-                  <td className="px-4 py-3 text-gray-400">{cart.email || <span className="text-gray-600">—</span>}</td>
-                  <td className="px-4 py-3 text-gray-400">{cart.wilaya || '—'}</td>
-                  <td className="px-4 py-3 text-gray-400">
+                  <td className="px-4 py-3 text-app-muted-light">{cart.email || <span className="text-app-muted">—</span>}</td>
+                  <td className="px-4 py-3 text-app-muted-light">{cart.wilaya || '—'}</td>
+                  <td className="px-4 py-3 text-app-muted-light">
                     <button onClick={() => setViewing(cart)} className="text-violet-300 hover:text-violet-200 underline decoration-dotted transition">
                       {(cart.items || []).length} article(s)
                     </button>
@@ -306,14 +306,14 @@ export default function AbandonedCartsPage() {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between mt-4">
-          <p className="text-xs text-gray-500">{total} panier(s) au total</p>
+          <p className="text-xs text-app-muted">{total} panier(s) au total</p>
           <div className="flex gap-1">
             {[...Array(totalPages)].map((_, i) => (
               <button key={i} onClick={() => setPage(i + 1)}
                 className={`w-8 h-8 rounded-lg text-sm transition-colors cursor-pointer ${
                   page === i + 1
                     ? 'bg-violet-600 text-white'
-                    : 'text-gray-400 hover:bg-white/5'
+                    : 'text-app-muted-light hover:bg-violet-500/5'
                 }`}>
                 {i + 1}
               </button>

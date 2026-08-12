@@ -58,7 +58,7 @@ function CostModal({ cost, onClose, onSaved }) {
   const [saving, setSaving] = useState(false)
   const [errors, setErrors] = useState({})
 
-  const inputCls = 'w-full px-3.5 py-2.5 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 transition [color-scheme:dark]'
+  const inputCls = 'w-full px-3.5 py-2.5 rounded-lg border text-sm text-app-primary bg-transparent outline-none focus:border-violet-500 transition [color-scheme:dark]'
   const bdrStyle = { borderColor: theme.dark.border }
 
   const submit = async e => {
@@ -80,34 +80,34 @@ function CostModal({ cost, onClose, onSaved }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: 'rgba(0,0,0,0.7)' }} onClick={onClose}>
       <div className="w-full max-w-md rounded-xl border p-6" style={{ background: theme.dark.card, borderColor: theme.dark.border }} onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
-          <h3 className="font-semibold text-gray-200">{isEdit ? 'Modifier le coût' : 'Ajouter un coût'}</h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-300 transition cursor-pointer"><CloseIcon /></button>
+          <h3 className="font-semibold text-app-primary">{isEdit ? 'Modifier le coût' : 'Ajouter un coût'}</h3>
+          <button onClick={onClose} className="text-app-muted hover:text-app-primary transition cursor-pointer"><CloseIcon /></button>
         </div>
         <form onSubmit={submit} className="space-y-4">
           <div>
-            <label className="block text-xs text-gray-400 mb-1.5">Catégorie</label>
+            <label className="block text-xs text-app-muted-light mb-1.5">Catégorie</label>
             <Select value={form.category} onChange={v => setForm(f => ({ ...f, category: v }))} options={CATEGORY_OPTIONS} variant="dark" />
           </div>
           <div>
-            <label className="block text-xs text-gray-400 mb-1.5">Libellé *</label>
+            <label className="block text-xs text-app-muted-light mb-1.5">Libellé *</label>
             <input value={form.label} onChange={e => setForm(f => ({ ...f, label: e.target.value }))} required
               className={inputCls} style={bdrStyle} placeholder="Ex : Facebook Ads, Loyer local…" />
             {errors.label && <p className="text-red-400 text-xs mt-1">{errors.label}</p>}
           </div>
           <div>
-            <label className="block text-xs text-gray-400 mb-1.5">Montant (DZD) *</label>
+            <label className="block text-xs text-app-muted-light mb-1.5">Montant (DZD) *</label>
             <input type="number" step="0.01" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} required
               className={inputCls} style={bdrStyle} placeholder="0" />
             {errors.amount && <p className="text-red-400 text-xs mt-1">{errors.amount}</p>}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs text-gray-400 mb-1.5">Début de période *</label>
+              <label className="block text-xs text-app-muted-light mb-1.5">Début de période *</label>
               <input type="date" value={form.period_start} onChange={e => setForm(f => ({ ...f, period_start: e.target.value }))} required
                 className={inputCls} style={bdrStyle} />
             </div>
             <div>
-              <label className="block text-xs text-gray-400 mb-1.5">Fin de période *</label>
+              <label className="block text-xs text-app-muted-light mb-1.5">Fin de période *</label>
               <input type="date" value={form.period_end} onChange={e => setForm(f => ({ ...f, period_end: e.target.value }))} required
                 className={inputCls} style={bdrStyle} />
             </div>
@@ -115,12 +115,12 @@ function CostModal({ cost, onClose, onSaved }) {
           {errors.period_end && <p className="text-red-400 text-xs">{errors.period_end}</p>}
           {errors.period_start && <p className="text-red-400 text-xs">{errors.period_start}</p>}
           <div>
-            <label className="block text-xs text-gray-400 mb-1.5">Note (optionnel)</label>
+            <label className="block text-xs text-app-muted-light mb-1.5">Note (optionnel)</label>
             <textarea value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} rows={2}
               className={`${inputCls} resize-none`} style={bdrStyle} />
           </div>
           <div className="flex justify-end gap-3 pt-1">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-400 hover:text-gray-200 cursor-pointer transition">Fermer</button>
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-app-muted-light hover:text-app-primary cursor-pointer transition">Fermer</button>
             <button type="submit" disabled={saving} className={theme.btn.primary + ' text-sm disabled:opacity-60'}>
               {saving ? '…' : isEdit ? 'Enregistrer' : 'Ajouter'}
             </button>
@@ -166,7 +166,7 @@ export default function CostsPage() {
         <div className="flex items-center gap-2 flex-wrap">
           {['', 'operational', 'marketing'].map(c => (
             <button key={c} onClick={() => setCategoryFilter(c)}
-              className={`px-3.5 py-1.5 rounded-lg text-sm font-medium transition ${categoryFilter === c ? 'text-white bg-violet-600' : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'}`}
+              className={`px-3.5 py-1.5 rounded-lg text-sm font-medium transition ${categoryFilter === c ? 'text-white bg-violet-600' : 'text-app-muted-light hover:text-app-primary hover:bg-violet-500/5'}`}
               style={categoryFilter === c ? undefined : { border: `1px solid ${theme.dark.border}` }}>
               {c === '' ? 'Tous' : c === 'operational' ? 'Opérationnel' : 'Marketing'}
             </button>
@@ -175,7 +175,7 @@ export default function CostsPage() {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Recherche par libellé"
-            className="px-3.5 py-1.5 rounded-lg text-sm text-gray-200 border outline-none focus:border-violet-500 transition"
+            className="px-3.5 py-1.5 rounded-lg text-sm text-app-primary border outline-none focus:border-violet-500 transition"
             style={{ background: theme.dark.card, borderColor: theme.dark.border }}
           />
         </div>
@@ -191,12 +191,12 @@ export default function CostsPage() {
         <CostModal cost={editingCost} onClose={() => setEditingCost(null)} onSaved={() => { setEditingCost(null); fetchCosts() }} />
       )}
 
-      <p className="text-sm mb-3" style={{ color: theme.dark.muted }}>Total affiché : <span className="text-gray-200 font-medium">{money(total)}</span></p>
+      <p className="text-sm mb-3" style={{ color: theme.dark.muted }}>Total affiché : <span className="text-app-primary font-medium">{money(total)}</span></p>
 
       <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border }}>
         <table className="w-full text-sm min-w-180">
           <thead style={{ background: theme.dark.sidebar }}>
-            <tr className="text-left text-xs text-gray-500 border-b" style={{ borderColor: theme.dark.border }}>
+            <tr className="text-left text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
               <th className="px-4 py-3 font-medium">CATÉGORIE</th>
               <th className="px-4 py-3 font-medium">LIBELLÉ</th>
               <th className="px-4 py-3 font-medium">MONTANT</th>
@@ -206,20 +206,20 @@ export default function CostsPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-gray-500">Chargement…</td></tr>
+              <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-app-muted">Chargement…</td></tr>
             ) : costs.length === 0 ? (
-              <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-gray-500">Aucun coût saisi.</td></tr>
+              <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-app-muted">Aucun coût saisi.</td></tr>
             ) : costs.map(c => (
-              <tr key={c.id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
+              <tr key={c.id} className="border-b hover:bg-violet-500/5 transition" style={{ borderColor: theme.dark.borderRowHover }}>
                 <td className="px-4 py-3">
                   <span className={c.category === 'marketing' ? theme.badge.info : theme.badge.neutral}>{c.category_label}</span>
                 </td>
-                <td className="px-4 py-3 text-gray-200">{c.label}{c.note && <><br /><span className="text-xs text-gray-500">{c.note}</span></>}</td>
-                <td className="px-4 py-3 text-gray-200">{money(c.amount)}</td>
-                <td className="px-4 py-3 text-gray-400 text-xs">{c.period_start} → {c.period_end}</td>
+                <td className="px-4 py-3 text-app-primary">{c.label}{c.note && <><br /><span className="text-xs text-app-muted">{c.note}</span></>}</td>
+                <td className="px-4 py-3 text-app-primary">{money(c.amount)}</td>
+                <td className="px-4 py-3 text-app-muted-light text-xs">{c.period_start} → {c.period_end}</td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-1">
-                    <button onClick={() => setEditingCost(c)} className="p-1.5 rounded text-gray-300 hover:bg-white/10 transition cursor-pointer" title="Modifier"><PencilIcon /></button>
+                    <button onClick={() => setEditingCost(c)} className="p-1.5 rounded text-app-primary hover:bg-violet-500/10 transition cursor-pointer" title="Modifier"><PencilIcon /></button>
                     <button onClick={() => handleDelete(c.id)} className="p-1.5 rounded text-red-400 hover:bg-red-900/20 transition cursor-pointer" title="Supprimer"><TrashIcon /></button>
                   </div>
                 </td>

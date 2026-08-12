@@ -55,7 +55,7 @@ export function PeriodFilter({ period, setPeriod, dateFrom, setDateFrom, dateTo,
           key={p.value}
           onClick={() => setPeriod(p.value)}
           className={`px-4 py-1.5 rounded-lg text-sm font-medium transition ${
-            period === p.value ? 'text-white bg-violet-600' : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
+            period === p.value ? 'text-white bg-violet-600' : 'text-app-muted-light hover:text-app-primary hover:bg-violet-500/5'
           }`}
           style={period === p.value ? undefined : { border: `1px solid ${theme.dark.border}` }}
         >
@@ -65,11 +65,11 @@ export function PeriodFilter({ period, setPeriod, dateFrom, setDateFrom, dateTo,
       {period === 'custom' && (
         <div className="flex items-center gap-2 ml-2">
           <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
-            className="px-3 py-1.5 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 [color-scheme:dark]"
+            className="px-3 py-1.5 rounded-lg border text-sm text-app-primary bg-transparent outline-none focus:border-violet-500 [color-scheme:dark]"
             style={{ borderColor: theme.dark.border }} />
-          <span className="text-gray-500 text-sm">→</span>
+          <span className="text-app-muted text-sm">→</span>
           <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
-            className="px-3 py-1.5 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 [color-scheme:dark]"
+            className="px-3 py-1.5 rounded-lg border text-sm text-app-primary bg-transparent outline-none focus:border-violet-500 [color-scheme:dark]"
             style={{ borderColor: theme.dark.border }} />
         </div>
       )}
@@ -79,7 +79,7 @@ export function PeriodFilter({ period, setPeriod, dateFrom, setDateFrom, dateTo,
 
 export function Spinner() {
   return (
-    <div className="flex items-center justify-center gap-2 text-gray-500 py-16">
+    <div className="flex items-center justify-center gap-2 text-app-muted py-16">
       <svg className="w-5 h-5 animate-spin text-violet-500" viewBox="0 0 24 24" fill="none">
         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
@@ -129,13 +129,13 @@ export function StatsToolbar({ onRefresh, onExport, exporting, exportDisabled })
   return (
     <div className="flex items-center gap-2">
       <button onClick={onRefresh}
-        className="px-3 py-1.5 rounded-lg text-sm font-medium border text-gray-300 hover:bg-white/5 transition cursor-pointer flex items-center gap-1.5"
+        className="px-3 py-1.5 rounded-lg text-sm font-medium border text-app-primary hover:bg-violet-500/5 transition cursor-pointer flex items-center gap-1.5"
         style={{ borderColor: theme.dark.border }}>
         <RefreshIcon /> Actualiser
       </button>
       {onExport && (
         <button onClick={onExport} disabled={exporting || exportDisabled}
-          className="px-3 py-1.5 rounded-lg text-sm font-medium border text-gray-300 hover:bg-white/5 disabled:opacity-50 transition cursor-pointer flex items-center gap-1.5"
+          className="px-3 py-1.5 rounded-lg text-sm font-medium border text-app-primary hover:bg-violet-500/5 disabled:opacity-50 transition cursor-pointer flex items-center gap-1.5"
           style={{ borderColor: theme.dark.border }}>
           <DownloadIcon /> {exporting ? 'Export…' : 'Exporter en CSV'}
         </button>
@@ -166,9 +166,9 @@ export function StatsPagination({ page, setPage, count, perPage }) {
   if (count <= perPage) return null
   return (
     <div className="flex items-center justify-end gap-2 mt-3 text-sm" style={{ color: theme.dark.muted }}>
-      <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-white/5 transition">← Précédent</button>
+      <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">← Précédent</button>
       <span className={theme.badge.info}>{page}/{totalPages}</span>
-      <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-white/5 transition">Suivant →</button>
+      <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">Suivant →</button>
     </div>
   )
 }

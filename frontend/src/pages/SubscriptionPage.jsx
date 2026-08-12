@@ -5,7 +5,7 @@ import { theme } from '../theme'
 
 function Spinner() {
   return (
-    <div className="flex items-center justify-center gap-2 text-gray-500 py-16">
+    <div className="flex items-center justify-center gap-2 text-app-muted py-16">
       <svg className="w-5 h-5 animate-spin text-violet-500" viewBox="0 0 24 24" fill="none">
         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
@@ -62,12 +62,12 @@ export default function SubscriptionPage() {
                     </span>
                   </div>
                   {quota.is_subscription_active ? (
-                    <p className="text-sm text-gray-300">
+                    <p className="text-sm text-app-primary">
                       {quota.orders_used} / {quota.orders_limit >= 10 ** 9 ? '∞' : quota.orders_limit} commandes utilisées
                       {quota.period_end && <> — renouvellement le {new Date(quota.period_end).toLocaleDateString('fr-DZ')}</>}
                     </p>
                   ) : quota.is_trial_active ? (
-                    <p className="text-sm text-gray-300">
+                    <p className="text-sm text-app-primary">
                       <span className="font-semibold text-violet-300">{quota.orders_remaining} / {quota.orders_limit}</span> commandes restantes,
                       se termine le {new Date(quota.trial_ends_at).toLocaleDateString('fr-DZ')}
                     </p>
@@ -93,7 +93,7 @@ export default function SubscriptionPage() {
             <div className="inline-flex rounded-lg border p-1" style={{ borderColor: theme.dark.border }}>
               {[{ v: 'monthly', l: '1 mois' }, { v: 'yearly', l: '12 mois' }].map(o => (
                 <button key={o.v} onClick={() => setCycle(o.v)}
-                  className={`px-4 py-1.5 rounded-md text-sm font-medium transition ${cycle === o.v ? 'text-white bg-violet-600' : 'text-gray-400 hover:text-gray-200'}`}>
+                  className={`px-4 py-1.5 rounded-md text-sm font-medium transition ${cycle === o.v ? 'text-white bg-violet-600' : 'text-app-muted-light hover:text-app-primary'}`}>
                   {o.l}
                 </button>
               ))}
@@ -110,8 +110,8 @@ export default function SubscriptionPage() {
                   className={`rounded-2xl border p-6 flex flex-col ${popular ? 'ring-2 ring-violet-500' : ''}`}
                   style={{ background: theme.dark.card, borderColor: popular ? '#7c3aed' : theme.dark.border }}>
                   {popular && <span className={theme.badge.info + ' self-start mb-3'}>Le plus populaire</span>}
-                  <h3 className="text-lg font-semibold text-gray-100 mb-1">{plan.name}</h3>
-                  <p className="text-3xl font-bold text-gray-100 mb-1">{money(price)}
+                  <h3 className="text-lg font-semibold text-app-primary mb-1">{plan.name}</h3>
+                  <p className="text-3xl font-bold text-app-primary mb-1">{money(price)}
                     <span className="text-sm font-normal ml-1" style={{ color: theme.dark.muted }}>/ {cycle === 'yearly' ? 'an' : 'mois'}</span>
                   </p>
                   <p className="text-xs mb-5" style={{ color: theme.dark.muted }}>
@@ -121,7 +121,7 @@ export default function SubscriptionPage() {
                     className={`${theme.btn.primary} justify-center mb-5 disabled:opacity-60`}>
                     {isCurrent ? 'Palier actuel' : subscribing === plan.id ? '…' : 'Commencer'}
                   </button>
-                  <ul className="space-y-2 text-sm text-gray-300">
+                  <ul className="space-y-2 text-sm text-app-primary">
                     {plan.features.map((f, idx) => (
                       <li key={idx} className="flex items-start gap-2">
                         <span className="text-emerald-400 mt-0.5">✓</span> {f}

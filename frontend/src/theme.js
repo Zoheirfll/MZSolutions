@@ -96,13 +96,13 @@ export const theme = {
   nav: {
     item: {
       base: 'relative flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors duration-150 border border-transparent',
-      active: 'bg-white/10 border-white/15 text-app-primary font-medium',
-      inactive: 'text-app-muted-light hover:text-app-primary hover:bg-white/6 hover:border-white/10',
+      active: 'bg-violet-500/10 border-violet-500/20 text-app-primary font-medium',
+      inactive: 'text-app-muted-light hover:text-app-primary hover:bg-violet-500/5 hover:border-violet-500/10',
     },
     subItem: {
       base: 'flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-colors duration-150 border border-transparent',
-      active: 'bg-white/10 border-white/15 text-app-primary font-medium',
-      inactive: 'text-app-muted-light hover:text-app-primary hover:bg-white/6 hover:border-white/10',
+      active: 'bg-violet-500/10 border-violet-500/20 text-app-primary font-medium',
+      inactive: 'text-app-muted-light hover:text-app-primary hover:bg-violet-500/5 hover:border-violet-500/10',
     },
   },
 

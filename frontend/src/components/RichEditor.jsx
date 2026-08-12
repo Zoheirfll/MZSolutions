@@ -8,13 +8,13 @@ function ToolBtn({ onClick, active, title, children }) {
   return (
     <button type="button" onMouseDown={e => { e.preventDefault(); onClick() }} title={title}
       className={`w-8 h-8 flex items-center justify-center rounded-lg text-sm font-medium transition-all cursor-pointer
-        ${active ? 'bg-violet-600 text-white' : 'text-gray-400 hover:text-gray-200 hover:bg-white/8'}`}>
+        ${active ? 'bg-violet-600 text-white' : 'text-app-muted-light hover:text-app-primary hover:bg-violet-500/8'}`}>
       {children}
     </button>
   )
 }
 
-const Divider = () => <div className="w-px h-5 bg-white/10 mx-0.5" />
+const Divider = () => <div className="w-px h-5 bg-violet-500/15 mx-0.5" />
 
 export default function RichEditor({ value, onChange, placeholder = 'Écrivez votre contenu ici…' }) {
   const editor = useEditor({
@@ -29,7 +29,7 @@ export default function RichEditor({ value, onChange, placeholder = 'Écrivez vo
     },
     editorProps: {
       attributes: {
-        class: 'outline-none min-h-[280px] px-4 py-3 text-sm text-gray-200 leading-relaxed prose-sm max-w-none',
+        class: 'outline-none min-h-[280px] px-4 py-3 text-sm text-app-primary leading-relaxed prose-sm max-w-none',
       },
     },
   })
@@ -52,9 +52,9 @@ export default function RichEditor({ value, onChange, placeholder = 'Écrivez vo
   if (!editor) return null
 
   return (
-    <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'rgba(255,255,255,0.1)', background: '#0d0d1f' }}>
+    <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-color)', background: 'var(--bg-card)' }}>
       {/* Toolbar */}
-      <div className="flex items-center gap-0.5 px-2 py-2 border-b" style={{ borderColor: 'rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.03)' }}>
+      <div className="flex items-center gap-0.5 px-2 py-2 border-b" style={{ borderColor: 'var(--border-color)', background: 'var(--bg-card-alt)' }}>
         <ToolBtn onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive('bold')} title="Gras">
           <strong>B</strong>
         </ToolBtn>

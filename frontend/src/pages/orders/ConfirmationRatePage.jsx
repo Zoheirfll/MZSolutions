@@ -64,7 +64,7 @@ export default function ConfirmationRatePage() {
       <PeriodFilter period={period} setPeriod={setPeriod} dateFrom={dateFrom} setDateFrom={setDateFrom} dateTo={dateTo} setDateTo={setDateTo} />
 
       {loading ? <Spinner /> : !data ? (
-        <p className="text-gray-500 text-center py-16">Erreur de chargement.</p>
+        <p className="text-app-muted text-center py-16">Erreur de chargement.</p>
       ) : (
         <div className="space-y-5">
 
@@ -97,7 +97,7 @@ export default function ConfirmationRatePage() {
             {/* Chiffres */}
             <div className="flex-1 grid grid-cols-2 sm:grid-cols-5 gap-6">
               {[
-                { label: 'Commandes traitées', value: data.total_processed, color: 'text-gray-200' },
+                { label: 'Commandes traitées', value: data.total_processed, color: 'text-app-primary' },
                 { label: 'Confirmées', value: data.total_confirmed, color: 'text-emerald-400' },
                 { label: 'Non joignable', value: data.no_answer_total, color: 'text-amber-400' },
                 { label: 'Retournées', value: data.returned_total, color: 'text-red-400' },
@@ -113,18 +113,18 @@ export default function ConfirmationRatePage() {
             {/* Période */}
             <div className="text-right shrink-0">
               <p className="text-xs mb-1" style={{ color: theme.dark.muted }}>Période</p>
-              <p className="text-sm text-gray-300">{data.date_from}</p>
+              <p className="text-sm text-app-primary">{data.date_from}</p>
               <p className="text-xs" style={{ color: theme.dark.muted }}>→</p>
-              <p className="text-sm text-gray-300">{data.date_to}</p>
+              <p className="text-sm text-app-primary">{data.date_to}</p>
             </div>
           </div>
 
           {/* Tendance + répartition */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             <div className="rounded-xl border p-5" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-              <p className="text-sm font-medium text-gray-300 mb-4">Évolution du taux de confirmation</p>
+              <p className="text-sm font-medium text-app-primary mb-4">Évolution du taux de confirmation</p>
               {dailyChart.length === 0 ? (
-                <p className="text-sm text-gray-500 py-16 text-center">Aucune commande traitée sur cette période.</p>
+                <p className="text-sm text-app-muted py-16 text-center">Aucune commande traitée sur cette période.</p>
               ) : (
                 <ResponsiveContainer width="100%" height={240}>
                   <AreaChart data={dailyChart} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
@@ -148,9 +148,9 @@ export default function ConfirmationRatePage() {
             </div>
 
             <div className="rounded-xl border p-5" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-              <p className="text-sm font-medium text-gray-300 mb-4">Répartition des commandes traitées</p>
+              <p className="text-sm font-medium text-app-primary mb-4">Répartition des commandes traitées</p>
               {(data.by_status || []).length === 0 ? (
-                <p className="text-sm text-gray-500 py-16 text-center">Aucune commande traitée sur cette période.</p>
+                <p className="text-sm text-app-muted py-16 text-center">Aucune commande traitée sur cette période.</p>
               ) : (
                 <ResponsiveContainer width="100%" height={240}>
                   <PieChart>
@@ -168,7 +168,7 @@ export default function ConfirmationRatePage() {
           {/* Classement confirmateurs */}
           <div className="rounded-xl border overflow-hidden" style={{ borderColor: theme.dark.border }}>
             <div className="px-5 py-3.5 border-b" style={{ background: theme.dark.sidebar, borderColor: theme.dark.border }}>
-              <h2 className="text-sm font-semibold text-gray-200">Classement par confirmateur</h2>
+              <h2 className="text-sm font-semibold text-app-primary">Classement par confirmateur</h2>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm min-w-160">
@@ -187,29 +187,29 @@ export default function ConfirmationRatePage() {
                 <tbody>
                   {data.by_confirmateur.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="text-center py-12 text-gray-500">
+                      <td colSpan={8} className="text-center py-12 text-app-muted">
                         Aucune commande assignée sur cette période.
                       </td>
                     </tr>
                   ) : data.by_confirmateur.map((c, i) => (
                     <tr
                       key={c.confirmateur_id}
-                      className="border-b hover:bg-white/2 transition cursor-pointer"
+                      className="border-b hover:bg-violet-500/5 transition cursor-pointer"
                       style={{ borderColor: theme.dark.borderRowHover }}
                       onClick={() => navigate(`/dashboard/commandes?confirmateur=${c.confirmateur_id}`)}
                     >
                       <td className="px-5 py-3.5">
                         <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
                           i === 0 ? 'bg-amber-500/20 text-amber-400' :
-                          i === 1 ? 'bg-gray-500/20 text-gray-300' :
+                          i === 1 ? 'bg-(--border-color-hover) text-app-primary' :
                           i === 2 ? 'bg-orange-800/20 text-orange-400' :
-                          'bg-transparent text-gray-500'
+                          'bg-transparent text-app-muted'
                         }`}>
                           {i + 1}
                         </span>
                       </td>
-                      <td className="px-5 py-3.5 text-gray-200 font-medium">{c.confirmateur_name}</td>
-                      <td className="px-5 py-3.5 text-center text-gray-300">{c.processed}</td>
+                      <td className="px-5 py-3.5 text-app-primary font-medium">{c.confirmateur_name}</td>
+                      <td className="px-5 py-3.5 text-center text-app-primary">{c.processed}</td>
                       <td className="px-5 py-3.5 text-center text-emerald-400 font-medium">{c.confirmed}</td>
                       <td className="px-5 py-3.5 text-center text-amber-400">{c.no_answer}</td>
                       <td className="px-5 py-3.5 text-center text-red-400">{c.returned}</td>

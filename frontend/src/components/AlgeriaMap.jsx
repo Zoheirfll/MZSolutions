@@ -48,7 +48,7 @@ export default function AlgeriaMap({ data = [] }) {
 
   const colorFor = (pathId) => {
     const row = valueByPathId[pathId]
-    if (!row || !row.orders_count) return 'rgba(255,255,255,0.05)'
+    if (!row || !row.orders_count) return 'var(--bg-card-alt)'
     const intensity = Math.min(1, row.orders_count / maxValue)
     // Dégradé violet cohérent avec la charte (theme.stat.violet.hex = #8b5cf6)
     const alpha = 0.15 + intensity * 0.75
@@ -77,7 +77,7 @@ export default function AlgeriaMap({ data = [] }) {
         return (
           <div className="absolute top-2 left-2 rounded-lg border px-3 py-2 text-xs pointer-events-none"
             style={{ background: theme.dark.sidebar, borderColor: theme.dark.border }}>
-            <p className="font-semibold text-gray-200">{path?.name}</p>
+            <p className="font-semibold text-app-primary">{path?.name}</p>
             {row ? (
               <>
                 <p style={{ color: theme.dark.muted }}>{row.orders_count} commande{row.orders_count !== 1 ? 's' : ''}</p>

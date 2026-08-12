@@ -21,7 +21,7 @@ function FileIcon({ mime }) {
     </svg>
   )
   return (
-    <svg className="w-8 h-8 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+    <svg className="w-8 h-8 text-app-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
       <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>
     </svg>
   )
@@ -222,7 +222,7 @@ export default function FileManagerPage() {
         <div className="flex-1 min-w-0 flex flex-col gap-3">
           {/* Toolbar */}
           <div className="flex items-center gap-3">
-            <p className="text-sm font-semibold text-gray-300 flex-1">{activeLabel}</p>
+            <p className="text-sm font-semibold text-app-primary flex-1">{activeLabel}</p>
             {checked.size > 0 && (
               <button type="button" onClick={bulkDelete} disabled={bulkBusy}
                 className="text-xs px-3 py-1.5 rounded-lg text-red-400 border cursor-pointer transition-colors"
@@ -273,12 +273,12 @@ export default function FileManagerPage() {
                     </div>
                     {/* Info */}
                     <div className="p-2">
-                      <p className="text-[11px] text-gray-300 truncate" title={file.original_name}>{file.original_name}</p>
+                      <p className="text-[11px] text-app-primary truncate" title={file.original_name}>{file.original_name}</p>
                       <p className="text-[10px] mt-0.5" style={{ color: theme.dark.muted }}>{formatSize(file.size)}</p>
                       <div className="flex gap-1 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button type="button" onClick={() => copyUrl(file.url, file.id)}
                           className="flex-1 text-[10px] py-0.5 rounded text-center cursor-pointer transition-colors"
-                          style={{ background: copied === file.id ? 'rgba(124,58,237,0.3)' : 'rgba(255,255,255,0.06)', color: copied === file.id ? '#a78bfa' : '#9ca3af' }}>
+                          style={{ background: copied === file.id ? 'rgba(124,58,237,0.3)' : 'rgba(124,58,237,0.1)', color: copied === file.id ? '#a78bfa' : 'var(--text-muted-light)' }}>
                           {copied === file.id ? 'Copié !' : 'Copier URL'}
                         </button>
                         <button type="button" onClick={() => deleteFile(file.id)} disabled={deleting === file.id}

@@ -37,9 +37,9 @@ export default function SourceStatsPage() {
       {loading ? <Spinner /> : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="rounded-xl border p-5" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-            <p className="text-sm font-medium text-gray-300 mb-4">Répartition des commandes par source</p>
+            <p className="text-sm font-medium text-app-primary mb-4">Répartition des commandes par source</p>
             {results.length === 0 ? (
-              <p className="text-sm text-gray-500 py-16 text-center">Aucune commande sur cette période.</p>
+              <p className="text-sm text-app-muted py-16 text-center">Aucune commande sur cette période.</p>
             ) : (
               <ResponsiveContainer width="100%" height={260}>
                 <PieChart>
@@ -55,7 +55,7 @@ export default function SourceStatsPage() {
           <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border }}>
             <table className="w-full text-sm">
               <thead style={{ background: theme.dark.sidebar }}>
-                <tr className="text-left text-xs text-gray-500 border-b" style={{ borderColor: theme.dark.border }}>
+                <tr className="text-left text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
                   <th className="px-4 py-3 font-medium">SOURCE</th>
                   <th className="px-4 py-3 font-medium">COMMANDES</th>
                   <th className="px-4 py-3 font-medium">CONFIRMÉES</th>
@@ -64,18 +64,18 @@ export default function SourceStatsPage() {
               </thead>
               <tbody>
                 {results.length === 0 ? (
-                  <tr><td colSpan={4} className="px-4 py-10 text-center text-sm text-gray-500">—</td></tr>
+                  <tr><td colSpan={4} className="px-4 py-10 text-center text-sm text-app-muted">—</td></tr>
                 ) : results.map(r => (
-                  <tr key={r.source} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
-                    <td className="px-4 py-3 text-gray-200">{r.source}</td>
-                    <td className="px-4 py-3 text-gray-300">
+                  <tr key={r.source} className="border-b hover:bg-violet-500/5 transition" style={{ borderColor: theme.dark.borderRowHover }}>
+                    <td className="px-4 py-3 text-app-primary">{r.source}</td>
+                    <td className="px-4 py-3 text-app-primary">
                       <div className="flex items-center gap-2">
                         {r.orders_count}
                         <TrendBadge pct={r.orders_count_delta_pct} />
                       </div>
                     </td>
                     <td className="px-4 py-3"><span className={theme.badge.success}>{r.confirmed_count}</span></td>
-                    <td className="px-4 py-3 text-gray-200">{money(r.revenue)}</td>
+                    <td className="px-4 py-3 text-app-primary">{money(r.revenue)}</td>
                   </tr>
                 ))}
               </tbody>

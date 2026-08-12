@@ -63,7 +63,7 @@ export default function ReturnsStatsPage() {
             <StatCard label="Taux de retour" value={`${data.return_rate}%`} color="red" sub={pctSub(data.return_rate_delta_pct)} />
           </div>
           <div className="rounded-xl border p-5" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-            <p className="text-sm font-medium text-gray-300 mb-4">Évolution des retours</p>
+            <p className="text-sm font-medium text-app-primary mb-4">Évolution des retours</p>
             <ResponsiveContainer width="100%" height={260}>
               <BarChart data={dailyChart}>
                 <CartesianGrid strokeDasharray="3 3" stroke={theme.dark.border} vertical={false} />

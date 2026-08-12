@@ -94,14 +94,14 @@ export default function PageFormPage() {
             <div>
               <label className={theme.labelDark}>Slug (URL)</label>
               <div className="flex items-center">
-                <span className="px-3 py-2.5 rounded-l-xl text-xs border-y border-l text-gray-500"
-                  style={{ borderColor: 'rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)' }}>
+                <span className="px-3 py-2.5 rounded-l-xl text-xs border-y border-l text-app-muted"
+                  style={{ borderColor: 'var(--border-color)', background: 'var(--bg-card-alt)' }}>
                   /pages/
                 </span>
                 <input value={form.slug}
                   onChange={e => { setSlugManual(true); setForm(f => ({ ...f, slug: e.target.value })) }}
-                  className="flex-1 px-3 py-2.5 text-sm text-gray-300 rounded-r-xl border outline-none font-mono"
-                  style={{ background: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.1)' }}
+                  className="flex-1 px-3 py-2.5 text-sm text-app-primary rounded-r-xl border outline-none font-mono"
+                  style={{ background: 'var(--bg-card-alt)', borderColor: 'var(--border-color)' }}
                   placeholder="a-propos" />
               </div>
             </div>
@@ -114,7 +114,7 @@ export default function PageFormPage() {
 
           <div className="flex items-center gap-3">
             <button type="button" onClick={() => setForm(f => ({ ...f, is_published: !f.is_published }))}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${form.is_published ? 'bg-violet-600' : 'bg-white/10'}`}>
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${form.is_published ? 'bg-violet-600' : 'bg-violet-500/15'}`}>
               <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${form.is_published ? 'translate-x-6' : 'translate-x-1'}`} />
             </button>
             <span className="text-sm" style={{ color: form.is_published ? '#a78bfa' : theme.dark.muted }}>

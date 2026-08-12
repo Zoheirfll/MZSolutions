@@ -51,7 +51,7 @@ export default function WilayaStatsPage() {
           <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border }}>
             <table className="w-full text-sm min-w-140">
               <thead style={{ background: theme.dark.sidebar }}>
-                <tr className="text-left text-xs text-gray-500 border-b" style={{ borderColor: theme.dark.border }}>
+                <tr className="text-left text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
                   <th className="px-4 py-3 font-medium">WILAYA</th>
                   <th className="px-4 py-3 font-medium">COMMANDES</th>
                   <th className="px-4 py-3 font-medium">CONFIRMÉES</th>
@@ -60,12 +60,12 @@ export default function WilayaStatsPage() {
               </thead>
               <tbody>
                 {results.length === 0 ? (
-                  <tr><td colSpan={4} className="px-4 py-10 text-center text-sm text-gray-500">Aucune commande sur cette période.</td></tr>
+                  <tr><td colSpan={4} className="px-4 py-10 text-center text-sm text-app-muted">Aucune commande sur cette période.</td></tr>
                 ) : results.map(r => (
                   <tr key={r.wilaya} onClick={() => goToWilayaOrders(r.wilaya)}
-                    className="border-b hover:bg-white/2 transition cursor-pointer" style={{ borderColor: theme.dark.borderRowHover }}>
-                    <td className="px-4 py-3 text-gray-200">{r.wilaya}</td>
-                    <td className="px-4 py-3 text-gray-300">
+                    className="border-b hover:bg-violet-500/5 transition cursor-pointer" style={{ borderColor: theme.dark.borderRowHover }}>
+                    <td className="px-4 py-3 text-app-primary">{r.wilaya}</td>
+                    <td className="px-4 py-3 text-app-primary">
                       <div className="flex items-center gap-2">
                         {r.orders_count}
                         <TrendBadge pct={r.orders_count_delta_pct} />
@@ -74,7 +74,7 @@ export default function WilayaStatsPage() {
                     <td className="px-4 py-3">
                       <span className={theme.badge.success}>{r.confirmed_count}</span>
                     </td>
-                    <td className="px-4 py-3 text-gray-200">{money(r.revenue)}</td>
+                    <td className="px-4 py-3 text-app-primary">{money(r.revenue)}</td>
                   </tr>
                 ))}
               </tbody>

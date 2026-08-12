@@ -19,7 +19,7 @@ function Stars({ rating, onClick }) {
         <span
           key={i}
           onClick={() => onClick && onClick(i)}
-          className={'text-lg ' + (i <= rating ? 'text-amber-400' : 'text-gray-600') + (onClick ? ' cursor-pointer' : '')}
+          className={'text-lg ' + (i <= rating ? 'text-amber-400' : 'text-app-muted') + (onClick ? ' cursor-pointer' : '')}
         >★</span>
       ))}
     </span>
@@ -82,7 +82,7 @@ function StarOutlineIcon(props) {
 
 function Spinner() {
   return (
-    <div className="flex items-center justify-center gap-2 py-12 text-gray-500">
+    <div className="flex items-center justify-center gap-2 py-12 text-app-muted">
       <svg className="animate-spin" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
         <circle cx="12" cy="12" r="9" opacity="0.25" />
         <path d="M21 12a9 9 0 0 0-9-9" strokeLinecap="round" />
@@ -94,9 +94,9 @@ function Spinner() {
 
 function EmptyState({ icon, title, subtitle }) {
   return (
-    <div className="flex flex-col items-center justify-center text-center py-14 px-6 text-gray-500">
-      {icon && <div className="mb-3 text-gray-600">{icon}</div>}
-      <p className="text-sm font-medium text-gray-300">{title}</p>
+    <div className="flex flex-col items-center justify-center text-center py-14 px-6 text-app-muted">
+      {icon && <div className="mb-3 text-app-muted">{icon}</div>}
+      <p className="text-sm font-medium text-app-primary">{title}</p>
       {subtitle && <p className="text-xs mt-1" style={{ color: theme.dark.muted }}>{subtitle}</p>}
     </div>
   )
@@ -121,7 +121,7 @@ function AddModal({ onClose, onSaved }) {
     p.name.toLowerCase().includes(search.toLowerCase())
   )
 
-  const inputCls = 'w-full px-3.5 py-2.5 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 transition [color-scheme:dark]'
+  const inputCls = 'w-full px-3.5 py-2.5 rounded-lg border text-sm text-app-primary bg-transparent outline-none focus:border-violet-500 transition [color-scheme:dark]'
   const bdrStyle = { borderColor: theme.dark.border }
 
   const submit = async e => {
@@ -144,35 +144,35 @@ function AddModal({ onClose, onSaved }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
       <div className="w-full max-w-lg rounded-xl border p-6 max-h-[90vh] overflow-y-auto" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
         <div className="flex items-center justify-between mb-5">
-          <h3 className="font-semibold text-gray-200">Ajouter un avis</h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-300 transition cursor-pointer"><CloseIcon /></button>
+          <h3 className="font-semibold text-app-primary">Ajouter un avis</h3>
+          <button onClick={onClose} className="text-app-muted hover:text-app-primary transition cursor-pointer"><CloseIcon /></button>
         </div>
         <form onSubmit={submit} className="space-y-4">
 
           {/* Prénom + Nom */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs text-gray-400 mb-1.5">Prénom *</label>
+              <label className="block text-xs text-app-muted-light mb-1.5">Prénom *</label>
               <input value={form.first_name} onChange={e => setForm(f => ({ ...f, first_name: e.target.value }))} required className={inputCls} style={bdrStyle} placeholder="Prénom" />
               {errors.first_name && <p className="text-red-400 text-xs mt-1">{errors.first_name}</p>}
             </div>
             <div>
-              <label className="block text-xs text-gray-400 mb-1.5">Nom de famille</label>
+              <label className="block text-xs text-app-muted-light mb-1.5">Nom de famille</label>
               <input value={form.last_name} onChange={e => setForm(f => ({ ...f, last_name: e.target.value }))} className={inputCls} style={bdrStyle} placeholder="Nom" />
             </div>
           </div>
 
           {/* Email */}
           <div>
-            <label className="block text-xs text-gray-400 mb-1.5">Email</label>
+            <label className="block text-xs text-app-muted-light mb-1.5">Email</label>
             <input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} className={inputCls} style={bdrStyle} placeholder="client@example.com" />
           </div>
 
           {/* Produit recherche */}
           <div>
-            <label className="block text-xs text-gray-400 mb-1.5">Produit *</label>
+            <label className="block text-xs text-app-muted-light mb-1.5">Produit *</label>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"><SearchIcon /></span>
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-app-muted"><SearchIcon /></span>
               <input
                 value={search}
                 onChange={e => { setSearch(e.target.value); setForm(f => ({ ...f, product: '' })) }}
@@ -184,12 +184,12 @@ function AddModal({ onClose, onSaved }) {
             {search && !form.product && (
               <div className="rounded-lg border mt-1 max-h-36 overflow-y-auto" style={{ background: theme.dark.sidebar, borderColor: theme.dark.border }}>
                 {filtered.length === 0
-                  ? <p className="px-3 py-2 text-xs text-gray-500">Aucun résultat</p>
+                  ? <p className="px-3 py-2 text-xs text-app-muted">Aucun résultat</p>
                   : filtered.map(p => (
                     <button
                       key={p.id} type="button"
                       onClick={() => { setForm(f => ({ ...f, product: p.id })); setSearch(p.name) }}
-                      className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-white/5 transition cursor-pointer"
+                      className="w-full text-left px-3 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition cursor-pointer"
                     >{p.name}</button>
                   ))
                 }
@@ -200,34 +200,34 @@ function AddModal({ onClose, onSaved }) {
 
           {/* Rating */}
           <div>
-            <label className="block text-xs text-gray-400 mb-1.5">Note</label>
+            <label className="block text-xs text-app-muted-light mb-1.5">Note</label>
             <Stars rating={form.rating} onClick={v => setForm(f => ({ ...f, rating: v }))} />
           </div>
 
           {/* Commentaire */}
           <div>
-            <label className="block text-xs text-gray-400 mb-1.5">Commentaire</label>
+            <label className="block text-xs text-app-muted-light mb-1.5">Commentaire</label>
             <textarea value={form.comment} onChange={e => setForm(f => ({ ...f, comment: e.target.value }))} rows={3} className={inputCls + ' resize-none'} style={bdrStyle} placeholder="Contenu de l'avis…" />
           </div>
 
           {/* Image */}
           <div>
-            <label className="block text-xs text-gray-400 mb-1.5">Image (optionnel)</label>
+            <label className="block text-xs text-app-muted-light mb-1.5">Image (optionnel)</label>
             <div
               onClick={() => fileRef.current?.click()}
               className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-violet-500 transition"
               style={{ borderColor: theme.dark.border }}
             >
               {form.image
-                ? <p className="text-sm text-gray-300">{form.image.name}</p>
-                : <><div className="flex justify-center mb-1 text-gray-500"><UploadIcon /></div><p className="text-xs text-gray-500">Choisissez un fichier ou faites-le glisser ici</p></>
+                ? <p className="text-sm text-app-primary">{form.image.name}</p>
+                : <><div className="flex justify-center mb-1 text-app-muted"><UploadIcon /></div><p className="text-xs text-app-muted">Choisissez un fichier ou faites-le glisser ici</p></>
               }
             </div>
             <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={e => setForm(f => ({ ...f, image: e.target.files[0] || null }))} />
           </div>
 
           <div className="flex justify-end gap-3 pt-1">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-400 hover:text-gray-200 cursor-pointer transition">Fermer</button>
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-app-muted-light hover:text-app-primary cursor-pointer transition">Fermer</button>
             <button type="submit" disabled={saving || !form.product} className="px-5 py-2 rounded-lg text-sm font-semibold text-white bg-violet-600 hover:bg-violet-500 disabled:opacity-60 flex items-center gap-2 cursor-pointer transition">
               {saving ? 'Enregistrement…' : <>Créer <PlusIcon width={14} height={14} /></>}
             </button>
@@ -353,18 +353,18 @@ export default function ReviewsPage() {
                 <EmptyState icon={<StarOutlineIcon />} title="Aucun avis trouvé" subtitle="Les avis clients approuvés ou en attente apparaîtront ici." />
               </td></tr>
             ) : reviews.map(r => (
-              <tr key={r.id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
+              <tr key={r.id} className="border-b hover:bg-violet-500/5 transition" style={{ borderColor: theme.dark.borderRowHover }}>
                 <td className="px-4 py-3">
                   <input type="checkbox" checked={selected.has(r.id)} onChange={() => toggleRow(r.id)} className="accent-violet-600 cursor-pointer" />
                 </td>
-                <td className="px-4 py-3 text-gray-500">#{r.id}</td>
-                <td className="px-4 py-3 text-gray-200 font-medium">{r.first_name}</td>
-                <td className="px-4 py-3 text-gray-300">{r.last_name || '—'}</td>
-                <td className="px-4 py-3 text-gray-400 text-xs">{r.email || '—'}</td>
-                <td className="px-4 py-3 text-gray-300 max-w-[120px] truncate">{r.product_name}</td>
+                <td className="px-4 py-3 text-app-muted">#{r.id}</td>
+                <td className="px-4 py-3 text-app-primary font-medium">{r.first_name}</td>
+                <td className="px-4 py-3 text-app-primary">{r.last_name || '—'}</td>
+                <td className="px-4 py-3 text-app-muted-light text-xs">{r.email || '—'}</td>
+                <td className="px-4 py-3 text-app-primary max-w-[120px] truncate">{r.product_name}</td>
                 <td className="px-4 py-3"><Stars rating={r.rating} /></td>
-                <td className="px-4 py-3 text-gray-400 max-w-[180px] truncate">{r.comment || '—'}</td>
-                <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">
+                <td className="px-4 py-3 text-app-muted-light max-w-[180px] truncate">{r.comment || '—'}</td>
+                <td className="px-4 py-3 text-app-muted text-xs whitespace-nowrap">
                   {new Date(r.created_at).toLocaleDateString('fr-DZ')}
                 </td>
                 <td className="px-4 py-3">
@@ -393,13 +393,13 @@ export default function ReviewsPage() {
               value={perPage}
               onChange={v => { setPerPage(Number(v)); setPage(1) }}
               options={PER_PAGE_OPTIONS.map(n => ({ value: n, label: n }))}
-              className="px-2 py-1 rounded-lg border text-gray-300 text-xs"
+              className="px-2 py-1 rounded-lg border text-app-primary text-xs"
               style={{ background: theme.dark.card, borderColor: theme.dark.border, minWidth: 64 }}
             />
           </div>
           <div className="flex items-center gap-1">
             <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-              className="px-2.5 py-1 rounded text-xs disabled:opacity-30 hover:bg-white/5 transition">←</button>
+              className="px-2.5 py-1 rounded text-xs disabled:opacity-30 hover:bg-violet-500/5 transition">←</button>
             {pageNums.map(n => (
               <button key={n} onClick={() => setPage(n)}
                 className={`px-2.5 py-1 rounded text-xs transition cursor-pointer ${page === n ? 'bg-violet-600 text-white' : ''}`}
@@ -414,7 +414,7 @@ export default function ReviewsPage() {
               >{totalPages}</button>
             )}
             <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-              className="px-2.5 py-1 rounded text-xs disabled:opacity-30 hover:bg-white/5 transition">→</button>
+              className="px-2.5 py-1 rounded text-xs disabled:opacity-30 hover:bg-violet-500/5 transition">→</button>
           </div>
         </div>
       </div>

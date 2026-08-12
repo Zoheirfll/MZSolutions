@@ -233,7 +233,7 @@ export default function CategoriesPage() {
   const CatRow = ({ cat, indent = false }) => (
     <>
       <div
-        className={`flex items-center gap-3 px-4 py-3 border-b hover:bg-white/2 transition ${indent ? 'pl-10' : ''}`}
+        className={`flex items-center gap-3 px-4 py-3 border-b hover:bg-violet-500/5 transition ${indent ? 'pl-10' : ''}`}
         style={{ borderColor: theme.dark.borderRowHover }}
       >
         {!indent && (
@@ -253,7 +253,7 @@ export default function CategoriesPage() {
         {tab !== 'corbeille' && (
           <button
             onClick={() => handleToggle(cat)}
-            className={`w-9 h-5 rounded-full transition-colors relative shrink-0 cursor-pointer ${cat.is_active ? 'bg-violet-600' : 'bg-gray-600'}`}
+            className={`w-9 h-5 rounded-full transition-colors relative shrink-0 cursor-pointer ${cat.is_active ? 'bg-violet-600' : 'bg-(--border-color-hover)'}`}
           >
             <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${cat.is_active ? 'left-4' : 'left-0.5'}`} />
           </button>
@@ -280,14 +280,14 @@ export default function CategoriesPage() {
           ) : (
             <>
               {!indent && (
-                <button onClick={() => setModal({ parent: cat.id })} className="w-7 h-7 rounded flex items-center justify-center text-app-muted-light hover:bg-white/10 transition cursor-pointer" title="Ajouter une sous-catégorie"><PlusIcon width={14} height={14} /></button>
+                <button onClick={() => setModal({ parent: cat.id })} className="w-7 h-7 rounded flex items-center justify-center text-app-muted-light hover:bg-violet-500/10 transition cursor-pointer" title="Ajouter une sous-catégorie"><PlusIcon width={14} height={14} /></button>
               )}
               <button onClick={() => setModal(cat)} className="w-7 h-7 rounded flex items-center justify-center text-emerald-400 hover:bg-emerald-900/20 transition cursor-pointer" title="Modifier"><EditIcon /></button>
             </>
           )}
           <button onClick={() => handleDelete(cat.id)} className="w-7 h-7 rounded flex items-center justify-center text-red-400 hover:bg-red-900/20 transition cursor-pointer" title="Supprimer"><TrashIcon /></button>
           {!indent && cat.children_count > 0 && (
-            <button onClick={() => fetchChildren(cat.id)} className="w-7 h-7 rounded flex items-center justify-center text-app-muted-light hover:bg-white/10 transition cursor-pointer">
+            <button onClick={() => fetchChildren(cat.id)} className="w-7 h-7 rounded flex items-center justify-center text-app-muted-light hover:bg-violet-500/10 transition cursor-pointer">
               <ChevronIcon open={!!expanded[cat.id]} />
             </button>
           )}

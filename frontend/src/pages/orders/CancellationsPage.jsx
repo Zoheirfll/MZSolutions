@@ -59,7 +59,7 @@ function ActionModal({ order, action, onClose, onDone }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
       <div className="w-full max-w-md rounded-xl border p-5 sm:p-6" style={{ background: theme.dark.card, borderColor: theme.dark.border }} onClick={e => e.stopPropagation()}>
-        <h2 className="text-lg font-semibold text-gray-100 mb-1">
+        <h2 className="text-lg font-semibold text-app-primary mb-1">
           {isConfirm ? "Confirmer l'annulation" : "Rejeter la demande d'annulation"}
         </h2>
         <p className="text-sm mb-4" style={{ color: theme.dark.muted }}>
@@ -76,12 +76,12 @@ function ActionModal({ order, action, onClose, onDone }) {
           value={note}
           onChange={e => setNote(e.target.value)}
           rows={3}
-          className="w-full px-3 py-2 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 transition resize-none"
+          className="w-full px-3 py-2 rounded-lg border text-sm text-app-primary bg-transparent outline-none focus:border-violet-500 transition resize-none"
           style={{ borderColor: theme.dark.border }}
           placeholder={isConfirm ? "Ex: remboursement effectué…" : "Ex: client injoignable pour confirmer sa demande…"}
         />
         <div className="flex justify-end gap-3 mt-5">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-400 hover:text-gray-200 transition">Annuler</button>
+          <button onClick={onClose} className="px-4 py-2 text-sm text-app-muted-light hover:text-app-primary transition">Annuler</button>
           <button onClick={submit} disabled={saving} className={isConfirm ? theme.btn.danger : theme.btn.primary}>
             {saving ? '…' : isConfirm ? "Confirmer l'annulation" : 'Rejeter la demande'}
           </button>
@@ -129,7 +129,7 @@ export default function CancellationsPage({ mode }) {
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder="Recherche nom, téléphone…"
-          className="px-3 py-2 rounded-lg border text-sm text-gray-200 outline-none focus:border-violet-500 transition w-full sm:w-64"
+          className="px-3 py-2 rounded-lg border text-sm text-app-primary outline-none focus:border-violet-500 transition w-full sm:w-64"
           style={{ background: theme.dark.card, borderColor: theme.dark.border }}
         />
       </div>
@@ -152,7 +152,7 @@ export default function CancellationsPage({ mode }) {
           <tbody>
             {loading ? (
               <tr><td colSpan={colCount} className="py-16">
-                <div className="flex items-center justify-center gap-2 text-gray-500">
+                <div className="flex items-center justify-center gap-2 text-app-muted">
                   <svg className="w-5 h-5 animate-spin text-violet-500" viewBox="0 0 24 24" fill="none">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
@@ -173,17 +173,17 @@ export default function CancellationsPage({ mode }) {
               <tr
                 key={o.id}
                 onClick={() => navigate(`/dashboard/commandes/${o.id}`)}
-                className="border-b hover:bg-white/2 transition cursor-pointer"
+                className="border-b hover:bg-violet-500/5 transition cursor-pointer"
                 style={{ borderColor: theme.dark.borderRowHover }}
               >
-                <td className="px-4 py-3 text-gray-500">#{o.id}</td>
-                <td className="px-4 py-3 text-gray-200 font-medium">{o.first_name} {o.last_name}</td>
-                <td className="px-4 py-3 text-gray-300">{o.phone}</td>
-                <td className="px-4 py-3 text-gray-300">{o.wilaya}</td>
-                <td className="px-4 py-3 text-gray-400">{o.commune || '—'}</td>
-                <td className="px-4 py-3 text-gray-200 font-semibold">{Number(o.total).toLocaleString('fr-DZ')} DZD</td>
-                <td className="px-4 py-3 text-gray-400 max-w-48 truncate" title={o.cancellation_note}>{o.cancellation_note || '—'}</td>
-                <td className="px-4 py-3 text-gray-500 text-xs">
+                <td className="px-4 py-3 text-app-muted">#{o.id}</td>
+                <td className="px-4 py-3 text-app-primary font-medium">{o.first_name} {o.last_name}</td>
+                <td className="px-4 py-3 text-app-primary">{o.phone}</td>
+                <td className="px-4 py-3 text-app-primary">{o.wilaya}</td>
+                <td className="px-4 py-3 text-app-muted-light">{o.commune || '—'}</td>
+                <td className="px-4 py-3 text-app-primary font-semibold">{Number(o.total).toLocaleString('fr-DZ')} DZD</td>
+                <td className="px-4 py-3 text-app-muted-light max-w-48 truncate" title={o.cancellation_note}>{o.cancellation_note || '—'}</td>
+                <td className="px-4 py-3 text-app-muted text-xs">
                   {new Date(o.created_at).toLocaleDateString('fr-DZ')}
                 </td>
                 {isRequests && (
@@ -218,11 +218,11 @@ export default function CancellationsPage({ mode }) {
             Lignes par page :
             <Select value={perPage} onChange={v => { setPerPage(Number(v)); setPage(1) }}
               options={PER_PAGE_OPTIONS.map(n => ({ value: n, label: n }))}
-              className="px-2 py-1 rounded-lg border text-gray-300 text-xs"
+              className="px-2 py-1 rounded-lg border text-app-primary text-xs"
               style={{ background: theme.dark.card, borderColor: theme.dark.border, minWidth: 64 }} />
           </div>
           <div className="flex items-center gap-1">
-            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-2 py-1 rounded disabled:opacity-30 hover:bg-white/5 flex items-center justify-center">
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-2 py-1 rounded disabled:opacity-30 hover:bg-violet-500/5 flex items-center justify-center">
               <ChevronLeftIcon />
             </button>
             {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i + 1).map(n => (
@@ -231,7 +231,7 @@ export default function CancellationsPage({ mode }) {
                 {n}
               </button>
             ))}
-            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="px-2 py-1 rounded disabled:opacity-30 hover:bg-white/5 flex items-center justify-center">
+            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="px-2 py-1 rounded disabled:opacity-30 hover:bg-violet-500/5 flex items-center justify-center">
               <ChevronRightIcon />
             </button>
           </div>

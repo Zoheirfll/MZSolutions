@@ -50,7 +50,7 @@ export default function ProductsStatsPage() {
           <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border }}>
             <table className="w-full text-sm min-w-180">
               <thead style={{ background: theme.dark.sidebar }}>
-                <tr className="text-left text-xs text-gray-500 border-b" style={{ borderColor: theme.dark.border }}>
+                <tr className="text-left text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
                   <th className="px-4 py-3 font-medium">PRODUIT</th>
                   <th className="px-4 py-3 font-medium">MEILLEURE WILAYA</th>
                   <th className="px-4 py-3 font-medium">MEILLEURE SOURCE</th>
@@ -60,14 +60,14 @@ export default function ProductsStatsPage() {
               </thead>
               <tbody>
                 {results.length === 0 ? (
-                  <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-gray-500">Aucune commande sur cette période.</td></tr>
+                  <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-app-muted">Aucune commande sur cette période.</td></tr>
                 ) : results.map(r => (
                   <tr key={r.product_id} onClick={() => goToProductOrders(r.product_name)}
-                    className="border-b hover:bg-white/2 transition cursor-pointer" style={{ borderColor: theme.dark.borderRowHover }}>
-                    <td className="px-4 py-3 text-gray-200">{r.product_name}</td>
-                    <td className="px-4 py-3 text-gray-400">{r.best_wilaya}</td>
-                    <td className="px-4 py-3 text-gray-400">{r.best_source}</td>
-                    <td className="px-4 py-3 text-gray-300">
+                    className="border-b hover:bg-violet-500/5 transition cursor-pointer" style={{ borderColor: theme.dark.borderRowHover }}>
+                    <td className="px-4 py-3 text-app-primary">{r.product_name}</td>
+                    <td className="px-4 py-3 text-app-muted-light">{r.best_wilaya}</td>
+                    <td className="px-4 py-3 text-app-muted-light">{r.best_source}</td>
+                    <td className="px-4 py-3 text-app-primary">
                       <div className="flex items-center gap-2">
                         {r.orders_count}
                         <TrendBadge pct={r.orders_count_delta_pct} />

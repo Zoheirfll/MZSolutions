@@ -55,7 +55,7 @@ export default function PagesPage() {
           <thead>
             <tr style={{ background: theme.dark.card, borderBottom: `1px solid ${theme.dark.border}` }}>
               {['Titre', 'Type', 'Slug', 'Statut', 'Actions'].map(h => (
-                <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">{h}</th>
+                <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-app-muted">{h}</th>
               ))}
             </tr>
           </thead>
@@ -81,13 +81,13 @@ export default function PagesPage() {
                 style={{ borderBottom: `1px solid ${theme.dark.border}`, background: theme.dark.app }}
                 onMouseEnter={e => e.currentTarget.style.background = theme.dark.card}
                 onMouseLeave={e => e.currentTarget.style.background = theme.dark.app}>
-                <td className="px-4 py-3 font-medium text-gray-200">{page.title}</td>
+                <td className="px-4 py-3 font-medium text-app-primary">{page.title}</td>
                 <td className="px-4 py-3">
                   <span className={PAGE_TYPE_BADGES[page.page_type] || theme.badge.neutral}>
                     {PAGE_TYPE_LABELS[page.page_type] || page.page_type}
                   </span>
                 </td>
-                <td className="px-4 py-3 font-mono text-xs text-gray-500">/{page.slug}</td>
+                <td className="px-4 py-3 font-mono text-xs text-app-muted">/{page.slug}</td>
                 <td className="px-4 py-3">
                   {page.is_published
                     ? <span className={theme.badge.success}>Publiée</span>

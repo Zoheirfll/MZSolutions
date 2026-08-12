@@ -37,7 +37,7 @@ const STATUS_COLORS = {
   cancel_requested: 'bg-red-900/30 text-red-400 ring-1 ring-red-500/20',
   cancelled:        'bg-red-900/30 text-red-400 ring-1 ring-red-500/20',
 }
-const STATUS_FALLBACK = 'bg-gray-800 text-app-muted-light ring-1 ring-white/10'
+const STATUS_FALLBACK = 'bg-violet-500/10 text-app-muted-light ring-1 ring-violet-500/15'
 
 const STATUS_DOT = {
   pending: 'bg-amber-400', no_answer_1: 'bg-amber-400', no_answer_2: 'bg-amber-400', no_answer_3: 'bg-amber-400',
@@ -71,7 +71,7 @@ function InfoTile({ icon, label, value, highlight }) {
   return (
     <div className="flex items-start gap-2.5">
       <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
-        style={{ background: 'rgba(255,255,255,0.06)', color: '#a1a1aa' }}>
+        style={{ background: 'rgba(124,58,237,0.1)', color: '#8b5cf6' }}>
         <Icon path={icon} className="w-4 h-4" />
       </div>
       <div className="min-w-0">
@@ -88,7 +88,7 @@ function SectionCard({ icon, title, right, children }) {
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <div className="flex items-center gap-2">
           {icon && (
-            <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.06)', color: '#a1a1aa' }}>
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(124,58,237,0.1)', color: '#8b5cf6' }}>
               <Icon path={icon} className="w-3.5 h-3.5" />
             </div>
           )}
@@ -515,7 +515,7 @@ export default function OrderDetailPage() {
 
             {order.note && (
               <div className="mt-4 pt-4 border-t flex items-start gap-2.5" style={{ borderColor: theme.dark.border }}>
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'rgba(255,255,255,0.06)', color: '#a1a1aa' }}>
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'rgba(124,58,237,0.1)', color: '#8b5cf6' }}>
                   <Icon path={ICONS.note} className="w-4 h-4" />
                 </div>
                 <div>
@@ -546,13 +546,13 @@ export default function OrderDetailPage() {
                       return (
                         <div key={p.id} className="border-b last:border-0" style={{ borderColor: theme.dark.border }}>
                           {options.length === 0 && (
-                            <button onClick={() => addProductToOrder(p)} className="w-full text-left px-4 py-2.5 text-sm text-app-primary hover:bg-white/5 transition flex items-center justify-between">
+                            <button onClick={() => addProductToOrder(p)} className="w-full text-left px-4 py-2.5 text-sm text-app-primary hover:bg-violet-500/5 transition flex items-center justify-between">
                               <span>{p.name}</span>
                               <span className="text-violet-300 text-xs">{Number(p.price).toLocaleString('fr-DZ')} DZD</span>
                             </button>
                           )}
                           {options.map(opt => (
-                            <button key={opt.id} onClick={() => addProductToOrder(p, opt)} className="w-full text-left px-4 py-2 text-sm text-app-primary hover:bg-white/5 transition flex items-center justify-between">
+                            <button key={opt.id} onClick={() => addProductToOrder(p, opt)} className="w-full text-left px-4 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition flex items-center justify-between">
                               <span>{p.name} — {opt.value}</span>
                               <span className="text-violet-300 text-xs">{Number(opt.price ?? p.price).toLocaleString('fr-DZ')} DZD</span>
                             </button>
@@ -578,7 +578,7 @@ export default function OrderDetailPage() {
                 <tbody>
                   {localItems.filter(i => !i._delete).map(item => (
                     <Fragment key={item._key}>
-                      <tr className="border-b last:border-0 hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
+                      <tr className="border-b last:border-0 hover:bg-violet-500/5 transition" style={{ borderColor: theme.dark.borderRowHover }}>
                         <td className="py-3 px-1 text-app-primary font-medium">
                           {item.product_name}
                           {canEditOrder && (
@@ -598,7 +598,7 @@ export default function OrderDetailPage() {
                                 className="w-6 h-6 rounded border text-app-muted-light hover:text-app-primary text-xs cursor-pointer" style={{ borderColor: theme.dark.border }}>+</button>
                             </div>
                           ) : (
-                            <span className="inline-flex items-center justify-center min-w-6 h-6 px-1.5 rounded-md text-xs font-semibold bg-white/5 text-app-primary">
+                            <span className="inline-flex items-center justify-center min-w-6 h-6 px-1.5 rounded-md text-xs font-semibold bg-violet-500/10 text-app-primary">
                               {item.quantity}
                             </span>
                           )}
@@ -636,13 +636,13 @@ export default function OrderDetailPage() {
                                     return (
                                       <div key={p.id} className="border-b last:border-0" style={{ borderColor: theme.dark.border }}>
                                         {options.length === 0 && (
-                                          <button onClick={() => changeRowProduct(item._key, p)} className="w-full text-left px-4 py-2.5 text-sm text-app-primary hover:bg-white/5 transition flex items-center justify-between">
+                                          <button onClick={() => changeRowProduct(item._key, p)} className="w-full text-left px-4 py-2.5 text-sm text-app-primary hover:bg-violet-500/5 transition flex items-center justify-between">
                                             <span>{p.name}</span>
                                             <span className="text-violet-300 text-xs">{Number(p.price).toLocaleString('fr-DZ')} DZD</span>
                                           </button>
                                         )}
                                         {options.map(opt => (
-                                          <button key={opt.id} onClick={() => changeRowProduct(item._key, p, opt)} className="w-full text-left px-4 py-2 text-sm text-app-primary hover:bg-white/5 transition flex items-center justify-between">
+                                          <button key={opt.id} onClick={() => changeRowProduct(item._key, p, opt)} className="w-full text-left px-4 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition flex items-center justify-between">
                                             <span>{p.name} — {opt.value}</span>
                                             <span className="text-violet-300 text-xs">{Number(opt.price ?? p.price).toLocaleString('fr-DZ')} DZD</span>
                                           </button>
@@ -784,7 +784,7 @@ export default function OrderDetailPage() {
                 <div className="absolute left-1.75 top-2 bottom-2 w-px" style={{ background: theme.dark.border }} />
                 {order.history.map(h => (
                   <div key={h.id} className="relative flex items-start gap-3 pl-6">
-                    <div className={`absolute left-0 top-1 w-3.5 h-3.5 rounded-full ring-4 ${STATUS_DOT[h.status] || 'bg-gray-500'}`}
+                    <div className={`absolute left-0 top-1 w-3.5 h-3.5 rounded-full ring-4 ${STATUS_DOT[h.status] || 'bg-(--text-muted)'}`}
                       style={{ boxShadow: `0 0 0 4px ${theme.dark.card}` }} />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between flex-wrap gap-1">
@@ -806,7 +806,7 @@ export default function OrderDetailPage() {
           {/* Changer statut */}
           <div className="rounded-xl border p-4" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
             <div className="flex items-center gap-2 mb-3">
-              <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.06)', color: '#a1a1aa' }}>
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(124,58,237,0.1)', color: '#8b5cf6' }}>
                 <Icon path={ICONS.status} className="w-3.5 h-3.5" />
               </div>
               <h3 className="text-sm font-semibold text-app-primary">Changer le statut</h3>
@@ -842,7 +842,7 @@ export default function OrderDetailPage() {
           {canEditOrder && (
             <div className="rounded-xl border p-4" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
               <div className="flex items-center gap-2 mb-3">
-                <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.06)', color: '#a1a1aa' }}>
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(124,58,237,0.1)', color: '#8b5cf6' }}>
                   <Icon path={ICONS.shipping} className="w-3.5 h-3.5" />
                 </div>
                 <h3 className="text-sm font-semibold text-app-primary">Société de livraison</h3>
@@ -874,7 +874,7 @@ export default function OrderDetailPage() {
           {/* Assignation — visible pour tous, modifiable uniquement par owner/admin */}
           <div className="rounded-xl border p-4" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
             <div className="flex items-center gap-2 mb-3">
-              <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.06)', color: '#a1a1aa' }}>
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(124,58,237,0.1)', color: '#8b5cf6' }}>
                 <Icon path={ICONS.team} className="w-3.5 h-3.5" />
               </div>
               <h3 className="text-sm font-semibold text-app-primary">Confirmateur assigné</h3>

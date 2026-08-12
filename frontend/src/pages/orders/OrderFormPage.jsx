@@ -182,7 +182,7 @@ export default function OrderFormPage() {
                         {allOptions.length === 0 && (
                           <button
                             onClick={() => addProduct(p)}
-                            className="w-full text-left px-4 py-2.5 text-sm text-app-primary hover:bg-white/5 transition flex items-center justify-between"
+                            className="w-full text-left px-4 py-2.5 text-sm text-app-primary hover:bg-violet-500/5 transition flex items-center justify-between"
                           >
                             <span>{p.name}</span>
                             <span className="text-violet-300 text-xs">{Number(p.price).toLocaleString('fr-DZ')} DZD</span>
@@ -193,7 +193,7 @@ export default function OrderFormPage() {
                           <button
                             key={opt.id}
                             onClick={() => addProduct(p, opt)}
-                            className="w-full text-left px-4 py-2 text-sm text-app-primary hover:bg-white/5 transition flex items-center justify-between"
+                            className="w-full text-left px-4 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition flex items-center justify-between"
                           >
                             <span>{p.name} — {opt.value}</span>
                             <span className="text-violet-300 text-xs">{Number(opt.price || p.price).toLocaleString('fr-DZ')} DZD</span>

@@ -44,7 +44,7 @@ export default function Select({ value, onChange, options, placeholder = 'Sélec
               className={`w-full text-left px-3.5 py-2 text-sm transition-colors duration-100 cursor-pointer ${
                 String(o.value) === String(value)
                   ? (variant === 'light' ? 'bg-violet-50 text-violet-700' : 'bg-violet-600/20 text-violet-300')
-                  : (variant === 'light' ? 'text-gray-700 hover:bg-gray-50' : 'text-gray-300 hover:bg-white/6')
+                  : (variant === 'light' ? 'text-gray-700 hover:bg-gray-50' : 'text-gray-300 hover:bg-violet-500/5')
               }`}
             >
               {o.label}

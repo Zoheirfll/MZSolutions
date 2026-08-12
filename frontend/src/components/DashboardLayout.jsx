@@ -279,7 +279,7 @@ export default function DashboardLayout({ children, title }) {
           </div>
           <button
             onClick={() => setMobileNavOpen(false)}
-            className="lg:hidden shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-app-muted-light hover:text-app-primary hover:bg-white/5 transition-colors duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+            className="lg:hidden shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-app-muted-light hover:text-app-primary hover:bg-violet-500/5 transition-colors duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
           >
             {ICONS.close}
           </button>
@@ -299,7 +299,7 @@ export default function DashboardLayout({ children, title }) {
                 <button
                   onClick={() => setExpanded(e => ({ ...e, commandes: !e.commandes }))}
                   className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
-                    location.pathname.startsWith('/dashboard/commandes') ? 'bg-white/6 text-app-primary font-medium' : 'text-app-muted-light hover:text-app-primary hover:bg-white/5'
+                    location.pathname.startsWith('/dashboard/commandes') ? 'bg-violet-500/10 text-app-primary font-medium' : 'text-app-muted-light hover:text-app-primary hover:bg-violet-500/5'
                   }`}
                 >
                   <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.orders}</span>Commandes</span>
@@ -327,7 +327,7 @@ export default function DashboardLayout({ children, title }) {
                         <li>
                           <button
                             onClick={() => setExpanded(e => ({ ...e, annulation: !e.annulation }))}
-                            className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-sm transition-colors duration-200 text-app-muted-light hover:text-app-primary hover:bg-white/5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+                            className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-sm transition-colors duration-200 text-app-muted-light hover:text-app-primary hover:bg-violet-500/5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
                           >
                             <span>Annulation</span>
                             <svg className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${expanded.annulation ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -354,7 +354,7 @@ export default function DashboardLayout({ children, title }) {
                     onClick={() => setExpanded(e => ({ ...e, suivi: !e.suivi }))}
                     className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
                       ['/dashboard/commandes/raisons-echec', '/dashboard/reclamations', '/dashboard/echanges'].some(p => location.pathname.startsWith(p))
-                        ? 'bg-white/6 text-app-primary font-medium' : 'text-app-muted-light hover:text-app-primary hover:bg-white/5'
+                        ? 'bg-violet-500/10 text-app-primary font-medium' : 'text-app-muted-light hover:text-app-primary hover:bg-violet-500/5'
                     }`}
                   >
                     <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.tracking}</span>Suivi des commandes</span>
@@ -395,7 +395,7 @@ export default function DashboardLayout({ children, title }) {
                   <button
                     onClick={() => setExpanded(e => ({ ...e, produits: !e.produits }))}
                     className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
-                      prodActive ? 'bg-white/6 text-app-primary font-medium' : 'text-app-muted-light hover:text-app-primary hover:bg-white/5'
+                      prodActive ? 'bg-violet-500/10 text-app-primary font-medium' : 'text-app-muted-light hover:text-app-primary hover:bg-violet-500/5'
                     }`}
                   >
                     <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.products}</span>Produits & Catégories</span>
@@ -411,7 +411,7 @@ export default function DashboardLayout({ children, title }) {
                       <li>
                         <button
                           onClick={() => setExpanded(e => ({ ...e, fournisseurs: !e.fournisseurs }))}
-                          className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-sm transition-colors duration-200 text-app-muted-light hover:text-app-primary hover:bg-white/5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+                          className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-sm transition-colors duration-200 text-app-muted-light hover:text-app-primary hover:bg-violet-500/5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
                         >
                           <span>Fournisseur</span>
                           <svg className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${expanded.fournisseurs ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -439,7 +439,7 @@ export default function DashboardLayout({ children, title }) {
                   <button
                     onClick={() => setExpanded(e => ({ ...e, clients: !e.clients }))}
                     className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
-                      location.pathname.startsWith('/dashboard/clients') ? 'bg-white/6 text-app-primary font-medium' : 'text-app-muted-light hover:text-app-primary hover:bg-white/5'
+                      location.pathname.startsWith('/dashboard/clients') ? 'bg-violet-500/10 text-app-primary font-medium' : 'text-app-muted-light hover:text-app-primary hover:bg-violet-500/5'
                     }`}
                   >
                     <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.customers}</span>Clients</span>
@@ -479,7 +479,7 @@ export default function DashboardLayout({ children, title }) {
                   <button
                     onClick={() => setExpanded(e => ({ ...e, finances: !e.finances }))}
                     className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
-                      location.pathname.startsWith('/dashboard/finances') ? 'bg-white/6 text-app-primary font-medium' : 'text-app-muted-light hover:text-app-primary hover:bg-white/5'
+                      location.pathname.startsWith('/dashboard/finances') ? 'bg-violet-500/10 text-app-primary font-medium' : 'text-app-muted-light hover:text-app-primary hover:bg-violet-500/5'
                     }`}
                   >
                     <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.stats}</span>Finances</span>
@@ -502,7 +502,7 @@ export default function DashboardLayout({ children, title }) {
                   <button
                     onClick={() => setExpanded(e => ({ ...e, stats: !e.stats }))}
                     className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
-                      location.pathname.startsWith('/dashboard/stats') ? 'bg-white/6 text-app-primary font-medium' : 'text-app-muted-light hover:text-app-primary hover:bg-white/5'
+                      location.pathname.startsWith('/dashboard/stats') ? 'bg-violet-500/10 text-app-primary font-medium' : 'text-app-muted-light hover:text-app-primary hover:bg-violet-500/5'
                     }`}
                   >
                     <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.stats}</span>Statistiques</span>
@@ -586,7 +586,7 @@ export default function DashboardLayout({ children, title }) {
           <div className="flex items-center gap-2 min-w-0">
             <button
               onClick={() => setMobileNavOpen(true)}
-              className="lg:hidden shrink-0 w-9 h-9 rounded-lg flex items-center justify-center text-app-muted-light hover:text-app-primary hover:bg-white/5 transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+              className="lg:hidden shrink-0 w-9 h-9 rounded-lg flex items-center justify-center text-app-muted-light hover:text-app-primary hover:bg-violet-500/5 transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
             >
               {ICONS.menu}
             </button>
@@ -596,7 +596,7 @@ export default function DashboardLayout({ children, title }) {
             {/* Cloche stock bas */}
             <button
               onClick={() => navigate('/dashboard/stock')}
-              className="relative w-9 h-9 rounded-lg border flex items-center justify-center text-app-muted-light hover:text-app-primary hover:bg-white/5 transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+              className="relative w-9 h-9 rounded-lg border flex items-center justify-center text-app-muted-light hover:text-app-primary hover:bg-violet-500/5 transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
               style={{ borderColor: theme.dark.border }}
             >
               {ICONS.bell}
@@ -606,39 +606,31 @@ export default function DashboardLayout({ children, title }) {
                 </span>
               )}
             </button>
-            {/* Réservé aux pages déjà converties au bi-thème — le reste du dashboard
-                consomme encore des couleurs Tailwind codées en dur (text-gray-*) qui ne
-                suivent pas data-theme, donc y afficher le toggle casserait la lisibilité
-                en mode clair. Étendre cette liste au fur et à mesure que d'autres pages
-                sont converties (voir CLAUDE.md, section Thème — chantier epic-mode-clair-rollout). */}
-            {(location.pathname === '/dashboard' || location.pathname === '/dashboard/equipe'
-              || location.pathname.startsWith('/dashboard/commandes')
-              || location.pathname.startsWith('/dashboard/produits')
-              || location.pathname.startsWith('/dashboard/clients')
-              || location.pathname === '/dashboard/stock'
-            ) && (
-              <button
-                onClick={toggleTheme}
-                data-testid="theme-toggle"
-                aria-label={currentTheme === 'dark' ? 'Passer en mode clair' : 'Passer en mode sombre'}
-                className="w-9 h-9 rounded-lg border-app flex items-center justify-center text-app-muted hover:text-app-primary hover:bg-white/5 transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
-                style={{ borderWidth: 1, borderStyle: 'solid' }}
-              >
-                {currentTheme === 'dark' ? (
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                  </svg>
-                ) : (
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                  </svg>
-                )}
-              </button>
-            )}
+            {/* Chantier epic-mode-clair-rollout terminé — toutes les pages du dashboard
+                consomment désormais .text-app-primary/-muted/-muted-light (pilotées par
+                data-theme) plutôt que des couleurs Tailwind codées en dur, donc le toggle
+                n'a plus besoin d'être restreint à certaines pages. */}
+            <button
+              onClick={toggleTheme}
+              data-testid="theme-toggle"
+              aria-label={currentTheme === 'dark' ? 'Passer en mode clair' : 'Passer en mode sombre'}
+              className="w-9 h-9 rounded-lg border-app flex items-center justify-center text-app-muted hover:text-app-primary hover:bg-violet-500/5 transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+              style={{ borderWidth: 1, borderStyle: 'solid' }}
+            >
+              {currentTheme === 'dark' ? (
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+              ) : (
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                </svg>
+              )}
+            </button>
             <a
               href={user?.store_slug ? `/store/${user.store_slug}` : '#'}
               target="_blank" rel="noreferrer"
-              className="hidden sm:inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg border border-white/12 text-violet-500 hover:bg-white/5 hover:border-white/20 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+              className="hidden sm:inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg border border-violet-500/20 text-violet-500 hover:bg-violet-500/5 hover:border-violet-500/30 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
             >
               Voir ma boutique
               <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">

@@ -102,7 +102,7 @@ function CopyButton({ value, label }) {
     <button
       onClick={copy}
       className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-mono transition cursor-pointer
-        ${copied ? 'bg-emerald-500/15 text-emerald-400' : 'bg-white/5 text-gray-300 hover:bg-white/10'}`}
+        ${copied ? 'bg-emerald-500/15 text-emerald-400' : 'bg-violet-500/10 text-app-primary hover:bg-violet-500/15'}`}
       title={label}
     >
       <span className="max-w-28 truncate">{value}</span>
@@ -119,7 +119,7 @@ function StatusToggle({ active, onChange }) {
       aria-checked={active}
       className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 cursor-pointer shrink-0
         focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400
-        ${active ? 'bg-violet-600' : 'bg-white/10'}`}
+        ${active ? 'bg-violet-600' : 'bg-violet-500/15'}`}
     >
       <span className={`inline-block h-4.5 w-4.5 transform rounded-full bg-white shadow transition-transform duration-200
         ${active ? 'translate-x-6' : 'translate-x-1'}`} />
@@ -206,7 +206,7 @@ export default function ParametresLivraisonPage() {
             key={t.key}
             onClick={() => setTab(t.key)}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer
-              ${tab === t.key ? 'bg-violet-600 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200'}`}
+              ${tab === t.key ? 'bg-violet-600 text-white shadow-sm' : 'text-app-muted-light hover:text-app-primary'}`}
           >
             {t.label}
           </button>
@@ -233,10 +233,10 @@ export default function ParametresLivraisonPage() {
               {CARRIERS.filter(c => c.label.toLowerCase().includes(carrierSearch.trim().toLowerCase())).map(c => {
                 const account = accountFor(c.code)
                 return (
-                  <div key={c.code} className="rounded-xl border p-5 flex flex-col items-center text-center gap-3 transition-colors duration-150 hover:border-white/20"
+                  <div key={c.code} className="rounded-xl border p-5 flex flex-col items-center text-center gap-3 transition-colors duration-150 hover:border-violet-500/25"
                     style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
                     <CarrierLogo code={c.code} label={c.label} />
-                    <p className="font-semibold text-gray-200">{c.label}</p>
+                    <p className="font-semibold text-app-primary">{c.label}</p>
                     <span
                       className={c.tested ? theme.badge.success : c.real ? theme.badge.info : theme.badge.warning}
                       title={c.tested ? 'Expédition réelle créée avec succès avec un vrai compte partenaire' : c.real ? "Connexion à l'API confirmée — création d'expédition non encore testée avec un vrai compte" : undefined}
@@ -301,18 +301,18 @@ export default function ParametresLivraisonPage() {
                   </td>
                 </tr>
               ) : accounts.map(a => (
-                <tr key={a.id} className="border-b last:border-0 hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
-                  <td className="px-4 py-3 text-gray-400">{a.id}</td>
+                <tr key={a.id} className="border-b last:border-0 hover:bg-violet-500/5 transition" style={{ borderColor: theme.dark.borderRowHover }}>
+                  <td className="px-4 py-3 text-app-muted-light">{a.id}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2.5">
                       <CarrierLogo code={a.carrier} label={a.carrier_label} size="w-8 h-8" textSize="text-xs" rounded="rounded-lg" />
                       <div>
-                        <p className="text-gray-200 font-medium leading-tight">{a.name || a.carrier_label}</p>
+                        <p className="text-app-primary font-medium leading-tight">{a.name || a.carrier_label}</p>
                         <p className="text-xs leading-tight" style={{ color: theme.dark.muted }}>{a.carrier_label}</p>
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-gray-300">{a.departure_wilaya || '—'}</td>
+                  <td className="px-4 py-3 text-app-primary">{a.departure_wilaya || '—'}</td>
                   <td className="px-4 py-3">
                     <StatusToggle active={a.is_active} onChange={() => toggleActive(a)} />
                   </td>
@@ -327,7 +327,7 @@ export default function ParametresLivraisonPage() {
                       </button>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-gray-400 text-xs">{new Date(a.created_at).toLocaleDateString('fr-DZ')}</td>
+                  <td className="px-4 py-3 text-app-muted-light text-xs">{new Date(a.created_at).toLocaleDateString('fr-DZ')}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-2">
                       <button onClick={() => openModal(a.carrier)} className={theme.btn.icon} title="Modifier">
@@ -353,10 +353,10 @@ export default function ParametresLivraisonPage() {
       {modalCarrier && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setModalCarrier(null)}>
           <div className="rounded-xl border p-6 w-full max-w-sm relative" style={{ background: theme.dark.card, borderColor: theme.dark.border }} onClick={e => e.stopPropagation()}>
-            <button onClick={() => setModalCarrier(null)} className="absolute top-4 right-4 w-7 h-7 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-200 hover:bg-white/10 transition cursor-pointer">
+            <button onClick={() => setModalCarrier(null)} className="absolute top-4 right-4 w-7 h-7 rounded-full flex items-center justify-center text-app-muted-light hover:text-app-primary hover:bg-violet-500/10 transition cursor-pointer">
               ✕
             </button>
-            <h3 className="font-semibold text-gray-200 mb-5 text-center">
+            <h3 className="font-semibold text-app-primary mb-5 text-center">
               {accountFor(modalCarrier) ? 'Modifier' : 'Connecter'} {CARRIERS.find(c => c.code === modalCarrier)?.label}
             </h3>
             <div className="flex justify-center mb-5">
@@ -376,7 +376,7 @@ export default function ParametresLivraisonPage() {
             <input value={apiId} onChange={e => setApiId(e.target.value)} placeholder="Entrez votre clé API" className={theme.inputDark + ' mb-3'} />
             <label className={theme.labelDark}>Entrez votre jeton API</label>
             <input value={apiToken} onChange={e => setApiToken(e.target.value)} type="password" placeholder="Entrez votre jeton API" className={theme.inputDark + ' mb-3'} />
-            <label className="flex items-center justify-between text-sm text-gray-300 mb-5">
+            <label className="flex items-center justify-between text-sm text-app-primary mb-5">
               Actif
               <StatusToggle active={isActive} onChange={() => setIsActive(v => !v)} />
             </label>

@@ -54,7 +54,7 @@ export default function ComplaintDetailPage() {
   const [confirmateurs, setConfirmateurs] = useState([])
   const [assigning, setAssigning]       = useState(false)
 
-  const inputCls = 'w-full px-3.5 py-2.5 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 transition [color-scheme:dark]'
+  const inputCls = 'w-full px-3.5 py-2.5 rounded-lg border text-sm text-app-primary bg-transparent outline-none focus:border-violet-500 transition [color-scheme:dark]'
   const bdrStyle = { borderColor: theme.dark.border, background: theme.dark.sidebar }
 
   const fetchComplaint = useCallback(() => {
@@ -113,7 +113,7 @@ export default function ComplaintDetailPage() {
   if (loading) {
     return (
       <DashboardLayout title="Réclamation">
-        <p className="text-center text-gray-500 py-12">Chargement…</p>
+        <p className="text-center text-app-muted py-12">Chargement…</p>
       </DashboardLayout>
     )
   }
@@ -121,7 +121,7 @@ export default function ComplaintDetailPage() {
   if (!complaint) {
     return (
       <DashboardLayout title="Réclamation">
-        <p className="text-center text-gray-500 py-12">Réclamation introuvable.</p>
+        <p className="text-center text-app-muted py-12">Réclamation introuvable.</p>
       </DashboardLayout>
     )
   }
@@ -129,7 +129,7 @@ export default function ComplaintDetailPage() {
   return (
     <DashboardLayout title={`Réclamation #${complaint.id}`}>
       <button onClick={() => navigate('/dashboard/reclamations')}
-        className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-200 transition mb-5">
+        className="inline-flex items-center gap-1.5 text-sm text-app-muted-light hover:text-app-primary transition mb-5">
         <BackIcon /> Retour aux réclamations
       </button>
 
@@ -142,17 +142,17 @@ export default function ComplaintDetailPage() {
                 <p className="text-xs" style={{ color: theme.dark.muted }}>
                   Commande <Link to={`/dashboard/commandes/${complaint.order}`} className="text-violet-300 hover:text-violet-200">{complaint.order_display}</Link> · {complaint.order_phone}
                 </p>
-                <h2 className="text-lg font-semibold text-gray-100 mt-1">{complaint.subject}</h2>
+                <h2 className="text-lg font-semibold text-app-primary mt-1">{complaint.subject}</h2>
               </div>
               <span className={STATUS_BADGE[complaint.status] || theme.badge.neutral}>{complaint.status_label}</span>
             </div>
-            <p className="text-sm text-gray-300 whitespace-pre-line">{complaint.description}</p>
+            <p className="text-sm text-app-primary whitespace-pre-line">{complaint.description}</p>
             <p className="text-xs mt-2" style={{ color: theme.dark.muted }}>Déposée le {new Date(complaint.created_at).toLocaleString('fr-DZ')}</p>
           </div>
 
           {/* Historique des échanges */}
           <div className="rounded-xl border p-5" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-            <h3 className="text-sm font-semibold text-gray-200 mb-4">Historique des échanges</h3>
+            <h3 className="text-sm font-semibold text-app-primary mb-4">Historique des échanges</h3>
             {complaint.messages.length === 0 ? (
               <p className="text-sm text-center py-6" style={{ color: theme.dark.muted }}>Aucun message</p>
             ) : (
@@ -160,14 +160,14 @@ export default function ComplaintDetailPage() {
                 <div className="absolute left-1.75 top-2 bottom-2 w-px" style={{ background: theme.dark.border }} />
                 {complaint.messages.map(m => (
                   <div key={m.id} className="relative flex items-start gap-3 pl-6">
-                    <div className={`absolute left-0 top-1 w-3.5 h-3.5 rounded-full ring-4 ${STATUS_DOT[m.status] || 'bg-gray-500'}`}
+                    <div className={`absolute left-0 top-1 w-3.5 h-3.5 rounded-full ring-4 ${STATUS_DOT[m.status] || 'bg-(--text-muted)'}`}
                       style={{ boxShadow: `0 0 0 4px ${theme.dark.card}` }} />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between flex-wrap gap-1">
-                        <span className="text-sm font-medium text-gray-200">{m.author_name}{m.status_label ? ` — ${m.status_label}` : ''}</span>
+                        <span className="text-sm font-medium text-app-primary">{m.author_name}{m.status_label ? ` — ${m.status_label}` : ''}</span>
                         <span className="text-xs" style={{ color: theme.dark.muted }}>{new Date(m.created_at).toLocaleString('fr-DZ')}</span>
                       </div>
-                      {m.message && <p className="text-xs mt-0.5 text-gray-400">{m.message}</p>}
+                      {m.message && <p className="text-xs mt-0.5 text-app-muted-light">{m.message}</p>}
                       {m.attachment_url && (
                         <a href={m.attachment_url} target="_blank" rel="noreferrer" className="inline-block mt-2">
                           <img src={m.attachment_url} alt="Pièce jointe" className="w-24 h-24 object-cover rounded-lg border" style={{ borderColor: theme.dark.border }} />
@@ -182,7 +182,7 @@ export default function ComplaintDetailPage() {
             <div className="mt-5 pt-4 border-t" style={{ borderColor: theme.dark.border }}>
               <label className="block text-xs mb-1.5" style={{ color: theme.dark.muted }}>Ajouter un message (sans changer le statut)</label>
               <textarea value={newMessage} onChange={e => setNewMessage(e.target.value)} rows={2} className={`${inputCls} resize-none`} style={bdrStyle} placeholder="Répondre au client…" />
-              <label className="inline-flex items-center gap-1.5 text-xs mt-2 cursor-pointer transition hover:text-gray-200" style={{ color: theme.dark.muted }}>
+              <label className="inline-flex items-center gap-1.5 text-xs mt-2 cursor-pointer transition hover:text-app-primary" style={{ color: theme.dark.muted }}>
                 <PaperclipIcon />
                 {messageAttachment ? messageAttachment.name : 'Joindre une photo'}
                 <input type="file" accept="image/*" className="hidden" onChange={e => setMessageAttachment(e.target.files?.[0] || null)} />
@@ -197,8 +197,8 @@ export default function ComplaintDetailPage() {
         {/* Colonne droite */}
         <div className="w-full lg:w-72 shrink-0 space-y-4 lg:sticky lg:top-4">
           <div className="rounded-xl border p-4" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-            <h3 className="text-sm font-semibold text-gray-200 mb-3">Assignation</h3>
-            <p className="text-sm text-gray-300 mb-3">{complaint.confirmateur_name || 'Non assignée'}</p>
+            <h3 className="text-sm font-semibold text-app-primary mb-3">Assignation</h3>
+            <p className="text-sm text-app-primary mb-3">{complaint.confirmateur_name || 'Non assignée'}</p>
             <Select
               value=""
               onChange={reassign}
@@ -211,10 +211,10 @@ export default function ComplaintDetailPage() {
           </div>
 
           <div className="rounded-xl border p-4" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-            <h3 className="text-sm font-semibold text-gray-200 mb-3">Changer le statut</h3>
+            <h3 className="text-sm font-semibold text-app-primary mb-3">Changer le statut</h3>
             <Select value={newStatus} onChange={setNewStatus} options={STATUS_OPTIONS} className={inputCls + ' mb-2'} style={bdrStyle} />
             <textarea value={note} onChange={e => setNote(e.target.value)} rows={2} className={`${inputCls} resize-none mb-2`} style={bdrStyle} placeholder="Note (optionnel)" />
-            <label className="inline-flex items-center gap-1.5 text-xs mb-3 cursor-pointer transition hover:text-gray-200" style={{ color: theme.dark.muted }}>
+            <label className="inline-flex items-center gap-1.5 text-xs mb-3 cursor-pointer transition hover:text-app-primary" style={{ color: theme.dark.muted }}>
               <PaperclipIcon />
               {statusAttachment ? statusAttachment.name : 'Joindre une photo'}
               <input type="file" accept="image/*" className="hidden" onChange={e => setStatusAttachment(e.target.files?.[0] || null)} />

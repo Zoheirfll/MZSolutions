@@ -72,7 +72,7 @@ function ReasonModal({ reason, onClose, onSaved }) {
   const [saving, setSaving] = useState(false)
   const [errors, setErrors] = useState({})
 
-  const inputCls = 'w-full px-3.5 py-2.5 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 transition [color-scheme:dark]'
+  const inputCls = 'w-full px-3.5 py-2.5 rounded-lg border text-sm text-app-primary bg-transparent outline-none focus:border-violet-500 transition [color-scheme:dark]'
   const bdrStyle = { borderColor: theme.dark.border }
 
   const submit = async e => {
@@ -92,31 +92,31 @@ function ReasonModal({ reason, onClose, onSaved }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: 'rgba(0,0,0,0.7)' }} onClick={onClose}>
       <div className="w-full max-w-md rounded-xl border p-6 max-h-[90vh] overflow-y-auto" style={{ background: theme.dark.card, borderColor: theme.dark.border }} onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
-          <h3 className="font-semibold text-gray-200">{reason?.id ? 'Modifier la raison' : 'Nouvelle raison d\'échec'}</h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-300 transition">
+          <h3 className="font-semibold text-app-primary">{reason?.id ? 'Modifier la raison' : 'Nouvelle raison d\'échec'}</h3>
+          <button onClick={onClose} className="text-app-muted hover:text-app-primary transition">
             <CloseIcon />
           </button>
         </div>
         <form onSubmit={submit} className="space-y-4">
           <div>
-            <label className="block text-xs text-gray-400 mb-1.5">Libellé *</label>
+            <label className="block text-xs text-app-muted-light mb-1.5">Libellé *</label>
             <input value={form.label} onChange={e => setForm(f => ({ ...f, label: e.target.value }))} required className={inputCls} style={bdrStyle} placeholder="ex: Numéro invalide" />
             {errors.label && <p className="text-red-400 text-xs mt-1">{errors.label}</p>}
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs text-gray-400 mb-1.5">Ordre d'affichage</label>
+              <label className="block text-xs text-app-muted-light mb-1.5">Ordre d'affichage</label>
               <input type="number" min="0" value={form.order} onChange={e => setForm(f => ({ ...f, order: e.target.value }))} className={inputCls} style={bdrStyle} />
             </div>
             <div className="flex items-end pb-1">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" checked={form.is_active} onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} className="accent-violet-600 w-4 h-4" />
-                <span className="text-sm text-gray-300">Active</span>
+                <span className="text-sm text-app-primary">Active</span>
               </label>
             </div>
           </div>
           <div className="flex justify-end gap-3 pt-1">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-400 hover:text-gray-200">Annuler</button>
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-app-muted-light hover:text-app-primary">Annuler</button>
             <button type="submit" disabled={saving} className="px-5 py-2 rounded-lg text-sm font-semibold text-white bg-violet-600 hover:bg-violet-500 disabled:opacity-60">
               {saving ? '…' : reason?.id ? 'Mettre à jour' : 'Créer'}
             </button>
@@ -159,7 +159,7 @@ function ReasonsTab({ reasons, loading, seeding, onEdit, onDelete, onToggleActiv
           <tbody>
             {loading ? (
               <tr><td colSpan={5} className="py-16">
-                <div className="flex items-center justify-center gap-2 text-gray-500">
+                <div className="flex items-center justify-center gap-2 text-app-muted">
                   <svg className="w-5 h-5 animate-spin text-violet-500" viewBox="0 0 24 24" fill="none">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
@@ -177,20 +177,20 @@ function ReasonsTab({ reasons, loading, seeding, onEdit, onDelete, onToggleActiv
                 </div>
               </td></tr>
             ) : reasons.map((r, i) => (
-              <tr key={r.id} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
-                <td className="px-4 py-3 text-gray-200 font-medium">{r.label}</td>
-                <td className="px-4 py-3 text-gray-400">
+              <tr key={r.id} className="border-b hover:bg-violet-500/5 transition" style={{ borderColor: theme.dark.borderRowHover }}>
+                <td className="px-4 py-3 text-app-primary font-medium">{r.label}</td>
+                <td className="px-4 py-3 text-app-muted-light">
                   <div className="flex items-center gap-1.5">
                     <span className="w-4 text-center">{r.order}</span>
-                    <button onClick={() => onMove(i, -1)} disabled={i === 0} className="p-0.5 rounded text-gray-500 hover:text-gray-200 hover:bg-white/6 transition disabled:opacity-20 disabled:pointer-events-none" title="Monter">
+                    <button onClick={() => onMove(i, -1)} disabled={i === 0} className="p-0.5 rounded text-app-muted hover:text-app-primary hover:bg-violet-500/5 transition disabled:opacity-20 disabled:pointer-events-none" title="Monter">
                       <ArrowUpIcon />
                     </button>
-                    <button onClick={() => onMove(i, 1)} disabled={i === reasons.length - 1} className="p-0.5 rounded text-gray-500 hover:text-gray-200 hover:bg-white/6 transition disabled:opacity-20 disabled:pointer-events-none" title="Descendre">
+                    <button onClick={() => onMove(i, 1)} disabled={i === reasons.length - 1} className="p-0.5 rounded text-app-muted hover:text-app-primary hover:bg-violet-500/5 transition disabled:opacity-20 disabled:pointer-events-none" title="Descendre">
                       <ArrowDownIcon />
                     </button>
                   </div>
                 </td>
-                <td className="px-4 py-3 text-gray-400">
+                <td className="px-4 py-3 text-app-muted-light">
                   {r.usage_count > 0 ? (
                     <button onClick={() => onFilterHistory(r)} className={theme.badge.info + ' cursor-pointer hover:opacity-80 transition'}>
                       {r.usage_count} fois
@@ -200,7 +200,8 @@ function ReasonsTab({ reasons, loading, seeding, onEdit, onDelete, onToggleActiv
                   )}
                 </td>
                 <td className="px-4 py-3">
-                  <button onClick={() => onToggleActive(r)} className={`px-2.5 py-0.5 rounded-full text-xs font-medium transition ${r.is_active ? 'bg-emerald-900/30 text-emerald-400 hover:bg-emerald-900/50' : 'bg-gray-800 text-gray-500 hover:bg-gray-700'}`}>
+                  <button onClick={() => onToggleActive(r)} className={`px-2.5 py-0.5 rounded-full text-xs font-medium transition ${r.is_active ? 'bg-emerald-900/30 text-emerald-400 hover:bg-emerald-900/50' : 'text-app-muted hover:bg-violet-500/10'}`}
+                    style={r.is_active ? undefined : { background: 'var(--bg-card-alt)' }}>
                     {r.is_active ? 'Active' : 'Inactive'}
                   </button>
                 </td>
@@ -256,7 +257,7 @@ function HistoryTab({ reasons, initialFilters }) {
   useEffect(() => { setPage(1) }, [filters])
 
   const totalPages = Math.max(1, Math.ceil(data.count / perPage))
-  const inputCls = 'px-3 py-2 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 transition [color-scheme:dark]'
+  const inputCls = 'px-3 py-2 rounded-lg border text-sm text-app-primary bg-transparent outline-none focus:border-violet-500 transition [color-scheme:dark]'
   const bdrStyle = { borderColor: theme.dark.border }
 
   return (
@@ -273,7 +274,7 @@ function HistoryTab({ reasons, initialFilters }) {
             value={filters.reason}
             onChange={v => setFilters(f => ({ ...f, reason: v }))}
             options={[{ value: '', label: 'Toutes les raisons' }, ...reasons.map(r => ({ value: String(r.id), label: r.label }))]}
-            className="px-3 py-2 rounded-lg border text-sm text-gray-200"
+            className="px-3 py-2 rounded-lg border text-sm text-app-primary"
             style={{ background: 'transparent', borderColor: theme.dark.border }}
           />
         </div>
@@ -282,15 +283,15 @@ function HistoryTab({ reasons, initialFilters }) {
             value={filters.agent}
             onChange={v => setFilters(f => ({ ...f, agent: v }))}
             options={[{ value: '', label: 'Tous les confirmateurs' }, ...agents.map(a => ({ value: String(a.id), label: `${a.first_name} ${a.last_name}` }))]}
-            className="px-3 py-2 rounded-lg border text-sm text-gray-200"
+            className="px-3 py-2 rounded-lg border text-sm text-app-primary"
             style={{ background: 'transparent', borderColor: theme.dark.border }}
           />
         </div>
         <input type="date" value={filters.date_from} onChange={e => setFilters(f => ({ ...f, date_from: e.target.value }))} className={inputCls} style={bdrStyle} />
-        <span className="self-center text-gray-500 text-sm">→</span>
+        <span className="self-center text-app-muted text-sm">→</span>
         <input type="date" value={filters.date_to} onChange={e => setFilters(f => ({ ...f, date_to: e.target.value }))} className={inputCls} style={bdrStyle} />
         {(filters.reason || filters.agent || filters.date_from || filters.date_to || filters.search) && (
-          <button onClick={() => setFilters(EMPTY_HISTORY_FILTERS)} className="text-xs px-3 py-2 text-gray-400 hover:text-gray-200 transition">
+          <button onClick={() => setFilters(EMPTY_HISTORY_FILTERS)} className="text-xs px-3 py-2 text-app-muted-light hover:text-app-primary transition">
             Réinitialiser
           </button>
         )}
@@ -313,7 +314,7 @@ function HistoryTab({ reasons, initialFilters }) {
           <tbody>
             {loading ? (
               <tr><td colSpan={6} className="py-16">
-                <div className="flex items-center justify-center gap-2 text-gray-500">
+                <div className="flex items-center justify-center gap-2 text-app-muted">
                   <svg className="w-5 h-5 animate-spin text-violet-500" viewBox="0 0 24 24" fill="none">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
@@ -329,16 +330,16 @@ function HistoryTab({ reasons, initialFilters }) {
               </td></tr>
             ) : data.results.map(a => (
               <tr key={a.id} onClick={() => navigate(`/dashboard/commandes/${a.order_id}`)}
-                className="border-b hover:bg-white/2 transition cursor-pointer" style={{ borderColor: theme.dark.borderRowHover }}>
-                <td className="px-4 py-3 text-gray-500">#{a.order_id}</td>
+                className="border-b hover:bg-violet-500/5 transition cursor-pointer" style={{ borderColor: theme.dark.borderRowHover }}>
+                <td className="px-4 py-3 text-app-muted">#{a.order_id}</td>
                 <td className="px-4 py-3">
-                  <p className="text-gray-200 font-medium">{a.client_name || 'Client'}</p>
+                  <p className="text-app-primary font-medium">{a.client_name || 'Client'}</p>
                   <p className="text-xs font-mono" style={{ color: theme.dark.muted }}>{a.phone}</p>
                 </td>
-                <td className="px-4 py-3 text-gray-300">{a.reason_label || '—'}</td>
-                <td className="px-4 py-3 text-gray-400">{a.attempt_number}</td>
-                <td className="px-4 py-3 text-gray-400">{a.agent_name || '—'}</td>
-                <td className="px-4 py-3 text-gray-500 text-xs">{new Date(a.attempted_at).toLocaleString('fr-DZ')}</td>
+                <td className="px-4 py-3 text-app-primary">{a.reason_label || '—'}</td>
+                <td className="px-4 py-3 text-app-muted-light">{a.attempt_number}</td>
+                <td className="px-4 py-3 text-app-muted-light">{a.agent_name || '—'}</td>
+                <td className="px-4 py-3 text-app-muted text-xs">{new Date(a.attempted_at).toLocaleString('fr-DZ')}</td>
               </tr>
             ))}
           </tbody>
@@ -347,9 +348,9 @@ function HistoryTab({ reasons, initialFilters }) {
 
       {data.count > perPage && (
         <div className="flex items-center justify-end gap-2 mt-4 text-sm" style={{ color: theme.dark.muted }}>
-          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-white/5 transition">← Précédent</button>
+          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">← Précédent</button>
           <span className={theme.badge.info}>{page}/{totalPages}</span>
-          <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-white/5 transition">Suivant →</button>
+          <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">Suivant →</button>
         </div>
       )}
     </>
@@ -424,7 +425,7 @@ export default function FailureReasonsPage() {
       <div className="flex items-center gap-1 mb-6 p-1 rounded-xl w-fit" style={{ background: theme.dark.card, border: `1px solid ${theme.dark.border}` }}>
         {TABS.map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer ${tab === t.key ? 'bg-violet-600 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200'}`}>
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer ${tab === t.key ? 'bg-violet-600 text-white shadow-sm' : 'text-app-muted-light hover:text-app-primary'}`}>
             {t.label}
           </button>
         ))}

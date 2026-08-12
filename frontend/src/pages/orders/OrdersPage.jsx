@@ -158,7 +158,7 @@ function IconMenu({ icon, title, children, panelClassName = 'w-56', panelAlign =
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(o => !o)}
-        className={triggerClassName || 'w-9 h-9 rounded-lg border flex items-center justify-center text-app-muted-light hover:text-app-primary hover:bg-white/5 transition'}
+        className={triggerClassName || 'w-9 h-9 rounded-lg border flex items-center justify-center text-app-muted-light hover:text-app-primary hover:bg-violet-500/5 transition'}
         style={triggerStyle || (triggerClassName ? undefined : { borderColor: theme.dark.border })}
         title={title}
         aria-haspopup="true"
@@ -185,7 +185,7 @@ function MenuItem({ onClick, children, active }) {
       type="button"
       onClick={onClick}
       className={`w-full flex items-center justify-between gap-2 text-left px-3.5 py-2 text-sm transition-colors duration-100 cursor-pointer ${
-        active ? 'bg-violet-600/20 text-violet-300' : 'text-app-primary hover:bg-white/6'
+        active ? 'bg-violet-600/20 text-violet-300' : 'text-app-primary hover:bg-violet-500/5'
       }`}
     >
       <span>{children}</span>
@@ -202,11 +202,11 @@ function CheckMenuItem({ onClick, children, checked }) {
     <button
       type="button"
       onClick={onClick}
-      className="w-full flex items-center gap-2.5 text-left px-3.5 py-2 text-sm text-app-primary hover:bg-white/6 transition-colors duration-100 cursor-pointer"
+      className="w-full flex items-center gap-2.5 text-left px-3.5 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition-colors duration-100 cursor-pointer"
     >
       <span
         className={`shrink-0 w-4 h-4 rounded flex items-center justify-center ring-1 ring-inset transition-colors ${
-          checked ? 'bg-violet-600 ring-violet-600' : 'bg-transparent ring-white/20'
+          checked ? 'bg-violet-600 ring-violet-600' : 'bg-transparent ring-(--border-color-hover)'
         }`}
       >
         {checked && <CheckIcon className="text-white" width={11} height={11} />}
@@ -732,7 +732,7 @@ export default function OrdersPage() {
         </div>
         )}
         <div className="flex items-center gap-2">
-          <button onClick={fetchOrders} className="w-9 h-9 rounded-lg border flex items-center justify-center text-app-muted-light hover:text-app-primary hover:bg-white/5 transition" style={{ borderColor: theme.dark.border }} title="Actualiser">
+          <button onClick={fetchOrders} className="w-9 h-9 rounded-lg border flex items-center justify-center text-app-muted-light hover:text-app-primary hover:bg-violet-500/5 transition" style={{ borderColor: theme.dark.border }} title="Actualiser">
             <RefreshIcon />
           </button>
 
@@ -759,7 +759,7 @@ export default function OrdersPage() {
 
           <button
             onClick={() => setShowFilterModal(true)}
-            className="h-9 px-3 rounded-lg border flex items-center gap-2 text-app-muted-light hover:text-app-primary hover:bg-white/5 transition relative"
+            className="h-9 px-3 rounded-lg border flex items-center gap-2 text-app-muted-light hover:text-app-primary hover:bg-violet-500/5 transition relative"
             style={{ borderColor: theme.dark.border }}
             title="Filtrage"
           >
@@ -808,8 +808,9 @@ export default function OrdersPage() {
                 className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ring-1 ring-inset transition cursor-pointer ${
                   active
                     ? 'bg-violet-500/10 text-violet-300 ring-violet-500/20 hover:bg-violet-500/15'
-                    : 'bg-white/6 text-app-muted-light ring-white/10 hover:bg-white/10'
+                    : 'text-app-primary hover:ring-violet-500/20'
                 }`}
+                style={active ? undefined : { background: theme.dark.cardAlt, boxShadow: `inset 0 0 0 1px ${theme.dark.border}` }}
               >
                 {count} {s.label}
               </button>
@@ -854,7 +855,7 @@ export default function OrdersPage() {
             ) : orders.map(o => (
               <tr
                 key={o.id}
-                className="border-b hover:bg-white/2 transition cursor-pointer"
+                className="border-b hover:bg-violet-500/5 transition cursor-pointer"
                 style={{ borderColor: theme.dark.borderRowHover }}
                 onClick={() => navigate(`/dashboard/commandes/${o.id}`)}
               >
@@ -901,7 +902,7 @@ export default function OrdersPage() {
               style={{ background: theme.dark.card, borderColor: theme.dark.border, minWidth: 64 }} />
           </div>
           <div className="flex items-center gap-1">
-            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-2 py-1 rounded disabled:opacity-30 hover:bg-white/5 flex items-center justify-center">
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-2 py-1 rounded disabled:opacity-30 hover:bg-violet-500/5 flex items-center justify-center">
               <ChevronLeftIcon />
             </button>
             {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i + 1).map(n => (
@@ -910,7 +911,7 @@ export default function OrdersPage() {
                 {n}
               </button>
             ))}
-            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="px-2 py-1 rounded disabled:opacity-30 hover:bg-white/5 flex items-center justify-center">
+            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="px-2 py-1 rounded disabled:opacity-30 hover:bg-violet-500/5 flex items-center justify-center">
               <ChevronRightIcon />
             </button>
           </div>

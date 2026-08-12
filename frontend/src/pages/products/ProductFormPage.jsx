@@ -82,7 +82,7 @@ function CategoryTreeNode({ node, depth, selectedIds, onToggle }) {
   const checked = selectedIds.includes(node.id)
   return (
     <>
-      <label className="flex items-center gap-2 px-1 py-0.5 rounded hover:bg-white/5 cursor-pointer" style={{ paddingLeft: 4 + depth * 16 }}>
+      <label className="flex items-center gap-2 px-1 py-0.5 rounded hover:bg-violet-500/5 cursor-pointer" style={{ paddingLeft: 4 + depth * 16 }}>
         <input type="checkbox" checked={checked} onChange={() => onToggle(node.id)} className="accent-violet-500" />
         <span className="text-sm text-app-primary">{node.name}</span>
       </label>
@@ -99,7 +99,7 @@ function Toggle({ label, value, onChange }) {
       <button
         type="button"
         onClick={() => onChange(!value)}
-        className={`w-10 h-5 rounded-full transition-colors relative shrink-0 ${value ? 'bg-violet-600' : 'bg-gray-600'}`}
+        className={`w-10 h-5 rounded-full transition-colors relative shrink-0 ${value ? 'bg-violet-600' : 'bg-(--border-color-hover)'}`}
       >
         <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${value ? 'left-5' : 'left-0.5'}`} />
       </button>
@@ -199,7 +199,7 @@ function VariantBlock({ productId, variant, onDeleted, onUpdated }) {
           />
         </div>
         <button onClick={deleteVariant} className="w-8 h-8 flex items-center justify-center rounded bg-red-600/20 text-red-400 hover:bg-red-600/40 transition"><TrashIcon /></button>
-        <button onClick={() => setExpanded(e => !e)} className="w-8 h-8 flex items-center justify-center rounded text-app-muted-light hover:bg-white/10 transition">
+        <button onClick={() => setExpanded(e => !e)} className="w-8 h-8 flex items-center justify-center rounded text-app-muted-light hover:bg-violet-500/10 transition">
           {expanded ? '▾' : '▸'}
         </button>
       </div>
@@ -375,7 +375,7 @@ function DraftVariantBlock({ variant, onChange, onDelete }) {
           />
         </div>
         <button type="button" onClick={onDelete} className="w-8 h-8 flex items-center justify-center rounded bg-red-600/20 text-red-400 hover:bg-red-600/40 transition"><TrashIcon /></button>
-        <button type="button" onClick={() => setExpanded(e => !e)} className="w-8 h-8 flex items-center justify-center rounded text-app-muted-light hover:bg-white/10 transition">
+        <button type="button" onClick={() => setExpanded(e => !e)} className="w-8 h-8 flex items-center justify-center rounded text-app-muted-light hover:bg-violet-500/10 transition">
           <ChevronIcon direction={expanded ? 'up' : 'down'} />
         </button>
       </div>
@@ -624,7 +624,7 @@ export default function ProductFormPage() {
                 key={s}
                 onClick={() => setSection(s)}
                 className={`w-full text-left px-4 py-3 text-sm border-b transition ${
-                  section === s ? 'text-violet-300 bg-violet-600/10' : 'text-app-muted-light hover:text-app-primary hover:bg-white/3'
+                  section === s ? 'text-violet-300 bg-violet-600/10' : 'text-app-muted-light hover:text-app-primary hover:bg-violet-500/5'
                 }`}
                 style={{ borderColor: theme.dark.border }}
               >

@@ -35,7 +35,7 @@ export default function ExchangeDetailPage() {
   const [saving, setSaving]       = useState(false)
   const [error, setError]         = useState('')
 
-  const inputCls = 'w-full px-3.5 py-2.5 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 transition [color-scheme:dark]'
+  const inputCls = 'w-full px-3.5 py-2.5 rounded-lg border text-sm text-app-primary bg-transparent outline-none focus:border-violet-500 transition [color-scheme:dark]'
   const bdrStyle = { borderColor: theme.dark.border, background: theme.dark.sidebar }
 
   const fetchExchange = useCallback(() => {
@@ -65,7 +65,7 @@ export default function ExchangeDetailPage() {
   if (loading) {
     return (
       <DashboardLayout title="Échange">
-        <p className="text-center text-gray-500 py-12">Chargement…</p>
+        <p className="text-center text-app-muted py-12">Chargement…</p>
       </DashboardLayout>
     )
   }
@@ -73,7 +73,7 @@ export default function ExchangeDetailPage() {
   if (!exchange) {
     return (
       <DashboardLayout title="Échange">
-        <p className="text-center text-gray-500 py-12">Échange introuvable.</p>
+        <p className="text-center text-app-muted py-12">Échange introuvable.</p>
       </DashboardLayout>
     )
   }
@@ -81,7 +81,7 @@ export default function ExchangeDetailPage() {
   return (
     <DashboardLayout title={`Échange #${exchange.id}`}>
       <button onClick={() => navigate('/dashboard/echanges')}
-        className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-200 transition mb-5">
+        className="inline-flex items-center gap-1.5 text-sm text-app-muted-light hover:text-app-primary transition mb-5">
         <BackIcon /> Retour aux échanges
       </button>
 
@@ -94,23 +94,23 @@ export default function ExchangeDetailPage() {
                 <p className="text-xs" style={{ color: theme.dark.muted }}>
                   Commande <Link to={`/dashboard/commandes/${exchange.order}`} className="text-violet-300 hover:text-violet-200">{exchange.order_display}</Link> · {exchange.order_phone}
                 </p>
-                <h2 className="text-lg font-semibold text-gray-100 mt-1">{exchange.original_product}</h2>
+                <h2 className="text-lg font-semibold text-app-primary mt-1">{exchange.original_product}</h2>
               </div>
               <span className={STATUS_BADGE[exchange.status] || theme.badge.neutral}>{exchange.status_label}</span>
             </div>
 
             <div className="flex items-center gap-3 mb-4 text-sm">
-              <span className="text-gray-400">Variante demandée en échange :</span>
+              <span className="text-app-muted-light">Variante demandée en échange :</span>
               <span className={theme.badge.info}>{exchange.replacement_value}</span>
             </div>
 
             <p className="text-xs mb-1.5" style={{ color: theme.dark.muted }}>Motif du client</p>
-            <p className="text-sm text-gray-300 whitespace-pre-line">{exchange.reason}</p>
+            <p className="text-sm text-app-primary whitespace-pre-line">{exchange.reason}</p>
 
             {exchange.vendor_note && (
               <>
                 <p className="text-xs mt-4 mb-1.5" style={{ color: theme.dark.muted }}>Note vendeur</p>
-                <p className="text-sm text-gray-300 whitespace-pre-line">{exchange.vendor_note}</p>
+                <p className="text-sm text-app-primary whitespace-pre-line">{exchange.vendor_note}</p>
               </>
             )}
 
@@ -119,7 +119,7 @@ export default function ExchangeDetailPage() {
 
           {/* Mouvements de stock */}
           <div className="rounded-xl border p-5" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-            <h3 className="text-sm font-semibold text-gray-200 mb-4">Mouvements de stock</h3>
+            <h3 className="text-sm font-semibold text-app-primary mb-4">Mouvements de stock</h3>
             {exchange.stock_movements.length === 0 ? (
               <p className="text-sm text-center py-6" style={{ color: theme.dark.muted }}>
                 Aucun mouvement pour l'instant — généré automatiquement une fois l'échange approuvé.
@@ -129,7 +129,7 @@ export default function ExchangeDetailPage() {
                 {exchange.stock_movements.map(m => (
                   <div key={m.id} className="flex items-center justify-between px-3 py-2.5 rounded-lg" style={{ background: theme.dark.sidebar }}>
                     <div>
-                      <p className="text-sm text-gray-200">{m.reason_label}</p>
+                      <p className="text-sm text-app-primary">{m.reason_label}</p>
                       <p className="text-xs" style={{ color: theme.dark.muted }}>
                         {m.product_name}{m.option_value ? ` — ${m.option_value}` : ''} · {new Date(m.created_at).toLocaleString('fr-DZ')}
                       </p>
@@ -147,7 +147,7 @@ export default function ExchangeDetailPage() {
         {/* Colonne droite */}
         <div className="w-full lg:w-72 shrink-0 space-y-4 lg:sticky lg:top-4">
           <div className="rounded-xl border p-4" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-            <h3 className="text-sm font-semibold text-gray-200 mb-3">Traiter la demande</h3>
+            <h3 className="text-sm font-semibold text-app-primary mb-3">Traiter la demande</h3>
             {exchange.status !== 'open' ? (
               <p className="text-xs" style={{ color: theme.dark.muted }}>Cette demande a déjà été traitée.</p>
             ) : (

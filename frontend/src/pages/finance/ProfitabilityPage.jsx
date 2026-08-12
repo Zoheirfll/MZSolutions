@@ -60,7 +60,7 @@ export default function ProfitabilityPage() {
 
   useEffect(() => { fetchAll() }, [fetchAll])
 
-  const inputCls = 'px-3 py-1.5 rounded-lg border text-sm text-gray-200 bg-transparent outline-none focus:border-violet-500 [color-scheme:dark]'
+  const inputCls = 'px-3 py-1.5 rounded-lg border text-sm text-app-primary bg-transparent outline-none focus:border-violet-500 [color-scheme:dark]'
   const bdrStyle = { borderColor: theme.dark.border }
 
   const handleExport = async () => {
@@ -89,15 +89,15 @@ export default function ProfitabilityPage() {
     <DashboardLayout title="Rentabilité">
       <div className="flex flex-wrap items-center gap-2 mb-6">
         <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className={inputCls} style={bdrStyle} />
-        <span className="text-gray-500 text-sm">→</span>
+        <span className="text-app-muted text-sm">→</span>
         <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className={inputCls} style={bdrStyle} />
         {(dateFrom || dateTo) && (
-          <button onClick={() => { setDateFrom(''); setDateTo('') }} className="text-xs text-gray-500 hover:text-gray-300 transition cursor-pointer">Réinitialiser</button>
+          <button onClick={() => { setDateFrom(''); setDateTo('') }} className="text-xs text-app-muted hover:text-app-primary transition cursor-pointer">Réinitialiser</button>
         )}
       </div>
 
       {loading || !summary ? (
-        <p className="text-gray-500 text-sm py-10 text-center">Chargement…</p>
+        <p className="text-app-muted text-sm py-10 text-center">Chargement…</p>
       ) : (
         <>
           <p className="text-xs mb-3" style={{ color: theme.dark.muted }}>
@@ -118,14 +118,14 @@ export default function ProfitabilityPage() {
             <div className="flex items-center gap-2 flex-wrap">
               {GROUP_OPTIONS.map(o => (
                 <button key={o.value} onClick={() => setGroupBy(o.value)}
-                  className={`px-3.5 py-1.5 rounded-lg text-sm font-medium transition ${groupBy === o.value ? 'text-white bg-violet-600' : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'}`}
+                  className={`px-3.5 py-1.5 rounded-lg text-sm font-medium transition ${groupBy === o.value ? 'text-white bg-violet-600' : 'text-app-muted-light hover:text-app-primary hover:bg-violet-500/5'}`}
                   style={groupBy === o.value ? undefined : { border: `1px solid ${theme.dark.border}` }}>
                   {o.label}
                 </button>
               ))}
             </div>
             <button onClick={handleExport} disabled={exporting || rows.length === 0}
-              className="px-3.5 py-1.5 rounded-lg text-sm font-medium border text-gray-300 hover:bg-white/5 disabled:opacity-50 transition cursor-pointer flex items-center gap-1.5"
+              className="px-3.5 py-1.5 rounded-lg text-sm font-medium border text-app-primary hover:bg-violet-500/5 disabled:opacity-50 transition cursor-pointer flex items-center gap-1.5"
               style={{ borderColor: theme.dark.border }}>
               <DownloadIcon /> {exporting ? 'Export…' : 'Exporter en CSV'}
             </button>
@@ -137,7 +137,7 @@ export default function ProfitabilityPage() {
           <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border }}>
             <table className="w-full text-sm min-w-180">
               <thead style={{ background: theme.dark.sidebar }}>
-                <tr className="text-left text-xs text-gray-500 border-b" style={{ borderColor: theme.dark.border }}>
+                <tr className="text-left text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
                   <th className="px-4 py-3 font-medium">{GROUP_OPTIONS.find(o => o.value === groupBy).label.replace('Par ', '').toUpperCase()}</th>
                   <th className="px-4 py-3 font-medium">COMMANDES</th>
                   <th className="px-4 py-3 font-medium">REVENUS</th>
@@ -148,14 +148,14 @@ export default function ProfitabilityPage() {
               </thead>
               <tbody>
                 {rows.length === 0 ? (
-                  <tr><td colSpan={6} className="px-4 py-10 text-center text-sm text-gray-500">Aucune commande livrée sur cette période.</td></tr>
+                  <tr><td colSpan={6} className="px-4 py-10 text-center text-sm text-app-muted">Aucune commande livrée sur cette période.</td></tr>
                 ) : rows.map((r, i) => (
-                  <tr key={i} className="border-b hover:bg-white/2 transition" style={{ borderColor: theme.dark.borderRowHover }}>
-                    <td className="px-4 py-3 text-gray-200">{r.label}</td>
-                    <td className="px-4 py-3 text-gray-400">{r.orders_count}</td>
-                    <td className="px-4 py-3 text-gray-300">{money(r.revenue)}</td>
-                    <td className="px-4 py-3 text-gray-400">{money(r.product_cost)}</td>
-                    <td className="px-4 py-3 text-gray-400">{money(r.commission)}</td>
+                  <tr key={i} className="border-b hover:bg-violet-500/5 transition" style={{ borderColor: theme.dark.borderRowHover }}>
+                    <td className="px-4 py-3 text-app-primary">{r.label}</td>
+                    <td className="px-4 py-3 text-app-muted-light">{r.orders_count}</td>
+                    <td className="px-4 py-3 text-app-primary">{money(r.revenue)}</td>
+                    <td className="px-4 py-3 text-app-muted-light">{money(r.product_cost)}</td>
+                    <td className="px-4 py-3 text-app-muted-light">{money(r.commission)}</td>
                     <td className="px-4 py-3">
                       <span className={r.profit >= 0 ? theme.badge.success : theme.badge.danger}>{money(r.profit)}</span>
                     </td>
