@@ -76,7 +76,7 @@ from stores.views import (StorePageListCreateView, StorePageDetailView,
 from orders.views import (CarrierAccountListCreateView, CarrierAccountDetailView, CarrierRatesView, CarrierDesksView,
                            WilayaRateListCreateView, WilayaRateDetailView, WilayaRateSyncView,
                            CommuneRateListCreateView, CommuneRateDetailView, CommuneRateSyncView,
-                           StoreShippingRateView)
+                           StoreShippingRateView, GeocodeView, DispatchRuleListCreateView, DispatchRuleDetailView)
 urlpatterns += [
     path('api/stores/pages/',           StorePageListCreateView.as_view()),
     path('api/stores/pages/<int:pk>/',  StorePageDetailView.as_view()),
@@ -98,6 +98,9 @@ urlpatterns += [
     path('api/stores/me/commune-rates/<int:pk>/',  CommuneRateDetailView.as_view()),
     path('api/stores/me/commune-rates/sync/',      CommuneRateSyncView.as_view()),
     path('api/stores/me/shipping-rate/',           StoreShippingRateView.as_view()),
+    path('api/stores/me/geocode/',                 GeocodeView.as_view()),
+    path('api/stores/me/dispatch-rules/',          DispatchRuleListCreateView.as_view()),
+    path('api/stores/me/dispatch-rules/<int:pk>/', DispatchRuleDetailView.as_view()),
 ]
 
 urlpatterns += [

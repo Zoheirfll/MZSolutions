@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import DashboardLayout from '../components/DashboardLayout'
 import Select from '../components/Select'
+import Toast from '../components/Toast'
 import api from '../api/axios'
 import { theme } from '../theme'
 
@@ -26,6 +27,7 @@ function RoleMatrix() {
   const [data, setData]     = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving]   = useState(null) // "role:permission" en cours
+  const [toast, setToast]     = useState(null)
 
   const fetchData = () => {
     setLoading(true)
@@ -45,7 +47,7 @@ function RoleMatrix() {
       await api.post('/team/permissions/', { role, permission, enabled: !current })
     } catch (err) {
       setData(d => ({ ...d, matrix: { ...d.matrix, [role]: { ...d.matrix[role], [permission]: current } } }))
-      alert(err.response?.data?.detail || 'Erreur lors de la mise à jour.')
+      setToast({ type: 'error', message: err.response?.data?.detail || 'Erreur lors de la mise à jour.' })
     } finally {
       setSaving(null)
     }
@@ -54,6 +56,7 @@ function RoleMatrix() {
   if (loading || !data) return <Spinner />
 
   return (
+    <>
     <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border }}>
       <table className="w-full text-sm min-w-140">
         <thead style={{ background: theme.dark.sidebar }}>
@@ -89,6 +92,8 @@ function RoleMatrix() {
         </tbody>
       </table>
     </div>
+    <Toast toast={toast} onClose={() => setToast(null)} />
+    </>
   )
 }
 
@@ -96,6 +101,7 @@ function MemberMatrix({ memberId }) {
   const [catalog, setCatalog] = useState([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving]   = useState(null)
+  const [toast, setToast]     = useState(null)
 
   const fetchCatalog = () => {
     setLoading(true)
@@ -115,7 +121,7 @@ function MemberMatrix({ memberId }) {
       fetchCatalog()
     } catch (err) {
       setCatalog(c => c.map(e => e.key === key ? { ...e, enabled: current } : e))
-      alert(err.response?.data?.detail || 'Erreur lors de la mise à jour.')
+      setToast({ type: 'error', message: err.response?.data?.detail || 'Erreur lors de la mise à jour.' })
     } finally {
       setSaving(null)
     }
@@ -124,6 +130,7 @@ function MemberMatrix({ memberId }) {
   if (loading) return <Spinner />
 
   return (
+    <>
     <div className="rounded-xl border overflow-hidden" style={{ borderColor: theme.dark.border }}>
       <div className="divide-y" style={{ borderColor: theme.dark.border }}>
         {catalog.map(({ key, label, enabled, is_custom }) => {
@@ -151,6 +158,8 @@ function MemberMatrix({ memberId }) {
         })}
       </div>
     </div>
+    <Toast toast={toast} onClose={() => setToast(null)} />
+    </>
   )
 }
 

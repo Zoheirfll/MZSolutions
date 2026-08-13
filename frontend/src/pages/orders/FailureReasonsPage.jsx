@@ -4,6 +4,7 @@ import DashboardLayout from '../../components/DashboardLayout'
 import Select from '../../components/Select'
 import api from '../../api/axios'
 import { theme } from '../../theme'
+import TrackingBadge from '../../components/TrackingBadge'
 
 const EMPTY = { label: '', is_active: true, order: 0 }
 
@@ -309,12 +310,13 @@ function HistoryTab({ reasons, initialFilters }) {
               <th className="px-4 py-3 font-medium">RAISON</th>
               <th className="px-4 py-3 font-medium">TENTATIVE</th>
               <th className="px-4 py-3 font-medium">CONFIRMATEUR</th>
+              <th className="px-4 py-3 font-medium">SUIVI</th>
               <th className="px-4 py-3 font-medium">DATE</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={6} className="py-16">
+              <tr><td colSpan={7} className="py-16">
                 <div className="flex items-center justify-center gap-2 text-app-muted">
                   <svg className="w-5 h-5 animate-spin text-violet-500" viewBox="0 0 24 24" fill="none">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -324,7 +326,7 @@ function HistoryTab({ reasons, initialFilters }) {
                 </div>
               </td></tr>
             ) : data.results.length === 0 ? (
-              <tr><td colSpan={6}>
+              <tr><td colSpan={7}>
                 <div className={theme.emptyState}>
                   <p>Aucun échec trouvé pour ces filtres.</p>
                 </div>
@@ -340,6 +342,9 @@ function HistoryTab({ reasons, initialFilters }) {
                 <td className="px-4 py-3 text-app-primary">{a.reason_label || '—'}</td>
                 <td className="px-4 py-3 text-app-muted-light">{a.attempt_number}</td>
                 <td className="px-4 py-3 text-app-muted-light">{a.agent_name || '—'}</td>
+                <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                  <TrackingBadge trackingNumber={a.carrier_tracking_number} carrierLabel={a.carrier_label} />
+                </td>
                 <td className="px-4 py-3 text-app-muted text-xs">{new Date(a.attempted_at).toLocaleString('fr-DZ')}</td>
               </tr>
             ))}

@@ -206,6 +206,16 @@ pages/storefront/StorefrontLayout.jsx       — layout boutique publique (recher
 context/CartContext.jsx         — panier storefront (localStorage, scoping par slug boutique)
 api/publicApi.js                — instance Axios pour les endpoints publics (`/api/public`)
 data/wilayas.js                 — 58 wilayas algériennes
+data/communes.js / communes.json — ~1500 communes algériennes, `getCommunesForWilaya(wilayaId)` (déjà existant, réutilisé 2026-08 pour le vrai contenu de la page Tarification)
+
+--- Chantier 2026-08-13 (voir section dédiée dans Sprints & User Stories) ---
+components/Toast.jsx             — notification bas-droite, remplace tous les alert() natifs
+components/TrackingBadge.jsx     — code de suivi copiable ou badge "Non attribué"
+components/DeskMapPreview.jsx    — carte OpenStreetMap du bureau/point relais sélectionné
+pages/ParametresPage.jsx         — Paramètres (Informations du compte / Paramètres généraux / Historique de connexion)
+pages/FaqPage.jsx / ContactPage.jsx — placeholders à remplir plus tard
+pages/orders/DispatchRulesPage.jsx (+ DispatchByConfirmateurPage/DispatchByCarrierPage/DispatchByWilayaPage) — Dispatch Commandes
+pages/finance/PaymentsPage.jsx (+ PaymentReadyPage/PaymentCollectedPage/PaymentsExcelUploadPage) — réconciliation COD
 ```
 
 ### Thème — Premium SaaS sombre (style Linear/Vercel)
@@ -235,14 +245,25 @@ Police : **Plus Jakarta Sans** (chargée via Google Fonts dans `index.html`), ta
 ```
 email (unique, USERNAME_FIELD)
 first_name, last_name, phone
+avatar (ImageField, upload_to='avatars/', 2026-08)
 google_id, is_email_verified
 ```
+
+### `accounts.LoginHistory` (2026-08)
+```
+user (FK), ip_address, user_agent
+status : login | logout
+created_at
+```
+Historique de connexion réel (page Paramètres → "Historique de connexion récent") — une ligne par appel réel à `LoginView`/`LogoutView` (`_log_login_event()`), jamais de données simulées. Pas de géolocalisation IP (aucun service configuré).
 
 ### `stores.Store`
 ```
 owner (OneToOne → User)
 name, slug (unique global), description
 phone, email, logo
+facebook_url, instagram_url, twitter_url, tiktok_url (2026-08)
+currency (default 'DZD'), currency_symbol (default 'DA') (2026-08)
 is_active, created_at
 ```
 
@@ -271,14 +292,29 @@ store (OneToOne → Store)
 low_stock_threshold (default 5)
 risk_threshold_orders (default 3) — nb commandes cancelled/returned déclenchant le risque auto
 risk_period_days (default 90) — fenêtre glissante pour le calcul du risque
+insurance_fee (default 200) — supplément ajouté aux frais de livraison si delivery_types contient 'insurance'
+notify_duplicate_orders (default True) — webhook order.duplicate_detected si même téléphone <24h (2026-08)
+notify_new_orders (default True) — gate le badge/son/notification navigateur nouvelles commandes (2026-08)
+sms_notifications_enabled, order_confirmed_otp_enabled, sms_api_token — stockés, désactivés dans l'UI (aucun fournisseur SMS configuré, TBD) (2026-08)
+deduct_stock_on_order_create (default True) — si False, décrémentation différée à la confirmation (2026-08)
+free_shipping_if_product_free_shipping (default False) — livraison offerte si un article a Product.free_shipping=True (2026-08)
+max_order_amount, max_order_quantity (nullable) — limites checkout public (2026-08)
+order_prefix, order_suffix (blank) — pour Order.order_display_number (2026-08)
 ```
 
-### `stores.PixelConfig` (Epic 8.3)
+### `stores.PixelConfig` (Epic 8.3, étendu 2026-08)
 ```
 store (FK), pixel_type : facebook | tiktok | google_analytics | google_tag_manager
 pixel_id, label (optionnel), is_active, created_at
+access_token (write_only, masqué) — Facebook Conversions API / TikTok Events API (2026-08)
+domain_verification — balise Facebook Business (2026-08)
+ga_view_id — identifiant de vue/propriété GA4 (2026-08)
+ga_api_secret (write_only, masqué) — GA4 Measurement Protocol, seul mécanisme réel d'envoi d'évènement (2026-08)
+ga_service_account_json (write_only) — réservé à une future intégration API Analytics Admin/Data (lecture de rapports), PAS lié à l'envoi d'évènements, non branché (2026-08)
 ```
-Identifiants de pixels marketing saisis par le vendeur (US-8.3.1). Plusieurs entrées possibles par type (ex: deux comptes publicitaires Facebook), pas de contrainte unique. Contrairement aux canaux de vente de l'Epic 8.2, **aucune clé API serveur n'est nécessaire** — ce sont de purs identifiants injectés dans des scripts client qui communiquent directement avec chaque plateforme depuis le navigateur, donc **entièrement fonctionnel dès cette epic**, pas de mock. Le catalogue Facebook (Meta Commerce) n'a pas d'entrée ici, c'est le flux `/api/public/store/<slug>/catalog.xml` de l'Epic 8.2 (aucun identifiant à saisir) — `MarketingPixelsPage.jsx` renvoie simplement vers cette même URL sous l'onglet "Facebook Catalog", pas de logique dupliquée.
+Identifiants de pixels marketing saisis par le vendeur (US-8.3.1). Plusieurs entrées possibles par type (ex: deux comptes publicitaires Facebook), pas de contrainte unique. Le script client (`lib/pixels.js`) reste la base fonctionnelle dès cette epic (aucune clé serveur nécessaire) ; le catalogue Facebook (Meta Commerce) n'a pas d'entrée ici, c'est le flux `/api/public/store/<slug>/catalog.xml` de l'Epic 8.2 — `MarketingPixelsPage.jsx` renvoie simplement vers cette même URL sous l'onglet "Facebook Catalog".
+
+**Envoi d'évènements server-side réel (2026-08)** — en complément du script client, `PublicOrderView.post()` déclenche best-effort à chaque commande : `stores/facebook_capi.py::send_purchase_event()` (Conversions API, `graph.facebook.com/{pixel_id}/events`), `stores/tiktok_events_api.py::send_purchase_event()` (Events API, évènement `CompletePayment`), `stores/ga4_measurement_protocol.py::send_purchase_event()` (Measurement Protocol, évènement `purchase`, `client_id` dérivé de façon stable du téléphone puisqu'aucune session navigateur réelle n'est rattachée côté serveur). Téléphone haché SHA-256 côté Facebook/TikTok (exigence de ces APIs pour la donnée PII). Les trois vérifiés par appel HTTP simulé (mock) avec inspection de l'URL/payload exacts avant d'être considérés fonctionnels. ⚠️ **Piège rencontré et corrigé** : un champ secret (`access_token`/`ga_api_secret`/`ga_service_account_json`) laissé vide dans le formulaire était envoyé tel quel au `PUT` et écrasait silencieusement la valeur déjà enregistrée (ces champs `write_only` ne reviennent jamais du `GET`, donc le formulaire les affichait vides même quand une valeur existait) — corrigé en n'incluant un champ secret dans le payload que s'il vient d'être retapé.
 
 **Exposition publique** : `PublicStoreView` (`GET /api/public/store/<slug>/`) inclut désormais `pixels: [{pixel_type, pixel_id}, ...]` (uniquement `is_active=True`) — c'est ce que le storefront utilise pour savoir quels scripts charger.
 
@@ -418,14 +454,17 @@ status : pending | no_answer_1 | no_answer_2 | no_answer_3 | confirmed | shipped
 first_name, last_name, phone, wilaya, commune, address
 subtotal, shipping_cost, total (recalculés via order.recalculate() : total = max(subtotal - discount_amount, 0) + shipping_cost)
 promo_code, discount_amount (renseignés si un code promo — products.Promotion kind='code' — a été appliqué au checkout)
-delivery_type, payment_method (cod | chargily), note
+delivery_types (JSONField, liste — 2026-08, remplace l'ancien delivery_type unique), payment_method (cod | chargily), note
 chargily_checkout_id, chargily_payment_link
 carrier (FK → CarrierAccount, nullable), carrier_tracking_number, carrier_status, carrier_shipment_created_at
 stop_desk, station_code (livraison en point relais + code du bureau choisi)
 tracking_substatus (tag de triage manuel, voir section Suivi transporteur)
 label_generated_at, label_printed_at, prepared_at, return_validated_at (pipeline Expéditions & Retours)
+stock_deducted_at (2026-08) — garde d'idempotence si StoreSettings.deduct_stock_on_order_create est désactivé (décrémentation différée à la confirmation)
+payment_collected_at, payment_collected_amount (2026-08) — réconciliation COD, voir page Paiements
 created_at, updated_at
 ```
+`delivery_types` combine plusieurs valeurs (`store`/`insurance`/`free`/`exchange`) — "Vendu en magasin"/"Livraison gratuite" forcent `shipping_cost` à 0 (le premier désactive aussi l'expédition auto à la confirmation), "Assurance" ajoute `StoreSettings.insurance_fee`, "Échange" reste un tag sans effet. Migration `orders/migrations/0032_...` convertit les valeurs `delivery_type` existantes en listes à un élément.
 - Statuts `no_answer_1/2/3` = tentatives d'appel séquentielles intégrées au statut principal (pas de modèle séparé de log d'appel type "CallAttempt" pour ce flux — un seul changement de statut + note suffit)
 - Commande `python manage.py cancel_stale_calls` (`backend/orders/management/commands/cancel_stale_calls.py`) : annule automatiquement les commandes bloquées sur `no_answer_3` depuis 3 jours ou plus (basé sur `OrderStatusHistory`, pas `updated_at`), avec note automatique "Client ne répond pas depuis X jours". **Non planifiée automatiquement** — à brancher sur le Planificateur de tâches Windows / cron
 
@@ -459,7 +498,23 @@ webhook_secret (idem, write_only + webhook_secret_masked — clé HMAC du webhoo
 is_active, is_default (un seul défaut par boutique, forcé dans .save())
 created_at
 ```
-Contrainte unique `(store, carrier)` — un seul compte par transporteur par boutique.
+Contrainte unique `(store, carrier)` — un seul compte par transporteur par boutique. `webhook_url` (SerializerMethodField, 2026-08) — URL publique unique du webhook pour ce type de transporteur (pour l'instant uniquement Yalidine), affichée dans "Mes Sociétés de livraison".
+
+### `orders.WilayaRate` / `orders.CommuneRate` (2026-08)
+```
+WilayaRate : store (FK), wilaya_id, wilaya_name, home_price, desk_price (nullable), show_home, show_desk, updated_at
+CommuneRate : store (FK), wilaya_id, commune_name, home_price, desk_price (nullable), updated_at
+```
+Grille tarifaire de livraison **saisie/figée par le vendeur**, éditable dans l'onglet "Tarification" de `ParametresLivraisonPage.jsx` — priorité absolue sur le tarif transporteur en temps réel dans `_resolve_shipping_rates()` (commune si trouvée > wilaya > appel transporteur live), source unique consommée par le dashboard, le checkout public et tous les affichages de tarif. Bouton "Mettre à jour depuis la société" (`WilayaRateSyncView`/`CommuneRateSyncView`) — remplit automatiquement depuis `get_carrier_client(account).get_rates()`/`get_commune_rates()` du transporteur par défaut ; seul Yalidine expose une vraie grille par commune (`YalidineClient.get_commune_rates`, réutilise l'appel `/fees/` existant, extrait le détail `per_commune` au lieu du seul chef-lieu utilisé par `get_rates`), les autres renvoient une erreur explicite plutôt qu'un échec silencieux.
+
+### `orders.DispatchRule` (2026-08)
+```
+store (FK), match_type : product | wilaya
+match_value (nom de produit — recherche partielle — ou nom de wilaya exact selon match_type)
+confirmateur (FK → TeamMember, nullable), carrier (FK → CarrierAccount, nullable) — au moins un requis
+is_active, created_at
+```
+Règle de dispatch automatique (équivalent RiseCart "Dispatch Commandes", pages `pages/orders/DispatchBy{Confirmateur,Carrier,Wilaya}Page.jsx`) — à la création d'une commande, une règle correspondante route directement vers le confirmateur/transporteur ciblé, **priorité sur le round-robin/transporteur par défaut** (mais jamais sur un choix explicite du vendeur à la confirmation). `orders.utils.dispatch_confirmateur_for_order()`/`dispatch_carrier_for_order()` — wrappers autour du comportement par défaut existant (`assign_order_round_robin`/transporteur par défaut), donc aucun changement pour les boutiques sans règle configurée. Priorité produit d'abord, puis wilaya ; si plusieurs règles matchent, la plus ancienne gagne. "Par wilaya" cible confirmateur **et/ou** transporteur à la fois — RiseCart n'a pas encore construit cette page chez eux ("Bientôt disponible").
 
 ### `orders.PaymentWebhookLog`
 ```
@@ -541,8 +596,11 @@ quantity (signé : positif = entrée, négatif = sortie)
 stock_before, stock_after (IntegerField, null=True — null pour tout l'historique antérieur au 2026-08, aucun instantané passé disponible)
 reason : exchange_return | exchange_issue | order_sale | order_return | order_cancelled | manual_adjustment
 note (texte libre, ex. "Échange #12" ou "Commande #45"), created_at
+batch_id (UUIDField, nullable, 2026-08) — regroupe les mouvements créés par une même sauvegarde produit
 ```
 Premier modèle d'audit de stock du projet — jusqu'ici `Product.stock`/`VariantOption.stock` étaient de simples compteurs sans historique. Immuable une fois créé (jamais modifié/supprimé), même philosophie que `OrderStatusHistory`/`ComplaintMessage`.
+
+**Regroupement par lot (2026-08)** — `ProductFormPage.jsx` génère un seul `batch_id` (UUID) à l'ouverture de la fiche produit, envoyé via le header `X-Stock-Batch-Id` sur chaque sauvegarde de variante/option pendant cette visite. `StockMovementListView` (page "Mouvement des stocks") regroupe les mouvements partageant un `batch_id` en une seule ligne — Total des changements = stock net avant/après sur tout le lot — avec un bouton "Détails" qui déplie le détail par variante (groupé par nom de variante, ex. "Couleur"). Les mouvements isolés (`batch_id` vide — vente, retour, annulation...) restent des lignes individuelles, comportement inchangé.
 
 **Point d'entrée unique (2026-08)** : `backend/products/stock.py::record_stock_movement(store, product, variant_option, quantity, reason, note='')` — mute le stock (plafonné à 0) **et** journalise le mouvement avec `stock_before`/`stock_after` en une seule opération. Avant ce chantier, `StockMovement.objects.create()` était appelé depuis 6 endroits différents dans `orders/views.py`/`products/views.py`, chacun mutant le stock à sa façon, sans tracer l'état avant/après — refactorisé pour que tous passent par ce helper unique. `log_stock_change_if_needed(store, product, variant_option, stock_before, stock_after, reason='manual_adjustment', note='')` couvre le cas où le stock a déjà été modifié ailleurs (ex. `ProductSerializer`/`VariantOptionSerializer` standard) : ne mute rien, compare juste avant/après et journalise si ça a changé — **boucle un vrai trou** : modifier le stock depuis la fiche produit (`ProductDetailView.put`, `VariantOptionDetailView.put`) ne créait auparavant AUCUN mouvement.
 
@@ -682,7 +740,7 @@ IncomingWebhookKey : store (OneToOne), key (généré auto), is_active, created_
 ```
 Contrairement aux canaux de vente de l'Epic 8.2, les webhooks sont **entièrement réels dès cette epic** — pas d'appel à une API tierce nécessitant des identifiants, juste des requêtes HTTP standard vers une URL choisie par le vendeur.
 
-**US-8.4.1 — Sortants** : `webhooks/dispatch.py::fire_event(store, event, payload)` — notifie tous les `WebhookEndpoint` actifs de la boutique abonnés à l'événement (liste `events` vide = abonné à tout), signe le corps en HMAC-SHA256 si un secret est défini, et journalise systématiquement dans `WebhookLog` (succès ou échec, code HTTP, message). **Pause automatique** après `MAX_CONSECUTIVE_FAILURES = 20` échecs consécutifs (`is_active=False`), remis à zéro à chaque succès ou à la réactivation manuelle — évite de marteler indéfiniment une URL morte. Événements déclenchés (`orders/views.py`, catalogue fixe `WEBHOOK_EVENT_CHOICES`) : `order.created` (création, dashboard et boutique publique), `order.confirmed`/`order.shipped`/`order.delivered`/`order.cancelled`/`order.returned` (changement de statut, `OrderStatusView.post`), `order.paid` + `order.confirmed` (webhook Chargily `checkout.paid`). Best-effort partout (`_fire_order_webhook`, `try/except`) — ne bloque jamais le flux de commande. ⚠️ Envoi **synchrone** dans la requête HTTP (pas de file d'attente Celery/RQ dans le projet) — timeout 5s par endpoint ; TBD si ça devient un problème de latence avec beaucoup d'endpoints configurés.
+**US-8.4.1 — Sortants** : `webhooks/dispatch.py::fire_event(store, event, payload)` — notifie tous les `WebhookEndpoint` actifs de la boutique abonnés à l'événement (liste `events` vide = abonné à tout), signe le corps en HMAC-SHA256 si un secret est défini, et journalise systématiquement dans `WebhookLog` (succès ou échec, code HTTP, message). **Pause automatique** après `MAX_CONSECUTIVE_FAILURES = 20` échecs consécutifs (`is_active=False`), remis à zéro à chaque succès ou à la réactivation manuelle — évite de marteler indéfiniment une URL morte. Événements déclenchés (`orders/views.py`, catalogue fixe `WEBHOOK_EVENT_CHOICES`) : `order.created` (création, dashboard et boutique publique), `order.confirmed`/`order.shipped`/`order.delivered`/`order.cancelled`/`order.returned` (changement de statut, `OrderStatusView.post`), `order.paid` + `order.confirmed` (webhook Chargily `checkout.paid`), `order.duplicate_detected` (2026-08, boutique publique uniquement — même téléphone avec une commande valide déjà passée dans les 24h précédentes, gaté par `StoreSettings.notify_duplicate_orders`, vérifié bout en bout avec deux commandes réelles simulées : la 1ère ne déclenche rien, la 2ème déclenche bien l'événement). Best-effort partout (`_fire_order_webhook`, `try/except`) — ne bloque jamais le flux de commande. ⚠️ Envoi **synchrone** dans la requête HTTP (pas de file d'attente Celery/RQ dans le projet) — timeout 5s par endpoint ; TBD si ça devient un problème de latence avec beaucoup d'endpoints configurés.
 
 **US-8.4.2 — Entrants** : `IncomingWebhookKey` (une par boutique, générée automatiquement au premier accès via `get_or_create`), authentification par clé dans le chemin de l'URL (`POST /api/public/webhooks/incoming/<key>/`, `PublicIncomingWebhookView`) — même principe qu'un webhook entrant Slack simplifié, pratique pour Zapier/Make/n8n qui collent juste une URL sans configuration d'en-têtes personnalisés. Chaque réception journalisée dans `WebhookLog(direction='inbound')`, clé invalide → 403 sans rien journaliser. Rotation possible (`POST` sur le même endpoint, invalide l'ancienne URL).
 
@@ -705,17 +763,31 @@ Contrairement aux canaux de vente de l'Epic 8.2, les webhooks sont **entièremen
 | POST | `/api/auth/google/register/` | Non | Inscription Google + store_name/slug |
 | POST | `/api/auth/google/login/` | Non | Connexion Google |
 | POST | `/api/token/refresh/` | Non | Renouvelle access token |
+| PUT | `/api/auth/me/` | Oui | Édite le profil (prénom/nom/téléphone/avatar) (2026-08) |
+| POST | `/api/auth/change-password/` | Oui | Change le mot de passe (mot de passe actuel requis) (2026-08) |
+| GET | `/api/auth/login-history/` | Oui | Historique de connexion réel de l'utilisateur courant (2026-08) |
 
 ### Boutique
 | Méthode | URL | Auth | Description |
 |---|---|---|---|
-| GET/PUT | `/api/stores/me/` | Oui | Boutique du vendeur connecté |
+| GET/PUT | `/api/stores/me/` | Oui | Boutique du vendeur connecté (+ réseaux sociaux, devise depuis 2026-08) |
 | GET | `/api/stores/me/quota/` | Oui | Quota trial restant |
-| GET/PUT | `/api/stores/me/settings/` | Oui | Paramètres (low_stock_threshold) |
+| GET/PUT | `/api/stores/me/settings/` | Oui | Paramètres (low_stock_threshold + tous les nouveaux toggles/limites 2026-08, voir StoreSettings) |
 | GET/POST | `/api/stores/me/carriers/` | Oui | Comptes transporteurs (Yalidine/ZR Express) — lister / créer |
 | PUT/DELETE | `/api/stores/me/carriers/<id>/` | Oui | Modifier (dont `is_default`, `is_active`) / supprimer un compte |
 | GET | `/api/stores/me/carriers/<id>/rates/?wilaya=` | Oui | Tarif réel de livraison pour ce transporteur + cette wilaya (`{tarif, tarif_stopdesk}`), 404 si indisponible |
-| GET/POST | `/api/stores/me/pixels/` | Oui | Epic 8.3 — pixels marketing (`?pixel_type=`) — lister / ajouter (`pixel_type`, `pixel_id`, `label`) |
+| GET | `/api/stores/me/carriers/<id>/desks/?wilaya=` | Oui | Liste des bureaux/points relais réels (nom du paramètre = **nom** de wilaya, pas l'ID) |
+| GET/POST | `/api/stores/me/wilaya-rates/` | Oui | Grille tarifaire par wilaya (2026-08) — lister / créer-mettre à jour |
+| PUT/DELETE | `/api/stores/me/wilaya-rates/<id>/` | Oui | Modifier / supprimer un tarif wilaya (2026-08) |
+| POST | `/api/stores/me/wilaya-rates/sync/` | Oui (owner/admin) | Remplit les 58 tarifs depuis le transporteur par défaut (2026-08) |
+| GET/POST | `/api/stores/me/commune-rates/?wilaya_id=` | Oui | Grille tarifaire par commune (2026-08) |
+| PUT/DELETE | `/api/stores/me/commune-rates/<id>/` | Oui | Modifier / supprimer un tarif commune (2026-08) |
+| POST | `/api/stores/me/commune-rates/sync/` | Oui (owner/admin) | Remplit les tarifs par commune d'une wilaya (Yalidine uniquement) (2026-08) |
+| GET | `/api/stores/me/shipping-rate/?wilaya=&commune=` | Oui | Tarif résolu (grille vendeur > transporteur temps réel) pour le dashboard (2026-08) |
+| GET | `/api/stores/me/geocode/?q=` | Oui | Géocode une adresse texte en `{lat, lon}` via Nominatim/OSM (2026-08) |
+| GET/POST | `/api/stores/me/dispatch-rules/?match_type=` | Oui | Règles de dispatch automatique (2026-08) — lister / créer |
+| PUT/DELETE | `/api/stores/me/dispatch-rules/<id>/` | Oui (owner/admin) | Modifier / supprimer une règle de dispatch (2026-08) |
+| GET/POST | `/api/stores/me/pixels/` | Oui | Epic 8.3 — pixels marketing (`?pixel_type=`) — lister / ajouter (+ champs Conversions/Events API, GA4 Measurement Protocol depuis 2026-08) |
 | PUT/DELETE | `/api/stores/me/pixels/<id>/` | Oui | Modifier / supprimer un pixel |
 | GET | `/api/stores/plans/` | Oui | Epic 8.5 — catalogue des paliers d'abonnement actifs |
 | POST | `/api/stores/me/subscribe/` | Oui (owner/admin) | Crée un checkout Chargily pour le palier choisi (`plan_id`, `billing_cycle`), renvoie `payment_url` — le quota n'est mis à jour qu'au webhook `checkout.paid` |
@@ -826,6 +898,11 @@ Commande manuelle par un dropshipper : `POST /api/orders/` accepte désormais au
 | PUT/DELETE | `/api/finance/costs/<id>/` | Oui (owner/admin) | Modifier / supprimer un coût |
 | GET | `/api/finance/profitability/` | Oui (owner/admin) | Rentabilité détaillée (`?group_by=product\|wilaya\|source&period_start=&period_end=`) — coûts directement attribuables uniquement (produit + commission) |
 | GET | `/api/finance/profitability/summary/` | Oui (owner/admin) | Rentabilité globale de la période (`?period_start=&period_end=`) — inclut aussi les coûts opérationnels/marketing |
+| GET | `/api/finance/payments/summary/?state=ready\|collected` | Oui (owner/admin) | Indicateurs Paiements (2026-08) — commandes COD livrées, scopées par état de reversement |
+| GET | `/api/finance/payments/orders/?state=ready\|collected` | Oui (owner/admin) | Liste paginée des commandes correspondantes (2026-08) |
+| POST | `/api/finance/payments/mark-collected/` | Oui (owner/admin) | Pointe une sélection de commandes comme reversées (`order_ids`, `amounts` optionnel) (2026-08) |
+| GET | `/api/finance/payments/reconciliation/` | Oui (owner/admin) | Écarts entre montant attendu et montant reçu (2026-08) |
+| POST | `/api/finance/payments/import-excel/` | Oui (owner/admin) | Import du rapport transporteur (xlsx), rapprochement par tracking (2026-08) |
 
 ### Boutique publique & Checkout invité
 | Méthode | URL | Auth | Description |
@@ -1039,6 +1116,65 @@ Commande manuelle par un dropshipper : `POST /api/orders/` accepte désormais au
 
 ---
 
+### ✅ Chantier 2026-08-13 — Tarification livraison, statistiques, stock groupé, dispatch, paiements COD, marketing réel (branche `new/specs`)
+Grosse session d'optimisations transverses inspirée de captures RiseCart, feature par feature, chacune confirmée avec l'utilisateur avant implémentation (décisions de scope explicites, consignées ci-dessous).
+
+**Tarification livraison par wilaya/commune** — `orders.WilayaRate`/`orders.CommuneRate` (voir Modèles de données) : grille éditable par le vendeur, priorité sur le tarif transporteur en temps réel dans `_resolve_shipping_cost()`/`_resolve_shipping_rates()` (source unique, consommée par le dashboard, le checkout public et l'affichage). Bouton "Mettre à jour depuis la société" (`WilayaRateSyncView`/`CommuneRateSyncView`) — pour les communes, seul Yalidine expose une vraie grille (`YalidineClient.get_commune_rates`, réutilise l'appel `/fees/` existant), les autres transporteurs renvoient une erreur explicite. Nouvel onglet "Tarification" dans `ParametresLivraisonPage.jsx`, avec la vraie liste des communes par wilaya (`data/communes.json`, ~1500 communes) plutôt que de n'afficher que celles ayant déjà un tarif.
+
+**Webhook URL affichée dans "Mes Sociétés de livraison"** — colonne `webhook_url` calculée côté serveur (`CarrierAccountSerializer`), pour l'instant uniquement Yalidine (seul transporteur avec webhook entrant réel).
+
+**Carte du bureau/point relais (`DeskMapPreview.jsx`)** — d'abord tenté avec Google Maps Embed (bloqué : exige une carte bancaire pour activer la facturation Google Cloud, même pour l'usage gratuit), remplacé par **OpenStreetMap** : nouvel endpoint `GET /api/stores/me/geocode/` (Nominatim, gratuit, sans clé) avec repli en cascade (adresse complète → quartier extrait du nom du bureau via regex `« quartier »` → wilaya seule si rien ne matche, avec mention "position approximative"). Bug corrigé au passage : `OrderFormPage.jsx` envoyait l'ID numérique de la wilaya au lieu de son nom à `CarrierDesksView`, donc la liste des bureaux restait vide silencieusement.
+
+**Code de suivi partout (`TrackingBadge.jsx`)** — composant réutilisable (badge copiable, ou "Non attribué" si `carrier_tracking_number` est vide) ajouté aux listes Commandes, Échanges, Historique des échecs, Annulations — ces deux derniers endpoints (`FailureHistoryListView`, `ExchangeRequestSerializer`) n'exposaient pas encore `carrier_tracking_number`/`carrier_label`.
+
+**Statistiques enrichies** (6 axes, tous demandés en comparant à RiseCart) :
+- Délais moyens entre statuts (`GlobalStatsView._avg_delays`, confirmation→expédition/expédition→livraison/expédition→retour, calculés depuis `OrderStatusHistory`)
+- Badge "retard" — commandes en attente >24h (seuil fixe, décision produit), section dédiée dans `ConfirmationRatePage.jsx` avec sélection multiple + changement de statut en masse (`pending_late`/`pending_late_count` dans `ConfirmationRateView`)
+- Tableau quotidien avec fractions/pourcentages (Confirmé/Expédié/Livré/Payé par jour) + export CSV, sur Statistiques globales
+- Confirmateur enrichi — cartes résumé globales (`summary_cards`) + colonnes complètes du funnel par agent (en attente/vers le client/livré/doubles/fictives, en plus des colonnes déjà existantes)
+- Colonnes croisées "Meilleur produit" (Statistiques par wilaya et par source) et "Meilleure wilaya" (Statistiques par source)
+- Anneau "Taux de livraison" (`delivery_rate`) sur Statistiques globales
+
+**Mouvement des stocks groupé (`StockMovement.batch_id`)** — plusieurs variantes modifiées pendant une même visite de `ProductFormPage.jsx` partagent désormais un `batch_id` (UUID généré une fois par session d'édition, envoyé via header `X-Stock-Batch-Id` sur chaque sauvegarde). `StockMovementListView` regroupe ces mouvements en une seule ligne (Total des changements = stock net avant/après sur tout le lot) avec un bouton "Détails" qui déplie le détail par variante — les mouvements isolés (vente, retour...) restent inchangés, une ligne chacun.
+
+**Profil utilisateur** — avatar cliquable dans la topbar (`DashboardLayout.jsx`), menu déroulant : nom/email, Ma boutique, Paramètres livraison, Équipe, Abonnement, Contactez-nous, FAQ, Langue (statique "Français" pour l'instant), Thème, Déconnexion. `accounts.User.avatar` (ImageField) + `PUT /api/auth/me/` pour l'édition de profil.
+
+**Page Paramètres (`ParametresPage.jsx`, `/dashboard/parametres`)** — 3 onglets façon RiseCart :
+- *Informations du compte* — upload avatar, prénom/nom/téléphone (email lecture seule), changement de mot de passe (`POST /api/auth/change-password/`, distinct du flux "mot de passe oublié")
+- *Paramètres généraux* — réseaux sociaux boutique (`facebook_url`/`instagram_url`/`twitter_url`/`tiktok_url`), devise/symbole, limites de commande (`max_order_amount`/`max_order_quantity`, appliquées côté `PublicOrderView.post`), préfixe/suffixe de commande (`order_display_number` calculé côté serveur), toggles de comportement réel : `notify_duplicate_orders` (webhook `order.duplicate_detected` si même téléphone <24h), `notify_new_orders` (gate le badge/son/notification navigateur de `DashboardLayout.jsx`), `deduct_stock_on_order_create` (si désactivé, décrémentation différée à la confirmation via `Order.stock_deducted_at`, idempotent), `free_shipping_if_product_free_shipping` (livraison offerte si le panier contient un article `Product.free_shipping=True`). SMS/OTP (`sms_notifications_enabled`, `order_confirmed_otp_enabled`, `sms_api_token`) **stockés mais désactivés dans l'UI** — aucun fournisseur SMS configuré (TBD existant), pas de fausse fonctionnalité.
+- *Historique de connexion récent* — `accounts.LoginHistory`, rempli à chaque vrai login/logout (`LoginView`/`LogoutView`), jamais de données simulées.
+
+**Toast (`components/Toast.jsx`)** — remplace tous les `alert()` natifs du navigateur du projet (bloquants, non stylables) : `ParametresLivraisonPage.jsx`, `PagesPage.jsx`, `DropshipperDetailPage.jsx`, `PermissionsPage.jsx`, `TeamPage.jsx`, plus les nouvelles pages Paiements/Marketing.
+
+**Paiements — réconciliation COD (`finance/views.py`, pages `pages/finance/Payment*.jsx`)** — suit le reversement transporteur pour les commandes livrées payées à la livraison (électronique Chargily exclu, déjà réglé) :
+- `Order.payment_collected_at`/`payment_collected_amount` — pointage manuel (bulk) ou automatique via import Excel
+- **Paiement prêt** (`state=ready`) : commandes livrées COD pas encore reversées, sélection + "Marquer comme récupéré" en masse (`PaymentsMarkCollectedView`)
+- **Paiement récupéré** (`state=collected`) : déjà reversées, onglet **Vérification de cohérence** (`PaymentsReconciliationView`) listant les écarts entre `total` et `payment_collected_amount`
+- **Importer un fichier Excel** (`PaymentsExcelImportView`, dépendance `openpyxl`) — aucun transporteur branché n'expose de rapport de versement standardisé, donc détection heuristique des colonnes (tracking/montant par mots-clés insensibles à la casse) et rapprochement par `carrier_tracking_number`
+- Indicateurs (`PaymentsSummaryView`) réutilisent la même logique que `ProfitabilitySummaryView`, scopée aux commandes COD livrées de l'état demandé
+
+**Dispatch Commandes (`orders.DispatchRule`, pages `pages/orders/DispatchBy*.jsx`)** — règles de routage automatique à la création d'une commande, **priorité sur le round-robin/transporteur par défaut** (mais jamais sur un choix explicite du vendeur à la confirmation) :
+- *Par confirmateur* / *Par société de livraison* — règle produit (recherche insensible à la casse dans le nom d'un article de la commande) → confirmateur ou transporteur ciblé
+- *Par wilaya* — même principe sur `Order.wilaya` (match exact), ciblant confirmateur **et/ou** transporteur à la fois — RiseCart n'a pas encore construit cette page ("Bientôt disponible" chez eux)
+- Priorité : règle produit d'abord, puis règle wilaya, sinon comportement par défaut inchangé. Si plusieurs règles matchent, la plus ancienne (créée en premier) gagne.
+- `orders.utils.dispatch_confirmateur_for_order()`/`dispatch_carrier_for_order()` — wrappers autour de `assign_order_round_robin()`/transporteur par défaut, vérifié par test réel (rollback) : commande avec produit ciblé → confirmateur exact ; commande sans le produit → round-robin normal.
+- "Recherche de produit" est une vraie recherche live dans le catalogue (`/api/products/?search=`, comme `OrderFormPage.jsx`) — un premier essai en champ texte libre donnait l'impression que "ça ne marchait pas" faute de retour visuel.
+
+**Marketing — pixels réellement fonctionnels, pas juste des identifiants stockés** (`stores.PixelConfig` étendu, `MarketingPixelsPage.jsx` réécrit en édition en ligne façon RiseCart) :
+- Facebook/TikTok Pixel : Nom, **Jeton d'accès**, Identifiant du pixel, Vérification du domaine (Facebook)
+- Google Tag Manager : Identifiant seul — Google Analytics : Nom, Identifiant de vue, **Mesure GA**, **Secret API (Measurement Protocol)**, JSON compte de service (réservé, non utilisé)
+- **Envoi réel d'évènements serveur à la création de commande** (`PublicOrderView.post`, best-effort) en complément du script client déjà injecté par `lib/pixels.js` : `stores/facebook_capi.py` (Conversions API), `stores/tiktok_events_api.py` (Events API, `CompletePayment`), `stores/ga4_measurement_protocol.py` (Measurement Protocol, évènement `purchase`) — téléphone haché SHA-256 côté Facebook/TikTok, `client_id` GA4 dérivé de façon stable du téléphone. Les trois vérifiés par appel HTTP simulé (mock) avec inspection de l'URL/payload exacts, pas seulement "les tests passent".
+- ⚠️ **Bug réel trouvé et corrigé en vérifiant** : les champs secrets (`access_token`, `ga_api_secret`, `ga_service_account_json`) étaient écrasés silencieusement dès qu'on modifiait n'importe quel autre champ de la même ligne sans les retaper (le PUT envoyait toujours une chaîne vide puisque ces champs `write_only` ne reviennent jamais du GET). Corrigé côté frontend : un champ secret laissé vide n'est inclus dans le payload que s'il vient d'être retapé, jamais à l'édition d'un champ non-secret. Revérifié pour les 3 plateformes après correction.
+- Le JSON de compte de service Google (`ga_service_account_json`) est **volontairement non branché** — c'est le mécanisme de l'API Analytics Admin/Data (lecture de rapports), pas du Measurement Protocol (envoi d'évènements), les deux ne doivent pas être confondus.
+
+**`Order.delivery_types`** (remplace `delivery_type` unique, migration avec conversion des données existantes) — plusieurs types combinables (ex: Assurance + Échange) dans `OrderFormPage.jsx` (cases à cocher). Effets réels : "Vendu en magasin"/"Livraison gratuite" → frais à 0 (le premier désactive aussi l'expédition auto à la confirmation) ; "Assurance" → ajoute `StoreSettings.insurance_fee` ; "Échange" → reste un tag, aucun effet.
+
+**Domicile/point relais dans le formulaire de commande manuelle** — `OrderFormPage.jsx` n'avait que des frais de livraison manuels ; ajout du choix Domicile/Point relais (`stop_desk`/`station_code`, déjà supportés côté backend) avec sélection du vrai bureau et tarif résolu automatiquement, aligné sur le checkout public.
+
+Testé à chaque étape : `manage.py check` + suite de tests ciblée après chaque lot de changements (246/246 tests sur une exécution complète de la suite backend en cours de session, aucune régression), plus des vérifications manuelles en conditions réelles (appels HTTP simulés, rollback de transaction) pour les comportements à effets de bord (dispatch, envoi d'évènements marketing, préservation des champs secrets).
+
+---
+
 ## Conventions de Code
 
 ### Backend (Django)
@@ -1150,7 +1286,7 @@ Aucune nouvelle dépendance (déjà disponible via `django`/`djangorestframework
 
 | Sujet | Statut |
 |---|---|
-| Provider SMS (abandons panier, notifications) | Non décidé — Sprint 5 |
+| Provider SMS (abandons panier, notifications) | Non décidé — `StoreSettings.sms_notifications_enabled`/`order_confirmed_otp_enabled`/`sms_api_token` existent déjà (2026-08) mais désactivés dans l'UI en attendant un fournisseur réel |
 | Limites exactes plans Starter/Pro/Business | Non décidé — Sprint 8 |
 | Domaine de production final | Non décidé |
 | Infra de déploiement (VPS, Railway, Render...) | Non décidé — Sprint 8 |

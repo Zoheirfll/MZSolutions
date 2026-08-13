@@ -16,9 +16,9 @@ from rest_framework import status
 
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
-from .models import Order, OrderItem, OrderStatusHistory, STATUS_CHOICES, NO_ANSWER_STATUSES, OrderAssignment, FailureReason, CallAttempt, CALL_STATUS_CHOICES, PaymentWebhookLog, AbandonedCart, CarrierAccount, CARRIER_CHOICES, CustomerRisk, BlacklistedPhone, Complaint, ComplaintMessage, ComplaintAssignment, COMPLAINT_STATUS_CHOICES, ExchangeRequest, EXCHANGE_STATUS_CHOICES, WilayaRate, CommuneRate
-from .serializers import OrderSerializer, OrderDetailSerializer, OrderAssignmentSerializer, FailureReasonSerializer, CallAttemptSerializer, AbandonedCartSerializer, CarrierAccountSerializer, BlacklistedPhoneSerializer, ComplaintSerializer, ComplaintDetailSerializer, ExchangeRequestSerializer, WilayaRateSerializer, CommuneRateSerializer
-from .utils import assign_order_round_robin, assign_complaint_round_robin, send_abandoned_cart_email
+from .models import Order, OrderItem, OrderStatusHistory, STATUS_CHOICES, NO_ANSWER_STATUSES, OrderAssignment, FailureReason, CallAttempt, CALL_STATUS_CHOICES, PaymentWebhookLog, AbandonedCart, CarrierAccount, CARRIER_CHOICES, CustomerRisk, BlacklistedPhone, Complaint, ComplaintMessage, ComplaintAssignment, COMPLAINT_STATUS_CHOICES, ExchangeRequest, EXCHANGE_STATUS_CHOICES, WilayaRate, CommuneRate, DispatchRule
+from .serializers import OrderSerializer, OrderDetailSerializer, OrderAssignmentSerializer, FailureReasonSerializer, CallAttemptSerializer, AbandonedCartSerializer, CarrierAccountSerializer, BlacklistedPhoneSerializer, ComplaintSerializer, ComplaintDetailSerializer, ExchangeRequestSerializer, WilayaRateSerializer, CommuneRateSerializer, DispatchRuleSerializer
+from .utils import assign_order_round_robin, assign_complaint_round_robin, send_abandoned_cart_email, dispatch_confirmateur_for_order, dispatch_carrier_for_order
 from . import chargily
 from .carriers import get_carrier_client
 from .carriers.ecotrack import TrackingNotFoundError
@@ -230,6 +230,23 @@ def _deduct_stock_for_order(store, order):
             _sync_stock_to_channels(store, item.product)
 
 
+def _deduct_stock_for_order_on_creation(store, order):
+    """Point d'entrée unique appelé à la création d'une commande (dashboard,
+    boutique publique, activation programmée) — respecte
+    `StoreSettings.deduct_stock_on_order_create` : si désactivé, la
+    décrémentation est différée jusqu'à la confirmation (voir
+    `_transition_order_status`). Idempotent via `Order.stock_deducted_at`."""
+    try:
+        deduct_now = store.settings.deduct_stock_on_order_create
+    except Exception:
+        deduct_now = True
+    if not deduct_now:
+        return
+    _deduct_stock_for_order(store, order)
+    order.stock_deducted_at = timezone.now()
+    order.save(update_fields=['stock_deducted_at'])
+
+
 def _restock_order_items(store, order, reason, note):
     """Remet en stock chaque article d'une commande — utilisée quand un
     retour est validé ou qu'une commande est annulée (décisions produit
@@ -339,8 +356,8 @@ def activate_scheduled_order(store, order, changed_by=None):
     order.status = 'pending'
     order.save(update_fields=['status'])
     OrderStatusHistory.objects.create(order=order, status='pending', changed_by=changed_by)
-    assign_order_round_robin(order)
-    _deduct_stock_for_order(store, order)
+    dispatch_confirmateur_for_order(order)
+    _deduct_stock_for_order_on_creation(store, order)
     _fire_order_webhook(store, order, 'order.created')
 
     try:
@@ -555,8 +572,8 @@ class OrderListCreateView(APIView):
             OrderStatusHistory.objects.create(order=order, status='scheduled', changed_by=request.user)
         else:
             OrderStatusHistory.objects.create(order=order, status='pending', changed_by=request.user)
-            assign_order_round_robin(order)
-            _deduct_stock_for_order(store, order)
+            dispatch_confirmateur_for_order(order)
+            _deduct_stock_for_order_on_creation(store, order)
             _fire_order_webhook(store, order, 'order.created')
 
             if quota:
@@ -789,13 +806,25 @@ def _transition_order_status(store, order, new_status, changed_by=None, note='',
     order.save(update_fields=['status'])
     OrderStatusHistory.objects.create(order=order, status=new_status, changed_by=changed_by, note=note)
 
+    # Déduction différée du stock (StoreSettings.deduct_stock_on_order_create
+    # désactivé à la création) — rattrapée ici à la confirmation. Idempotent
+    # via `stock_deducted_at`, jamais déduit deux fois si la commande avait
+    # déjà été déduite à la création (comportement par défaut).
+    if new_status == 'confirmed' and not order.stock_deducted_at:
+        _deduct_stock_for_order(store, order)
+        order.stock_deducted_at = timezone.now()
+        order.save(update_fields=['stock_deducted_at'])
+
     carrier_warning = None
     if new_status == 'confirmed' and not order.carrier_tracking_number and 'store' not in (order.delivery_types or []):
         account = None
         if carrier_id:
             account = store.carrier_accounts.filter(pk=carrier_id, is_active=True).first()
+        default_account = store.carrier_accounts.filter(is_default=True, is_active=True).first()
         if not account:
-            account = store.carrier_accounts.filter(is_default=True, is_active=True).first()
+            # Une règle de dispatch (produit/wilaya) prime sur le transporteur
+            # par défaut, mais jamais sur un choix explicite du vendeur (carrier_id).
+            account = dispatch_carrier_for_order(order, default_account)
         if not account:
             carrier_warning = 'Aucun transporteur configuré — expédition non créée.'
         else:
@@ -808,7 +837,7 @@ def _transition_order_status(store, order, new_status, changed_by=None, note='',
     # _deduct_stock_for_order), donc une annulation doit le rendre. Garde
     # d'idempotence : jamais restocké deux fois (ex: annulée puis un retour
     # est quand même validé dessus par erreur).
-    if new_status == 'cancelled' and not order.restocked_at:
+    if new_status == 'cancelled' and not order.restocked_at and order.stock_deducted_at:
         _restock_order_items(store, order, reason='order_cancelled', note=f"Annulation commande #{order.id}")
         order.restocked_at = timezone.now()
         order.save(update_fields=['restocked_at'])
@@ -1277,6 +1306,110 @@ class CommuneRateSyncView(APIView):
             )
             updated += 1
         return Response({'updated': updated})
+
+
+class DispatchRuleListCreateView(APIView):
+    """Règles de dispatch automatique (US demandée, équivalent RiseCart
+    "Dispatch Commandes") — voir DispatchRule pour la logique de matching et
+    `orders.utils.dispatch_confirmateur_for_order`/`dispatch_carrier_for_order`
+    pour le point d'application réel."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        store = _get_store(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        qs = store.dispatch_rules.all()
+        match_type = request.query_params.get('match_type')
+        if match_type:
+            qs = qs.filter(match_type=match_type)
+        return Response(DispatchRuleSerializer(qs, many=True).data)
+
+    def post(self, request):
+        if not is_owner_or_admin(request):
+            return Response({'detail': 'Réservé au propriétaire ou administrateur.'}, status=403)
+        store = _get_store(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        s = DispatchRuleSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        s.save(store=store)
+        return Response(s.data, status=status.HTTP_201_CREATED)
+
+
+class DispatchRuleDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def _get(self, request, pk):
+        store = _get_store(request)
+        if not store:
+            return None, Response({'detail': 'Accès refusé.'}, status=403)
+        try:
+            return store.dispatch_rules.get(pk=pk), None
+        except DispatchRule.DoesNotExist:
+            return None, Response({'detail': 'Règle introuvable.'}, status=404)
+
+    def put(self, request, pk):
+        if not is_owner_or_admin(request):
+            return Response({'detail': 'Réservé au propriétaire ou administrateur.'}, status=403)
+        rule, err = self._get(request, pk)
+        if err: return err
+        s = DispatchRuleSerializer(rule, data=request.data, partial=True)
+        s.is_valid(raise_exception=True)
+        s.save()
+        return Response(s.data)
+
+    def delete(self, request, pk):
+        if not is_owner_or_admin(request):
+            return Response({'detail': 'Réservé au propriétaire ou administrateur.'}, status=403)
+        rule, err = self._get(request, pk)
+        if err: return err
+        rule.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class GeocodeView(APIView):
+    """Géocode une adresse texte (bureau/point relais) en {lat, lon} via
+    Nominatim (OpenStreetMap) — gratuit, sans clé API ni facturation,
+    contrairement à Google Geocoding/Maps Embed. Utilisé par
+    `DeskMapPreview.jsx` pour afficher la position d'un bureau sur une
+    carte OSM embarquée. Mis en cache 30 jours (adresse texte → coordonnées
+    ne change jamais) pour respecter la politique d'usage Nominatim (max
+    1 requête/seconde, User-Agent identifiant obligatoire)."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        import requests
+        from django.core.cache import cache
+
+        query = (request.query_params.get('q') or '').strip()
+        if not query:
+            return Response({'detail': 'Paramètre q requis.'}, status=400)
+
+        cache_key = f"geocode_{hashlib.sha256(query.encode()).hexdigest()}"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return Response(cached) if cached else Response({'detail': 'Adresse introuvable.'}, status=404)
+
+        try:
+            resp = requests.get(
+                'https://nominatim.openstreetmap.org/search',
+                params={'q': query, 'format': 'json', 'limit': 1, 'countrycodes': 'dz'},
+                headers={'User-Agent': 'MZSolutions/1.0 (contact: mzsolutions31@gmail.com)'},
+                timeout=8,
+            )
+            resp.raise_for_status()
+            results = resp.json()
+        except requests.RequestException:
+            return Response({'detail': 'Service de géocodage indisponible.'}, status=502)
+
+        if not results:
+            cache.set(cache_key, None, 60 * 60 * 24 * 30)
+            return Response({'detail': 'Adresse introuvable.'}, status=404)
+
+        result = {'lat': float(results[0]['lat']), 'lon': float(results[0]['lon'])}
+        cache.set(cache_key, result, 60 * 60 * 24 * 30)
+        return Response(result)
 
 
 class OrderStatsView(APIView):
@@ -1928,6 +2061,11 @@ class ConfirmationRateView(APIView):
                 no_answer=Count(Case(When(status__in=NO_ANSWER_STATUSES, then=1), output_field=IntegerField())),
                 returned=Count(Case(When(status='returned', then=1), output_field=IntegerField())),
                 cancelled=Count(Case(When(status='cancelled', then=1), output_field=IntegerField())),
+                pending=Count(Case(When(status='pending', then=1), output_field=IntegerField())),
+                delivered=Count(Case(When(status='delivered', then=1), output_field=IntegerField())),
+                shipped=Count(Case(When(status__in=['shipped', 'out_for_delivery', 'in_progress'], then=1), output_field=IntegerField())),
+                duplicate=Count(Case(When(status='duplicate', then=1), output_field=IntegerField())),
+                fake=Count(Case(When(status='fake', then=1), output_field=IntegerField())),
             )
         )
 
@@ -1944,10 +2082,52 @@ class ConfirmationRateView(APIView):
                 'no_answer':         a['no_answer'] or 0,
                 'returned':          a['returned'] or 0,
                 'cancelled':         a['cancelled'] or 0,
+                'pending':           a['pending'] or 0,
+                'delivered':         a['delivered'] or 0,
+                'shipped':           a['shipped'] or 0,
+                'duplicate':         a['duplicate'] or 0,
+                'fake':              a['fake'] or 0,
                 'rate':              conf_rate,
             })
 
         by_confirmateur.sort(key=lambda x: x['rate'], reverse=True)
+
+        # Cartes résumé globales (façon RiseCart) — comptées sur toute la
+        # période sélectionnée, indépendamment de l'assignation confirmateur.
+        summary_cards = {
+            'pending':   qs.filter(status='pending').count(),
+            'no_answer': no_answer_total,
+            'confirmed': confirmed,
+            'delivered': qs.filter(status='delivered').count(),
+            'returned':  returned_total,
+            'cancelled': cancelled_total,
+            'duplicate': qs.filter(status='duplicate').count(),
+            'fake':      qs.filter(status='fake').count(),
+            'scheduled': qs.filter(status='scheduled').count(),
+        }
+
+        # "Retard" — commandes en attente de confirmation depuis plus de 24h
+        # (seuil fixe, décision produit 2026-08), pour le badge/tri prioritaire
+        # façon onglet "Confirmed" de RiseCart. Basé sur `created_at`, pas de
+        # notion de "dernière relance" pour l'instant.
+        late_cutoff = timezone.now() - timedelta(hours=24)
+        late_orders = (
+            store.orders.filter(status='pending', created_at__lt=late_cutoff)
+            .select_related('assignment__confirmateur')
+            .order_by('created_at')[:200]
+        )
+        pending_late = [{
+            'id':               o.id,
+            'first_name':       o.first_name,
+            'last_name':        o.last_name,
+            'phone':            o.phone,
+            'wilaya':           o.wilaya,
+            'total':            o.total,
+            'created_at':       o.created_at,
+            'delay_hours':      round((timezone.now() - o.created_at).total_seconds() / 3600, 1),
+            'confirmateur_name': (f"{o.assignment.confirmateur.first_name} {o.assignment.confirmateur.last_name}".strip()
+                                   if hasattr(o, 'assignment') and o.assignment and o.assignment.confirmateur else None),
+        } for o in late_orders]
 
         # Évolution quotidienne (traitées/confirmées/taux par jour) — pour le
         # graphique de tendance côté frontend.
@@ -2000,6 +2180,9 @@ class ConfirmationRateView(APIView):
             'by_confirmateur':  by_confirmateur,
             'daily':            daily,
             'by_status':        by_status,
+            'summary_cards':    summary_cards,
+            'pending_late':     pending_late,
+            'pending_late_count': len(pending_late),
         })
 
 
@@ -2142,6 +2325,20 @@ class PublicOrderView(APIView):
             if discount_amount <= 0:
                 return Response({'detail': "Ce code promo ne s'applique à aucun article de votre panier."}, status=400)
 
+        # Limites de commande configurables (StoreSettings.max_order_amount/
+        # max_order_quantity) — uniquement côté boutique publique, le vendeur
+        # restant maître de ses commandes manuelles.
+        try:
+            settings_obj = store.settings
+        except Exception:
+            settings_obj = None
+        subtotal_check = sum(p * _validate_item_quantity(i) for p, i in zip(resolved_prices, items_data))
+        qty_check = sum(_validate_item_quantity(i) for i in items_data)
+        if settings_obj and settings_obj.max_order_amount and subtotal_check > settings_obj.max_order_amount:
+            return Response({'detail': f"Le montant de la commande dépasse le maximum autorisé ({settings_obj.max_order_amount} DA)."}, status=400)
+        if settings_obj and settings_obj.max_order_quantity and qty_check > settings_obj.max_order_quantity:
+            return Response({'detail': f"La quantité totale dépasse le maximum autorisé ({settings_obj.max_order_quantity} articles)."}, status=400)
+
         shipping_cost = _validate_shipping_cost(request)
         if shipping_cost is None:
             return Response({'detail': 'Frais de livraison invalides.'}, status=400)
@@ -2149,6 +2346,15 @@ class PublicOrderView(APIView):
             store, request.data.get('wilaya', ''), bool(request.data.get('stop_desk')), shipping_cost,
             request.data.get('commune', ''),
         )
+
+        # Livraison offerte si un article du panier a Product.free_shipping=True
+        # (StoreSettings.free_shipping_if_product_free_shipping) — écrase le
+        # tarif résolu ci-dessus, priorité absolue sur le reste de la grille.
+        if settings_obj and settings_obj.free_shipping_if_product_free_shipping:
+            from products.models import Product
+            product_ids = [i.get('product') for i in items_data if i.get('product')]
+            if Product.objects.filter(id__in=product_ids, free_shipping=True).exists():
+                shipping_cost = Decimal('0')
 
         order = Order.objects.create(
             store         = store,
@@ -2179,9 +2385,42 @@ class PublicOrderView(APIView):
 
         order.recalculate()
         OrderStatusHistory.objects.create(order=order, status='pending')
-        assign_order_round_robin(order)
-        _deduct_stock_for_order(store, order)
+        dispatch_confirmateur_for_order(order)
+        _deduct_stock_for_order_on_creation(store, order)
         _fire_order_webhook(store, order, 'order.created')
+
+        # Envoi server-side des évènements d'achat (Facebook Conversions API,
+        # TikTok Events API, GA4 Measurement Protocol) — en complément du
+        # trackEvent('Purchase') client déjà déclenché par CheckoutPage.jsx
+        # (Epic 8.3). Best-effort, ne bloque jamais la commande.
+        try:
+            from stores.facebook_capi import send_purchase_event as send_fb_purchase_event
+            send_fb_purchase_event(store, order)
+        except Exception:
+            pass
+        try:
+            from stores.tiktok_events_api import send_purchase_event as send_tiktok_purchase_event
+            send_tiktok_purchase_event(store, order)
+        except Exception:
+            pass
+        try:
+            from stores.ga4_measurement_protocol import send_purchase_event as send_ga4_purchase_event
+            send_ga4_purchase_event(store, order)
+        except Exception:
+            pass
+
+        # Notification de commande potentiellement en double (StoreSettings.
+        # notify_duplicate_orders) — même téléphone, commande valide (pas déjà
+        # annulée/fictive) dans les dernières 24h. Best-effort, ne bloque jamais
+        # la commande (contrairement à la liste noire, qui refuse la commande).
+        if settings_obj and settings_obj.notify_duplicate_orders and order.phone:
+            recent_duplicate = (
+                store.orders.filter(phone=order.phone, created_at__gte=timezone.now() - timedelta(hours=24))
+                .exclude(id=order.id).exclude(status__in=['cancelled', 'fake'])
+                .exists()
+            )
+            if recent_duplicate:
+                _fire_order_webhook(store, order, 'order.duplicate_detected')
 
         if promo:
             promo.uses_count += 1
@@ -2561,7 +2800,7 @@ class FailureHistoryListView(APIView):
         qs = (CallAttempt.objects
               .filter(order__store=store)
               .exclude(failure_reason__isnull=True)
-              .select_related('order', 'agent', 'failure_reason')
+              .select_related('order', 'order__carrier', 'agent', 'failure_reason')
               .order_by('-attempted_at'))
 
         reason_id = request.query_params.get('reason')
@@ -2603,6 +2842,8 @@ class FailureHistoryListView(APIView):
             'agent_name':      f"{a.agent.first_name} {a.agent.last_name}".strip() if a.agent else None,
             'note':            a.note,
             'attempted_at':    a.attempted_at,
+            'carrier_tracking_number': a.order.carrier_tracking_number,
+            'carrier_label':           dict(CARRIER_CHOICES).get(a.order.carrier.carrier) if a.order.carrier_id else None,
         } for a in qs]
 
         return Response({'results': results, 'count': count, 'page': page, 'per_page': per_page})

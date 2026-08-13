@@ -56,11 +56,12 @@ export default function WilayaStatsPage() {
                   <th className="px-4 py-3 font-medium">COMMANDES</th>
                   <th className="px-4 py-3 font-medium">CONFIRMÉES</th>
                   <th className="px-4 py-3 font-medium">REVENU</th>
+                  <th className="px-4 py-3 font-medium">MEILLEUR PRODUIT</th>
                 </tr>
               </thead>
               <tbody>
                 {results.length === 0 ? (
-                  <tr><td colSpan={4} className="px-4 py-10 text-center text-sm text-app-muted">Aucune commande sur cette période.</td></tr>
+                  <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-app-muted">Aucune commande sur cette période.</td></tr>
                 ) : results.map(r => (
                   <tr key={r.wilaya} onClick={() => goToWilayaOrders(r.wilaya)}
                     className="border-b hover:bg-violet-500/5 transition cursor-pointer" style={{ borderColor: theme.dark.borderRowHover }}>
@@ -75,6 +76,7 @@ export default function WilayaStatsPage() {
                       <span className={theme.badge.success}>{r.confirmed_count}</span>
                     </td>
                     <td className="px-4 py-3 text-app-primary">{money(r.revenue)}</td>
+                    <td className="px-4 py-3 text-app-muted-light max-w-40 truncate" title={r.best_product}>{r.best_product}</td>
                   </tr>
                 ))}
               </tbody>

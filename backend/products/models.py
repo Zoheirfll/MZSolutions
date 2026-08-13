@@ -262,6 +262,7 @@ class StockMovement(models.Model):
     stock_after    = models.IntegerField(null=True, blank=True)
     reason         = models.CharField(max_length=30, choices=STOCK_MOVEMENT_REASONS)
     note           = models.CharField(max_length=200, blank=True)
+    batch_id       = models.UUIDField(null=True, blank=True, db_index=True, help_text="Regroupe les mouvements créés par une même sauvegarde produit (plusieurs variantes modifiées en une fois) — voir StockMovementListView, qui les affiche comme une seule ligne avec détail dépliable")
     created_at     = models.DateTimeField(auto_now_add=True)
 
     class Meta:

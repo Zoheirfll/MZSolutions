@@ -2,9 +2,28 @@ import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AreaChart, Area, PieChart, Pie, Cell, Legend, Tooltip, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts'
 import DashboardLayout from '../../components/DashboardLayout'
+import Select from '../../components/Select'
 import api from '../../api/axios'
 import { theme } from '../../theme'
 import { usePeriod, PeriodFilter, Spinner, PIE_COLORS } from './stats/statsShared'
+
+const SUMMARY_CARDS = [
+  { key: 'pending',   label: 'En attente',  color: 'text-amber-400' },
+  { key: 'no_answer', label: 'Non joignable', color: 'text-amber-400' },
+  { key: 'confirmed', label: 'Confirmées',  color: 'text-emerald-400' },
+  { key: 'delivered', label: 'Livrées',     color: 'text-emerald-400' },
+  { key: 'returned',  label: 'Retournées',  color: 'text-red-400' },
+  { key: 'cancelled', label: 'Annulées',    color: 'text-red-400' },
+  { key: 'duplicate', label: 'Doubles',     color: 'text-app-muted-light' },
+  { key: 'fake',      label: 'Fictives',    color: 'text-app-muted-light' },
+  { key: 'scheduled', label: 'Programmées', color: 'text-violet-400' },
+]
+
+const RETARD_STATUS_OPTIONS = [
+  { value: 'no_answer_1', label: 'Non joignable — 1ère tentative' },
+  { value: 'confirmed',   label: 'Confirmée' },
+  { value: 'cancelled',   label: 'Annulée' },
+]
 
 function rateBadge(rate) {
   if (rate >= 70) return theme.badge.success
@@ -39,16 +58,35 @@ export default function ConfirmationRatePage() {
   const { period, setPeriod, dateFrom, setDateFrom, dateTo, setDateTo, queryString, ready } = usePeriod()
   const [data,    setData]    = useState(null)
   const [loading, setLoading] = useState(true)
+  const [selectedLate, setSelectedLate] = useState(new Set())
+  const [bulkStatus,   setBulkStatus]   = useState('')
+  const [bulkBusy,     setBulkBusy]     = useState(false)
 
   const fetchData = useCallback(() => {
     setLoading(true)
     api.get(`/orders/stats/confirmation/?${queryString()}`)
-      .then(({ data }) => setData(data))
+      .then(({ data }) => { setData(data); setSelectedLate(new Set()) })
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [queryString])
 
   useEffect(() => { if (ready) fetchData() }, [fetchData, ready])
+
+  const toggleLate = id => setSelectedLate(prev => {
+    const next = new Set(prev)
+    next.has(id) ? next.delete(id) : next.add(id)
+    return next
+  })
+
+  const applyBulkStatus = async () => {
+    if (!bulkStatus || selectedLate.size === 0) return
+    setBulkBusy(true)
+    try {
+      await Promise.all([...selectedLate].map(id => api.post(`/orders/${id}/status/`, { status: bulkStatus })))
+      setBulkStatus('')
+      fetchData()
+    } catch {} finally { setBulkBusy(false) }
+  }
 
   const globalRate = data?.confirmation_rate ?? 0
 
@@ -67,6 +105,75 @@ export default function ConfirmationRatePage() {
         <p className="text-app-muted text-center py-16">Erreur de chargement.</p>
       ) : (
         <div className="space-y-5">
+
+          {/* Cartes résumé (façon RiseCart) */}
+          {data.summary_cards && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-9 gap-3">
+              {SUMMARY_CARDS.map(c => (
+                <div key={c.key} className="rounded-xl border p-3.5 text-center" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
+                  <p className={`text-xl font-bold ${c.color}`}>{data.summary_cards[c.key] ?? 0}</p>
+                  <p className="text-xs mt-1" style={{ color: theme.dark.muted }}>{c.label}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Commandes en retard (>24h sans confirmation) */}
+          {data.pending_late_count > 0 && (
+            <div className="rounded-xl border overflow-hidden" style={{ borderColor: '#f59e0b40' }}>
+              <div className="px-5 py-3.5 border-b flex items-center justify-between gap-3 flex-wrap" style={{ background: 'rgba(245,158,11,0.08)', borderColor: '#f59e0b40' }}>
+                <h2 className="text-sm font-semibold text-amber-400">⚠ {data.pending_late_count} commande{data.pending_late_count > 1 ? 's' : ''} en attente depuis plus de 24h</h2>
+                {selectedLate.size > 0 && (
+                  <div className="flex items-center gap-2">
+                    <Select
+                      value={bulkStatus}
+                      onChange={setBulkStatus}
+                      options={[{ value: '', label: 'Changer le statut…' }, ...RETARD_STATUS_OPTIONS]}
+                      className="px-3 py-1.5 rounded-lg border text-xs text-app-primary"
+                      style={{ background: theme.dark.sidebar, borderColor: theme.dark.border, minWidth: 200 }}
+                    />
+                    <button onClick={applyBulkStatus} disabled={!bulkStatus || bulkBusy} className={theme.btn.primary + ' text-xs cursor-pointer disabled:opacity-50'}>
+                      {bulkBusy ? '…' : `Appliquer (${selectedLate.size})`}
+                    </button>
+                  </div>
+                )}
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm min-w-160">
+                  <thead style={{ background: theme.dark.sidebar }}>
+                    <tr className="text-left text-xs border-b" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
+                      <th className="px-4 py-2.5"><input type="checkbox"
+                        checked={data.pending_late.length > 0 && data.pending_late.every(o => selectedLate.has(o.id))}
+                        onChange={() => setSelectedLate(s => s.size === data.pending_late.length ? new Set() : new Set(data.pending_late.map(o => o.id)))}
+                        className="accent-violet-600" /></th>
+                      <th className="px-4 py-2.5 font-medium">CLIENT</th>
+                      <th className="px-4 py-2.5 font-medium">WILAYA</th>
+                      <th className="px-4 py-2.5 font-medium">TOTAL</th>
+                      <th className="px-4 py-2.5 font-medium">CONFIRMATEUR</th>
+                      <th className="px-4 py-2.5 font-medium">RETARD</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.pending_late.map(o => (
+                      <tr key={o.id} className="border-b hover:bg-violet-500/5 transition cursor-pointer" style={{ borderColor: theme.dark.borderRowHover }}
+                        onClick={() => navigate(`/dashboard/commandes/${o.id}`)}>
+                        <td className="px-4 py-2.5" onClick={e => e.stopPropagation()}>
+                          <input type="checkbox" checked={selectedLate.has(o.id)} onChange={() => toggleLate(o.id)} className="accent-violet-600" />
+                        </td>
+                        <td className="px-4 py-2.5 text-app-primary font-medium">{o.first_name} {o.last_name} <span className="text-app-muted-light font-normal">· {o.phone}</span></td>
+                        <td className="px-4 py-2.5 text-app-primary">{o.wilaya}</td>
+                        <td className="px-4 py-2.5 text-app-primary">{Number(o.total).toLocaleString('fr-DZ')} DZD</td>
+                        <td className="px-4 py-2.5 text-app-muted-light">{o.confirmateur_name || '—'}</td>
+                        <td className="px-4 py-2.5">
+                          <span className={theme.badge.warning}>{o.delay_hours}h</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
           {/* KPI global */}
           <div className="rounded-xl border p-6 sm:p-8 flex flex-col lg:flex-row items-center gap-8 lg:gap-10" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
@@ -171,23 +278,28 @@ export default function ConfirmationRatePage() {
               <h2 className="text-sm font-semibold text-app-primary">Classement par confirmateur</h2>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm min-w-160">
+              <table className="w-full text-sm min-w-280">
                 <thead style={{ background: theme.dark.sidebar }}>
                   <tr className="text-left text-xs border-b" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
                     <th className="px-5 py-3 font-medium">RANG</th>
                     <th className="px-5 py-3 font-medium">NOM</th>
                     <th className="px-5 py-3 font-medium text-center">TRAITÉES</th>
+                    <th className="px-5 py-3 font-medium text-center">EN ATTENTE</th>
                     <th className="px-5 py-3 font-medium text-center">CONFIRMÉES</th>
+                    <th className="px-5 py-3 font-medium text-center">VERS LE CLIENT</th>
+                    <th className="px-5 py-3 font-medium text-center">LIVRÉES</th>
                     <th className="px-5 py-3 font-medium text-center">NON JOIGNABLE</th>
                     <th className="px-5 py-3 font-medium text-center">RETOURNÉES</th>
                     <th className="px-5 py-3 font-medium text-center">ANNULÉES</th>
+                    <th className="px-5 py-3 font-medium text-center">DOUBLES</th>
+                    <th className="px-5 py-3 font-medium text-center">FICTIVES</th>
                     <th className="px-5 py-3 font-medium text-center">TAUX</th>
                   </tr>
                 </thead>
                 <tbody>
                   {data.by_confirmateur.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="text-center py-12 text-app-muted">
+                      <td colSpan={12} className="text-center py-12 text-app-muted">
                         Aucune commande assignée sur cette période.
                       </td>
                     </tr>
@@ -210,10 +322,15 @@ export default function ConfirmationRatePage() {
                       </td>
                       <td className="px-5 py-3.5 text-app-primary font-medium">{c.confirmateur_name}</td>
                       <td className="px-5 py-3.5 text-center text-app-primary">{c.processed}</td>
+                      <td className="px-5 py-3.5 text-center text-amber-400">{c.pending}</td>
                       <td className="px-5 py-3.5 text-center text-emerald-400 font-medium">{c.confirmed}</td>
+                      <td className="px-5 py-3.5 text-center text-app-primary">{c.shipped}</td>
+                      <td className="px-5 py-3.5 text-center text-emerald-400">{c.delivered}</td>
                       <td className="px-5 py-3.5 text-center text-amber-400">{c.no_answer}</td>
                       <td className="px-5 py-3.5 text-center text-red-400">{c.returned}</td>
                       <td className="px-5 py-3.5 text-center text-red-400">{c.cancelled}</td>
+                      <td className="px-5 py-3.5 text-center text-app-muted-light">{c.duplicate}</td>
+                      <td className="px-5 py-3.5 text-center text-app-muted-light">{c.fake}</td>
                       <td className="px-5 py-3.5 text-center">
                         <span className={rateBadge(c.rate)}>
                           {c.rate}%

@@ -10,6 +10,7 @@ WEBHOOK_EVENT_CHOICES = [
     ('order.delivered',  'Commande livrée'),
     ('order.cancelled',  'Commande annulée'),
     ('order.returned',   'Commande retournée'),
+    ('order.duplicate_detected', 'Commande potentiellement en double'),
 ]
 
 DIRECTION_CHOICES = [

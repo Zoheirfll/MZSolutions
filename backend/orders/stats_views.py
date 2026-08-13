@@ -379,18 +379,30 @@ class WilayaStatsView(StatsPermissionMixin, APIView):
                       .values('wilaya').annotate(orders_count=Count('id')))
         }
 
+        # "Meilleur produit" par wilaya (colonne croisée alignée sur RiseCart) —
+        # même approche Counter que ProductsStatsView.best_wilaya, un seul passage
+        # Python sur les items déjà préchargés (pas de N+1 SQL).
+        best_product_by_wilaya = defaultdict(Counter)
+        for order in qs.prefetch_related('items'):
+            for item in order.items.all():
+                name = item.product_name or (item.product.name if item.product_id else None)
+                if name:
+                    best_product_by_wilaya[order.wilaya][name] += 1
+
         results = [{
             'wilaya': g['wilaya'] or '—',
             'orders_count': g['orders_count'],
             'confirmed_count': g['confirmed_count'],
             'revenue': g['revenue'] or Decimal('0'),
+            'best_product': (best_product_by_wilaya[g['wilaya']].most_common(1)[0][0]
+                              if best_product_by_wilaya.get(g['wilaya']) else '—'),
             'previous_orders_count': prev_grouped.get(g['wilaya'], 0),
             'orders_count_delta_pct': _pct_delta(g['orders_count'], prev_grouped.get(g['wilaya'], 0)),
         } for g in grouped]
 
         if request.query_params.get('export') == 'csv':
-            return _csv_response('wilayas.csv', ['Wilaya', 'Commandes', 'Confirmées', 'Revenu'],
-                                  [[r['wilaya'], r['orders_count'], r['confirmed_count'], r['revenue']] for r in results])
+            return _csv_response('wilayas.csv', ['Wilaya', 'Commandes', 'Confirmées', 'Revenu', 'Meilleur produit'],
+                                  [[r['wilaya'], r['orders_count'], r['confirmed_count'], r['revenue'], r['best_product']] for r in results])
 
         page, per_page = parse_pagination(request, default_per_page=20)
         count = len(results)
@@ -411,9 +423,9 @@ class SourceStatsView(StatsPermissionMixin, APIView):
 
         orders = (store.orders
                   .filter(created_at__date__gte=date_from, created_at__date__lte=date_to)
-                  .prefetch_related('history').select_related('dropshipper'))
+                  .prefetch_related('history', 'items').select_related('dropshipper'))
 
-        stats = defaultdict(lambda: {'orders': 0, 'confirmed': 0, 'revenue': Decimal('0')})
+        stats = defaultdict(lambda: {'orders': 0, 'confirmed': 0, 'revenue': Decimal('0'), 'products': Counter(), 'wilayas': Counter()})
         for order in orders:
             channel = order_channel(order)
             s = stats[channel]
@@ -421,6 +433,11 @@ class SourceStatsView(StatsPermissionMixin, APIView):
             if order.status in CONFIRMED_STATUSES:
                 s['confirmed'] += 1
                 s['revenue'] += order.total
+            s['wilayas'][order.wilaya or '—'] += 1
+            for item in order.items.all():
+                name = item.product_name or (item.product.name if item.product_id else None)
+                if name:
+                    s['products'][name] += 1
 
         prev_from, prev_to = previous_period(date_from, date_to)
         prev_orders = (store.orders
@@ -433,14 +450,16 @@ class SourceStatsView(StatsPermissionMixin, APIView):
         results = [{
             'source': channel, 'orders_count': s['orders'],
             'confirmed_count': s['confirmed'], 'revenue': s['revenue'],
+            'best_product': s['products'].most_common(1)[0][0] if s['products'] else '—',
+            'best_wilaya':  s['wilayas'].most_common(1)[0][0] if s['wilayas'] else '—',
             'previous_orders_count': prev_stats.get(channel, 0),
             'orders_count_delta_pct': _pct_delta(s['orders'], prev_stats.get(channel, 0)),
         } for channel, s in stats.items()]
         results.sort(key=lambda r: r['orders_count'], reverse=True)
 
         if request.query_params.get('export') == 'csv':
-            return _csv_response('sources.csv', ['Source', 'Commandes', 'Confirmées', 'Revenu'],
-                                  [[r['source'], r['orders_count'], r['confirmed_count'], r['revenue']] for r in results])
+            return _csv_response('sources.csv', ['Source', 'Commandes', 'Confirmées', 'Revenu', 'Meilleur produit', 'Meilleure wilaya'],
+                                  [[r['source'], r['orders_count'], r['confirmed_count'], r['revenue'], r['best_product'], r['best_wilaya']] for r in results])
 
         return Response({'results': results})
 
@@ -468,6 +487,67 @@ class GlobalStatsView(StatsPermissionMixin, APIView):
             'avg_basket': round(avg_basket, 2),
         }
 
+    def _is_paid(self, order):
+        # Même définition que le tableau de bord (DashboardRevenueView) — pas
+        # de champ "payé" explicite en base, proxy le plus fiable : COD encaissé
+        # à la livraison, ou Chargily déjà confirmé (le webhook checkout.paid
+        # ne confirme la commande qu'une fois le paiement reçu).
+        if order.status == 'delivered':
+            return True
+        return order.payment_method == 'chargily' and order.status in CONFIRMED_STATUSES
+
+    def _daily_breakdown(self, store, date_from, date_to):
+        qs = store.orders.filter(created_at__date__gte=date_from, created_at__date__lte=date_to).prefetch_related('history')
+        by_day = defaultdict(list)
+        for order in qs:
+            by_day[order.created_at.date()].append(order)
+
+        rows = []
+        for day in _daterange(date_from, date_to):
+            orders = by_day.get(day, [])
+            total = len(orders)
+            confirmed = sum(1 for o in orders if o.status in CONFIRMED_STATUSES)
+            shipped   = sum(1 for o in orders if o.status in IN_TRANSIT_STATUSES + ['delivered', 'returned'] or o.carrier_tracking_number)
+            delivered = sum(1 for o in orders if o.status == 'delivered')
+            paid      = sum(1 for o in orders if self._is_paid(o))
+            pct = lambda n: round(n / total * 100, 1) if total else 0.0
+            rows.append({
+                'date': str(day), 'orders': total,
+                'confirmed': confirmed, 'confirmed_pct': pct(confirmed),
+                'shipped': shipped, 'shipped_pct': pct(shipped),
+                'delivered': delivered, 'delivered_pct': pct(delivered),
+                'paid': paid, 'paid_pct': pct(paid),
+            })
+        return rows
+
+    def _avg_delays(self, store, date_from, date_to):
+        # Délais moyens entre transitions de statut (US demandée, alignée sur
+        # RiseCart) — calculés à partir de la première occurrence de chaque
+        # statut dans OrderStatusHistory. Moyenne en secondes, formatée côté
+        # frontend ; None si aucune commande n'a les deux jalons.
+        qs = (store.orders
+              .filter(created_at__date__gte=date_from, created_at__date__lte=date_to)
+              .prefetch_related('history'))
+
+        confirm_to_ship, ship_to_deliver, ship_to_return = [], [], []
+        for order in qs:
+            firsts = {}
+            for h in order.history.all().order_by('changed_at'):
+                firsts.setdefault(h.status, h.changed_at)
+            if 'confirmed' in firsts and 'shipped' in firsts and firsts['shipped'] > firsts['confirmed']:
+                confirm_to_ship.append((firsts['shipped'] - firsts['confirmed']).total_seconds())
+            if 'shipped' in firsts and 'delivered' in firsts and firsts['delivered'] > firsts['shipped']:
+                ship_to_deliver.append((firsts['delivered'] - firsts['shipped']).total_seconds())
+            if 'shipped' in firsts and 'returned' in firsts and firsts['returned'] > firsts['shipped']:
+                ship_to_return.append((firsts['returned'] - firsts['shipped']).total_seconds())
+
+        avg = lambda vals: round(sum(vals) / len(vals)) if vals else None
+        return {
+            'confirmation_to_shipped_seconds': avg(confirm_to_ship),
+            'shipped_to_delivered_seconds':    avg(ship_to_deliver),
+            'shipped_to_returned_seconds':     avg(ship_to_return),
+        }
+
     def get(self, request):
         if (err := self.check_access(request)): return err
         store, err = self.get_store_or_error(request)
@@ -483,6 +563,21 @@ class GlobalStatsView(StatsPermissionMixin, APIView):
         current['revenue_delta_pct'] = _pct_delta(current['revenue'], previous['revenue'])
         current['total_orders_delta_pct'] = _pct_delta(current['total_orders'], previous['total_orders'])
         current['confirmation_rate_delta_pct'] = _pct_delta(current['confirmation_rate'], previous['confirmation_rate'])
+
+        # "Advance Statistics" — ratio Commandes/Livraison (donut RiseCart)
+        current['delivery_rate'] = round(current['delivered_count'] / current['total_orders'] * 100, 1) if current['total_orders'] else 0.0
+
+        current['daily'] = self._daily_breakdown(store, date_from, date_to)
+        current['avg_delays'] = self._avg_delays(store, date_from, date_to)
+
+        if request.query_params.get('export') == 'csv':
+            return _csv_response(
+                'statistiques-globales.csv',
+                ['Date', 'Commandes', 'Confirmé', 'Confirmé %', 'Expédié', 'Expédié %', 'Livré', 'Livré %', 'Payé', 'Payé %'],
+                [[r['date'], r['orders'], r['confirmed'], r['confirmed_pct'], r['shipped'], r['shipped_pct'],
+                  r['delivered'], r['delivered_pct'], r['paid'], r['paid_pct']] for r in current['daily']],
+            )
+
         return Response(current)
 
 

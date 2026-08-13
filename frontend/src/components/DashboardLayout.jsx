@@ -182,6 +182,15 @@ export default function DashboardLayout({ children, title, subtitle }) {
   const can = key => !!user?.permissions?.[key]
   const navigate = useNavigate()
   const location = useLocation()
+  const [profileOpen, setProfileOpen] = useState(false)
+  const profileRef = useRef(null)
+
+  useEffect(() => {
+    const onClick = (e) => { if (profileRef.current && !profileRef.current.contains(e.target)) setProfileOpen(false) }
+    document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [])
+
   const [expanded, setExpanded]         = useState({
     produits:     location.pathname.startsWith('/dashboard/produits'),
     fournisseurs: location.pathname.startsWith('/dashboard/produits/fournisseurs'),
@@ -190,6 +199,8 @@ export default function DashboardLayout({ children, title, subtitle }) {
     suivi:        ['/dashboard/commandes/raisons-echec', '/dashboard/echanges'].some(p => location.pathname.startsWith(p)),
     clients:      location.pathname.startsWith('/dashboard/clients'),
     finances:     location.pathname.startsWith('/dashboard/finances'),
+    paiements:    location.pathname.startsWith('/dashboard/paiements'),
+    dispatch:     location.pathname.startsWith('/dashboard/dispatch'),
     stats:        location.pathname.startsWith('/dashboard/stats'),
     expeditions:  location.pathname.startsWith('/dashboard/expeditions'),
     stock:        location.pathname.startsWith('/dashboard/stock'),
@@ -201,6 +212,7 @@ export default function DashboardLayout({ children, title, subtitle }) {
   const [newOrderPulse, setNewOrderPulse] = useState(false)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [quota, setQuota] = useState(null)
+  const [notifyNewOrders, setNotifyNewOrders] = useState(true) // StoreSettings.notify_new_orders — optimiste jusqu'au fetch
   const pendingOrdersRef = useRef(null) // null = pas encore chargé (évite un faux positif au premier fetch)
 
   useEffect(() => {
@@ -208,6 +220,7 @@ export default function DashboardLayout({ children, title, subtitle }) {
     api.get('/inbox/unread-count/').then(({ data }) => setInboxUnreadCount(data.count)).catch(() => {})
     api.get('/orders/exchanges/?status=open&per_page=1').then(({ data }) => setOpenExchangesCount(data.count)).catch(() => {})
     api.get('/stores/me/quota/').then(({ data }) => setQuota(data)).catch(() => {})
+    api.get('/stores/me/settings/').then(({ data }) => setNotifyNewOrders(data.notify_new_orders !== false)).catch(() => {})
     if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
       Notification.requestPermission().catch(() => {})
     }
@@ -219,22 +232,27 @@ export default function DashboardLayout({ children, title, subtitle }) {
   // pour ne détecter que les VRAIES augmentations (pas le chargement initial).
   useEffect(() => {
     const checkPendingOrders = () => {
-      api.get('/orders/?status=pending&per_page=1').then(({ data }) => {
-        const count = data.count ?? 0
-        if (pendingOrdersRef.current !== null && count > pendingOrdersRef.current) {
-          playNewOrderChime()
-          setNewOrderPulse(true)
-          setTimeout(() => setNewOrderPulse(false), 4000)
-          if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-            new Notification('Nouvelle commande reçue', {
-              body: `${count - pendingOrdersRef.current} nouvelle(s) commande(s) en attente de confirmation.`,
-              icon: '/favicon.ico',
-            })
+      // StoreSettings.notify_new_orders — désactivé = pas de badge/son/notif
+      // navigateur pour les nouvelles commandes (le reste du dashboard,
+      // boîte de réception incluse, continue de fonctionner normalement).
+      if (notifyNewOrders) {
+        api.get('/orders/?status=pending&per_page=1').then(({ data }) => {
+          const count = data.count ?? 0
+          if (pendingOrdersRef.current !== null && count > pendingOrdersRef.current) {
+            playNewOrderChime()
+            setNewOrderPulse(true)
+            setTimeout(() => setNewOrderPulse(false), 4000)
+            if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+              new Notification('Nouvelle commande reçue', {
+                body: `${count - pendingOrdersRef.current} nouvelle(s) commande(s) en attente de confirmation.`,
+                icon: '/favicon.ico',
+              })
+            }
           }
-        }
-        pendingOrdersRef.current = count
-        setPendingOrdersCount(count)
-      }).catch(() => {})
+          pendingOrdersRef.current = count
+          setPendingOrdersCount(count)
+        }).catch(() => {})
+      }
       // Même sondage 30s, étendu à la boîte de réception plutôt que d'en
       // ajouter un second (US "boîte de réception, tout doit y arriver", 2026-08).
       api.get('/inbox/unread-count/').then(({ data }) => setInboxUnreadCount(data.count)).catch(() => {})
@@ -242,7 +260,7 @@ export default function DashboardLayout({ children, title, subtitle }) {
     checkPendingOrders()
     const interval = setInterval(checkPendingOrders, 30000)
     return () => clearInterval(interval)
-  }, [])
+  }, [notifyNewOrders])
 
   // Alerte visuelle à l'approche de la limite (US-8.5.2) — essai gratuit
   // uniquement (un abonnement payant actif n'affiche pas cette alerte).
@@ -400,6 +418,30 @@ export default function DashboardLayout({ children, title, subtitle }) {
                 )}
               </li>
 
+              {/* Dispatch Commandes — règles de routage automatique (produit/wilaya → confirmateur/transporteur) */}
+              {can('orders_manage') && (
+                <li>
+                  <button
+                    onClick={() => setExpanded(e => ({ ...e, dispatch: !e.dispatch }))}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
+                      location.pathname.startsWith('/dashboard/dispatch') ? 'bg-violet-500/10 text-app-primary font-medium' : 'text-app-muted-light hover:text-app-primary hover:bg-violet-500/5'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.tracking}</span>Dispatch Commandes</span>
+                    <svg className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${expanded.dispatch ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                  {expanded.dispatch && (
+                    <ul className="mt-0.5 ml-5 space-y-0.5 border-l pl-3" style={{ borderColor: theme.dark.border }}>
+                      <li>{link('/dashboard/dispatch/confirmateur', 'Par confirmateur')}</li>
+                      <li>{link('/dashboard/dispatch/transporteur', 'Par société de livraison')}</li>
+                      <li>{link('/dashboard/dispatch/wilaya', 'Par wilaya')}</li>
+                    </ul>
+                  )}
+                </li>
+              )}
+
               {/* Suivi des commandes — regroupe échecs d'appel / échanges (les réclamations vivent désormais dans la Boîte de réception) */}
               {(can('orders_manage') || can('exchanges_view')) && (
                 <li>
@@ -538,6 +580,28 @@ export default function DashboardLayout({ children, title, subtitle }) {
                     <ul className="mt-0.5 ml-5 space-y-0.5 border-l pl-3" style={{ borderColor: theme.dark.border }}>
                       <li>{link('/dashboard/finances/rentabilite', 'Rentabilité')}</li>
                       <li>{link('/dashboard/finances/couts', 'Coûts')}</li>
+                    </ul>
+                  )}
+                </li>
+              )}
+              {can('finances_view') && (
+                <li>
+                  <button
+                    onClick={() => setExpanded(e => ({ ...e, paiements: !e.paiements }))}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
+                      location.pathname.startsWith('/dashboard/paiements') ? 'bg-violet-500/10 text-app-primary font-medium' : 'text-app-muted-light hover:text-app-primary hover:bg-violet-500/5'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.subscription}</span>Paiements</span>
+                    <svg className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${expanded.paiements ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                  {expanded.paiements && (
+                    <ul className="mt-0.5 ml-5 space-y-0.5 border-l pl-3" style={{ borderColor: theme.dark.border }}>
+                      <li>{link('/dashboard/paiements/pret', 'Paiement prêt')}</li>
+                      <li>{link('/dashboard/paiements/recupere', 'Paiement récupéré')}</li>
+                      <li>{link('/dashboard/paiements/import-excel', 'Importer un fichier Excel')}</li>
                     </ul>
                   )}
                 </li>
@@ -739,6 +803,89 @@ export default function DashboardLayout({ children, title, subtitle }) {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
               </svg>
             </a>
+
+            {/* Profil — avatar + menu déroulant (nom/email, raccourcis, déconnexion) */}
+            <div ref={profileRef} className="relative">
+              <button
+                onClick={() => setProfileOpen(o => !o)}
+                className="w-9 h-9 rounded-full bg-violet-700 text-white flex items-center justify-center text-xs font-bold shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+                title="Profil"
+                aria-haspopup="true"
+                aria-expanded={profileOpen}
+              >
+                {initials}
+              </button>
+              {profileOpen && (
+                <div
+                  className="absolute right-0 z-50 mt-2 w-64 rounded-xl border shadow-xl py-2"
+                  style={{ background: theme.dark.sidebar, borderColor: theme.dark.border }}
+                >
+                  <div className="px-4 py-3 border-b" style={{ borderColor: theme.dark.border }}>
+                    <p className="text-sm text-app-primary font-medium truncate">{user?.first_name} {user?.last_name}</p>
+                    <p className="text-xs truncate" style={{ color: theme.dark.muted }}>{user?.email}</p>
+                  </div>
+                  <a
+                    href={user?.store_slug ? `/store/${user.store_slug}` : '#'}
+                    target="_blank" rel="noreferrer"
+                    className="flex items-center gap-2.5 px-4 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition-colors duration-100"
+                  >
+                    Voir ma boutique
+                  </a>
+                  <button onClick={() => { setProfileOpen(false); navigate('/dashboard/boutique') }}
+                    className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition-colors duration-100 text-left cursor-pointer">
+                    Ma boutique
+                  </button>
+                  <button onClick={() => { setProfileOpen(false); navigate('/dashboard/parametres') }}
+                    className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition-colors duration-100 text-left cursor-pointer">
+                    Paramètres
+                  </button>
+                  <button onClick={() => { setProfileOpen(false); navigate('/dashboard/parametres-livraison') }}
+                    className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition-colors duration-100 text-left cursor-pointer">
+                    Paramètres livraison
+                  </button>
+                  {can('team_view') && (
+                    <button onClick={() => { setProfileOpen(false); navigate('/dashboard/equipe') }}
+                      className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition-colors duration-100 text-left cursor-pointer">
+                      Équipe
+                    </button>
+                  )}
+                  {(!teamRole || teamRole === 'admin') && (
+                    <button onClick={() => { setProfileOpen(false); navigate('/dashboard/abonnement') }}
+                      className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition-colors duration-100 text-left cursor-pointer">
+                      Abonnement
+                    </button>
+                  )}
+                  <div className="my-1.5 border-t" style={{ borderColor: theme.dark.border }} />
+                  <button onClick={() => { setProfileOpen(false); navigate('/dashboard/contact') }}
+                    className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition-colors duration-100 text-left cursor-pointer">
+                    Contactez-nous
+                  </button>
+                  <button onClick={() => { setProfileOpen(false); navigate('/dashboard/faq') }}
+                    className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition-colors duration-100 text-left cursor-pointer">
+                    FAQ
+                  </button>
+                  <div className="my-1.5 border-t" style={{ borderColor: theme.dark.border }} />
+                  <div className="flex items-center justify-between px-4 py-2 text-sm text-app-primary">
+                    Langue
+                    <span className="text-xs px-2 py-0.5 rounded-md" style={{ color: theme.dark.muted, background: theme.dark.cardAlt }}>Français</span>
+                  </div>
+                  <button
+                    onClick={() => { setProfileOpen(false); toggleTheme() }}
+                    className="w-full flex items-center justify-between px-4 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition-colors duration-100 text-left cursor-pointer"
+                  >
+                    Thème
+                    <span className="text-xs" style={{ color: theme.dark.muted }}>{currentTheme === 'dark' ? 'Sombre' : 'Clair'}</span>
+                  </button>
+                  <div className="my-1.5 border-t" style={{ borderColor: theme.dark.border }} />
+                  <button
+                    onClick={() => { setProfileOpen(false); handleLogout() }}
+                    className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-red-500/10 transition-colors duration-100 cursor-pointer"
+                  >
+                    Déconnexion
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </header>
         {showQuotaAlert && (!teamRole || teamRole === 'admin') && (

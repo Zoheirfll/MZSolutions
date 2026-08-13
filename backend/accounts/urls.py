@@ -4,6 +4,7 @@ from .views import (
     VerifyEmailView, ResendVerificationView,
     PasswordResetRequestView, PasswordResetConfirmView,
     GoogleRegisterView, GoogleLoginView,
+    ChangePasswordView, LoginHistoryView,
 )
 
 urlpatterns = [
@@ -11,6 +12,8 @@ urlpatterns = [
     path('login/', LoginView.as_view(), name='auth-login'),
     path('logout/', LogoutView.as_view(), name='auth-logout'),
     path('me/', MeView.as_view(), name='auth-me'),
+    path('change-password/', ChangePasswordView.as_view(), name='auth-change-password'),
+    path('login-history/', LoginHistoryView.as_view(), name='auth-login-history'),
     path('verify-email/', VerifyEmailView.as_view(), name='auth-verify-email'),
     path('resend-verification/', ResendVerificationView.as_view(), name='auth-resend'),
     path('password-reset/', PasswordResetRequestView.as_view(), name='auth-password-reset'),

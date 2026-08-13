@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import DashboardLayout from '../components/DashboardLayout'
 import Select from '../components/Select'
+import Toast from '../components/Toast'
 import api from '../api/axios'
 import { theme } from '../theme'
 import { WILAYAS } from '../data/wilayas'
@@ -130,6 +131,7 @@ function StatusToggle({ active, onChange }) {
 }
 
 export default function ParametresLivraisonPage() {
+  const [toast, setToast] = useState(null)
   const [tab, setTab]                   = useState('browse')
   const [carrierSearch, setCarrierSearch] = useState('')
   const [accounts, setAccounts]         = useState([])
@@ -207,9 +209,9 @@ export default function ParametresLivraisonPage() {
     try {
       const { data } = await api.post('/stores/me/wilaya-rates/sync/')
       fetchWilayaRates()
-      alert(`Tarifs mis à jour : ${data.updated} wilaya(s)${data.failed ? `, ${data.failed} indisponible(s)` : ''}.`)
+      setToast({ type: 'success', message: `Tarifs mis à jour : ${data.updated} wilaya(s)${data.failed ? `, ${data.failed} indisponible(s)` : ''}.` })
     } catch (err) {
-      alert(err?.response?.data?.detail || "Échec de la synchronisation — vérifiez qu'un transporteur par défaut actif est connecté.")
+      setToast({ type: 'error', message: err?.response?.data?.detail || "Échec de la synchronisation — vérifiez qu'un transporteur par défaut actif est connecté." })
     } finally { setSyncing(false) }
   }
 
@@ -257,9 +259,9 @@ export default function ParametresLivraisonPage() {
     try {
       const { data } = await api.post('/stores/me/commune-rates/sync/', { wilaya_name: communeWilaya.name })
       fetchCommuneRates(communeWilaya.id)
-      alert(`${data.updated} commune(s) mise(s) à jour.`)
+      setToast({ type: 'success', message: `${data.updated} commune(s) mise(s) à jour.` })
     } catch (err) {
-      alert(err?.response?.data?.detail || "Échec de la synchronisation — le transporteur par défaut ne fournit peut-être pas de tarifs par commune.")
+      setToast({ type: 'error', message: err?.response?.data?.detail || "Échec de la synchronisation — le transporteur par défaut ne fournit peut-être pas de tarifs par commune." })
     } finally { setSyncingCommunes(false) }
   }
 
@@ -706,6 +708,8 @@ export default function ParametresLivraisonPage() {
           </div>
         </div>
       )}
+
+      <Toast toast={toast} onClose={() => setToast(null)} />
     </DashboardLayout>
   )
 }

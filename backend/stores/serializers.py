@@ -11,14 +11,36 @@ class SubscriptionPlanSerializer(serializers.ModelSerializer):
 
 class PixelConfigSerializer(serializers.ModelSerializer):
     pixel_type_label = serializers.SerializerMethodField()
+    access_token               = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    access_token_masked        = serializers.SerializerMethodField()
+    ga_service_account_json        = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    ga_service_account_configured  = serializers.SerializerMethodField()
+    ga_api_secret        = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    ga_api_secret_masked = serializers.SerializerMethodField()
 
     class Meta:
         model  = PixelConfig
-        fields = ['id', 'pixel_type', 'pixel_type_label', 'pixel_id', 'label', 'is_active', 'created_at']
+        fields = ['id', 'pixel_type', 'pixel_type_label', 'pixel_id', 'label', 'is_active', 'created_at',
+                  'access_token', 'access_token_masked', 'domain_verification',
+                  'ga_view_id', 'ga_service_account_json', 'ga_service_account_configured',
+                  'ga_api_secret', 'ga_api_secret_masked']
         read_only_fields = ['id', 'created_at']
+
+    def get_ga_api_secret_masked(self, obj):
+        if not obj.ga_api_secret:
+            return ''
+        return '•' * max(0, len(obj.ga_api_secret) - 4) + obj.ga_api_secret[-4:]
 
     def get_pixel_type_label(self, obj):
         return dict(PIXEL_TYPE_CHOICES).get(obj.pixel_type, obj.pixel_type)
+
+    def get_access_token_masked(self, obj):
+        if not obj.access_token:
+            return ''
+        return '•' * max(0, len(obj.access_token) - 4) + obj.access_token[-4:]
+
+    def get_ga_service_account_configured(self, obj):
+        return bool(obj.ga_service_account_json)
 
 
 class SubscriptionQuotaSerializer(serializers.ModelSerializer):
@@ -34,12 +56,24 @@ class SubscriptionQuotaSerializer(serializers.ModelSerializer):
 
 
 class StoreSettingsSerializer(serializers.ModelSerializer):
+    sms_api_token        = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    sms_api_token_masked = serializers.SerializerMethodField()
+
     class Meta:
         model  = StoreSettings
         fields = ['low_stock_threshold', 'abandoned_cart_delay_hours',
                   'risk_threshold_orders', 'risk_period_days', 'insurance_fee',
                   'theme_template', 'theme_primary', 'theme_secondary', 'theme_font',
-                  'menu_items']
+                  'menu_items',
+                  'notify_duplicate_orders', 'notify_new_orders',
+                  'sms_notifications_enabled', 'order_confirmed_otp_enabled', 'sms_api_token', 'sms_api_token_masked',
+                  'deduct_stock_on_order_create', 'free_shipping_if_product_free_shipping',
+                  'max_order_amount', 'max_order_quantity', 'order_prefix', 'order_suffix']
+
+    def get_sms_api_token_masked(self, obj):
+        if not obj.sms_api_token:
+            return ''
+        return '•' * max(0, len(obj.sms_api_token) - 4) + obj.sms_api_token[-4:]
 
 
 class StorePageSerializer(serializers.ModelSerializer):
@@ -79,7 +113,8 @@ class StoreSerializer(serializers.ModelSerializer):
     class Meta:
         model = Store
         fields = ['id', 'name', 'slug', 'description', 'phone', 'email', 'logo',
-                  'meta_title', 'meta_description', 'is_active', 'created_at', 'quota']
+                  'meta_title', 'meta_description', 'facebook_url', 'instagram_url', 'twitter_url', 'tiktok_url',
+                  'currency', 'currency_symbol', 'is_active', 'created_at', 'quota']
         read_only_fields = ['id', 'created_at', 'quota']
 
     def validate_slug(self, value):

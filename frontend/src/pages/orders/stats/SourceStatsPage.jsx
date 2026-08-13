@@ -60,11 +60,13 @@ export default function SourceStatsPage() {
                   <th className="px-4 py-3 font-medium">COMMANDES</th>
                   <th className="px-4 py-3 font-medium">CONFIRMÉES</th>
                   <th className="px-4 py-3 font-medium">REVENU</th>
+                  <th className="px-4 py-3 font-medium">MEILLEUR PRODUIT</th>
+                  <th className="px-4 py-3 font-medium">MEILLEURE WILAYA</th>
                 </tr>
               </thead>
               <tbody>
                 {results.length === 0 ? (
-                  <tr><td colSpan={4} className="px-4 py-10 text-center text-sm text-app-muted">—</td></tr>
+                  <tr><td colSpan={6} className="px-4 py-10 text-center text-sm text-app-muted">—</td></tr>
                 ) : results.map(r => (
                   <tr key={r.source} className="border-b hover:bg-violet-500/5 transition" style={{ borderColor: theme.dark.borderRowHover }}>
                     <td className="px-4 py-3 text-app-primary">{r.source}</td>
@@ -76,6 +78,8 @@ export default function SourceStatsPage() {
                     </td>
                     <td className="px-4 py-3"><span className={theme.badge.success}>{r.confirmed_count}</span></td>
                     <td className="px-4 py-3 text-app-primary">{money(r.revenue)}</td>
+                    <td className="px-4 py-3 text-app-muted-light max-w-40 truncate" title={r.best_product}>{r.best_product}</td>
+                    <td className="px-4 py-3 text-app-muted-light">{r.best_wilaya}</td>
                   </tr>
                 ))}
               </tbody>

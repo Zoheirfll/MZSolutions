@@ -133,6 +133,37 @@ class CarrierAccount(models.Model):
         return f"{self.get_carrier_display()} — {self.store.name}"
 
 
+DISPATCH_MATCH_TYPE_CHOICES = [
+    ('product', 'Par produit'),
+    ('wilaya',  'Par wilaya'),
+]
+
+
+class DispatchRule(models.Model):
+    """Règle de dispatch automatique (équivalent RiseCart "Dispatch Commandes")
+    — à la création d'une commande dont un article correspond à `match_value`
+    (match_type='product', recherche insensible à la casse dans le nom de
+    l'article) ou dont la wilaya correspond exactement (match_type='wilaya'),
+    le confirmateur et/ou le transporteur ciblés sont utilisés directement à
+    la place du round-robin/transporteur par défaut. Voir
+    `orders.utils.dispatch_confirmateur_for_order` et
+    `orders.views._dispatch_carrier_for_order`. Au moins un des deux champs
+    cible doit être renseigné (validé côté vue)."""
+    store        = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='dispatch_rules')
+    match_type   = models.CharField(max_length=10, choices=DISPATCH_MATCH_TYPE_CHOICES)
+    match_value  = models.CharField(max_length=100, help_text="Nom de produit (recherche partielle) ou nom de wilaya exact selon match_type")
+    confirmateur = models.ForeignKey('team.TeamMember', null=True, blank=True, on_delete=models.SET_NULL, related_name='dispatch_rules')
+    carrier      = models.ForeignKey(CarrierAccount, null=True, blank=True, on_delete=models.SET_NULL, related_name='dispatch_rules')
+    is_active    = models.BooleanField(default=True)
+    created_at   = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['id']
+
+    def __str__(self):
+        return f"{self.get_match_type_display()} — {self.match_value}"
+
+
 class WilayaRate(models.Model):
     """Grille tarifaire de livraison **saisie/figée par le vendeur**, par
     wilaya — distincte du tarif transporteur en temps réel (`get_rates()`,
@@ -200,6 +231,9 @@ class Order(models.Model):
     prepared_at         = models.DateTimeField(null=True, blank=True, help_text="Renseigné quand le colis a été physiquement préparé/emballé, avant remise au transporteur")
     return_validated_at = models.DateTimeField(null=True, blank=True, help_text="Renseigné quand le vendeur confirme avoir physiquement reçu et vérifié un colis retourné")
     restocked_at        = models.DateTimeField(null=True, blank=True, help_text="Renseigné dès que les articles de cette commande ont été remis en stock (retour validé ou annulation) — garde d'idempotence, évite un double restockage")
+    stock_deducted_at   = models.DateTimeField(null=True, blank=True, help_text="Renseigné dès que le stock a été décrémenté pour cette commande — garde d'idempotence quand StoreSettings.deduct_stock_on_order_create est désactivé (déduction différée à la confirmation)")
+    payment_collected_at     = models.DateTimeField(null=True, blank=True, help_text="Renseigné quand le vendeur pointe avoir reçu le versement COD du transporteur pour cette commande livrée (page Paiements — « Paiement récupéré »)")
+    payment_collected_amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, help_text="Montant effectivement reçu du transporteur — peut différer de `total` (écart de versement), sert la vérification de cohérence")
     total         = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     promo_code       = models.CharField(max_length=30, blank=True)
     discount_amount  = models.DecimalField(max_digits=12, decimal_places=2, default=0)

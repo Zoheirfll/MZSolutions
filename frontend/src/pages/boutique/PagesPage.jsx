@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import DashboardLayout from '../../components/DashboardLayout'
+import Toast from '../../components/Toast'
 import api from '../../api/axios'
 import { theme } from '../../theme'
 import { useAuth } from '../../context/AuthContext'
@@ -18,6 +19,7 @@ export default function PagesPage() {
   const [pages,   setPages]   = useState([])
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState(null)
+  const [toast, setToast] = useState(null)
 
   const load = () => {
     setLoading(true)
@@ -32,7 +34,7 @@ export default function PagesPage() {
     try {
       const { data } = await api.delete(`/stores/pages/${id}/`)
       if (data?.menu_links_removed) {
-        alert(`Page supprimée. ${data.menu_links_removed} lien(s) pointant vers cette page ont aussi été retirés du menu de la boutique.`)
+        setToast({ type: 'info', message: `Page supprimée. ${data.menu_links_removed} lien(s) pointant vers cette page ont aussi été retirés du menu de la boutique.` })
       }
     } catch {}
     setDeleting(null)
@@ -121,6 +123,7 @@ export default function PagesPage() {
           </tbody>
         </table>
       </div>
+      <Toast toast={toast} onClose={() => setToast(null)} />
     </DashboardLayout>
   )
 }

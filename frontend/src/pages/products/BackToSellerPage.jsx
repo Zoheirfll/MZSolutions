@@ -78,19 +78,22 @@ export default function BackToSellerPage() {
               <tr><td colSpan={7}>
                 <EmptyState title="Aucun retour" description="Aucune marchandise remise en stock pour ces filtres." />
               </td></tr>
-            ) : data.results.map(m => (
-              <tr key={m.id} className="border-b last:border-0 hover:bg-violet-500/5 transition" style={{ borderColor: theme.dark.borderRowHover }}>
-                <td className="px-4 py-3 text-app-primary font-medium">{m.product_name}</td>
-                <td className="px-4 py-3 text-app-muted-light">
-                  {m.option_value ? `${m.option_group ? m.option_group + ' — ' : ''}${m.option_value}` : '—'}
-                </td>
-                <td className="px-4 py-3 font-semibold text-emerald-400">+{m.quantity}</td>
-                <td className="px-4 py-3 text-app-muted-light">{m.stock_before ?? '—'}</td>
-                <td className="px-4 py-3 text-app-primary">{m.stock_after ?? '—'}</td>
-                <td className="px-4 py-3"><span className={theme.badge.info}>{m.reason_label}</span></td>
-                <td className="px-4 py-3 text-app-muted text-xs">{new Date(m.created_at).toLocaleString('fr-DZ')}</td>
-              </tr>
-            ))}
+            ) : data.results.map(m => {
+              const line = m.lines?.[0]
+              return (
+                <tr key={m.id} className="border-b last:border-0 hover:bg-violet-500/5 transition" style={{ borderColor: theme.dark.borderRowHover }}>
+                  <td className="px-4 py-3 text-app-primary font-medium">{m.product_name}</td>
+                  <td className="px-4 py-3 text-app-muted-light">
+                    {line?.option_value ? `${line.option_group ? line.option_group + ' — ' : ''}${line.option_value}` : '—'}
+                  </td>
+                  <td className="px-4 py-3 font-semibold text-emerald-400">+{m.total_changes}</td>
+                  <td className="px-4 py-3 text-app-muted-light">{m.stock_before ?? '—'}</td>
+                  <td className="px-4 py-3 text-app-primary">{m.stock_after ?? '—'}</td>
+                  <td className="px-4 py-3"><span className={theme.badge.info}>{m.reason_label}</span></td>
+                  <td className="px-4 py-3 text-app-muted text-xs">{new Date(m.created_at).toLocaleString('fr-DZ')}</td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>

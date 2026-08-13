@@ -4,6 +4,7 @@ import DashboardLayout from '../../components/DashboardLayout'
 import Select from '../../components/Select'
 import api from '../../api/axios'
 import { theme } from '../../theme'
+import TrackingBadge from '../../components/TrackingBadge'
 
 const PER_PAGE_OPTIONS = [10, 25, 50]
 
@@ -119,7 +120,7 @@ export default function CancellationsPage({ mode }) {
 
   const orders     = data.results || []
   const totalPages = Math.max(1, Math.ceil(data.count / perPage))
-  const colCount   = isRequests ? 9 : 8
+  const colCount   = isRequests ? 10 : 9
 
   return (
     <DashboardLayout title={isRequests ? "Demande d'annulation" : 'Annulation confirmée'} subtitle="Cette page regroupe tout ce qui touche aux annulations de commande : d'un côté les demandes d'annulation qui attendent votre décision, de l'autre l'historique des commandes déjà annulées définitivement. Basculez entre les deux onglets selon ce que vous cherchez.">
@@ -145,6 +146,7 @@ export default function CancellationsPage({ mode }) {
               <th className="px-4 py-3 font-medium">COMMUNE</th>
               <th className="px-4 py-3 font-medium">PRIX TOTAL</th>
               <th className="px-4 py-3 font-medium">MOTIF</th>
+              <th className="px-4 py-3 font-medium">SUIVI</th>
               <th className="px-4 py-3 font-medium">DATE</th>
               {isRequests && <th className="px-4 py-3 font-medium">ACTIONS</th>}
             </tr>
@@ -183,6 +185,9 @@ export default function CancellationsPage({ mode }) {
                 <td className="px-4 py-3 text-app-muted-light">{o.commune || '—'}</td>
                 <td className="px-4 py-3 text-app-primary font-semibold">{Number(o.total).toLocaleString('fr-DZ')} DZD</td>
                 <td className="px-4 py-3 text-app-muted-light max-w-48 truncate" title={o.cancellation_note}>{o.cancellation_note || '—'}</td>
+                <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                  <TrackingBadge trackingNumber={o.carrier_tracking_number} carrierLabel={o.carrier_label} />
+                </td>
                 <td className="px-4 py-3 text-app-muted text-xs">
                   {new Date(o.created_at).toLocaleDateString('fr-DZ')}
                 </td>

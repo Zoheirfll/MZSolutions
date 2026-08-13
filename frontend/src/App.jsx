@@ -5,6 +5,9 @@ import PrivateRoute from './components/PrivateRoute'
 import Auth from './pages/Auth'
 import Dashboard from './pages/Dashboard'
 import StorePage from './pages/StorePage'
+import FaqPage from './pages/FaqPage'
+import ContactPage from './pages/ContactPage'
+import ParametresPage from './pages/ParametresPage'
 import ComingSoon from './pages/ComingSoon'
 import TeamPage from './pages/TeamPage'
 import PermissionsPage from './pages/PermissionsPage'
@@ -31,6 +34,9 @@ import AutoPromotionsPage from './pages/products/AutoPromotionsPage'
 import OrdersPage from './pages/orders/OrdersPage'
 import OrderFormPage from './pages/orders/OrderFormPage'
 import ScheduledOrdersPage from './pages/orders/ScheduledOrdersPage'
+import DispatchByConfirmateurPage from './pages/orders/DispatchByConfirmateurPage'
+import DispatchByCarrierPage from './pages/orders/DispatchByCarrierPage'
+import DispatchByWilayaPage from './pages/orders/DispatchByWilayaPage'
 import CancellationsPage from './pages/orders/CancellationsPage'
 import ShipmentsPage from './pages/orders/ShipmentsPage'
 import LabelsPage from './pages/orders/LabelsPage'
@@ -73,6 +79,9 @@ import ProductsStatsPage from './pages/orders/stats/ProductsStatsPage'
 import WilayaStatsPage from './pages/orders/stats/WilayaStatsPage'
 import SourceStatsPage from './pages/orders/stats/SourceStatsPage'
 import ProfitabilityPage from './pages/finance/ProfitabilityPage'
+import PaymentReadyPage from './pages/finance/PaymentReadyPage'
+import PaymentCollectedPage from './pages/finance/PaymentCollectedPage'
+import PaymentsExcelUploadPage from './pages/finance/PaymentsExcelUploadPage'
 
 function PD({ children }) {
   return <PrivateRoute>{children}</PrivateRoute>
@@ -100,6 +109,9 @@ function App() {
 
           <Route path="/dashboard"                           element={<PD><Dashboard /></PD>} />
           <Route path="/dashboard/boutique"                  element={<PD><StorePage /></PD>} />
+          <Route path="/dashboard/parametres"                element={<PD><ParametresPage /></PD>} />
+          <Route path="/dashboard/faq"                       element={<PD><FaqPage /></PD>} />
+          <Route path="/dashboard/contact"                   element={<PD><ContactPage /></PD>} />
           <Route path="/dashboard/boutique/theme"            element={<PD><ThemePage /></PD>} />
           <Route path="/dashboard/boutique/pages"            element={<PD><PagesPage /></PD>} />
           <Route path="/dashboard/boutique/pages/nouvelle"   element={<PD><PageFormPage /></PD>} />
@@ -123,6 +135,9 @@ function App() {
           <Route path="/dashboard/commandes"                 element={<PD><OrdersPage /></PD>} />
           <Route path="/dashboard/commandes/nouvelle"                    element={<PD><OrderFormPage /></PD>} />
           <Route path="/dashboard/commandes/programmees"                 element={<PD><ScheduledOrdersPage /></PD>} />
+          <Route path="/dashboard/dispatch/confirmateur"                 element={<PD><DispatchByConfirmateurPage /></PD>} />
+          <Route path="/dashboard/dispatch/transporteur"                 element={<PD><DispatchByCarrierPage /></PD>} />
+          <Route path="/dashboard/dispatch/wilaya"                       element={<PD><DispatchByWilayaPage /></PD>} />
           <Route path="/dashboard/commandes/raisons-echec"                element={<PD><FailureReasonsPage /></PD>} />
           <Route path="/dashboard/commandes/taux-confirmation"           element={<PD><ConfirmationRatePage /></PD>} />
           <Route path="/dashboard/commandes/:id"                         element={<PD><OrderDetailPage /></PD>} />
@@ -143,6 +158,9 @@ function App() {
           <Route path="/dashboard/mes-commissions"            element={<PD><DropshipperMyEarningsPage /></PD>} />
           <Route path="/dashboard/finances/couts"             element={<PD><CostsPage /></PD>} />
           <Route path="/dashboard/finances/rentabilite"       element={<PD><ProfitabilityPage /></PD>} />
+          <Route path="/dashboard/paiements/pret"             element={<PD><PaymentReadyPage /></PD>} />
+          <Route path="/dashboard/paiements/recupere"         element={<PD><PaymentCollectedPage /></PD>} />
+          <Route path="/dashboard/paiements/import-excel"     element={<PD><PaymentsExcelUploadPage /></PD>} />
           <Route path="/dashboard/canaux-vente"               element={<PD><SalesChannelsPage /></PD>} />
           <Route path="/dashboard/marketing"                  element={<PD><MarketingPixelsPage /></PD>} />
           <Route path="/dashboard/webhooks"                   element={<PD><WebhooksPage /></PD>} />

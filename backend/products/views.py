@@ -188,7 +188,8 @@ class ProductDetailView(APIView):
                               context={'request': request, 'store': store})
         s.is_valid(raise_exception=True)
         s.save()
-        log_stock_change_if_needed(store, p, None, stock_before, p.stock, note='Modification fiche produit')
+        log_stock_change_if_needed(store, p, None, stock_before, p.stock, note='Modification fiche produit',
+                                    batch_id=request.headers.get('X-Stock-Batch-Id') or None)
         return Response(s.data)
 
     def delete(self, request, pk):
@@ -370,7 +371,8 @@ class VariantOptionDetailView(APIView):
         s = VariantOptionSerializer(opt, data=request.data, partial=True, context={'request': request})
         s.is_valid(raise_exception=True)
         s.save()
-        log_stock_change_if_needed(store, opt.variant.product, opt, stock_before, opt.stock, note='Modification fiche produit')
+        log_stock_change_if_needed(store, opt.variant.product, opt, stock_before, opt.stock, note='Modification fiche produit',
+                                    batch_id=request.headers.get('X-Stock-Batch-Id') or None)
         return Response(s.data)
 
     def delete(self, request, pk, vid, oid):
@@ -572,10 +574,53 @@ class StockMovementListView(APIView):
         if date_to:
             qs = qs.filter(created_at__date__lte=date_to)
 
+        # Regroupe les mouvements partageant un `batch_id` (plusieurs variantes
+        # modifiées en une seule sauvegarde produit) en une seule ligne — un
+        # mouvement isolé (batch_id vide, ex: vente/retour de commande) reste
+        # sa propre ligne. Nécessite de charger toute la période filtrée en
+        # Python (comme ProductsStatsView) : le regroupement/tri par batch
+        # n'est pas exprimable en pagination SQL simple.
+        groups = {}
+        order = []
+        for m in qs.order_by('-created_at'):
+            key = str(m.batch_id) if m.batch_id else f"single-{m.id}"
+            if key not in groups:
+                groups[key] = []
+                order.append(key)
+            groups[key].append(m)
+
+        results = []
+        for key in order:
+            lines = groups[key]
+            first = lines[0]
+            total_before = sum(l.stock_before or 0 for l in lines)
+            total_after  = sum(l.stock_after or 0 for l in lines)
+            results.append({
+                'id':            key,
+                'batched':       len(lines) > 1,
+                'product':       first.product_id,
+                'product_name':  first.product.name,
+                'reason':        first.reason,
+                'reason_label':  first.get_reason_display(),
+                'note':          first.note,
+                'created_at':    first.created_at,
+                'total_changes': total_after - total_before,
+                'stock_before':  total_before,
+                'stock_after':   total_after,
+                'lines': [{
+                    'id':             l.id,
+                    'option_group':   l.variant_option.variant.name if l.variant_option else None,
+                    'option_value':   l.variant_option.value if l.variant_option else None,
+                    'quantity':       l.quantity,
+                    'stock_before':   l.stock_before,
+                    'stock_after':    l.stock_after,
+                } for l in lines],
+            })
+
         page, per_page = parse_pagination(request, default_per_page=20)
-        total = qs.count()
-        qs = qs[(page - 1) * per_page: page * per_page]
-        return Response({'count': total, 'page': page, 'per_page': per_page, 'results': StockMovementSerializer(qs, many=True).data})
+        total = len(results)
+        results = results[(page - 1) * per_page: page * per_page]
+        return Response({'count': total, 'page': page, 'per_page': per_page, 'results': results})
 
 
 # ─── Suppliers ───────────────────────────────────────────────────────────────

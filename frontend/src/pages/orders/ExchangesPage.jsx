@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import DashboardLayout from '../../components/DashboardLayout'
 import api from '../../api/axios'
 import { theme } from '../../theme'
+import TrackingBadge from '../../components/TrackingBadge'
 
 const FILTERS = [
   { label: 'Toutes',    value: '' },
@@ -106,14 +107,15 @@ export default function ExchangesPage() {
               <th className="px-4 py-3 font-medium">VARIANTE DEMANDÉE</th>
               <th className="px-4 py-3 font-medium">MOTIF</th>
               <th className="px-4 py-3 font-medium">STATUT</th>
+              <th className="px-4 py-3 font-medium">SUIVI</th>
               <th className="px-4 py-3 font-medium">DÉPOSÉE LE</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={7}><Spinner /></td></tr>
+              <tr><td colSpan={8}><Spinner /></td></tr>
             ) : data.results.length === 0 ? (
-              <tr><td colSpan={7}>
+              <tr><td colSpan={8}>
                 <EmptyState icon={<ExchangeIcon />} title="Aucune demande d'échange" subtitle="Les demandes d'échange déposées par vos clients apparaîtront ici." />
               </td></tr>
             ) : data.results.map(e => (
@@ -135,6 +137,9 @@ export default function ExchangesPage() {
                       </span>
                     )}
                   </div>
+                </td>
+                <td className="px-4 py-3" onClick={ev => ev.stopPropagation()}>
+                  <TrackingBadge trackingNumber={e.carrier_tracking_number} carrierLabel={e.carrier_label} />
                 </td>
                 <td className="px-4 py-3 text-app-muted text-xs">{new Date(e.created_at).toLocaleString('fr-DZ')}</td>
               </tr>

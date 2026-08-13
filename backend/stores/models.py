@@ -20,6 +20,12 @@ class Store(models.Model):
                               validators=[validate_image_extension, validate_image_size])
     meta_title       = models.CharField(max_length=70, blank=True, help_text="Balise <title> de la page d'accueil publique — retombe sur le nom de la boutique si vide")
     meta_description = models.CharField(max_length=160, blank=True, help_text="Balise <meta name=\"description\"> de la page d'accueil — retombe sur la description si vide")
+    facebook_url  = models.URLField(blank=True)
+    instagram_url = models.URLField(blank=True)
+    twitter_url   = models.URLField(blank=True)
+    tiktok_url    = models.URLField(blank=True)
+    currency        = models.CharField(max_length=3, default='DZD')
+    currency_symbol = models.CharField(max_length=5, default='DA')
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -99,6 +105,19 @@ class StoreSettings(models.Model):
     theme_font      = models.CharField(max_length=20, choices=FONT_CHOICES, default='inter')
     menu_items      = models.JSONField(default=list)
 
+    # Onglet "Général" (Paramètres, aligné sur RiseCart)
+    notify_duplicate_orders = models.BooleanField(default=True, help_text="Notifie (webhook order.duplicate_detected) quand une commande arrive avec un téléphone déjà présent récemment")
+    notify_new_orders       = models.BooleanField(default=True, help_text="Affiche le badge/compteur de nouvelles commandes dans le tableau de bord")
+    sms_notifications_enabled  = models.BooleanField(default=False, help_text="Désactivé tant qu'aucun fournisseur SMS n'est configuré (TBD)")
+    order_confirmed_otp_enabled = models.BooleanField(default=False, help_text="Désactivé tant qu'aucun fournisseur SMS n'est configuré (TBD)")
+    sms_api_token = models.CharField(max_length=200, blank=True, help_text="Jeton du futur fournisseur SMS — stocké pour quand l'intégration sera branchée")
+    deduct_stock_on_order_create = models.BooleanField(default=True, help_text="Si désactivé, le stock n'est décrémenté qu'à la confirmation de la commande plutôt qu'à sa création")
+    free_shipping_if_product_free_shipping = models.BooleanField(default=False, help_text="Livraison offerte sur tout le panier si au moins un article a Product.free_shipping=True")
+    max_order_amount   = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, help_text="Montant maximum accepté pour une commande sur la boutique publique (vide = pas de limite)")
+    max_order_quantity = models.PositiveIntegerField(null=True, blank=True, help_text="Quantité totale maximum d'articles pour une commande sur la boutique publique (vide = pas de limite)")
+    order_prefix = models.CharField(max_length=20, blank=True)
+    order_suffix = models.CharField(max_length=20, blank=True)
+
     def __str__(self):
         return f"Settings {self.store.name}"
 
@@ -120,9 +139,18 @@ class PixelConfig(models.Model):
     aucun identifiant à saisir."""
     store      = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='pixels')
     pixel_type = models.CharField(max_length=30, choices=PIXEL_TYPE_CHOICES)
-    pixel_id   = models.CharField(max_length=150)
+    pixel_id   = models.CharField(max_length=150, help_text="Identifiant du pixel (Facebook/TikTok) ou ID de mesure GA4 (G-XXXXXXXXXX)")
     label      = models.CharField(max_length=100, blank=True)
     is_active  = models.BooleanField(default=True)
+    # Facebook/TikTok — Conversions/Events API (envoi serveur, en plus du
+    # script client déjà injecté par lib/pixels.js) : plus fiable que le seul
+    # tracking navigateur (bloqueurs de pub, Safari ITP...).
+    access_token        = models.CharField(max_length=500, blank=True, help_text="Jeton d'accès Conversions API (Facebook) / Events API (TikTok) — envoi d'évènements serveur, en plus du script client")
+    domain_verification = models.CharField(max_length=200, blank=True, help_text="Balise meta de vérification de domaine Facebook Business (facebook-domain-verification)")
+    # Google Analytics 4
+    ga_view_id               = models.CharField(max_length=100, blank=True, help_text="Identifiant de propriété/vue GA4")
+    ga_service_account_json  = models.TextField(blank=True, help_text="JSON du compte de service Google (API Analytics Admin/Data, lecture de rapports) — non utilisé pour l'instant, stocké pour une future intégration")
+    ga_api_secret             = models.CharField(max_length=200, blank=True, help_text="Secret API du Measurement Protocol GA4 (Admin GA4 → Flux de données → Measurement Protocol) — utilisé pour l'envoi réel de l'évènement purchase")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

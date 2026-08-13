@@ -91,6 +91,55 @@ def order_channel(order):
     return "Vente manuelle"
 
 
+def _matching_dispatch_rule(order, field):
+    """Première règle active correspondant à cette commande (produit d'abord,
+    puis wilaya), avec `field` ('confirmateur' ou 'carrier') renseigné. None
+    si aucune règle ne matche — l'appelant retombe sur le comportement par
+    défaut (round-robin / transporteur par défaut)."""
+    from .models import DispatchRule
+    rules = (DispatchRule.objects
+             .filter(store=order.store, is_active=True)
+             .exclude(**{f'{field}__isnull': True})
+             .select_related(field))
+    product_rules = [r for r in rules if r.match_type == 'product']
+    wilaya_rules  = [r for r in rules if r.match_type == 'wilaya']
+
+    if product_rules:
+        item_names = [i.product_name.lower() for i in order.items.all()]
+        for rule in product_rules:
+            needle = rule.match_value.lower().strip()
+            if any(needle in name for name in item_names):
+                return getattr(rule, field)
+
+    if wilaya_rules and order.wilaya:
+        for rule in wilaya_rules:
+            if rule.match_value.strip().lower() == order.wilaya.strip().lower():
+                return getattr(rule, field)
+
+    return None
+
+
+def dispatch_confirmateur_for_order(order):
+    """Assigne un confirmateur — priorité à une règle de dispatch active
+    (produit puis wilaya) correspondant à la commande, sinon round-robin
+    classique (comportement inchangé)."""
+    from .models import OrderAssignment
+    confirmateur = _matching_dispatch_rule(order, 'confirmateur')
+    if confirmateur and confirmateur.is_active:
+        return OrderAssignment.objects.create(order=order, confirmateur=confirmateur, assigned_by=None)
+    return assign_order_round_robin(order)
+
+
+def dispatch_carrier_for_order(order, default_account):
+    """Transporteur à utiliser pour l'expédition — priorité à une règle de
+    dispatch active correspondant à la commande, sinon `default_account`
+    (transporteur par défaut de la boutique, comportement inchangé)."""
+    carrier = _matching_dispatch_rule(order, 'carrier')
+    if carrier and carrier.is_active:
+        return carrier
+    return default_account
+
+
 def assign_order_round_robin(order):
     from team.models import TeamMember
     from .models import OrderAssignment

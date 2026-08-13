@@ -18,7 +18,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import User, EmailVerificationCode
+from .models import User, EmailVerificationCode, LoginHistory
 from .serializers import RegisterSerializer, LoginSerializer, UserSerializer, get_tokens
 from stores.models import Store, SubscriptionQuota
 
@@ -123,6 +123,21 @@ class ResendVerificationView(APIView):
         return Response({'detail': 'Code renvoyé.'})
 
 
+def _client_ip(request):
+    forwarded = request.META.get('HTTP_X_FORWARDED_FOR')
+    if forwarded:
+        return forwarded.split(',')[0].strip()
+    return request.META.get('REMOTE_ADDR')
+
+
+def _log_login_event(user, request, event_status):
+    LoginHistory.objects.create(
+        user=user, status=event_status,
+        ip_address=_client_ip(request),
+        user_agent=request.META.get('HTTP_USER_AGENT', '')[:255],
+    )
+
+
 class LoginView(APIView):
     permission_classes = [AllowAny]
     throttle_scope = 'login'
@@ -140,6 +155,7 @@ class LoginView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         user = serializer.validated_data['user']
+        _log_login_event(user, request, 'login')
         return Response({
             'user': UserSerializer(user).data,
             **get_tokens(user),
@@ -152,6 +168,49 @@ class MeView(APIView):
     def get(self, request):
         return Response(UserSerializer(request.user).data)
 
+    def put(self, request):
+        s = UserSerializer(request.user, data=request.data, partial=True)
+        s.is_valid(raise_exception=True)
+        s.save()
+        return Response(s.data)
+
+
+class ChangePasswordView(APIView):
+    """Changement de mot de passe depuis la page Paramètres (connu de l'utilisateur,
+    différent du flux "mot de passe oublié" qui repose sur un lien email)."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        current = request.data.get('current_password', '')
+        new = request.data.get('new_password', '')
+        if not request.user.check_password(current):
+            return Response({'detail': 'Mot de passe actuel incorrect.'}, status=400)
+        try:
+            validate_password(new, user=request.user)
+        except DjangoValidationError as e:
+            return Response({'detail': ' '.join(e.messages)}, status=400)
+        request.user.set_password(new)
+        request.user.save(update_fields=['password'])
+        return Response({'detail': 'Mot de passe mis à jour.'})
+
+
+class LoginHistoryView(APIView):
+    """Historique de connexion réel de l'utilisateur courant (page Paramètres
+    → onglet "Historique de connexion récent") — jamais de données simulées."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from core.pagination import parse_pagination
+        qs = request.user.login_history.all()
+        page, per_page = parse_pagination(request, default_per_page=10)
+        count = qs.count()
+        qs = qs[(page - 1) * per_page: page * per_page]
+        results = [{
+            'id': h.id, 'ip_address': h.ip_address, 'user_agent': h.user_agent,
+            'status': h.status, 'created_at': h.created_at,
+        } for h in qs]
+        return Response({'count': count, 'page': page, 'per_page': per_page, 'results': results})
+
 
 class LogoutView(APIView):
     """Blackliste le refresh token courant (Epic 8.6) — sans ça, un refresh
@@ -162,6 +221,7 @@ class LogoutView(APIView):
     def post(self, request):
         from rest_framework_simplejwt.tokens import RefreshToken
         from rest_framework_simplejwt.exceptions import TokenError
+        _log_login_event(request.user, request, 'logout')
         refresh = request.data.get('refresh')
         if refresh:
             try:

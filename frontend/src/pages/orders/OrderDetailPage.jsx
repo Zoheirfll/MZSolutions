@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import DashboardLayout from '../../components/DashboardLayout'
 import StatusBadge from '../../components/StatusBadge'
 import Select from '../../components/Select'
+import DeskMapPreview from '../../components/DeskMapPreview'
 import api from '../../api/axios'
 import { theme } from '../../theme'
 import { useAuth } from '../../context/AuthContext'
@@ -746,6 +747,10 @@ export default function OrderDetailPage() {
                       className={inputCls}
                       style={{ ...bdrStyle, background: theme.dark.sidebar }}
                     />
+                    {editStationCode && (() => {
+                      const desk = editDesks.find(d => String(d.code) === String(editStationCode))
+                      return desk ? <DeskMapPreview name={desk.name} address={desk.address} wilaya={editWilaya} /> : null
+                    })()}
                   </div>
                 )}
                 <div className="sm:col-span-2">

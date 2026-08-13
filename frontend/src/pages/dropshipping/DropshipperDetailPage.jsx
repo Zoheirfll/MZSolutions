@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import DashboardLayout from '../../components/DashboardLayout'
 import Select from '../../components/Select'
+import Toast from '../../components/Toast'
 import api from '../../api/axios'
 import { theme } from '../../theme'
 
@@ -116,6 +117,7 @@ export default function DropshipperDetailPage() {
   const [payNote, setPayNote]         = useState('')
   const [entriesPage, setEntriesPage]   = useState(1)
   const [paymentsPage, setPaymentsPage] = useState(1)
+  const [toast, setToast] = useState(null)
 
   const fetchAll = () => {
     setLoading(true)
@@ -141,7 +143,7 @@ export default function DropshipperDetailPage() {
       setPaymentsPage(1)
       fetchAll()
     } catch (err) {
-      alert(err.response?.data?.detail || 'Erreur lors du paiement.')
+      setToast({ type: 'error', message: err.response?.data?.detail || 'Erreur lors du paiement.' })
     } finally {
       setPaying(false)
     }
@@ -289,6 +291,7 @@ export default function DropshipperDetailPage() {
           <button onClick={() => setPaymentsPage(p => Math.min(paymentsTotalPages, p + 1))} disabled={paymentsPage >= paymentsTotalPages} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">Suivant →</button>
         </div>
       )}
+      <Toast toast={toast} onClose={() => setToast(null)} />
     </DashboardLayout>
   )
 }

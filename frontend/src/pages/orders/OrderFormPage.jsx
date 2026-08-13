@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import DashboardLayout from '../../components/DashboardLayout'
 import Select from '../../components/Select'
+import DeskMapPreview from '../../components/DeskMapPreview'
 import api from '../../api/axios'
 import { theme } from '../../theme'
 import { WILAYAS, getWilayaIdByName } from '../../data/wilayas'
@@ -108,9 +109,7 @@ export default function OrderFormPage() {
   useEffect(() => {
     setStationCode('')
     if (!stopDesk || !selectedCarrierId || !client.wilaya) { setDesks([]); return }
-    const wid = getWilayaIdByName(client.wilaya)
-    if (!wid) { setDesks([]); return }
-    api.get(`/stores/me/carriers/${selectedCarrierId}/desks/?wilaya=${wid}`)
+    api.get(`/stores/me/carriers/${selectedCarrierId}/desks/?wilaya=${encodeURIComponent(client.wilaya)}`)
       .then(({ data }) => setDesks(data || []))
       .catch(() => setDesks([]))
   }, [stopDesk, selectedCarrierId, client.wilaya])
@@ -481,11 +480,15 @@ export default function OrderFormPage() {
                     <Select
                       value={stationCode}
                       onChange={setStationCode}
-                      options={desks.map(d => ({ value: d.code, label: d.name }))}
+                      options={desks.map(d => ({ value: d.code, label: `${d.name} — ${d.address}` }))}
                       placeholder="Choisissez un point relais"
                       className={inputCls}
                       style={{ ...bdrStyle, background: theme.dark.sidebar }}
                     />
+                    {stationCode && (() => {
+                      const desk = desks.find(d => String(d.code) === String(stationCode))
+                      return desk ? <DeskMapPreview name={desk.name} address={desk.address} wilaya={client.wilaya} /> : null
+                    })()}
                   </div>
                 )}
                 {stopDesk && selectedCarrierId && desks.length === 0 && (

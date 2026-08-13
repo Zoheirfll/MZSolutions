@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import DashboardLayout from '../components/DashboardLayout'
 import Select from '../components/Select'
+import Toast from '../components/Toast'
 import api from '../api/axios'
 import { theme } from '../theme'
 import { WILAYAS } from '../data/wilayas'
@@ -177,6 +178,7 @@ function MemberPermissionsModal({ member, onClose }) {
   const [catalog, setCatalog] = useState([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving]   = useState(null)
+  const [toast, setToast]     = useState(null)
 
   const fetchCatalog = () => {
     setLoading(true)
@@ -196,7 +198,7 @@ function MemberPermissionsModal({ member, onClose }) {
       fetchCatalog()
     } catch (err) {
       setCatalog(c => c.map(e => e.key === key ? { ...e, enabled: current } : e))
-      alert(err.response?.data?.detail || 'Erreur lors de la mise à jour.')
+      setToast({ type: 'error', message: err.response?.data?.detail || 'Erreur lors de la mise à jour.' })
     } finally {
       setSaving(null)
     }
@@ -247,6 +249,7 @@ function MemberPermissionsModal({ member, onClose }) {
           </div>
         )}
       </div>
+      <Toast toast={toast} onClose={() => setToast(null)} />
     </div>
   )
 }
@@ -354,6 +357,7 @@ export default function TeamPage() {
   const [invited, setInvited]     = useState(false)
   const [permissionsMember, setPermissionsMember] = useState(null)
   const [resending, setResending] = useState(null)
+  const [toast, setToast] = useState(null)
 
   const fetchMembers = () => {
     if (activeTab === 'inactifs') {
@@ -390,7 +394,7 @@ export default function TeamPage() {
       await api.post(`/team/members/${m.id}/resend-invite/`)
       fetchMembers()
     } catch (err) {
-      alert(err.response?.data?.detail || "Erreur lors du renvoi de l'invitation.")
+      setToast({ type: 'error', message: err.response?.data?.detail || "Erreur lors du renvoi de l'invitation." })
     } finally {
       setResending(null)
     }
@@ -463,6 +467,7 @@ export default function TeamPage() {
           resending={resending}
         />
       </div>
+      <Toast toast={toast} onClose={() => setToast(null)} />
     </DashboardLayout>
   )
 }

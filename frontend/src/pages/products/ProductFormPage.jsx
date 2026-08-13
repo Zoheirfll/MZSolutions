@@ -108,7 +108,7 @@ function Toggle({ label, value, onChange }) {
   )
 }
 
-function VariantBlock({ productId, variant, onDeleted, onUpdated }) {
+function VariantBlock({ productId, variant, onDeleted, onUpdated, stockBatchId }) {
   const [expanded, setExpanded] = useState(true)
   const [name, setName]         = useState(variant.name)
   const [subName, setSubName]   = useState(variant.sub_option_name || '')
@@ -156,7 +156,7 @@ function VariantBlock({ productId, variant, onDeleted, onUpdated }) {
         sku:                opt.sku,
         allow_out_of_stock: opt.allow_out_of_stock,
         is_active:          opt.is_active,
-      })
+      }, { headers: { 'X-Stock-Batch-Id': stockBatchId } })
     } catch {}
   }
 
@@ -165,7 +165,7 @@ function VariantBlock({ productId, variant, onDeleted, onUpdated }) {
     fd.append('image', file)
     const { data } = await api.put(
       `/products/${productId}/variants/${variant.id}/options/${opt.id}/`,
-      fd, { headers: { 'Content-Type': 'multipart/form-data' } }
+      fd, { headers: { 'Content-Type': 'multipart/form-data', 'X-Stock-Batch-Id': stockBatchId } }
     )
     setOptions(o => o.map(x => x.id === opt.id ? data : x))
   }
@@ -444,6 +444,10 @@ export default function ProductFormPage() {
   const isEdit  = !!id
   const navigate = useNavigate()
   const { user } = useAuth()
+  // Un seul identifiant de lot pour toute la session d'édition — regroupe les
+  // mouvements de stock de plusieurs variantes modifiées pendant cette visite
+  // en une seule ligne dans "Mouvement des stocks" (voir StockMovementListView).
+  const stockBatchId = useRef(crypto.randomUUID()).current
 
   const [section, setSection]       = useState(SECTIONS[0])
   const [form, setForm]             = useState(EMPTY)
@@ -539,7 +543,7 @@ export default function ProductFormPage() {
     }
     try {
       if (isEdit) {
-        await api.put(`/products/${id}/`, payload)
+        await api.put(`/products/${id}/`, payload, { headers: { 'X-Stock-Batch-Id': stockBatchId } })
         navigate('/dashboard/produits')
       } else {
         const { data } = await api.post('/products/', payload)
@@ -818,6 +822,7 @@ export default function ProductFormPage() {
                     variant={v}
                     onDeleted={reloadVariants}
                     onUpdated={reloadVariants}
+                    stockBatchId={stockBatchId}
                   />
                 ))}
 

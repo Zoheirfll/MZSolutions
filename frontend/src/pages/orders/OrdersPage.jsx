@@ -5,6 +5,7 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import DashboardLayout from '../../components/DashboardLayout'
 import StatusBadge from '../../components/StatusBadge'
+import TrackingBadge from '../../components/TrackingBadge'
 import Select from '../../components/Select'
 import api from '../../api/axios'
 import { theme } from '../../theme'
@@ -239,6 +240,7 @@ const ORDER_EXPORT_COLUMNS = [
   { header: 'Commune',   get: o => o.commune || '' },
   { header: 'Total (DZD)', get: o => Number(o.total) },
   { header: 'Statut',    get: o => o.status_label },
+  { header: 'Suivi',     get: o => o.carrier_tracking_number || '' },
   { header: 'Note',      get: o => o.note || '' },
 ]
 
@@ -248,7 +250,8 @@ const ALL_COLUMNS = [
   { key: 'phone',        label: 'NUMÉRO DE TÉLÉPHONE' },
   { key: 'wilaya',       label: 'EMPLACEMENT' },
   { key: 'total',        label: 'PRIX TOTAL' },
-  { key: 'status',       label: 'SUIVI' },
+  { key: 'status',       label: 'STATUT' },
+  { key: 'tracking',     label: 'SUIVI' },
   { key: 'commune',      label: 'COMMUNE' },
   { key: 'note',         label: 'NOTE' },
   { key: 'date',         label: 'DATE' },
@@ -880,6 +883,11 @@ export default function OrdersPage() {
                     <button onClick={() => setQuickEdit(o)} className="hover:opacity-80 transition">
                       <StatusBadge status={o.status} label={o.status_label} />
                     </button>
+                  </td>
+                )}
+                {visibleCols.has('tracking') && (
+                  <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                    <TrackingBadge trackingNumber={o.carrier_tracking_number} carrierLabel={o.carrier_label} />
                   </td>
                 )}
                 {visibleCols.has('commune') && <td className="px-4 py-3 text-app-muted-light">{o.commune || '—'}</td>}

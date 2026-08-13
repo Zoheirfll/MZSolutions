@@ -4,8 +4,36 @@ from .models import (
     OrderAssignment, FailureReason, CallAttempt, CALL_STATUS_CHOICES,
     PAYMENT_METHOD_CHOICES, AbandonedCart, CarrierAccount, CARRIER_CHOICES,
     BlacklistedPhone, Complaint, ComplaintMessage, COMPLAINT_STATUS_CHOICES,
-    ExchangeRequest, EXCHANGE_STATUS_CHOICES, WilayaRate, CommuneRate,
+    ExchangeRequest, EXCHANGE_STATUS_CHOICES, WilayaRate, CommuneRate, DispatchRule,
 )
+
+
+class DispatchRuleSerializer(serializers.ModelSerializer):
+    match_type_label  = serializers.SerializerMethodField()
+    confirmateur_name = serializers.SerializerMethodField()
+    carrier_label     = serializers.SerializerMethodField()
+
+    class Meta:
+        model  = DispatchRule
+        fields = ['id', 'match_type', 'match_type_label', 'match_value', 'confirmateur', 'confirmateur_name',
+                  'carrier', 'carrier_label', 'is_active', 'created_at']
+        read_only_fields = ['id', 'created_at']
+
+    def get_match_type_label(self, obj):
+        return obj.get_match_type_display()
+
+    def get_confirmateur_name(self, obj):
+        return f"{obj.confirmateur.first_name} {obj.confirmateur.last_name}".strip() if obj.confirmateur_id else None
+
+    def get_carrier_label(self, obj):
+        return obj.carrier.get_carrier_display() if obj.carrier_id else None
+
+    def validate(self, attrs):
+        confirmateur = attrs.get('confirmateur', getattr(self.instance, 'confirmateur', None))
+        carrier = attrs.get('carrier', getattr(self.instance, 'carrier', None))
+        if not confirmateur and not carrier:
+            raise serializers.ValidationError("Choisissez au moins un confirmateur ou un transporteur cible.")
+        return attrs
 
 
 class WilayaRateSerializer(serializers.ModelSerializer):
@@ -146,6 +174,7 @@ class OrderSerializer(serializers.ModelSerializer):
     carrier_label        = serializers.SerializerMethodField()
     cancellation_note     = serializers.SerializerMethodField()
     tracking_substatus_label = serializers.SerializerMethodField()
+    order_display_number = serializers.SerializerMethodField()
 
     class Meta:
         model  = Order
@@ -158,8 +187,16 @@ class OrderSerializer(serializers.ModelSerializer):
             'carrier', 'carrier_label', 'carrier_tracking_number', 'carrier_status',
             'stop_desk', 'station_code', 'tracking_substatus', 'tracking_substatus_label',
             'label_generated_at', 'label_printed_at', 'prepared_at', 'return_validated_at', 'restocked_at',
-            'cancellation_note',
+            'cancellation_note', 'order_display_number',
         ]
+
+    def get_order_display_number(self, obj):
+        try:
+            settings_obj = obj.store.settings
+            prefix, suffix = settings_obj.order_prefix, settings_obj.order_suffix
+        except Exception:
+            prefix, suffix = '', ''
+        return f"{prefix}{obj.id}{suffix}"
 
     def get_items_count(self, obj):
         return obj.items.count()
@@ -312,12 +349,15 @@ class ExchangeRequestSerializer(serializers.ModelSerializer):
     original_product   = serializers.SerializerMethodField()
     replacement_value  = serializers.SerializerMethodField()
     days_open           = serializers.SerializerMethodField()
+    carrier_tracking_number = serializers.SerializerMethodField()
+    carrier_label            = serializers.SerializerMethodField()
 
     class Meta:
         model  = ExchangeRequest
         fields = ['id', 'order_item', 'order', 'order_display', 'order_phone', 'original_product',
                   'replacement_option', 'replacement_value', 'reason', 'status', 'status_label',
-                  'days_open', 'vendor_note', 'created_at', 'updated_at']
+                  'days_open', 'vendor_note', 'created_at', 'updated_at',
+                  'carrier_tracking_number', 'carrier_label']
         read_only_fields = ['id', 'created_at', 'updated_at']
 
     def get_days_open(self, obj):
@@ -337,6 +377,13 @@ class ExchangeRequestSerializer(serializers.ModelSerializer):
     def get_order_display(self, obj):
         order = obj.order_item.order
         return f"#{order.id} — {order.first_name} {order.last_name}".strip()
+
+    def get_carrier_tracking_number(self, obj):
+        return obj.order_item.order.carrier_tracking_number
+
+    def get_carrier_label(self, obj):
+        order = obj.order_item.order
+        return dict(CARRIER_CHOICES).get(order.carrier.carrier) if order.carrier_id else None
 
     def get_order_phone(self, obj):
         return obj.order_item.order.phone
