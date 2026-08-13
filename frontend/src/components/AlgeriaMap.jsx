@@ -31,7 +31,7 @@ const PATHS_BY_NORMALIZED_NAME = ALGERIA_WILAYA_PATHS.reduce((acc, p) => {
  * `data` ([{wilaya, orders_count, ...}]) et affiche une infobulle au survol.
  * Tracés SVG : simplemaps.com (Free for Commercial Use).
  */
-export default function AlgeriaMap({ data = [] }) {
+export default function AlgeriaMap({ data = [], onWilayaClick }) {
   const [hovered, setHovered] = useState(null)
 
   const { valueByPathId, maxValue } = useMemo(() => {
@@ -67,7 +67,8 @@ export default function AlgeriaMap({ data = [] }) {
             strokeWidth={1}
             onMouseEnter={() => setHovered(p.id)}
             onMouseLeave={() => setHovered(h => (h === p.id ? null : h))}
-            style={{ transition: 'fill 0.3s ease', cursor: valueByPathId[p.id] ? 'pointer' : 'default' }}
+            onClick={() => onWilayaClick && onWilayaClick(p.name, valueByPathId[p.id])}
+            style={{ transition: 'fill 0.3s ease', cursor: onWilayaClick ? 'pointer' : (valueByPathId[p.id] ? 'pointer' : 'default') }}
           />
         ))}
       </svg>

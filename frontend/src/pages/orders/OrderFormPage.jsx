@@ -28,11 +28,15 @@ export default function OrderFormPage() {
   const [cartItems,    setCartItems]    = useState([])
   const [shippingCost, setShippingCost] = useState(0)
   const [shippingCostEdited, setShippingCostEdited] = useState(false) // évite d'écraser une valeur modifiée à la main
-  const [deliveryType, setDeliveryType] = useState('')
+  const [deliveryTypes, setDeliveryTypes] = useState([]) // plusieurs combinables (ex: Assurance + Échange)
+  const [stopDesk, setStopDesk] = useState(false) // false = domicile, true = point relais
+  const [stationCode, setStationCode] = useState('')
+  const [desks, setDesks] = useState([])
   const [carrierAccounts, setCarrierAccounts] = useState([])
   const [selectedCarrierId, setSelectedCarrierId] = useState('')
   const [rateInfo, setRateInfo] = useState(null) // {tarif, tarif_stopdesk} ou null
   const [rateLoading, setRateLoading] = useState(false)
+  const [insuranceFee, setInsuranceFee] = useState(0)
   const [note,         setNote]         = useState('')
   const [saving,       setSaving]       = useState(false)
   const [errors,       setErrors]       = useState({})
@@ -61,21 +65,55 @@ export default function OrderFormPage() {
       const def = active.find(a => a.is_default)
       if (def) setSelectedCarrierId(def.id)
     }).catch(() => {})
+    api.get('/stores/me/settings/').then(({ data }) => setInsuranceFee(Number(data.insurance_fee || 0))).catch(() => {})
   }, [])
 
-  // Récupère le vrai tarif dès que transporteur + wilaya sont connus —
-  // remplace la valeur si le vendeur n'a pas déjà tapé un montant à la main.
+  // Récupère le tarif résolu (grille vendeur Wilaya/Commune en priorité, sinon
+  // tarif transporteur en temps réel — même logique que le checkout public)
+  // dès que la wilaya est connue. Remplace la valeur si le vendeur n'a pas
+  // déjà tapé un montant à la main.
   useEffect(() => {
-    if (!selectedCarrierId || !client.wilaya || shippingCostEdited) { setRateInfo(null); return }
+    if (!client.wilaya || shippingCostEdited) { setRateInfo(null); return }
     setRateLoading(true)
-    api.get(`/stores/me/carriers/${selectedCarrierId}/rates/?wilaya=${encodeURIComponent(client.wilaya)}`)
+    const params = new URLSearchParams({ wilaya: client.wilaya })
+    if (client.commune) params.set('commune', client.commune)
+    api.get(`/stores/me/shipping-rate/?${params.toString()}`)
       .then(({ data }) => {
         setRateInfo(data)
-        setShippingCost(data.tarif)
+        const base = (stopDesk && data.tarif_stopdesk != null) ? data.tarif_stopdesk : data.tarif
+        setShippingCost(base)
       })
       .catch(() => setRateInfo(null))
       .finally(() => setRateLoading(false))
-  }, [selectedCarrierId, client.wilaya, shippingCostEdited])
+  }, [client.wilaya, client.commune, stopDesk, shippingCostEdited])
+
+  // "Vendu depuis le magasin"/"Livraison gratuite" forcent les frais à 0 ;
+  // "Assurance" ajoute le supplément configuré — appliqué par-dessus le tarif
+  // résolu ci-dessus, sauf si le vendeur a déjà tapé un montant à la main.
+  useEffect(() => {
+    if (shippingCostEdited) return
+    if (deliveryTypes.includes('store') || deliveryTypes.includes('free')) {
+      setShippingCost(0)
+    } else if (deliveryTypes.includes('insurance') && rateInfo) {
+      const base = (stopDesk && rateInfo.tarif_stopdesk != null) ? rateInfo.tarif_stopdesk : rateInfo.tarif
+      setShippingCost(Number(base || 0) + insuranceFee)
+    } else if (rateInfo) {
+      const base = (stopDesk && rateInfo.tarif_stopdesk != null) ? rateInfo.tarif_stopdesk : rateInfo.tarif
+      setShippingCost(base)
+    }
+  }, [deliveryTypes, rateInfo, insuranceFee, stopDesk, shippingCostEdited])
+
+  // Bureaux/points relais réels du transporteur — nécessaire pour choisir un
+  // `station_code` valide quand la livraison se fait en point relais.
+  useEffect(() => {
+    setStationCode('')
+    if (!stopDesk || !selectedCarrierId || !client.wilaya) { setDesks([]); return }
+    const wid = getWilayaIdByName(client.wilaya)
+    if (!wid) { setDesks([]); return }
+    api.get(`/stores/me/carriers/${selectedCarrierId}/desks/?wilaya=${wid}`)
+      .then(({ data }) => setDesks(data || []))
+      .catch(() => setDesks([]))
+  }, [stopDesk, selectedCarrierId, client.wilaya])
 
   useEffect(() => {
     clearTimeout(searchTimer.current)
@@ -132,7 +170,9 @@ export default function OrderFormPage() {
       await api.post('/orders/', {
         ...client,
         shipping_cost: shippingCost,
-        delivery_type: deliveryType,
+        delivery_types: deliveryTypes,
+        stop_desk: stopDesk,
+        station_code: stationCode,
         note,
         items: cartItems.map(({ _key, ...i }) => i),
         ...(scheduleEnabled && scheduledAt ? { scheduled_at: new Date(scheduledAt).toISOString() } : {}),
@@ -307,20 +347,30 @@ export default function OrderFormPage() {
           {/* Livraison */}
           <div className="rounded-xl border p-5 space-y-3" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
             <h2 className="font-semibold text-app-primary">Livraison</h2>
+            <p className="text-xs" style={{ color: theme.dark.muted }}>Plusieurs types combinables (ex: Assurance + Échange).</p>
             {DELIVERY_OPTIONS.map(opt => (
               <label key={opt.value} className="flex items-center gap-3 cursor-pointer">
                 <input
-                  type="radio"
-                  name="delivery_type"
-                  value={opt.value}
-                  checked={deliveryType === opt.value}
-                  onClick={() => setDeliveryType(prev => prev === opt.value ? '' : opt.value)}
-                  onChange={() => {}}
+                  type="checkbox"
+                  checked={deliveryTypes.includes(opt.value)}
+                  onChange={() => {
+                    setShippingCostEdited(false)
+                    setDeliveryTypes(prev => prev.includes(opt.value) ? prev.filter(v => v !== opt.value) : [...prev, opt.value])
+                  }}
                   className="accent-violet-600 w-4 h-4"
                 />
                 <span className="text-sm text-app-primary">{opt.label}</span>
               </label>
             ))}
+            {deliveryTypes.includes('store') && (
+              <p className="text-xs text-emerald-400">Frais de livraison à 0 — aucune expédition transporteur ne sera créée à la confirmation.</p>
+            )}
+            {deliveryTypes.includes('free') && !deliveryTypes.includes('store') && (
+              <p className="text-xs text-emerald-400">Frais de livraison à 0 pour le client — l'expédition transporteur reste créée normalement.</p>
+            )}
+            {deliveryTypes.includes('insurance') && !deliveryTypes.includes('store') && (
+              <p className="text-xs text-emerald-400">+{insuranceFee.toLocaleString('fr-DZ')} DZD d'assurance ajoutés aux frais de livraison.</p>
+            )}
           </div>
 
           {/* Remarque */}
@@ -393,7 +443,7 @@ export default function OrderFormPage() {
               </div>
             </div>
 
-            {carrierAccounts.length > 0 && (
+            {carrierAccounts.length > 0 && !deliveryTypes.includes('store') && (
               <div className="mb-4">
                 <label className="block text-xs text-app-muted-light mb-1.5">Société de livraison</label>
                 <Select
@@ -404,6 +454,43 @@ export default function OrderFormPage() {
                   className={inputCls}
                   style={{ ...bdrStyle, background: theme.dark.sidebar }}
                 />
+              </div>
+            )}
+
+            {!deliveryTypes.includes('store') && (
+              <div className="mb-4">
+                <label className="block text-xs text-app-muted-light mb-1.5">Mode de livraison</label>
+                <div className="flex rounded-lg border overflow-hidden" style={bdrStyle}>
+                  <button
+                    type="button"
+                    onClick={() => { setStopDesk(false); setShippingCostEdited(false) }}
+                    className={`flex-1 py-2 text-sm cursor-pointer transition ${!stopDesk ? 'bg-violet-600 text-white' : 'text-app-muted-light hover:text-app-primary'}`}
+                  >
+                    Domicile
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setStopDesk(true); setShippingCostEdited(false) }}
+                    className={`flex-1 py-2 text-sm cursor-pointer transition ${stopDesk ? 'bg-violet-600 text-white' : 'text-app-muted-light hover:text-app-primary'}`}
+                  >
+                    Point relais
+                  </button>
+                </div>
+                {stopDesk && desks.length > 0 && (
+                  <div className="mt-2">
+                    <Select
+                      value={stationCode}
+                      onChange={setStationCode}
+                      options={desks.map(d => ({ value: d.code, label: d.name }))}
+                      placeholder="Choisissez un point relais"
+                      className={inputCls}
+                      style={{ ...bdrStyle, background: theme.dark.sidebar }}
+                    />
+                  </div>
+                )}
+                {stopDesk && selectedCarrierId && desks.length === 0 && (
+                  <p className="text-xs mt-1.5" style={{ color: theme.dark.muted }}>Aucun point relais disponible pour cette wilaya/transporteur.</p>
+                )}
               </div>
             )}
 
@@ -419,16 +506,16 @@ export default function OrderFormPage() {
               />
             </div>
             <div className="mb-4 min-h-4">
-              {rateLoading && <p className="text-xs mt-1" style={{ color: theme.dark.muted }}>Récupération du tarif réel…</p>}
-              {!rateLoading && rateInfo && !shippingCostEdited && (
+              {rateLoading && <p className="text-xs mt-1" style={{ color: theme.dark.muted }}>Récupération du tarif…</p>}
+              {!rateLoading && rateInfo && !shippingCostEdited && !deliveryTypes.includes('store') && (
                 <p className="text-xs mt-1 text-emerald-400">
-                  Tarif réel {selectedCarrierId ? carrierAccounts.find(a => a.id === Number(selectedCarrierId))?.carrier_label : ''} : {rateInfo.tarif.toLocaleString('fr-DZ')} DZD à domicile
-                  {rateInfo.tarif_stopdesk != null && ` / ${rateInfo.tarif_stopdesk.toLocaleString('fr-DZ')} DZD en point relais`}
+                  Tarif {stopDesk ? 'point relais' : 'domicile'} : {(stopDesk && rateInfo.tarif_stopdesk != null ? rateInfo.tarif_stopdesk : rateInfo.tarif).toLocaleString('fr-DZ')} DZD
+                  {deliveryTypes.includes('insurance') && ` (+ ${insuranceFee.toLocaleString('fr-DZ')} DZD assurance)`}
                 </p>
               )}
               {shippingCostEdited && (
                 <button onClick={() => setShippingCostEdited(false)} className="text-xs text-violet-400 hover:text-violet-300 transition cursor-pointer mt-1">
-                  Revenir au tarif réel
+                  Revenir au tarif automatique
                 </button>
               )}
             </div>

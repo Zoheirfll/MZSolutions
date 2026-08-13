@@ -2,6 +2,7 @@ import hashlib
 import hmac
 import json
 from decimal import Decimal
+from io import BytesIO
 from datetime import date, timedelta
 from django.core.mail import send_mail
 from django.http import HttpResponse
@@ -15,8 +16,8 @@ from rest_framework import status
 
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
-from .models import Order, OrderItem, OrderStatusHistory, STATUS_CHOICES, NO_ANSWER_STATUSES, OrderAssignment, FailureReason, CallAttempt, CALL_STATUS_CHOICES, PaymentWebhookLog, AbandonedCart, CarrierAccount, CARRIER_CHOICES, CustomerRisk, BlacklistedPhone, Complaint, ComplaintMessage, ComplaintAssignment, COMPLAINT_STATUS_CHOICES, ExchangeRequest, EXCHANGE_STATUS_CHOICES
-from .serializers import OrderSerializer, OrderDetailSerializer, OrderAssignmentSerializer, FailureReasonSerializer, CallAttemptSerializer, AbandonedCartSerializer, CarrierAccountSerializer, BlacklistedPhoneSerializer, ComplaintSerializer, ComplaintDetailSerializer, ExchangeRequestSerializer
+from .models import Order, OrderItem, OrderStatusHistory, STATUS_CHOICES, NO_ANSWER_STATUSES, OrderAssignment, FailureReason, CallAttempt, CALL_STATUS_CHOICES, PaymentWebhookLog, AbandonedCart, CarrierAccount, CARRIER_CHOICES, CustomerRisk, BlacklistedPhone, Complaint, ComplaintMessage, ComplaintAssignment, COMPLAINT_STATUS_CHOICES, ExchangeRequest, EXCHANGE_STATUS_CHOICES, WilayaRate, CommuneRate
+from .serializers import OrderSerializer, OrderDetailSerializer, OrderAssignmentSerializer, FailureReasonSerializer, CallAttemptSerializer, AbandonedCartSerializer, CarrierAccountSerializer, BlacklistedPhoneSerializer, ComplaintSerializer, ComplaintDetailSerializer, ExchangeRequestSerializer, WilayaRateSerializer, CommuneRateSerializer
 from .utils import assign_order_round_robin, assign_complaint_round_robin, send_abandoned_cart_email
 from . import chargily
 from .carriers import get_carrier_client
@@ -123,29 +124,89 @@ def _validate_shipping_cost(request):
     return value
 
 
-def _resolve_shipping_cost(store, wilaya_name, stop_desk, fallback):
-    """Si la boutique a un transporteur par défaut avec une vraie grille
-    tarifaire (Ecotrack/Noest), le tarif réel écrase la valeur envoyée par
-    le client — même logique de défense que `_authoritative_item_price`
-    pour les prix produits (Epic 8.6). Retombe sur `fallback` (déjà validé
-    non-négatif) si aucun tarif réel n'est disponible (transporteur mocké,
-    pas de compte par défaut, wilaya inconnue)."""
+def _resolve_shipping_rates(store, wilaya_name, commune_name=None):
+    """Résout {'tarif': .., 'tarif_stopdesk': ..} (domicile/bureau) pour une
+    destination — priorité : `CommuneRate` (si commune fournie et trouvée) >
+    `WilayaRate` > tarif transporteur par défaut en temps réel. None si rien
+    n'est résolvable (pas de grille, pas de transporteur, wilaya inconnue).
+    Source unique consommée par `_resolve_shipping_cost` (dashboard/checkout
+    manuel) et les endpoints d'affichage (`CarrierRatesView`-like, tableau de
+    bord, boutique publique) pour ne jamais diverger."""
     from .wilaya_codes import wilaya_code
+    from .models import WilayaRate, CommuneRate
     wid = wilaya_code(wilaya_name)
     if not wid:
-        return fallback
+        return None
+
+    if commune_name:
+        commune_rate = CommuneRate.objects.filter(store=store, wilaya_id=wid, commune_name__iexact=commune_name.strip()).first()
+        if commune_rate:
+            return {'tarif': commune_rate.home_price, 'tarif_stopdesk': commune_rate.desk_price}
+
+    wilaya_rate = WilayaRate.objects.filter(store=store, wilaya_id=wid).first()
+    if wilaya_rate:
+        return {'tarif': wilaya_rate.home_price, 'tarif_stopdesk': wilaya_rate.desk_price}
+
     account = store.carrier_accounts.filter(is_default=True, is_active=True).first()
     if not account:
-        return fallback
+        return None
     try:
         rates = get_carrier_client(account).get_rates(wid)
     except Exception:
-        return fallback
+        return None
+    if not rates:
+        return None
+    return {
+        'tarif':          Decimal(str(rates['tarif'])),
+        'tarif_stopdesk': Decimal(str(rates['tarif_stopdesk'])) if rates.get('tarif_stopdesk') is not None else None,
+    }
+
+
+def _resolve_shipping_cost(store, wilaya_name, stop_desk, fallback, commune_name=None):
+    """Wrapper de `_resolve_shipping_rates` pour les appelants qui veulent
+    directement un montant unique (checkout — `fallback` déjà validé
+    non-négatif, même logique de défense que `_authoritative_item_price`
+    pour les prix produits, Epic 8.6)."""
+    rates = _resolve_shipping_rates(store, wilaya_name, commune_name)
     if not rates:
         return fallback
     if stop_desk and rates.get('tarif_stopdesk') is not None:
-        return Decimal(str(rates['tarif_stopdesk']))
-    return Decimal(str(rates['tarif']))
+        return rates['tarif_stopdesk']
+    return rates['tarif']
+
+
+def _valid_delivery_types(request):
+    """Valide et normalise `delivery_types` (liste de codes DELIVERY_CHOICES,
+    plusieurs combinables — ex: Assurance + Échange). Accepte aussi l'ancien
+    format `delivery_type` (chaîne unique) pour compat, sans le stocker tel
+    quel côté modèle."""
+    from .models import DELIVERY_CHOICES
+    valid_codes = {c[0] for c in DELIVERY_CHOICES}
+    raw = request.data.get('delivery_types')
+    if raw is None:
+        single = request.data.get('delivery_type')
+        raw = [single] if single else []
+    if not isinstance(raw, list):
+        return None
+    codes = [c for c in raw if c in valid_codes]
+    if len(codes) != len(raw):
+        return None
+    return codes
+
+
+def _apply_delivery_type_shipping(store, shipping_cost, delivery_types):
+    """"Vendu depuis le magasin"/"Livraison gratuite" forcent les frais à 0 ;
+    "Assurance" ajoute le supplément configuré (`StoreSettings.insurance_fee`).
+    "Échange" reste un pur tag, aucun effet ici (décision produit 2026-08)."""
+    if 'store' in delivery_types or 'free' in delivery_types:
+        return Decimal('0')
+    if 'insurance' in delivery_types:
+        try:
+            fee = store.settings.insurance_fee
+        except Exception:
+            fee = Decimal('0')
+        return (shipping_cost or Decimal('0')) + fee
+    return shipping_cost
 
 
 def _deduct_stock_for_order(store, order):
@@ -153,25 +214,33 @@ def _deduct_stock_for_order(store, order):
     (évite la survente si deux clients commandent le dernier article en même
     temps) et journalise un StockMovement par ligne, traçable comme pour les
     échanges."""
-    from products.models import StockMovement
+    from products.stock import record_stock_movement
     for item in order.items.select_related('product', 'variant_option').all():
         if item.variant_option:
-            opt = item.variant_option
-            opt.stock = max(opt.stock - item.quantity, 0)
-            opt.save(update_fields=['stock'])
-            StockMovement.objects.create(
-                store=store, product=item.product, variant_option=opt,
-                quantity=-item.quantity, reason='order_sale', note=f"Commande #{order.id}",
+            record_stock_movement(
+                store, item.product, item.variant_option, -item.quantity,
+                reason='order_sale', note=f"Commande #{order.id}",
             )
         elif item.product:
-            item.product.stock = max(item.product.stock - item.quantity, 0)
-            item.product.save(update_fields=['stock'])
-            StockMovement.objects.create(
-                store=store, product=item.product, variant_option=None,
-                quantity=-item.quantity, reason='order_sale', note=f"Commande #{order.id}",
+            record_stock_movement(
+                store, item.product, None, -item.quantity,
+                reason='order_sale', note=f"Commande #{order.id}",
             )
         if item.product:
             _sync_stock_to_channels(store, item.product)
+
+
+def _restock_order_items(store, order, reason, note):
+    """Remet en stock chaque article d'une commande — utilisée quand un
+    retour est validé ou qu'une commande est annulée (décisions produit
+    2026-08-12, ferme le TBD "pas de restockage automatique"). L'appelant
+    est responsable de la garde d'idempotence (`Order.restocked_at`)."""
+    from products.stock import record_stock_movement
+    for item in order.items.select_related('product', 'variant_option').all():
+        if item.variant_option:
+            record_stock_movement(store, item.product, item.variant_option, item.quantity, reason=reason, note=note)
+        elif item.product:
+            record_stock_movement(store, item.product, None, item.quantity, reason=reason, note=note)
 
 
 def _sync_stock_to_channels(store, product):
@@ -445,6 +514,11 @@ class OrderListCreateView(APIView):
         if shipping_cost is None:
             return Response({'detail': 'Frais de livraison invalides.'}, status=400)
 
+        delivery_types = _valid_delivery_types(request)
+        if delivery_types is None:
+            return Response({'detail': 'delivery_types invalide.'}, status=400)
+        shipping_cost = _apply_delivery_type_shipping(store, shipping_cost, delivery_types)
+
         order = Order.objects.create(
             store         = store,
             status        = 'scheduled' if scheduled_at else 'pending',
@@ -458,7 +532,7 @@ class OrderListCreateView(APIView):
             shipping_cost = shipping_cost,
             stop_desk     = bool(request.data.get('stop_desk')),
             station_code  = request.data.get('station_code', ''),
-            delivery_type = request.data.get('delivery_type', ''),
+            delivery_types = delivery_types,
             note          = request.data.get('note', ''),
             dropshipper   = dropshipper_membership,
         )
@@ -526,22 +600,32 @@ class OrderDetailView(APIView):
         wilaya_changed = 'wilaya' in request.data and request.data['wilaya'] != order.wilaya
 
         allowed = ['first_name', 'last_name', 'phone', 'wilaya', 'commune',
-                   'address', 'shipping_cost', 'delivery_type', 'note', 'stop_desk', 'station_code',
+                   'address', 'shipping_cost', 'note', 'stop_desk', 'station_code',
                    'tracking_substatus']
         for field in allowed:
             if field in request.data:
                 setattr(order, field, request.data[field])
 
+        if 'delivery_types' in request.data or 'delivery_type' in request.data:
+            delivery_types = _valid_delivery_types(request)
+            if delivery_types is None:
+                return Response({'detail': 'delivery_types invalide.'}, status=400)
+            order.delivery_types = delivery_types
+
         # Si la wilaya change et qu'aucun nouveau tarif n'a été précisé
         # explicitement, on retente le vrai tarif du transporteur par défaut
         # plutôt que de laisser l'ancien montant (potentiellement erroné pour
-        # la nouvelle destination).
-        if wilaya_changed and 'shipping_cost' not in request.data:
-            order.shipping_cost = _resolve_shipping_cost(store, order.wilaya, order.stop_desk, order.shipping_cost)
+        # la nouvelle destination) — sauté si "Vendu en magasin"/"Livraison
+        # gratuite" forcent déjà les frais à 0.
+        if wilaya_changed and 'shipping_cost' not in request.data and not ({'store', 'free'} & set(order.delivery_types)):
+            order.shipping_cost = _resolve_shipping_cost(store, order.wilaya, order.stop_desk, order.shipping_cost, order.commune)
+
+        if ('delivery_types' in request.data or 'delivery_type' in request.data) and 'shipping_cost' not in request.data:
+            order.shipping_cost = _apply_delivery_type_shipping(store, order.shipping_cost, order.delivery_types)
 
         items_payload = request.data.get('items')
         if items_payload is not None:
-            from products.models import StockMovement
+            from products.stock import record_stock_movement
             # `order.items.all()` réutilise le cache déjà peuplé par le
             # `prefetch_related('items', ...)` de `_get()` — utiliser une
             # requête fraîche ici créerait des objets Python distincts,
@@ -552,21 +636,17 @@ class OrderDetailView(APIView):
             def restock(item):
                 target = item.variant_option or item.product
                 if target:
-                    target.stock = target.stock + item.quantity
-                    target.save(update_fields=['stock'])
-                    StockMovement.objects.create(
-                        store=store, product=item.product, variant_option=item.variant_option,
-                        quantity=item.quantity, reason='order_sale', note=f"Modification commande #{order.id}",
+                    record_stock_movement(
+                        store, item.product, item.variant_option, item.quantity,
+                        reason='order_sale', note=f"Modification commande #{order.id}",
                     )
 
             def deduct(product, variant_option, qty):
                 target = variant_option or product
                 if target:
-                    target.stock = max(target.stock - qty, 0)
-                    target.save(update_fields=['stock'])
-                    StockMovement.objects.create(
-                        store=store, product=product, variant_option=variant_option,
-                        quantity=-qty, reason='order_sale', note=f"Modification commande #{order.id}",
+                    record_stock_movement(
+                        store, product, variant_option, -qty,
+                        reason='order_sale', note=f"Modification commande #{order.id}",
                     )
 
             for entry in items_payload:
@@ -710,7 +790,7 @@ def _transition_order_status(store, order, new_status, changed_by=None, note='',
     OrderStatusHistory.objects.create(order=order, status=new_status, changed_by=changed_by, note=note)
 
     carrier_warning = None
-    if new_status == 'confirmed' and not order.carrier_tracking_number:
+    if new_status == 'confirmed' and not order.carrier_tracking_number and 'store' not in (order.delivery_types or []):
         account = None
         if carrier_id:
             account = store.carrier_accounts.filter(pk=carrier_id, is_active=True).first()
@@ -722,6 +802,17 @@ def _transition_order_status(store, order, new_status, changed_by=None, note='',
             carrier_warning = _create_shipment_for_order(store, order, account)
 
     _sync_commission_for_order(store, order, new_status)
+
+    # Restockage automatique à l'annulation (décision produit 2026-08-12) —
+    # le stock a été déduit dès la création de la commande (voir
+    # _deduct_stock_for_order), donc une annulation doit le rendre. Garde
+    # d'idempotence : jamais restocké deux fois (ex: annulée puis un retour
+    # est quand même validé dessus par erreur).
+    if new_status == 'cancelled' and not order.restocked_at:
+        _restock_order_items(store, order, reason='order_cancelled', note=f"Annulation commande #{order.id}")
+        order.restocked_at = timezone.now()
+        order.save(update_fields=['restocked_at'])
+
     if new_status in STATUS_TO_WEBHOOK_EVENT:
         _fire_order_webhook(store, order, STATUS_TO_WEBHOOK_EVENT[new_status])
     return carrier_warning
@@ -971,6 +1062,221 @@ class CarrierDesksView(APIView):
 
         desks = get_carrier_client(account).get_desks(wid)
         return Response(desks)
+
+
+class WilayaRateListCreateView(APIView):
+    """Grille tarifaire de livraison par wilaya, éditable par le vendeur
+    (onglet "Tarification" de ParametresLivraisonPage, équivalent RiseCart).
+    Consommée en priorité par `_resolve_shipping_cost` avant tout appel
+    transporteur en temps réel."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        store = _get_store(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        return Response(WilayaRateSerializer(store.wilaya_rates.all(), many=True).data)
+
+    def post(self, request):
+        if not is_owner_or_admin(request):
+            return Response({'detail': 'Modification réservée au propriétaire ou administrateur.'}, status=403)
+        store = _get_store(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        from .wilaya_codes import wilaya_name as wilaya_name_from_code
+        wid = request.data.get('wilaya_id')
+        name = wilaya_name_from_code(wid) if wid else None
+        if not name:
+            return Response({'detail': 'Wilaya invalide.'}, status=400)
+        rate, _created = WilayaRate.objects.update_or_create(
+            store=store, wilaya_id=wid,
+            defaults={
+                'wilaya_name': name,
+                'home_price':  request.data.get('home_price', 0),
+                'desk_price':  request.data.get('desk_price'),
+                'show_home':   request.data.get('show_home', True),
+                'show_desk':   request.data.get('show_desk', True),
+            },
+        )
+        return Response(WilayaRateSerializer(rate).data, status=status.HTTP_201_CREATED)
+
+
+class WilayaRateDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def _get(self, request, pk):
+        store = _get_store(request)
+        if not store:
+            return None, Response({'detail': 'Accès refusé.'}, status=403)
+        try:
+            return store.wilaya_rates.get(pk=pk), None
+        except WilayaRate.DoesNotExist:
+            return None, Response({'detail': 'Tarif introuvable.'}, status=404)
+
+    def put(self, request, pk):
+        if not is_owner_or_admin(request):
+            return Response({'detail': 'Modification réservée au propriétaire ou administrateur.'}, status=403)
+        rate, err = self._get(request, pk)
+        if err: return err
+        for field in ['home_price', 'desk_price', 'show_home', 'show_desk']:
+            if field in request.data:
+                setattr(rate, field, request.data[field])
+        rate.save()
+        return Response(WilayaRateSerializer(rate).data)
+
+    def delete(self, request, pk):
+        if not is_owner_or_admin(request):
+            return Response({'detail': 'Suppression réservée au propriétaire ou administrateur.'}, status=403)
+        rate, err = self._get(request, pk)
+        if err: return err
+        rate.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class WilayaRateSyncView(APIView):
+    """Bouton "Mettre à jour depuis la société" (équivalent RiseCart) —
+    remplit/écrase la grille tarifaire des 58 wilayas à partir du tarif réel
+    du transporteur par défaut de la boutique, en un clic."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        if not is_owner_or_admin(request):
+            return Response({'detail': 'Réservé au propriétaire ou administrateur.'}, status=403)
+        store = _get_store(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        account = store.carrier_accounts.filter(is_default=True, is_active=True).first()
+        if not account:
+            return Response({'detail': 'Aucun transporteur par défaut actif.'}, status=400)
+
+        from .wilaya_codes import WILAYA_CODES
+        client = get_carrier_client(account)
+        updated, failed = 0, 0
+        for name, wid in WILAYA_CODES.items():
+            try:
+                rates = client.get_rates(wid)
+            except Exception:
+                rates = None
+            if not rates:
+                failed += 1
+                continue
+            WilayaRate.objects.update_or_create(
+                store=store, wilaya_id=wid,
+                defaults={
+                    'wilaya_name': name,
+                    'home_price':  Decimal(str(rates['tarif'])),
+                    'desk_price':  Decimal(str(rates['tarif_stopdesk'])) if rates.get('tarif_stopdesk') is not None else None,
+                },
+            )
+            updated += 1
+        return Response({'updated': updated, 'failed': failed})
+
+
+class CommuneRateListCreateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        store = _get_store(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        qs = store.commune_rates.all()
+        wilaya_id = request.query_params.get('wilaya_id')
+        if wilaya_id:
+            qs = qs.filter(wilaya_id=wilaya_id)
+        return Response(CommuneRateSerializer(qs, many=True).data)
+
+    def post(self, request):
+        if not is_owner_or_admin(request):
+            return Response({'detail': 'Modification réservée au propriétaire ou administrateur.'}, status=403)
+        store = _get_store(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        wid = request.data.get('wilaya_id')
+        commune_name = (request.data.get('commune_name') or '').strip()
+        if not wid or not commune_name:
+            return Response({'detail': 'Wilaya et nom de commune requis.'}, status=400)
+        rate, _created = CommuneRate.objects.update_or_create(
+            store=store, wilaya_id=wid, commune_name=commune_name,
+            defaults={
+                'home_price': request.data.get('home_price', 0),
+                'desk_price': request.data.get('desk_price'),
+            },
+        )
+        return Response(CommuneRateSerializer(rate).data, status=status.HTTP_201_CREATED)
+
+
+class CommuneRateDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def _get(self, request, pk):
+        store = _get_store(request)
+        if not store:
+            return None, Response({'detail': 'Accès refusé.'}, status=403)
+        try:
+            return store.commune_rates.get(pk=pk), None
+        except CommuneRate.DoesNotExist:
+            return None, Response({'detail': 'Tarif introuvable.'}, status=404)
+
+    def put(self, request, pk):
+        if not is_owner_or_admin(request):
+            return Response({'detail': 'Modification réservée au propriétaire ou administrateur.'}, status=403)
+        rate, err = self._get(request, pk)
+        if err: return err
+        for field in ['home_price', 'desk_price']:
+            if field in request.data:
+                setattr(rate, field, request.data[field])
+        rate.save()
+        return Response(CommuneRateSerializer(rate).data)
+
+    def delete(self, request, pk):
+        if not is_owner_or_admin(request):
+            return Response({'detail': 'Suppression réservée au propriétaire ou administrateur.'}, status=403)
+        rate, err = self._get(request, pk)
+        if err: return err
+        rate.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class CommuneRateSyncView(APIView):
+    """Équivalent de `WilayaRateSyncView` mais par commune — seul Yalidine
+    (transporteur par défaut requis) expose une vraie grille par commune,
+    voir `YalidineClient.get_commune_rates`. 400 explicite sinon."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        if not is_owner_or_admin(request):
+            return Response({'detail': 'Réservé au propriétaire ou administrateur.'}, status=403)
+        store = _get_store(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        from .wilaya_codes import wilaya_code
+        wid = wilaya_code(request.data.get('wilaya_name', ''))
+        if not wid:
+            return Response({'detail': 'Wilaya invalide.'}, status=400)
+
+        account = store.carrier_accounts.filter(is_default=True, is_active=True).first()
+        if not account:
+            return Response({'detail': 'Aucun transporteur par défaut actif.'}, status=400)
+
+        client = get_carrier_client(account)
+        try:
+            rates = client.get_commune_rates(wid)
+        except Exception:
+            rates = None
+        if not rates:
+            return Response({'detail': "Le transporteur par défaut ne fournit pas de tarifs par commune pour cette wilaya."}, status=400)
+
+        updated = 0
+        for commune_name, r in rates.items():
+            CommuneRate.objects.update_or_create(
+                store=store, wilaya_id=wid, commune_name=commune_name,
+                defaults={
+                    'home_price': Decimal(str(r['tarif'])),
+                    'desk_price': Decimal(str(r['tarif_stopdesk'])) if r.get('tarif_stopdesk') is not None else None,
+                },
+            )
+            updated += 1
+        return Response({'updated': updated})
 
 
 class OrderStatsView(APIView):
@@ -1433,29 +1739,19 @@ class ExchangeStatusView(APIView):
         exchange.save(update_fields=['status', 'vendor_note', 'updated_at'])
 
         if new_status == 'approved':
-            from products.models import StockMovement
+            from products.stock import record_stock_movement
             item = exchange.order_item
             original_option = item.variant_option
             replacement = exchange.replacement_option
-
-            if original_option:
-                original_option.stock += item.quantity
-                original_option.save(update_fields=['stock'])
-            elif item.product:
-                item.product.stock += item.quantity
-                item.product.save(update_fields=['stock'])
-
-            replacement.stock = max(replacement.stock - item.quantity, 0)
-            replacement.save(update_fields=['stock'])
-
             note = f"Échange #{exchange.id}"
-            StockMovement.objects.create(
-                store=store, product=item.product, variant_option=original_option,
-                quantity=item.quantity, reason='exchange_return', note=note,
+
+            record_stock_movement(
+                store, item.product, original_option, item.quantity,
+                reason='exchange_return', note=note,
             )
-            StockMovement.objects.create(
-                store=store, product=replacement.variant.product, variant_option=replacement,
-                quantity=-item.quantity, reason='exchange_issue', note=note,
+            record_stock_movement(
+                store, replacement.variant.product, replacement, -item.quantity,
+                reason='exchange_issue', note=note,
             )
 
         return Response(ExchangeRequestSerializer(exchange).data)
@@ -1722,16 +2018,29 @@ class PublicShippingRateView(APIView):
         except Store.DoesNotExist:
             return Response({'detail': 'Boutique introuvable.'}, status=404)
 
-        from .wilaya_codes import wilaya_code
-        wid = wilaya_code(request.query_params.get('wilaya', ''))
-        if not wid:
-            return Response({'detail': 'Wilaya invalide.'}, status=400)
+        wilaya_name = request.query_params.get('wilaya', '')
+        commune_name = request.query_params.get('commune', '')
+        rates = _resolve_shipping_rates(store, wilaya_name, commune_name)
+        if not rates:
+            return Response({'detail': 'Tarif indisponible pour cette wilaya.'}, status=404)
+        return Response(rates)
 
-        account = store.carrier_accounts.filter(is_default=True, is_active=True).first()
-        if not account:
-            return Response({'detail': 'Aucun transporteur par défaut configuré.'}, status=404)
 
-        rates = get_carrier_client(account).get_rates(wid)
+class StoreShippingRateView(APIView):
+    """Équivalent dashboard de `PublicShippingRateView` — utilisé par
+    `OrderFormPage.jsx` (nouvelle commande manuelle) pour auto-remplir les
+    frais de livraison avec la même priorité que le checkout public :
+    grille tarifaire du vendeur (`WilayaRate`/`CommuneRate`) > tarif
+    transporteur par défaut en temps réel."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        store = _get_store(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        wilaya_name = request.query_params.get('wilaya', '')
+        commune_name = request.query_params.get('commune', '')
+        rates = _resolve_shipping_rates(store, wilaya_name, commune_name)
         if not rates:
             return Response({'detail': 'Tarif indisponible pour cette wilaya.'}, status=404)
         return Response(rates)
@@ -1838,6 +2147,7 @@ class PublicOrderView(APIView):
             return Response({'detail': 'Frais de livraison invalides.'}, status=400)
         shipping_cost = _resolve_shipping_cost(
             store, request.data.get('wilaya', ''), bool(request.data.get('stop_desk')), shipping_cost,
+            request.data.get('commune', ''),
         )
 
         order = Order.objects.create(
@@ -2577,10 +2887,32 @@ class ShipmentListView(APIView):
         })
 
 
+def _fetch_label_pdf(order):
+    """Récupère l'étiquette PDF réelle auprès du transporteur et marque
+    `label_generated_at` la première fois — factorisé pour être partagé entre
+    le téléchargement unitaire (`OrderLabelView`) et l'impression groupée
+    (`LabelsPrintAllView`), qui doivent produire le même effet de bord (faire
+    avancer la commande de "en attente d'impression" à "PDF généré")."""
+    if not order.carrier_tracking_number:
+        raise ValueError("Aucune expédition créée pour cette commande.")
+    if not order.carrier:
+        raise ValueError('Transporteur introuvable pour cette commande.')
+
+    client = get_carrier_client(order.carrier)
+    pdf_bytes = client.get_label(order.carrier_tracking_number)
+
+    if not order.label_generated_at:
+        order.label_generated_at = timezone.now()
+        order.save(update_fields=['label_generated_at'])
+
+    return pdf_bytes
+
+
 class OrderLabelView(APIView):
     """Téléchargement de l'étiquette d'expédition officielle du transporteur
     pour une commande donnée (mockée si le compte transporteur n'a pas de
-    token réel)."""
+    token réel). Premier téléchargement = passage automatique à l'état "PDF
+    généré" dans le pipeline d'impression (voir LabelsListView)."""
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pk):
@@ -2592,14 +2924,10 @@ class OrderLabelView(APIView):
         except Order.DoesNotExist:
             return Response({'detail': 'Commande introuvable.'}, status=404)
 
-        if not order.carrier_tracking_number:
-            return Response({'detail': "Aucune expédition créée pour cette commande."}, status=400)
-        if not order.carrier:
-            return Response({'detail': 'Transporteur introuvable pour cette commande.'}, status=400)
-
         try:
-            client = get_carrier_client(order.carrier)
-            pdf_bytes = client.get_label(order.carrier_tracking_number)
+            pdf_bytes = _fetch_label_pdf(order)
+        except ValueError as e:
+            return Response({'detail': str(e)}, status=400)
         except TrackingNotFoundError:
             return Response({'detail': "Numéro de suivi introuvable auprès du transporteur."}, status=404)
         except NotImplementedError:
@@ -2610,6 +2938,321 @@ class OrderLabelView(APIView):
         response = HttpResponse(pdf_bytes, content_type='application/pdf')
         response['Content-Disposition'] = f'attachment; filename="etiquette-{order.id}.pdf"'
         return response
+
+
+LABEL_STATES = ('pending', 'generated', 'printed')
+
+
+class LabelsListView(APIView):
+    """Pipeline d'impression des étiquettes (US demandée, alignée sur le
+    concurrent RiseCart — menu "Expéditions & Retours") : chaque commande
+    expédiée passe par 3 états successifs — "pending" (étiquette jamais
+    téléchargée), "generated" (PDF déjà téléchargé au moins une fois, pas
+    encore marqué imprimé), "printed" (marqué imprimé manuellement). Les deux
+    premiers états sont dérivés de `label_generated_at`/`label_printed_at`
+    (jamais désynchronisés puisque `_fetch_label_pdf` les renseigne
+    automatiquement) — aucun état stocké séparément."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        store = _get_store(request)
+        if not store or not is_owner_or_admin(request):
+            return Response({'detail': 'Accès refusé.'}, status=403)
+
+        state = request.query_params.get('state', 'pending')
+        if state not in LABEL_STATES:
+            return Response({'detail': f'État invalide. Valeurs : {LABEL_STATES}'}, status=400)
+
+        qs = store.orders.exclude(carrier_tracking_number='')
+        if state == 'pending':
+            qs = qs.filter(label_generated_at__isnull=True)
+        elif state == 'generated':
+            qs = qs.filter(label_generated_at__isnull=False, label_printed_at__isnull=True)
+        else:
+            qs = qs.filter(label_printed_at__isnull=False)
+
+        search = request.query_params.get('search', '').strip()
+        if search:
+            qs = qs.filter(
+                Q(first_name__icontains=search) |
+                Q(last_name__icontains=search) |
+                Q(phone__icontains=search) |
+                Q(carrier_tracking_number__icontains=search)
+            )
+
+        qs = qs.order_by('-created_at')
+
+        page, per_page = parse_pagination(request, default_per_page=20)
+        total = qs.count()
+        qs = qs[(page - 1) * per_page: page * per_page]
+
+        return Response({
+            'count':    total,
+            'page':     page,
+            'per_page': per_page,
+            'results':  OrderSerializer(qs, many=True).data,
+        })
+
+
+class LabelMarkPrintedView(APIView):
+    """Marque une commande comme physiquement imprimée (dernier maillon du
+    pipeline) — action manuelle, aucune vérification technique possible côté
+    serveur qu'une impression a réellement eu lieu."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        store = _get_store(request)
+        if not store or not is_owner_or_admin(request):
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        try:
+            order = store.orders.get(pk=pk)
+        except Order.DoesNotExist:
+            return Response({'detail': 'Commande introuvable.'}, status=404)
+        if not order.label_generated_at:
+            return Response({'detail': "L'étiquette doit être générée avant d'être marquée imprimée."}, status=400)
+
+        order.label_printed_at = timezone.now()
+        order.save(update_fields=['label_printed_at'])
+        return Response(OrderSerializer(order).data)
+
+
+class LabelsPrintAllView(APIView):
+    """Fusionne les étiquettes de plusieurs commandes en un seul PDF
+    téléchargeable ("Print All" — imprimer plusieurs tickets d'un coup plutôt
+    qu'un par un). Marque chaque commande incluse comme "générée" (même effet
+    que le téléchargement unitaire)."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        store = _get_store(request)
+        if not store or not is_owner_or_admin(request):
+            return Response({'detail': 'Accès refusé.'}, status=403)
+
+        ids = [i for i in request.query_params.get('ids', '').split(',') if i.strip().isdigit()]
+        if not ids:
+            return Response({'detail': 'Aucune commande sélectionnée.'}, status=400)
+        orders = list(store.orders.filter(pk__in=ids))
+        if not orders:
+            return Response({'detail': 'Commandes introuvables.'}, status=404)
+
+        from pypdf import PdfWriter
+        writer = PdfWriter()
+        errors = []
+        for order in orders:
+            try:
+                pdf_bytes = _fetch_label_pdf(order)
+                writer.append(BytesIO(pdf_bytes))
+            except Exception as e:
+                errors.append(f"#{order.id} : {e}")
+
+        if not len(writer.pages):
+            return Response({'detail': 'Aucune étiquette récupérée.', 'errors': errors}, status=502)
+
+        buf = BytesIO()
+        writer.write(buf)
+        response = HttpResponse(buf.getvalue(), content_type='application/pdf')
+        response['Content-Disposition'] = 'attachment; filename="etiquettes.pdf"'
+        if errors:
+            response['X-Label-Errors'] = str(len(errors))
+        return response
+
+
+class PreparedOrdersListView(APIView):
+    """4ᵉ étape du pipeline "Expéditions & Retours" (suite du pipeline
+    d'impression) : une commande confirmée/expédiée est physiquement
+    "préparée" (emballée) par un employé avant remise au transporteur —
+    indépendant de l'impression de l'étiquette (les deux peuvent se faire
+    dans n'importe quel ordre)."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        store = _get_store(request)
+        if not store or not is_owner_or_admin(request):
+            return Response({'detail': 'Accès refusé.'}, status=403)
+
+        state = request.query_params.get('state', 'pending')
+        if state not in ('pending', 'prepared'):
+            return Response({'detail': "État invalide. Valeurs : ('pending', 'prepared')"}, status=400)
+
+        qs = store.orders.filter(status__in=('confirmed', 'shipped'))
+        qs = qs.filter(prepared_at__isnull=(state == 'pending'))
+
+        search = request.query_params.get('search', '').strip()
+        if search:
+            qs = qs.filter(
+                Q(first_name__icontains=search) |
+                Q(last_name__icontains=search) |
+                Q(phone__icontains=search) |
+                Q(carrier_tracking_number__icontains=search)
+            )
+
+        qs = qs.order_by('-created_at')
+        page, per_page = parse_pagination(request, default_per_page=20)
+        total = qs.count()
+        qs = qs[(page - 1) * per_page: page * per_page]
+
+        return Response({
+            'count':    total,
+            'page':     page,
+            'per_page': per_page,
+            'results':  OrderSerializer(qs, many=True).data,
+        })
+
+
+class PreparedOrdersMarkView(APIView):
+    """Marque en masse une sélection de commandes comme préparées ("Update
+    selected state" côté RiseCart) — bulk plutôt que ligne par ligne, la
+    préparation se fait souvent en lot (une tournée d'emballage)."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        store = _get_store(request)
+        if not store or not is_owner_or_admin(request):
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        ids = request.data.get('ids') or []
+        updated = store.orders.filter(pk__in=ids, prepared_at__isnull=True).update(prepared_at=timezone.now())
+        return Response({'updated': updated})
+
+
+class PredictiveReturnsListView(APIView):
+    """Commandes en transit (confirmées/expédiées, pas encore livrées) qui
+    présentent un risque élevé de retour — combine DEUX signaux, pas
+    seulement l'historique : le risque CLIENT déjà connu (`CustomerRisk`,
+    mêmes seuils que ClientListView/AtRiskCustomersPage, Epic 6.3) ET le
+    signal TEMPS RÉEL du transporteur pour CETTE expédition précise
+    (`carrier_status` classé dans le bucket "tentative échouée" — voir
+    `_carrier_status_bucket`). Lecture seule, aucune action possible."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        store = _get_store(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+
+        settings_obj = getattr(store, 'settings', None)
+        threshold = settings_obj.risk_threshold_orders if settings_obj else 3
+        period_days = settings_obj.risk_period_days if settings_obj else 90
+        cutoff = timezone.now() - timedelta(days=period_days)
+
+        risky_phones = set(
+            store.orders.filter(status__in=RISK_STATUSES, created_at__gte=cutoff)
+            .values('phone').annotate(n=Count('id')).filter(n__gte=threshold)
+            .values_list('phone', flat=True)
+        )
+        risky_phones |= set(CustomerRisk.objects.filter(store=store, manual_risk=True).values_list('phone', flat=True))
+
+        qs = store.orders.filter(status__in=('confirmed', 'shipped'))
+
+        search = request.query_params.get('search', '').strip()
+        if search:
+            qs = qs.filter(
+                Q(first_name__icontains=search) |
+                Q(last_name__icontains=search) |
+                Q(phone__icontains=search) |
+                Q(carrier_tracking_number__icontains=search)
+            )
+
+        matching_ids, reasons = [], {}
+        for o in qs.only('id', 'phone', 'carrier_status'):
+            carrier_flag = _carrier_status_bucket(o.carrier_status)[0] == 'failed_attempt'
+            client_flag = o.phone in risky_phones
+            if carrier_flag or client_flag:
+                matching_ids.append(o.id)
+                reasons[o.id] = (['tentative_echouee'] if carrier_flag else []) + (['client_a_risque'] if client_flag else [])
+
+        qs = qs.filter(id__in=matching_ids).order_by('-created_at')
+        page, per_page = parse_pagination(request, default_per_page=20)
+        total = qs.count()
+        qs = qs[(page - 1) * per_page: page * per_page]
+
+        results = OrderSerializer(qs, many=True).data
+        for row in results:
+            row['risk_reasons'] = reasons.get(row['id'], [])
+
+        return Response({
+            'count':    total,
+            'page':     page,
+            'per_page': per_page,
+            'results':  results,
+        })
+
+
+class ReturnValidationListView(APIView):
+    """Commandes réellement retournées par un transporteur (`status='returned'`
+    avec un vrai tracking — écarte les retours saisis manuellement sans
+    expédition réelle), en attente de confirmation physique de réception.
+    Filtrable par `tracking_substatus` (même champ que "Suivi transporteur",
+    réutilisé ici plutôt que dupliqué)."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        store = _get_store(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+
+        qs = store.orders.filter(status='returned').exclude(carrier_tracking_number='')
+
+        substatus = request.query_params.get('substatus')
+        if substatus:
+            qs = qs.filter(tracking_substatus=substatus)
+
+        validated = request.query_params.get('validated')
+        if validated == '1':
+            qs = qs.filter(return_validated_at__isnull=False)
+        elif validated == '0':
+            qs = qs.filter(return_validated_at__isnull=True)
+
+        search = request.query_params.get('search', '').strip()
+        if search:
+            qs = qs.filter(
+                Q(first_name__icontains=search) |
+                Q(last_name__icontains=search) |
+                Q(phone__icontains=search) |
+                Q(carrier_tracking_number__icontains=search)
+            )
+
+        qs = qs.order_by('-created_at')
+        page, per_page = parse_pagination(request, default_per_page=20)
+        total = qs.count()
+        qs = qs[(page - 1) * per_page: page * per_page]
+
+        return Response({
+            'count':    total,
+            'page':     page,
+            'per_page': per_page,
+            'results':  OrderSerializer(qs, many=True).data,
+        })
+
+
+class ReturnValidateView(APIView):
+    """Confirme la réception physique d'un colis retourné — et remet les
+    articles en stock par défaut (`restock`, décision produit 2026-08-12 :
+    case cochée par défaut, décochable si la marchandise revient
+    abîmée/invendable). `Order.restocked_at` garde l'idempotence — jamais
+    restocké deux fois, y compris si ce même order finit aussi annulé plus
+    tard (voir `_transition_order_status`)."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        store = _get_store(request)
+        if not store or not is_owner_or_admin(request):
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        try:
+            order = store.orders.get(pk=pk, status='returned')
+        except Order.DoesNotExist:
+            return Response({'detail': 'Commande retournée introuvable.'}, status=404)
+
+        order.return_validated_at = timezone.now()
+        update_fields = ['return_validated_at']
+
+        restock = request.data.get('restock', True)
+        if restock and not order.restocked_at:
+            _restock_order_items(store, order, reason='order_return', note=f"Retour commande #{order.id}")
+            order.restocked_at = timezone.now()
+            update_fields.append('restocked_at')
+
+        order.save(update_fields=update_fields)
+        return Response(OrderDetailSerializer(order).data)
 
 
 class OrderRetryShipmentView(APIView):

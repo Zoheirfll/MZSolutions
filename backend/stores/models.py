@@ -92,6 +92,7 @@ class StoreSettings(models.Model):
     abandoned_cart_delay_hours = models.PositiveIntegerField(default=1)
     risk_threshold_orders      = models.PositiveIntegerField(default=3)
     risk_period_days           = models.PositiveIntegerField(default=90)
+    insurance_fee               = models.DecimalField(max_digits=10, decimal_places=2, default=200, help_text="Supplément ajouté aux frais de livraison quand le type \"Assurance\" est choisi sur une commande")
     theme_template  = models.CharField(max_length=20, choices=THEME_CHOICES, default='violet')
     theme_primary   = models.CharField(max_length=7, blank=True)
     theme_secondary = models.CharField(max_length=7, blank=True)

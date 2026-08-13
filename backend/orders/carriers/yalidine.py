@@ -179,6 +179,44 @@ class YalidineClient(BaseCarrierClient):
         cache.set(cache_key, result, 60 * 60 * 6)  # 6h, même durée que Noest
         return result
 
+    def get_commune_rates(self, wilaya_id):
+        """Détail par commune du même appel `/fees/` que `get_rates` — Yalidine
+        est le seul transporteur branché qui tarife réellement au niveau
+        commune (voir `per_commune` ci-dessus)."""
+        if not self.carrier_account.api_token:
+            return None
+        from_wilaya_id = wilaya_code(self.carrier_account.departure_wilaya)
+        if not from_wilaya_id:
+            return None
+        cache_key = f'yalidine_commune_fees_{self.carrier_account.id}_{from_wilaya_id}_{wilaya_id}'
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return cached
+        try:
+            resp = requests.get(
+                f"{BASE_URL}/fees/",
+                params={'from_wilaya_id': from_wilaya_id, 'to_wilaya_id': wilaya_id},
+                headers=self._headers(), timeout=10,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+        except requests.RequestException:
+            return None
+
+        result = {}
+        for entry in data.get('per_commune', {}).values():
+            name = entry.get('commune_name')
+            if not name or entry.get('express_home') is None:
+                continue
+            result[name] = {
+                'tarif': float(entry['express_home']),
+                'tarif_stopdesk': float(entry.get('express_desk') or entry['express_home']),
+            }
+        if not result:
+            return None
+        cache.set(cache_key, result, 60 * 60 * 6)
+        return result
+
     def get_desks(self, wilaya_id):
         if not self.carrier_account.api_token:
             return []

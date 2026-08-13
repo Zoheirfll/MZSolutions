@@ -572,7 +572,7 @@ export default function OrdersPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const [data,     setData]     = useState({ results: [], count: 0 })
-  const [statusF,  setStatusF]  = useState('')
+  const [statusF,  setStatusF]  = useState(() => new URLSearchParams(location.search).get('status') || '')
   const [search,   setSearch]   = useState('')
   const [page,     setPage]     = useState(1)
   const [perPage,  setPerPage]  = useState(10)

@@ -38,6 +38,13 @@ class BaseCarrierClient:
         cette info (mock, ou API sans grille tarifaire publique)."""
         return None
 
+    def get_commune_rates(self, wilaya_id):
+        """Tarifs par commune pour une wilaya donnée — {commune_name: {'tarif':
+        .., 'tarif_stopdesk': ..}}, ou None si le transporteur ne tarife pas
+        au niveau commune (la plupart : un seul tarif par wilaya, voir
+        `get_rates`)."""
+        return None
+
     def get_desks(self, wilaya_id):
         """Liste des bureaux/points relais (stop desk) pour une wilaya —
         [{'code': .., 'name': .., 'address': ..}], ou [] si le transporteur

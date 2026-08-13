@@ -401,13 +401,14 @@ class ComplaintPublicFlowTests(TestCase):
         self.assertEqual(resp.status_code, 404)
 
     def test_correct_phone_creates_complaint_with_initial_message(self):
+        from inbox.models import Conversation
         resp = self.client.post('/api/public/complaints/', {
             'store_slug': self.store.slug, 'order_id': self.order.id, 'phone': '0555222222',
             'subject': 'Pb', 'description': 'Description',
         }, content_type='application/json')
         self.assertEqual(resp.status_code, 201)
-        complaint = Complaint.objects.get(order=self.order)
-        self.assertEqual(complaint.messages.count(), 1)
+        conv = Conversation.objects.get(order=self.order, channel='complaint')
+        self.assertEqual(conv.messages.count(), 1)
 
     def test_owner_can_change_status(self):
         complaint = Complaint.objects.create(store=self.store, order=self.order, subject='S', description='D')
@@ -418,15 +419,16 @@ class ComplaintPublicFlowTests(TestCase):
         self.assertEqual(complaint.status, 'resolved')
 
     def test_auto_assigned_round_robin_on_creation(self):
+        from inbox.models import Conversation
         conf_user1, conf1 = make_team_member(self.store, 'confirmateur')
         conf_user2, conf2 = make_team_member(self.store, 'confirmateur')
         resp = self.client.post('/api/public/complaints/', {
             'store_slug': self.store.slug, 'order_id': self.order.id, 'phone': '0555222222',
             'subject': 'Pb', 'description': 'Description',
         }, content_type='application/json')
-        complaint = Complaint.objects.get(id=resp.data['id'])
-        self.assertIsNotNone(complaint.assignment.confirmateur)
-        self.assertIn(complaint.assignment.confirmateur_id, [conf1.id, conf2.id])
+        conv = Conversation.objects.get(id=resp.data['id'])
+        self.assertIsNotNone(conv.assigned_to)
+        self.assertIn(conv.assigned_to_id, [conf1.id, conf2.id])
 
     def test_owner_can_reassign_complaint(self):
         conf_user, conf = make_team_member(self.store, 'confirmateur')

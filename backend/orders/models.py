@@ -133,6 +133,54 @@ class CarrierAccount(models.Model):
         return f"{self.get_carrier_display()} — {self.store.name}"
 
 
+class WilayaRate(models.Model):
+    """Grille tarifaire de livraison **saisie/figée par le vendeur**, par
+    wilaya — distincte du tarif transporteur en temps réel (`get_rates()`,
+    `CarrierRatesView`). Sert de source de vérité pour le prix affiché au
+    client (`_resolve_shipping_cost`) une fois qu'une ligne existe pour la
+    wilaya : le vendeur peut la corriger/majorer librement, ou la faire
+    remplir automatiquement via "Mettre à jour depuis la société" (bouton
+    RiseCart équivalent — `WilayaRateSyncView`, tarif réel du transporteur
+    par défaut au moment du clic). Sans ligne, le calcul retombe sur l'appel
+    transporteur en direct (comportement historique inchangé)."""
+    store         = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='wilaya_rates')
+    wilaya_id     = models.PositiveSmallIntegerField()
+    wilaya_name   = models.CharField(max_length=100)
+    home_price    = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="Frais de livraison à domicile")
+    desk_price    = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Frais de livraison au bureau/point relais — vide si non proposé")
+    show_home     = models.BooleanField(default=True)
+    show_desk     = models.BooleanField(default=True)
+    updated_at    = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['wilaya_id']
+        unique_together = [('store', 'wilaya_id')]
+
+    def __str__(self):
+        return f"{self.wilaya_name} — {self.store.name}"
+
+
+class CommuneRate(models.Model):
+    """Override optionnel de `WilayaRate` pour UNE commune précise, quand le
+    tarif transporteur varie à l'intérieur de la wilaya (cas réel de
+    Yalidine — voir `YalidineClient.get_commune_rates`, les autres
+    transporteurs branchés n'exposent qu'un tarif par wilaya). Absence de
+    ligne = la commune suit le tarif de sa wilaya (`WilayaRate`)."""
+    store         = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='commune_rates')
+    wilaya_id     = models.PositiveSmallIntegerField()
+    commune_name  = models.CharField(max_length=100)
+    home_price    = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    desk_price    = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    updated_at    = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['commune_name']
+        unique_together = [('store', 'wilaya_id', 'commune_name')]
+
+    def __str__(self):
+        return f"{self.commune_name} ({self.wilaya_id}) — {self.store.name}"
+
+
 class Order(models.Model):
     store         = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='orders')
     status        = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
@@ -147,10 +195,15 @@ class Order(models.Model):
     stop_desk     = models.BooleanField(default=False, help_text="Livraison en point relais (True) plutôt qu'à domicile (False) — affecte le tarif transporteur et le mode d'expédition envoyé à l'API")
     station_code  = models.CharField(max_length=20, blank=True, help_text="Code du bureau/point relais choisi (requis par certains transporteurs, ex: Noest, quand stop_desk=True)")
     tracking_substatus = models.CharField(max_length=20, choices=TRACKING_SUBSTATUS_CHOICES, blank=True, help_text="Tag de triage manuel posé par le confirmateur sur une commande en cours de livraison — indépendant du statut brut du transporteur")
+    label_generated_at = models.DateTimeField(null=True, blank=True, help_text="Renseigné automatiquement la première fois que l'étiquette PDF de cette commande est téléchargée/générée")
+    label_printed_at   = models.DateTimeField(null=True, blank=True, help_text="Renseigné quand le vendeur marque le ticket comme physiquement imprimé (pipeline Expéditions & Retours)")
+    prepared_at         = models.DateTimeField(null=True, blank=True, help_text="Renseigné quand le colis a été physiquement préparé/emballé, avant remise au transporteur")
+    return_validated_at = models.DateTimeField(null=True, blank=True, help_text="Renseigné quand le vendeur confirme avoir physiquement reçu et vérifié un colis retourné")
+    restocked_at        = models.DateTimeField(null=True, blank=True, help_text="Renseigné dès que les articles de cette commande ont été remis en stock (retour validé ou annulation) — garde d'idempotence, évite un double restockage")
     total         = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     promo_code       = models.CharField(max_length=30, blank=True)
     discount_amount  = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    delivery_type = models.CharField(max_length=20, choices=DELIVERY_CHOICES, blank=True)
+    delivery_types = models.JSONField(default=list, blank=True, help_text="Liste de codes DELIVERY_CHOICES — plusieurs types combinables (ex: Assurance + Échange)")
     payment_method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES, default='cod')
     chargily_checkout_id   = models.CharField(max_length=100, blank=True, db_index=True)
     chargily_payment_link  = models.URLField(blank=True)
@@ -385,6 +438,7 @@ class ExchangeRequest(models.Model):
     reason             = models.TextField()
     status             = models.CharField(max_length=20, choices=EXCHANGE_STATUS_CHOICES, default='open')
     vendor_note        = models.TextField(blank=True)
+    conversation       = models.OneToOneField('inbox.Conversation', null=True, blank=True, on_delete=models.SET_NULL, related_name='exchange_request', help_text="Fil de discussion de la boîte de réception unifiée (2026-08) — le reason du client et le vendor_note d'approbation y apparaissent comme messages")
     created_at         = models.DateTimeField(auto_now_add=True)
     updated_at         = models.DateTimeField(auto_now=True)
 

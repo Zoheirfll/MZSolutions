@@ -16,6 +16,8 @@ import AcceptInvitation from './pages/AcceptInvitation'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
 import StockPage from './pages/StockPage'
+import StockMovementsPage from './pages/products/StockMovementsPage'
+import BackToSellerPage from './pages/products/BackToSellerPage'
 import ParametresLivraisonPage from './pages/ParametresLivraisonPage'
 import ProductsPage from './pages/products/ProductsPage'
 import ProductFormPage from './pages/products/ProductFormPage'
@@ -31,12 +33,15 @@ import OrderFormPage from './pages/orders/OrderFormPage'
 import ScheduledOrdersPage from './pages/orders/ScheduledOrdersPage'
 import CancellationsPage from './pages/orders/CancellationsPage'
 import ShipmentsPage from './pages/orders/ShipmentsPage'
+import LabelsPage from './pages/orders/LabelsPage'
+import PreparedOrdersPage from './pages/orders/PreparedOrdersPage'
+import PredictiveReturnsPage from './pages/orders/PredictiveReturnsPage'
+import ReturnValidationPage from './pages/orders/ReturnValidationPage'
 import OrderDetailPage from './pages/orders/OrderDetailPage'
 import FailureReasonsPage from './pages/orders/FailureReasonsPage'
 import ConfirmationRatePage from './pages/orders/ConfirmationRatePage'
 import AbandonedCartsPage from './pages/orders/AbandonedCartsPage'
-import ComplaintsPage from './pages/orders/ComplaintsPage'
-import ComplaintDetailPage from './pages/orders/ComplaintDetailPage'
+import InboxPage from './pages/inbox/InboxPage'
 import ExchangesPage from './pages/orders/ExchangesPage'
 import ExchangeDetailPage from './pages/orders/ExchangeDetailPage'
 import ClientsPage from './pages/customers/ClientsPage'
@@ -102,6 +107,8 @@ function App() {
           <Route path="/dashboard/boutique/menu"             element={<PD><MenuPage /></PD>} />
           <Route path="/dashboard/boutique/fichiers"         element={<PD><FileManagerPage /></PD>} />
           <Route path="/dashboard/stock"                     element={<PD><StockPage /></PD>} />
+          <Route path="/dashboard/stock/mouvements"          element={<PD><StockMovementsPage /></PD>} />
+          <Route path="/dashboard/stock/retour-vendeur"      element={<PD><BackToSellerPage /></PD>} />
           <Route path="/dashboard/parametres-livraison"      element={<PD><ParametresLivraisonPage /></PD>} />
           <Route path="/dashboard/produits"                  element={<PD><ProductsPage /></PD>} />
           <Route path="/dashboard/produits/nouveau"          element={<PD><ProductFormPage /></PD>} />
@@ -123,8 +130,8 @@ function App() {
           <Route path="/dashboard/commandes/annulations/demandes"       element={<PD><CancellationsPage mode="requests" /></PD>} />
           <Route path="/dashboard/commandes/annulations/confirmees"     element={<PD><CancellationsPage mode="confirmed" /></PD>} />
           <Route path="/dashboard/expeditions"                          element={<PD><ShipmentsPage /></PD>} />
-          <Route path="/dashboard/reclamations"                          element={<PD><ComplaintsPage /></PD>} />
-          <Route path="/dashboard/reclamations/:id"                      element={<PD><ComplaintDetailPage /></PD>} />
+          <Route path="/dashboard/boite-reception"                        element={<PD><InboxPage /></PD>} />
+          <Route path="/dashboard/boite-reception/:id"                    element={<PD><InboxPage /></PD>} />
           <Route path="/dashboard/echanges"                              element={<PD><ExchangesPage /></PD>} />
           <Route path="/dashboard/echanges/:id"                          element={<PD><ExchangeDetailPage /></PD>} />
           <Route path="/dashboard/clients"                   element={<PD><ClientsPage /></PD>} />
@@ -139,7 +146,10 @@ function App() {
           <Route path="/dashboard/canaux-vente"               element={<PD><SalesChannelsPage /></PD>} />
           <Route path="/dashboard/marketing"                  element={<PD><MarketingPixelsPage /></PD>} />
           <Route path="/dashboard/webhooks"                   element={<PD><WebhooksPage /></PD>} />
-          <Route path="/dashboard/expeditions"               element={<PD><ComingSoon title="Expéditions & Retours" /></PD>} />
+          <Route path="/dashboard/expeditions/etiquettes"     element={<PD><LabelsPage /></PD>} />
+          <Route path="/dashboard/expeditions/preparees"      element={<PD><PreparedOrdersPage /></PD>} />
+          <Route path="/dashboard/expeditions/retour-predictif" element={<PD><PredictiveReturnsPage /></PD>} />
+          <Route path="/dashboard/expeditions/retours"        element={<PD><ReturnValidationPage /></PD>} />
           <Route path="/dashboard/stats"                     element={<PD><GlobalStatsPage /></PD>} />
           <Route path="/dashboard/stats/commandes"           element={<PD><OrdersStatsPage /></PD>} />
           <Route path="/dashboard/stats/retours"             element={<PD><ReturnsStatsPage /></PD>} />

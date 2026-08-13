@@ -43,6 +43,7 @@ urlpatterns = [
     path('api/team/',     include('team.urls')),
     path('api/products/', include('products.urls')),
     path('api/orders/',   include('orders.urls')),
+    path('api/inbox/',    include('inbox.urls')),
     path('api/dropshipping/', include('dropshipping.urls')),
     path('api/finance/',  include('finance.urls')),
     path('api/channels/', include('channels.urls')),
@@ -50,7 +51,7 @@ urlpatterns = [
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token-refresh'),
     path('api/public/reviews/', __import__('products.views', fromlist=['PublicReviewView']).PublicReviewView.as_view()),
     path('api/public/orders/',  __import__('orders.views',   fromlist=['PublicOrderView']).PublicOrderView.as_view()),
-    path('api/public/complaints/', __import__('orders.views', fromlist=['PublicComplaintCreateView']).PublicComplaintCreateView.as_view()),
+    path('api/public/complaints/', __import__('inbox.views', fromlist=['PublicComplaintCreateView']).PublicComplaintCreateView.as_view()),
     path('api/public/exchanges/', __import__('orders.views', fromlist=['PublicExchangeCreateView']).PublicExchangeCreateView.as_view()),
     path('api/public/webhooks/chargily/', __import__('orders.views', fromlist=['ChargilyWebhookView']).ChargilyWebhookView.as_view()),
     path('api/public/webhooks/yalidine/', __import__('orders.views', fromlist=['YalidineWebhookView']).YalidineWebhookView.as_view()),
@@ -72,7 +73,10 @@ from stores.views import (StorePageListCreateView, StorePageDetailView,
                            MediaFolderListCreateView, MediaFolderDeleteView,
                            MediaFileListView, MediaFileUploadView, MediaFileDeleteView,
                            MediaFileBulkDeleteView, MediaStorageSummaryView)
-from orders.views import CarrierAccountListCreateView, CarrierAccountDetailView, CarrierRatesView, CarrierDesksView
+from orders.views import (CarrierAccountListCreateView, CarrierAccountDetailView, CarrierRatesView, CarrierDesksView,
+                           WilayaRateListCreateView, WilayaRateDetailView, WilayaRateSyncView,
+                           CommuneRateListCreateView, CommuneRateDetailView, CommuneRateSyncView,
+                           StoreShippingRateView)
 urlpatterns += [
     path('api/stores/pages/',           StorePageListCreateView.as_view()),
     path('api/stores/pages/<int:pk>/',  StorePageDetailView.as_view()),
@@ -87,6 +91,13 @@ urlpatterns += [
     path('api/stores/me/carriers/<int:pk>/',  CarrierAccountDetailView.as_view()),
     path('api/stores/me/carriers/<int:pk>/rates/', CarrierRatesView.as_view()),
     path('api/stores/me/carriers/<int:pk>/desks/', CarrierDesksView.as_view()),
+    path('api/stores/me/wilaya-rates/',            WilayaRateListCreateView.as_view()),
+    path('api/stores/me/wilaya-rates/<int:pk>/',   WilayaRateDetailView.as_view()),
+    path('api/stores/me/wilaya-rates/sync/',       WilayaRateSyncView.as_view()),
+    path('api/stores/me/commune-rates/',           CommuneRateListCreateView.as_view()),
+    path('api/stores/me/commune-rates/<int:pk>/',  CommuneRateDetailView.as_view()),
+    path('api/stores/me/commune-rates/sync/',      CommuneRateSyncView.as_view()),
+    path('api/stores/me/shipping-rate/',           StoreShippingRateView.as_view()),
 ]
 
 urlpatterns += [

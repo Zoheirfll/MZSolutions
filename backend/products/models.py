@@ -249,6 +249,7 @@ class Promotion(models.Model):
 STOCK_MOVEMENT_REASONS = [
     ('exchange_return', 'Retour échange'), ('exchange_issue', 'Sortie échange'),
     ('order_sale', 'Vente (commande)'), ('manual_adjustment', 'Ajustement manuel'),
+    ('order_return', 'Retour commande'), ('order_cancelled', 'Annulation commande'),
 ]
 
 
@@ -257,6 +258,8 @@ class StockMovement(models.Model):
     product        = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='stock_movements')
     variant_option = models.ForeignKey(VariantOption, null=True, blank=True, on_delete=models.SET_NULL, related_name='stock_movements')
     quantity       = models.IntegerField()  # signé : positif = entrée, négatif = sortie
+    stock_before   = models.IntegerField(null=True, blank=True, help_text="Stock juste avant ce mouvement — null pour l'historique antérieur au chantier 2026-08 (aucun instantané passé disponible)")
+    stock_after    = models.IntegerField(null=True, blank=True)
     reason         = models.CharField(max_length=30, choices=STOCK_MOVEMENT_REASONS)
     note           = models.CharField(max_length=200, blank=True)
     created_at     = models.DateTimeField(auto_now_add=True)

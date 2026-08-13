@@ -11,7 +11,7 @@ from core.permissions import is_owner_or_admin, has_permission
 from orders.models import Order
 from orders.utils import order_channel
 from dropshipping.models import CommissionEntry
-from .models import Cost
+from .models import Cost, COST_CATEGORY_CHOICES
 from .serializers import CostSerializer
 
 
@@ -201,10 +201,19 @@ class ProfitabilitySummaryView(APIView):
             costs = costs.filter(period_end__gte=period_start)
         if period_end:
             costs = costs.filter(period_start__lte=period_end)
-        operational = sum((c.amount for c in costs if c.category == 'operational'), Decimal('0'))
-        marketing   = sum((c.amount for c in costs if c.category == 'marketing'), Decimal('0'))
+        # Toutes les catégories de Cost réduisent le profit net (pas
+        # seulement operational/marketing comme avant l'ajout des catégories
+        # écarts de livraison / frais de confirmation / coût de retour /
+        # autres dettes — 2026-08) — sommé génériquement par catégorie pour
+        # ne jamais en oublier une silencieusement si le catalogue évolue.
+        costs_by_category = {cat: Decimal('0') for cat, _ in COST_CATEGORY_CHOICES}
+        for c in costs:
+            costs_by_category[c.category] = costs_by_category.get(c.category, Decimal('0')) + c.amount
+        total_costs = sum(costs_by_category.values(), Decimal('0'))
+        operational = costs_by_category.get('operational', Decimal('0'))
+        marketing   = costs_by_category.get('marketing', Decimal('0'))
 
-        net_profit = revenue - product_cost - commission - operational - marketing
+        net_profit = revenue - product_cost - commission - total_costs
 
         previous = None
         if period_start and period_end:
@@ -219,14 +228,19 @@ class ProfitabilitySummaryView(APIView):
                 previous = None
 
         return Response({
-            'orders_count':      orders_count,
-            'revenue':           revenue,
-            'product_cost':      product_cost,
-            'commission':        commission,
-            'operational_cost':  operational,
-            'marketing_cost':    marketing,
-            'net_profit':        net_profit,
-            'previous_period':   previous,
+            'orders_count':          orders_count,
+            'revenue':               revenue,
+            'product_cost':          product_cost,
+            'commission':            commission,
+            'operational_cost':      operational,
+            'marketing_cost':        marketing,
+            'delivery_variance_cost': costs_by_category.get('delivery_variance', Decimal('0')),
+            'confirmation_fees':      costs_by_category.get('confirmation_fees', Decimal('0')),
+            'return_cost':            costs_by_category.get('return_cost', Decimal('0')),
+            'other_debts':            costs_by_category.get('other_debts', Decimal('0')),
+            'total_costs':            total_costs,
+            'net_profit':             net_profit,
+            'previous_period':        previous,
         })
 
     def _summary_for_period(self, store, period_start, period_end):
@@ -244,9 +258,8 @@ class ProfitabilitySummaryView(APIView):
                 commission += commission_by_item.get(item.id, Decimal('0'))
 
         costs = Cost.objects.filter(store=store, period_end__gte=period_start, period_start__lte=period_end)
-        operational = sum((c.amount for c in costs if c.category == 'operational'), Decimal('0'))
-        marketing   = sum((c.amount for c in costs if c.category == 'marketing'), Decimal('0'))
+        total_costs = sum((c.amount for c in costs), Decimal('0'))
         return {
             'revenue': revenue,
-            'net_profit': revenue - product_cost - commission - operational - marketing,
+            'net_profit': revenue - product_cost - commission - total_costs,
         }

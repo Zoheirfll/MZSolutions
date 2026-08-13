@@ -115,15 +115,19 @@ export default function CheckoutPage() {
     : 0
   const total = subtotal - discountAmount + shippingCost
 
-  // Tarif réel du transporteur par défaut de la boutique, dès que la wilaya est choisie
+  // Tarif de livraison (grille du vendeur en priorité, sinon transporteur par
+  // défaut en temps réel), dès que la wilaya — et éventuellement la commune —
+  // sont choisies.
   useEffect(() => {
     if (!client.wilaya) { setShippingRate(null); return }
     setShippingLoading(true)
-    publicApi.get(`/store/${slug}/shipping-rate/?wilaya=${encodeURIComponent(client.wilaya)}`)
+    const params = new URLSearchParams({ wilaya: client.wilaya })
+    if (client.commune) params.set('commune', client.commune)
+    publicApi.get(`/store/${slug}/shipping-rate/?${params.toString()}`)
       .then(({ data }) => setShippingRate(data))
       .catch(() => setShippingRate(null))
       .finally(() => setShippingLoading(false))
-  }, [client.wilaya, slug])
+  }, [client.wilaya, client.commune, slug])
 
   // Liste des bureaux réels dès que le client choisit "point relais"
   useEffect(() => {

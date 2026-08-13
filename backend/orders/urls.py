@@ -11,11 +11,14 @@ from .views import (
     ComplaintListView, ComplaintDetailView, ComplaintStatusView, ComplaintMessageCreateView, ComplaintAssignmentView,
     ExchangeListView, ExchangeDetailView, ExchangeStatusView,
     ShipmentListView, OrderLabelView, OrderRetryShipmentView, OrderSyncTrackingView, OrderAssignCarrierView,
-    CarrierTrackingListView,
+    CarrierTrackingListView, LabelsListView, LabelMarkPrintedView, LabelsPrintAllView,
+    PreparedOrdersListView, PreparedOrdersMarkView, PredictiveReturnsListView,
+    ReturnValidationListView, ReturnValidateView,
 )
 from .stats_views import (
     OrdersStatsDetailView, ReturnsStatsView, FailureStatsView, StockSalesStatsView,
     ProductsStatsView, WilayaStatsView, SourceStatsView, GlobalStatsView,
+    DashboardDeliveriesView, DashboardRevenueView, DashboardKpiView,
 )
 
 urlpatterns = [
@@ -35,6 +38,14 @@ urlpatterns = [
     path('exchanges/<int:pk>/status/',            ExchangeStatusView.as_view()),
     path('shipments/',                            ShipmentListView.as_view()),
     path('carrier-tracking/',                     CarrierTrackingListView.as_view()),
+    path('labels/',                               LabelsListView.as_view()),
+    path('labels/print-all/',                     LabelsPrintAllView.as_view()),
+    path('<int:pk>/label/mark-printed/',          LabelMarkPrintedView.as_view()),
+    path('prepared/',                             PreparedOrdersListView.as_view()),
+    path('prepared/mark/',                        PreparedOrdersMarkView.as_view()),
+    path('predictive-returns/',                   PredictiveReturnsListView.as_view()),
+    path('returns/',                              ReturnValidationListView.as_view()),
+    path('<int:pk>/validate-return/',             ReturnValidateView.as_view()),
     path('',                                      OrderListCreateView.as_view()),
     path('stats/',                                OrderStatsView.as_view()),
     path('stats/confirmation/',                   ConfirmationRateView.as_view()),
@@ -46,6 +57,9 @@ urlpatterns = [
     path('stats/wilayas/',                        WilayaStatsView.as_view()),
     path('stats/sources/',                        SourceStatsView.as_view()),
     path('stats/global/',                         GlobalStatsView.as_view()),
+    path('stats/dashboard/deliveries/',           DashboardDeliveriesView.as_view()),
+    path('stats/dashboard/revenue/',              DashboardRevenueView.as_view()),
+    path('stats/dashboard/kpi/',                  DashboardKpiView.as_view()),
     path('failure-reasons/',                      FailureReasonListView.as_view()),
     path('failure-reasons/<int:pk>/',             FailureReasonDetailView.as_view()),
     path('failure-reasons/<int:pk>/attempts/',    FailureReasonAttemptsView.as_view()),

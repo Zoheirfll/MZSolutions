@@ -5,9 +5,24 @@ import api from '../../api/axios'
 import { theme } from '../../theme'
 
 const CATEGORY_OPTIONS = [
-  { value: 'operational', label: 'Opérationnel' },
-  { value: 'marketing',   label: 'Marketing' },
+  { value: 'operational',       label: 'Opérationnel' },
+  { value: 'marketing',         label: 'Marketing' },
+  { value: 'delivery_variance', label: 'Écarts de livraison' },
+  { value: 'confirmation_fees', label: 'Frais de confirmation' },
+  { value: 'return_cost',       label: 'Coût de retour' },
+  { value: 'other_debts',       label: 'Autres dettes' },
 ]
+
+const CATEGORY_LABELS = Object.fromEntries(CATEGORY_OPTIONS.map(o => [o.value, o.label]))
+
+const CATEGORY_BADGE = {
+  operational:       theme.badge.neutral,
+  marketing:         theme.badge.info,
+  delivery_variance: theme.badge.warning,
+  confirmation_fees: theme.badge.warning,
+  return_cost:       theme.badge.danger,
+  other_debts:       theme.badge.danger,
+}
 
 const EMPTY_FORM = { category: 'operational', label: '', amount: '', period_start: '', period_end: '', note: '' }
 
@@ -164,11 +179,11 @@ export default function CostsPage() {
     <DashboardLayout title="Coûts" subtitle={`Cette page sert à enregistrer les dépenses de votre activité qui ne sont pas liées à un produit précis : loyer, salaires, publicité Facebook, abonnements... Donnez un nom libre à chaque dépense, son montant et la période qu'elle couvre (par exemple "Facebook Ads — juillet", 15 000 DA, du 1er au 31 juillet). Ces coûts ne sont pas répartis produit par produit, mais ils sont automatiquement inclus dans le calcul de votre profit net global sur la page Rentabilité.`}>
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-5">
         <div className="flex items-center gap-2 flex-wrap">
-          {['', 'operational', 'marketing'].map(c => (
+          {['', ...CATEGORY_OPTIONS.map(o => o.value)].map(c => (
             <button key={c} onClick={() => setCategoryFilter(c)}
               className={`px-3.5 py-1.5 rounded-lg text-sm font-medium transition ${categoryFilter === c ? 'text-white bg-violet-600' : 'text-app-muted-light hover:text-app-primary hover:bg-violet-500/5'}`}
               style={categoryFilter === c ? undefined : { border: `1px solid ${theme.dark.border}` }}>
-              {c === '' ? 'Tous' : c === 'operational' ? 'Opérationnel' : 'Marketing'}
+              {c === '' ? 'Tous' : CATEGORY_LABELS[c]}
             </button>
           ))}
           <input
@@ -212,7 +227,7 @@ export default function CostsPage() {
             ) : costs.map(c => (
               <tr key={c.id} className="border-b hover:bg-violet-500/5 transition" style={{ borderColor: theme.dark.borderRowHover }}>
                 <td className="px-4 py-3">
-                  <span className={c.category === 'marketing' ? theme.badge.info : theme.badge.neutral}>{c.category_label}</span>
+                  <span className={CATEGORY_BADGE[c.category] || theme.badge.neutral}>{c.category_label}</span>
                 </td>
                 <td className="px-4 py-3 text-app-primary">{c.label}{c.note && <><br /><span className="text-xs text-app-muted">{c.note}</span></>}</td>
                 <td className="px-4 py-3 text-app-primary">{money(c.amount)}</td>

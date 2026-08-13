@@ -51,6 +51,11 @@ const ICONS = {
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 16.5V9a1 1 0 011-1h9v8.5M3 16.5h1.5m8.5 0h4m-4 0V8m4 8.5H21m-4.5 0a1.75 1.75 0 11-3.5 0 1.75 1.75 0 013.5 0zM7.5 16.5a1.75 1.75 0 11-3.5 0 1.75 1.75 0 013.5 0zM13 11h4l3 3.5v2h-1" />
     </svg>
   ),
+  inbox: (
+    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M22 12h-6l-2 3h-4l-2-3H2M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z" />
+    </svg>
+  ),
   tracking: (
     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
@@ -182,13 +187,15 @@ export default function DashboardLayout({ children, title, subtitle }) {
     fournisseurs: location.pathname.startsWith('/dashboard/produits/fournisseurs'),
     commandes:    location.pathname.startsWith('/dashboard/commandes'),
     annulation:   location.pathname.startsWith('/dashboard/commandes/annulations'),
-    suivi:        ['/dashboard/commandes/raisons-echec', '/dashboard/reclamations', '/dashboard/echanges'].some(p => location.pathname.startsWith(p)),
+    suivi:        ['/dashboard/commandes/raisons-echec', '/dashboard/echanges'].some(p => location.pathname.startsWith(p)),
     clients:      location.pathname.startsWith('/dashboard/clients'),
     finances:     location.pathname.startsWith('/dashboard/finances'),
     stats:        location.pathname.startsWith('/dashboard/stats'),
+    expeditions:  location.pathname.startsWith('/dashboard/expeditions'),
+    stock:        location.pathname.startsWith('/dashboard/stock'),
   })
   const [lowStockCount, setLowStockCount] = useState(0)
-  const [openComplaintsCount, setOpenComplaintsCount] = useState(0)
+  const [inboxUnreadCount, setInboxUnreadCount] = useState(0)
   const [openExchangesCount, setOpenExchangesCount] = useState(0)
   const [pendingOrdersCount, setPendingOrdersCount] = useState(0)
   const [newOrderPulse, setNewOrderPulse] = useState(false)
@@ -198,7 +205,7 @@ export default function DashboardLayout({ children, title, subtitle }) {
 
   useEffect(() => {
     api.get('/products/low-stock/').then(({ data }) => setLowStockCount(data.count)).catch(() => {})
-    api.get('/orders/complaints/?status=open&per_page=1').then(({ data }) => setOpenComplaintsCount(data.count)).catch(() => {})
+    api.get('/inbox/unread-count/').then(({ data }) => setInboxUnreadCount(data.count)).catch(() => {})
     api.get('/orders/exchanges/?status=open&per_page=1').then(({ data }) => setOpenExchangesCount(data.count)).catch(() => {})
     api.get('/stores/me/quota/').then(({ data }) => setQuota(data)).catch(() => {})
     if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
@@ -228,6 +235,9 @@ export default function DashboardLayout({ children, title, subtitle }) {
         pendingOrdersRef.current = count
         setPendingOrdersCount(count)
       }).catch(() => {})
+      // Même sondage 30s, étendu à la boîte de réception plutôt que d'en
+      // ajouter un second (US "boîte de réception, tout doit y arriver", 2026-08).
+      api.get('/inbox/unread-count/').then(({ data }) => setInboxUnreadCount(data.count)).catch(() => {})
     }
     checkPendingOrders()
     const interval = setInterval(checkPendingOrders, 30000)
@@ -335,6 +345,7 @@ export default function DashboardLayout({ children, title, subtitle }) {
             <p className="text-[10px] font-semibold px-2 mb-2 tracking-widest" style={{ color: theme.dark.muted }}>E-COMMERCE</p>
             <ul className="space-y-0.5">
               <li>{mainLink('/dashboard', ICONS.dashboard, 'Tableau de bord', true)}</li>
+              {can('inbox_view') && <li>{mainLink('/dashboard/boite-reception', ICONS.inbox, 'Boîte de réception', false, inboxUnreadCount)}</li>}
 
               {/* Commandes — expandable */}
               <li>
@@ -389,21 +400,21 @@ export default function DashboardLayout({ children, title, subtitle }) {
                 )}
               </li>
 
-              {/* Suivi des commandes — regroupe échecs d'appel / réclamations / échanges */}
-              {(can('orders_manage') || can('complaints_view') || can('exchanges_view')) && (
+              {/* Suivi des commandes — regroupe échecs d'appel / échanges (les réclamations vivent désormais dans la Boîte de réception) */}
+              {(can('orders_manage') || can('exchanges_view')) && (
                 <li>
                   <button
                     onClick={() => setExpanded(e => ({ ...e, suivi: !e.suivi }))}
                     className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
-                      ['/dashboard/commandes/raisons-echec', '/dashboard/reclamations', '/dashboard/echanges'].some(p => location.pathname.startsWith(p))
+                      ['/dashboard/commandes/raisons-echec', '/dashboard/echanges'].some(p => location.pathname.startsWith(p))
                         ? 'bg-violet-500/10 text-app-primary font-medium' : 'text-app-muted-light hover:text-app-primary hover:bg-violet-500/5'
                     }`}
                   >
                     <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.tracking}</span>Suivi des commandes</span>
                     <span className="flex items-center gap-1.5 shrink-0">
-                      {(openComplaintsCount + openExchangesCount) > 0 && (
+                      {openExchangesCount > 0 && (
                         <span className="w-5 h-5 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center font-bold">
-                          {(openComplaintsCount + openExchangesCount) > 9 ? '9+' : openComplaintsCount + openExchangesCount}
+                          {openExchangesCount > 9 ? '9+' : openExchangesCount}
                         </span>
                       )}
                       <svg className={`w-3.5 h-3.5 transition-transform duration-200 ${expanded.suivi ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -414,12 +425,6 @@ export default function DashboardLayout({ children, title, subtitle }) {
                   {expanded.suivi && (
                     <ul className="mt-0.5 ml-5 space-y-0.5 border-l pl-3" style={{ borderColor: theme.dark.border }}>
                       {can('orders_manage') && <li>{link('/dashboard/commandes/raisons-echec', 'Gestion des échecs')}</li>}
-                      {can('complaints_view') && (
-                        <li className="flex items-center justify-between">
-                          {link('/dashboard/reclamations', 'Gestion des réclamations')}
-                          {openComplaintsCount > 0 && <span className="mr-1 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] flex items-center justify-center font-bold shrink-0">{openComplaintsCount > 9 ? '9+' : openComplaintsCount}</span>}
-                        </li>
-                      )}
                       {can('exchanges_view') && (
                         <li className="flex items-center justify-between">
                           {link('/dashboard/echanges', 'Gestion échanges')}
@@ -537,8 +542,59 @@ export default function DashboardLayout({ children, title, subtitle }) {
                   )}
                 </li>
               )}
-              {can('shipping_settings_view') && <li>{mainLink('/dashboard/expeditions', ICONS.shipping, 'Expéditions')}</li>}
-              {can('stock_view') && <li>{mainLink('/dashboard/stock', ICONS.stock, 'Stock & Inventaire', false, lowStockCount)}</li>}
+              {can('shipping_settings_view') && (
+                <li>
+                  <button
+                    onClick={() => setExpanded(e => ({ ...e, expeditions: !e.expeditions }))}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
+                      location.pathname.startsWith('/dashboard/expeditions') ? 'bg-white/6 text-app-primary font-medium' : 'text-gray-400 hover:text-app-primary hover:bg-white/5'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.shipping}</span>Expéditions & Retours</span>
+                    <svg className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${expanded.expeditions ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                  {expanded.expeditions && (
+                    <ul className="mt-0.5 ml-5 space-y-0.5 border-l pl-3" style={{ borderColor: theme.dark.border }}>
+                      <li>{link('/dashboard/expeditions', 'Expéditions', true)}</li>
+                      <li>{link('/dashboard/expeditions/etiquettes', 'Étiquettes')}</li>
+                      <li>{link('/dashboard/expeditions/preparees', 'Commandes préparées')}</li>
+                      <li>{link('/dashboard/expeditions/retour-predictif', 'Retour prédictif')}</li>
+                      <li>{link('/dashboard/expeditions/retours', 'Validation des retours')}</li>
+                    </ul>
+                  )}
+                </li>
+              )}
+              {can('stock_view') && (
+                <li>
+                  <button
+                    onClick={() => setExpanded(e => ({ ...e, stock: !e.stock }))}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
+                      location.pathname.startsWith('/dashboard/stock') ? 'bg-white/6 text-app-primary font-medium' : 'text-gray-400 hover:text-app-primary hover:bg-white/5'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.stock}</span>Stock & Inventaire</span>
+                    <span className="flex items-center gap-1.5 shrink-0">
+                      {lowStockCount > 0 && (
+                        <span className="w-5 h-5 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center font-bold">
+                          {lowStockCount > 9 ? '9+' : lowStockCount}
+                        </span>
+                      )}
+                      <svg className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${expanded.stock ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </span>
+                  </button>
+                  {expanded.stock && (
+                    <ul className="mt-0.5 ml-5 space-y-0.5 border-l pl-3" style={{ borderColor: theme.dark.border }}>
+                      <li>{link('/dashboard/stock', 'Stock & Inventaire', true)}</li>
+                      <li>{link('/dashboard/stock/mouvements', 'Mouvement des stocks')}</li>
+                      <li>{link('/dashboard/stock/retour-vendeur', 'Retour au vendeur')}</li>
+                    </ul>
+                  )}
+                </li>
+              )}
               {can('stats_view') && (
                 <li>
                   <button
@@ -638,16 +694,17 @@ export default function DashboardLayout({ children, title, subtitle }) {
             </div>
           </div>
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            {/* Cloche stock bas */}
+            {/* Cloche — mène à la boîte de réception (US "tout doit y arriver", 2026-08) */}
             <button
-              onClick={() => navigate('/dashboard/stock')}
+              onClick={() => navigate('/dashboard/boite-reception')}
               className="relative w-9 h-9 rounded-lg border flex items-center justify-center text-app-muted-light hover:text-app-primary hover:bg-violet-500/5 transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
               style={{ borderColor: theme.dark.border }}
+              title="Boîte de réception"
             >
               {ICONS.bell}
-              {lowStockCount > 0 && (
+              {inboxUnreadCount > 0 && (
                 <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-600 text-white text-[9px] flex items-center justify-center font-bold">
-                  {lowStockCount > 9 ? '9+' : lowStockCount}
+                  {inboxUnreadCount > 9 ? '9+' : inboxUnreadCount}
                 </span>
               )}
             </button>

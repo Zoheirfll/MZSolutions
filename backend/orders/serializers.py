@@ -4,8 +4,22 @@ from .models import (
     OrderAssignment, FailureReason, CallAttempt, CALL_STATUS_CHOICES,
     PAYMENT_METHOD_CHOICES, AbandonedCart, CarrierAccount, CARRIER_CHOICES,
     BlacklistedPhone, Complaint, ComplaintMessage, COMPLAINT_STATUS_CHOICES,
-    ExchangeRequest, EXCHANGE_STATUS_CHOICES,
+    ExchangeRequest, EXCHANGE_STATUS_CHOICES, WilayaRate, CommuneRate,
 )
+
+
+class WilayaRateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model  = WilayaRate
+        fields = ['id', 'wilaya_id', 'wilaya_name', 'home_price', 'desk_price', 'show_home', 'show_desk', 'updated_at']
+        read_only_fields = ['id', 'updated_at']
+
+
+class CommuneRateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model  = CommuneRate
+        fields = ['id', 'wilaya_id', 'commune_name', 'home_price', 'desk_price', 'updated_at']
+        read_only_fields = ['id', 'updated_at']
 
 
 class CarrierAccountSerializer(serializers.ModelSerializer):
@@ -14,12 +28,24 @@ class CarrierAccountSerializer(serializers.ModelSerializer):
     api_token_masked      = serializers.SerializerMethodField()
     webhook_secret        = serializers.CharField(write_only=True, required=False, allow_blank=True)
     webhook_secret_masked = serializers.SerializerMethodField()
+    webhook_url            = serializers.SerializerMethodField()
 
     class Meta:
         model  = CarrierAccount
         fields = ['id', 'carrier', 'carrier_label', 'name', 'departure_wilaya', 'api_id', 'api_token', 'api_token_masked',
-                  'webhook_secret', 'webhook_secret_masked', 'is_active', 'is_default', 'created_at']
+                  'webhook_secret', 'webhook_secret_masked', 'webhook_url', 'is_active', 'is_default', 'created_at']
         read_only_fields = ['id', 'created_at']
+
+    def get_webhook_url(self, obj):
+        # Une seule URL publique par transporteur supporté (pas par compte) —
+        # l'identification du compte se fait via `webhook_secret` (signature
+        # HMAC), voir YalidineWebhookView. Vide pour les transporteurs qui
+        # n'exposent pas encore de webhook entrant (Ecotrack, mockés...).
+        from django.conf import settings
+        base = getattr(settings, 'BACKEND_URL', '') or ''
+        if obj.carrier == 'yalidine':
+            return f"{base.rstrip('/')}/api/public/webhooks/yalidine/"
+        return ''
 
     def get_carrier_label(self, obj):
         return dict(CARRIER_CHOICES).get(obj.carrier, obj.carrier)
@@ -127,10 +153,11 @@ class OrderSerializer(serializers.ModelSerializer):
             'id', 'status', 'status_label',
             'first_name', 'last_name', 'phone', 'wilaya', 'commune',
             'subtotal', 'shipping_cost', 'total',
-            'delivery_type', 'payment_method', 'payment_method_label', 'note',
+            'delivery_types', 'payment_method', 'payment_method_label', 'note',
             'items_count', 'confirmateur_name', 'created_at', 'scheduled_at',
             'carrier', 'carrier_label', 'carrier_tracking_number', 'carrier_status',
             'stop_desk', 'station_code', 'tracking_substatus', 'tracking_substatus_label',
+            'label_generated_at', 'label_printed_at', 'prepared_at', 'return_validated_at', 'restocked_at',
             'cancellation_note',
         ]
 

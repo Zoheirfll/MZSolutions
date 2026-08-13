@@ -40,6 +40,8 @@ INSTALLED_APPS = [
     'finance',
     'channels',
     'webhooks',
+    'inbox',
+    'notifications',
 ]
 
 MIDDLEWARE = [

@@ -19,3 +19,10 @@ WILAYA_CODES = {
 
 def wilaya_code(name):
     return WILAYA_CODES.get((name or '').strip())
+
+
+WILAYA_NAMES_BY_CODE = {v: k for k, v in WILAYA_CODES.items()}
+
+
+def wilaya_name(code):
+    return WILAYA_NAMES_BY_CODE.get(code)

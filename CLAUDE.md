@@ -101,6 +101,33 @@ core/            — app Django générique (utilitaires partagés) : permission
   - `GET /api/orders/carrier-tracking/` (`CarrierTrackingListView`) — commandes `status in (confirmed, shipped)` avec tracking, groupées en **sous-statuts génériques** dérivés du texte libre `Order.carrier_status` par mots-clés insensibles accents/casse (`_carrier_status_bucket()`, `CARRIER_STATUS_BUCKETS`) : Tentative échouée, En attente du client, En localisation, Vers la wilaya, En attente de traitement, Autre. Boutons de filtre avec compteur par sous-statut (comme les pastilles RiseCart), recherche, export CSV
   - `Order.tracking_substatus` (nouveau champ, `TRACKING_SUBSTATUS_CHOICES` : En attente de traitement / Accepté / Annulé / Injoignable) — **tag de triage posé manuellement** par le confirmateur/vendeur sur une commande en transit, indépendant du texte brut transporteur (auto-dérivé, ci-dessus) et de `Order.status` (n'a aucun effet de bord, purement organisationnel). Éditable en ligne dans le tableau (`Select`, sauvegarde immédiate via `PUT /api/orders/<id>/`, déjà dans la liste `allowed` de `OrderDetailView.put`, donc modifiable par owner/admin ou confirmateur avec `orders_manage`)
 
+### Menu "Expéditions & Retours" — pipeline logistique (2026-08, aligné sur RiseCart)
+Sous-menu dépliant de la sidebar (`shipping_settings_view`), 5 pages qui suivent un colis de l'étiquette au retour. Tous les états sont dérivés de **champs horodatés sur `Order`** (pas de modèle séparé, pas d'état stocké redondant) :
+
+- **Expéditions** (`ShipmentsPage.jsx`, existant) — vue centralisée des commandes expédiées, sync manuelle du statut transporteur, téléchargement d'étiquette
+- **Étiquettes** (`LabelsPage.jsx`) — pipeline d'impression en 3 états dérivés de `label_generated_at`/`label_printed_at` : *en attente* (jamais téléchargée) → *PDF généré* (téléchargée au moins une fois) → *imprimé* (confirmé manuellement). `_fetch_label_pdf()` (factorisée entre `OrderLabelView` et `LabelsPrintAllView`) renseigne `label_generated_at` au premier téléchargement, donc les deux premiers états ne peuvent jamais se désynchroniser. **"Print All"** fusionne plusieurs étiquettes en un seul PDF via `pypdf` (nouvelle dépendance)
+- **Commandes préparées** (`PreparedOrdersPage.jsx`) — `Order.prepared_at`, marquage en lot ; indépendant de l'impression (les deux peuvent se faire dans n'importe quel ordre)
+- **Retour prédictif** (`PredictiveReturnsPage.jsx`) — commandes en transit à risque de retour, **deux signaux combinés** : le risque CLIENT historique (`CustomerRisk` + seuils `StoreSettings`, Epic 6.3) **et** le signal TEMPS RÉEL du transporteur pour ce colis précis (`carrier_status` classé `failed_attempt`). Lecture seule, la réponse porte `risk_reasons` par ligne pour afficher pourquoi
+- **Validation des retours** (`ReturnValidationPage.jsx`) — `Order.return_validated_at`, uniquement les commandes `returned` **avec un vrai tracking** (écarte les retours saisis à la main sans expédition réelle), filtrables par `tracking_substatus`. **Restocke par défaut** (case "Remettre en stock" cochée, décochable) — voir section `products.StockMovement` pour le détail du restockage automatique
+
+### Menu "Stock & Inventaire" — sous-menu dépliant (2026-08)
+Même motif que "Expéditions & Retours" ci-dessus : `Stock & Inventaire` (page existante, alertes + inventaire), `Mouvement des stocks` (`StockMovementsPage.jsx`, registre global lecture seule), `Retour au vendeur` (`BackToSellerPage.jsx`, même registre pré-filtré sur les motifs entrants). Les deux nouvelles pages consomment le **même endpoint** `GET /api/products/stock/movements/`, jamais dupliqué — "Retour au vendeur" ne fait que fixer `reason=order_return,order_cancelled,exchange_return` côté frontend. "Statistique vente de stock" reste sous Statistiques (analyse, pas gestion).
+
+### Tableau de bord analytique (2026-08, remplace l'ancien `Dashboard.jsx`)
+4 onglets partageant une même période (`usePeriod`/`PeriodFilter` de `statsShared.jsx`) et un panneau **Filtrage** (produit, catégorie, wilaya, confirmateur, transporteur, canal de vente) — `_apply_dashboard_filters()` réutilise **exactement les mêmes noms de paramètres et la même logique** que les filtres de `OrderListCreateView.get`, plutôt qu'une convention parallèle.
+
+- **Livraisons** (`GET /api/orders/stats/dashboard/deliveries/`) — entonnoir **commandes → réelles → confirmées → expédiées** avec taux *entre étapes consécutives* (pas rapportés au total) ; 4 cartes secondaires ; évolution quotidienne à **6 séries** ; carte d'Algérie ; cartes par source ; tuiles de tous les statuts, **cliquables** (drill-down vers `/dashboard/commandes?status=…`, là où le concurrent les laisse décoratives)
+- **Revenus** (`.../revenue/`) — 8 cartes. Bénéfices/CA réutilisent le calcul de `ProfitabilitySummaryView` (via `_PeriodParamsShim`, qui adapte les noms de paramètres période plutôt que de dupliquer le calcul). *Dettes de produits* = `SupplierCredit` − `SupplierPayment` (donnée déjà en base, Epic 3.5). *Écarts de livraison / Frais de confirmation / Coût de retour / Autres dettes* = **saisie manuelle** via `finance.Cost` (décision produit 2026-08-12 : pas de calcul automatique tant que leur définition métier exacte n'est pas fixée)
+- **Confirmation** — branché tel quel sur `ConfirmationRateView` (déjà existant, Epic 8.1). C'est l'onglet que RiseCart laisse vide
+- **KPI** (`.../kpi/`) — Top 5 sources et Top 5 wilayas avec ventilation Commandes/Confirmé/Expédié/Livré/**Payé**/Retour + ligne Total
+
+Définitions figées :
+- **« Commandes réelles »** = total − (`duplicate` + `fake`). Compte **toutes** les commandes valides quel que soit leur statut, pas seulement les confirmées
+- **« Payé »** = `status == 'delivered'` (COD encaissé à la remise) **OU** (`payment_method == 'chargily'` ET statut confirmé+) — une commande Chargily n'est confirmée qu'après le webhook `checkout.paid`, donc confirmée ⇒ payée. Pas de champ « payé » explicite en base, c'est le proxy le plus fiable
+- Tous les deltas passent par `_pct_delta()`, qui renvoie **`null`** quand la comparaison est impossible → le frontend affiche `—`, jamais `NaN %` (bug visible chez le concurrent)
+
+⚠️ **`finance.Cost` a 4 nouvelles catégories** (`delivery_variance`, `confirmation_fees`, `return_cost`, `other_debts`) en plus de `operational`/`marketing`. `ProfitabilitySummaryView` sommait explicitement ces deux-là : réécrit pour sommer **toutes** les catégories (`costs_by_category` + `total_costs`), sinon les nouvelles auraient été silencieusement exclues du profit net. Toute future catégorie sera donc prise en compte automatiquement.
+
 ### Structure Frontend (`frontend/src/`)
 ```
 api/axios.js                    — instance Axios + intercepteurs Bearer + refresh auto
@@ -114,7 +141,12 @@ components/CheckboxList.jsx     — liste de checkboxes scrollable pour sélecti
 components/StatusBadge.jsx      — badge de statut commande, mapping centralisé (remplace les couleurs inline dupliquées par page)
 components/EmptyState.jsx       — état vide réutilisable (icône + titre + description)
 pages/Auth.jsx                  — login/inscription (split layout)
-pages/Dashboard.jsx             — tableau de bord vendeur
+pages/Dashboard.jsx             — coquille du tableau de bord analytique à 4 onglets (voir section dédiée) : bandeau quota + `PeriodFilter` + `FilterPanel`, délègue le contenu à `pages/dashboard/*`
+pages/dashboard/DeliveriesTab.jsx    — onglet Livraisons : entonnoir, cartes secondaires, graphe 6 séries, carte Algérie, cartes par source, tuiles de statut cliquables
+pages/dashboard/RevenueTab.jsx       — onglet Revenus : 8 cartes financières
+pages/dashboard/ConfirmationTab.jsx  — onglet Confirmation : résumé + tableau par confirmateur (réutilise `ConfirmationRateView`)
+pages/dashboard/KpiTab.jsx           — onglet KPI : Top 5 sources / Top 5 wilayas avec ventilation du funnel
+pages/dashboard/FilterPanel.jsx      — panneau "Filtrage" (produit, catégorie, wilaya, confirmateur, transporteur, canal de vente) appliqué aux onglets Livraisons et KPI
 pages/StorePage.jsx             — Ma boutique
 pages/TeamPage.jsx              — gestion équipe
 pages/PermissionsPage.jsx       — (owner/admin) matrice de permissions par rôle (Epic 7.5), toggles en direct via `POST /api/team/permissions/`
@@ -124,6 +156,8 @@ pages/WebhooksPage.jsx          — (owner/admin, ou `webhooks_view` accordée) 
 pages/SubscriptionPage.jsx      — (owner/admin uniquement, comme la matrice de permissions — pas de permission dédiée, décision produit : la facturation reste sensible) Epic 8.5 : toggle mensuel/annuel, 3 cartes de paliers, "Commencer" redirige vers le checkout Chargily
 lib/pixels.js                   — injection des scripts de pixels marketing (Facebook/TikTok/GA/GTM) sur le storefront public + `trackEvent()` pour les événements standards (Epic 8.3)
 pages/StockPage.jsx             — alertes stock bas + réglage seuil, et inventaire complet paginé/recherchable (tout ce que possède la boutique, pas que le stock bas)
+pages/products/StockMovementsPage.jsx — registre global des mouvements de stock, lecture seule (filtres : produit, type, dates)
+pages/products/BackToSellerPage.jsx   — même registre pré-filtré sur les motifs entrants (retour commande, annulation, retour échange)
 pages/products/ProductsPage.jsx       — liste produits (pagination, recherche)
 pages/products/ProductFormPage.jsx    — créer/modifier produit (variantes, images, multi-catégories). ⚠️ Le bouton "Ajouter une option" doit toujours envoyer une `value` non vide (le backend rejette `value=''` en 400) — bug déjà rencontré une fois (le clic semblait ne rien faire, erreur avalée silencieusement), corrigé en envoyant `'Nouvelle option'` par défaut
 pages/products/CategoriesPage.jsx     — gestion catégories (Corbeille, pagination, checkboxes)
@@ -137,7 +171,11 @@ pages/orders/OrdersPage.jsx           — liste commandes (filtre statut, recher
 pages/orders/OrderDetailPage.jsx      — détail commande (changer statut, sélection transporteur si confirmation + affichage tracking, assignation confirmateur, historique en timeline)
 pages/orders/OrderFormPage.jsx        — création commande manuelle (vendeur)
 pages/orders/CancellationsPage.jsx    — demandes d'annulation / confirmées
-pages/orders/FailureReasonsPage.jsx   — raisons d'échec d'appel
+pages/orders/FailureReasonsPage.jsx   — 3 onglets : Raisons (config des motifs) / Historique des échecs (chaque tentative d'appel ratée) / Suivi transporteur (commandes en transit groupées par sous-statut, voir section dédiée)
+pages/orders/LabelsPage.jsx           — pipeline d'impression des étiquettes en 3 onglets (en attente / PDF généré / imprimé), sélection multiple, "Print All" (PDF fusionné), "Marquer imprimé" en lot
+pages/orders/PreparedOrdersPage.jsx   — commandes à préparer / préparées, marquage en lot ("Update selected state")
+pages/orders/PredictiveReturnsPage.jsx — commandes en transit à risque de retour (lecture seule, badge de raison)
+pages/orders/ReturnValidationPage.jsx — commandes réellement retournées par un transporteur, filtre par sous-statut, bouton "Confirmer réception"
 pages/orders/ConfirmationRatePage.jsx — taux de confirmation par confirmateur (réutilisée aussi comme "Statistique par confirmateur", Epic 8.1)
 pages/orders/stats/statsShared.jsx    — utilitaires communs aux 8 pages de statistiques (Epic 8.1) : `usePeriod()`/`PeriodFilter` (jour/semaine/mois/personnalisé, même contrat que `ConfirmationRatePage`), `Spinner`, `money()`, `PIE_COLORS`
 pages/orders/stats/GlobalStatsPage.jsx    — StatCards résumé (commandes, taux de confirmation, livrées/retournées/annulées, CA, panier moyen)
@@ -148,8 +186,7 @@ pages/orders/stats/StockSalesStatsPage.jsx — unités vendues par produit (agr�
 pages/orders/stats/ProductsStatsPage.jsx  — par produit : commandes, confirmées, meilleure wilaya, meilleure source
 pages/orders/stats/WilayaStatsPage.jsx    — par wilaya : commandes, confirmées, revenu
 pages/orders/stats/SourceStatsPage.jsx    — par source (canal de vente) : pie chart + tableau commandes/confirmées/revenu
-pages/orders/ComplaintsPage.jsx       — liste réclamations (filtres statut, recherche)
-pages/orders/ComplaintDetailPage.jsx  — détail réclamation : description, historique des échanges en timeline, changement de statut + note, ajout de message
+pages/inbox/InboxPage.jsx             — Boîte de réception unifiée (2026-08), `/dashboard/boite-reception[/:id]` : 3 colonnes (liste conversations / fil de discussion / contexte commande + assignation + statut). Remplace pages/orders/ComplaintsPage.jsx et ComplaintDetailPage.jsx (supprimées)
 pages/ParametresLivraisonPage.jsx     — comptes transporteurs (Yalidine/ZR Express) : onglets "Sociétés de livraison" (cartes) / "Mes Sociétés de livraison" (tableau : toggle statut, copier clé/jeton API, badge défaut)
 pages/customers/ClientsPage.jsx           — liste clients agrégée par téléphone (nom, email, tél, nb commandes, wilaya, commune, badge risque)
 pages/customers/AtRiskCustomersPage.jsx   — clients à risque + panneau réglages (seuil/période), bouton marquer/démarquer manuellement
@@ -384,6 +421,9 @@ promo_code, discount_amount (renseignés si un code promo — products.Promotion
 delivery_type, payment_method (cod | chargily), note
 chargily_checkout_id, chargily_payment_link
 carrier (FK → CarrierAccount, nullable), carrier_tracking_number, carrier_status, carrier_shipment_created_at
+stop_desk, station_code (livraison en point relais + code du bureau choisi)
+tracking_substatus (tag de triage manuel, voir section Suivi transporteur)
+label_generated_at, label_printed_at, prepared_at, return_validated_at (pipeline Expéditions & Retours)
 created_at, updated_at
 ```
 - Statuts `no_answer_1/2/3` = tentatives d'appel séquentielles intégrées au statut principal (pas de modèle séparé de log d'appel type "CallAttempt" pour ce flux — un seul changement de statut + note suffit)
@@ -451,17 +491,31 @@ created_at
 ```
 Liste noire **non mutualisée** — un numéro bloqué sur une boutique ne l'est pas sur les autres (contrainte unique `(store, phone)`). Vérifiée dans `PublicOrderView.post()` (`backend/orders/views.py`) **avant toute création** : si le téléphone soumis correspond à une entrée, la commande est refusée (403, message personnalisé du vendeur renvoyé dans `detail` et affiché au client par `CheckoutPage.jsx`), et `blocked_attempts`/`last_attempt_at` sont incrémentés/mis à jour pour que le vendeur voie les tentatives sur la page Liste noire.
 
-### `orders.Complaint` / `orders.ComplaintMessage`
+### `inbox.Conversation` / `inbox.Message` — Boîte de réception unifiée (2026-08)
 ```
-Complaint : store (FK), order (FK → Order)
-  subject, description, status : open | in_progress | resolved
-  created_at, updated_at
+Conversation : store (FK), channel : complaint | exchange | messenger | whatsapp | instagram
+  order (FK → Order, nullable), subject, status : open | in_progress | resolved
+  customer_name, customer_phone, external_user_id, external_id (identifiants côté canal externe)
+  assigned_to (FK → team.TeamMember, nullable), assigned_at, assigned_by
+  last_message_at, last_customer_message_at (sert la fenêtre 24h Messenger/WhatsApp, pas encore appliquée)
+  unread_count, created_at, updated_at
 
-ComplaintMessage : complaint (FK, related_name='messages')
-  message (optionnel), status (optionnel — rempli si le message accompagne un changement de statut)
-  author (FK User, nullable = message du client), created_at
+Message : conversation (FK, related_name='messages')
+  direction : inbound | outbound, body (optionnel)
+  status_change (optionnel — rempli si le message accompagne un changement de statut)
+  attachment, author (FK User, nullable = message du client), external_id, created_at
 ```
-Réclamation client déposée **sans compte** (`PublicComplaintCreateView`, `POST /api/public/complaints/`) : le client fournit `store_slug`, `order_id`, `phone`, `subject`, `description` — la commande doit appartenir à la boutique **et** le téléphone doit correspondre à `Order.phone`, sinon 404 générique (pas de distinction commande inexistante / mauvais téléphone, anti-énumération). À la création, un premier `ComplaintMessage` (message = description, `author=None`, `status='open'`) est créé automatiquement — c'est le point de départ de l'historique des échanges (US-7.1.2). Chaque changement de statut côté vendeur (`ComplaintStatusView`) ou message ajouté (`ComplaintMessageCreateView`) crée une nouvelle ligne `ComplaintMessage` — historique jamais modifié/supprimé, même pattern que `OrderStatusHistory`.
+US demandée le 2026-08-12 : **« boîte de réception, tout doit y arriver »** — remplace `orders.Complaint`/`ComplaintMessage`/`ComplaintAssignment` (migration de données `inbox/migrations/0002_migrate_complaints.py`, exécutée sur la base de dev). `Complaint.description` était déjà dupliquée dans le premier `ComplaintMessage` créé à l'ouverture — rien perdu en ne reprenant pas ce champ séparément dans `Conversation`. **`orders.Complaint`/`ComplaintMessage`/`ComplaintAssignment` et leurs vues (`ComplaintListView`, etc., toujours dans `orders/views.py`) existent encore mais sont figées** — plus aucune écriture ne les alimente depuis la bascule ; à supprimer dans une passe dédiée une fois le nouveau système validé en usage réel (`docs/superpowers/plans/2026-08-12-boite-de-reception-unifiee.md`, étape 6).
+
+Chaque canal externe (Messenger/WhatsApp/Instagram) est un simple **adaptateur** au-dessus de ce même modèle — pas d'architecture séparée par canal, même principe que `orders/carriers/`/`channels/clients/`. `ExchangeRequest.conversation` (OneToOne nullable) permet à un échange d'apparaître aussi dans la boîte de réception, sans dupliquer son workflow métier (variante de remplacement, approbation, mouvements de stock — inchangés, voir section `orders.ExchangeRequest`).
+
+Réclamation client déposée **sans compte** (`inbox.views.PublicComplaintCreateView`, `POST /api/public/complaints/`, même URL qu'avant) : le client fournit `store_slug`, `order_id`, `phone`, `subject`, `description` — la commande doit appartenir à la boutique **et** le téléphone doit correspondre à `Order.phone`, sinon 404 générique (anti-énumération, comportement identique à l'ancien système). Crée une `Conversation(channel='complaint')` + un premier `Message(direction='inbound')`, assignée automatiquement en round-robin (`inbox/assignment.py::assign_conversation_round_robin`, curseur propre à l'inbox — `Conversation.assigned_at`, plus de table séparée).
+
+**Visibilité** : nouvelle permission `inbox_view` dans `PERMISSION_CATALOG` (`team/models.py`), **visible par défaut** pour confirmateur et dropshipper (contrairement à la plupart des autres permissions, masquées par défaut) — décision produit : les notifications sont utiles à toute l'équipe. ⚠️ Ajoutée dès la création de l'app plutôt qu'un check de rôle codé en dur — piège déjà rencontré deux fois (Epics 8.1 et 8.4).
+
+**Frontend** (`pages/inbox/InboxPage.jsx`, `/dashboard/boite-reception[/:id]`) — disposition 3 colonnes : liste des conversations (filtres canal/statut, recherche, pastille non-lu) · fil de discussion (messages entrants/sortants, pièces jointes, changement de statut en ligne) · **panneau contexte commande** (statut, tracking, wilaya, total — lien direct vers la commande), en plus de l'assignation. C'est le panneau contexte qui différencie cette boîte de réception d'un connecteur Messenger classique. La cloche de la topbar (`DashboardLayout.jsx`) mène désormais à `/dashboard/boite-reception` et affiche `GET /api/inbox/unread-count/` — **rafraîchi par le même sondage 30s** que les nouvelles commandes (pas de second timer). Ouvrir une conversation (`GET /api/inbox/conversations/<id>/`) remet `unread_count` à 0.
+
+⚠️ **Messenger/WhatsApp/Instagram non branchés** — aucune App Facebook n'existe (`config/settings.py` ne porte que les identifiants Shopify). Blocage administratif, pas technique, même situation que la distribution publique Shopify : Messenger exige une App Facebook + permission `pages_messaging` → App Review Meta + vérification d'entreprise obligatoires (en mode développement, seuls les testeurs déclarés peuvent écrire) ; WhatsApp Business exige en plus un compte WABA, des modèles de messages pré-approuvés, et une facturation à la conversation. `last_customer_message_at` est déjà prévu dans le modèle pour la règle des 24h Meta (pas de réponse possible au-delà sans message payant/taggé), en anticipation.
 
 ### `orders.ExchangeRequest`
 ```
@@ -484,12 +538,20 @@ Validation par le vendeur (`ExchangeStatusView`, US-7.2.1 "workflow de validatio
 ```
 store (FK), product (FK), variant_option (FK, nullable — absent si le produit n'a pas de variantes)
 quantity (signé : positif = entrée, négatif = sortie)
-reason : exchange_return | exchange_issue | order_sale (extensible plus tard à d'autres causes)
+stock_before, stock_after (IntegerField, null=True — null pour tout l'historique antérieur au 2026-08, aucun instantané passé disponible)
+reason : exchange_return | exchange_issue | order_sale | order_return | order_cancelled | manual_adjustment
 note (texte libre, ex. "Échange #12" ou "Commande #45"), created_at
 ```
 Premier modèle d'audit de stock du projet — jusqu'ici `Product.stock`/`VariantOption.stock` étaient de simples compteurs sans historique. Immuable une fois créé (jamais modifié/supprimé), même philosophie que `OrderStatusHistory`/`ComplaintMessage`.
 
-**Décrémentation à la commande** : `_deduct_stock_for_order(store, order)` (`backend/orders/views.py`) est appelée à la création d'une commande (`PublicOrderView.post()` **et** `OrderListCreateView.post()` — commande manuelle vendeur), pour chaque `OrderItem` : décrémente `variant_option.stock` (ou `product.stock` si pas de variante), plafonné à 0, et journalise un `StockMovement(reason='order_sale')`. Choix produit : le stock baisse **dès la création** de la commande (pas à la confirmation), pour éviter la survente si deux clients commandent le dernier article simultanément. ⚠️ **Pas de restockage automatique** si une commande est annulée/retournée — TBD, à considérer si besoin.
+**Point d'entrée unique (2026-08)** : `backend/products/stock.py::record_stock_movement(store, product, variant_option, quantity, reason, note='')` — mute le stock (plafonné à 0) **et** journalise le mouvement avec `stock_before`/`stock_after` en une seule opération. Avant ce chantier, `StockMovement.objects.create()` était appelé depuis 6 endroits différents dans `orders/views.py`/`products/views.py`, chacun mutant le stock à sa façon, sans tracer l'état avant/après — refactorisé pour que tous passent par ce helper unique. `log_stock_change_if_needed(store, product, variant_option, stock_before, stock_after, reason='manual_adjustment', note='')` couvre le cas où le stock a déjà été modifié ailleurs (ex. `ProductSerializer`/`VariantOptionSerializer` standard) : ne mute rien, compare juste avant/après et journalise si ça a changé — **boucle un vrai trou** : modifier le stock depuis la fiche produit (`ProductDetailView.put`, `VariantOptionDetailView.put`) ne créait auparavant AUCUN mouvement.
+
+**Décrémentation à la commande** : `_deduct_stock_for_order(store, order)` (`backend/orders/views.py`) est appelée à la création d'une commande (`PublicOrderView.post()` **et** `OrderListCreateView.post()` — commande manuelle vendeur), pour chaque `OrderItem` : décrémente `variant_option.stock` (ou `product.stock` si pas de variante), plafonné à 0, et journalise un `StockMovement(reason='order_sale')`. Choix produit : le stock baisse **dès la création** de la commande (pas à la confirmation), pour éviter la survente si deux clients commandent le dernier article simultanément.
+
+**Restockage automatique (2026-08, ferme le TBD précédent)** — décisions produit validées le 2026-08-12 :
+- **Retour validé** : `ReturnValidateView.post` (`POST /api/orders/<id>/validate-return/`) accepte `restock` (booléen, **défaut `true`**) — coché par défaut côté `ReturnValidationPage.jsx`, décochable si la marchandise revient abîmée/invendable
+- **Annulation** : `_transition_order_status()` restocke automatiquement au passage à `cancelled` (le stock ayant été déduit dès la création, une annulation doit le rendre) — pas d'option, systématique
+- Les deux flux partagent `_restock_order_items(store, order, reason, note)` (`orders/views.py`) et la garde d'idempotence **`Order.restocked_at`** — jamais restocké deux fois (ex. une commande retournée-avec-restock puis annulée par erreur ne restocke pas une seconde fois)
 
 ### `orders.Order.dropshipper` (FK → `team.TeamMember`, nullable)
 Ajouté pour Epic 7.3 — identifie le dropshipper qui a réalisé la vente (`None` pour une commande normale du vendeur). Renseigné automatiquement à la création si l'utilisateur authentifié est un `TeamMember` de rôle `dropshipper` (`OrderListCreateView.post()`).
@@ -553,10 +615,13 @@ Paiement du solde d'un dropshipper (US-7.3.4, `DropshipperPayView`) — **remet 
 ### `finance.Cost`
 ```
 store (FK)
-category : operational | marketing
+category : operational | marketing | delivery_variance | confirmation_fees | return_cost | other_debts
 label (texte libre, ex: "Facebook Ads", "Loyer local")
 amount, period_start, period_end (date), note, created_at
 ```
+⚠️ Les 4 dernières catégories ont été ajoutées en 2026-08 pour alimenter l'onglet Revenus du tableau de bord (décision produit : saisie manuelle plutôt que calcul automatique, leur définition métier exacte n'étant pas fixée). `ProfitabilitySummaryView` somme désormais **toutes** les catégories dans `net_profit` — ne jamais revenir à une somme catégorie par catégorie codée en dur, sinon une future catégorie serait silencieusement exclue du profit.
+
+> Note : `return_cost` est en théorie **calculable automatiquement** — Noest et Yalidine exposent tous deux un tarif de retour (`retour_fee` / section `return` de `/fees`). On pourrait le figer sur la commande au passage en `returned`. Laissé en saisie manuelle pour l'instant.
 Coût saisi manuellement par le vendeur (US-7.4.1). Deux catégories fixes seulement (pas de CRUD de catégories séparé, même compromis simplicité que `Supplier`/`FailureReason`) — le `label` libre permet de préciser le sous-type. `period_start`/`period_end` définissent la période couverte par ce coût (ex: un coût "Facebook Ads" de 15 000 DA pour tout le mois de juillet).
 
 **Calcul de rentabilité (US-7.4.2, `backend/finance/views.py`)** — décision produit : **pas de répartition arbitraire** des coûts opérationnels/marketing sur un produit/wilaya/source précis (aucune clé de répartition fiable n'existe). Deux vues séparées :
@@ -677,6 +742,8 @@ Contrairement aux canaux de vente de l'Epic 8.2, les webhooks sont **entièremen
 | PUT/DELETE | `/api/products/<id>/variants/<vid>/options/<oid>/` | Oui | Modifier / supprimer option |
 | GET | `/api/products/low-stock/` | Oui | Articles en stock bas (≤ seuil) |
 | GET | `/api/products/inventory/` | Oui | Inventaire complet paginé (`?search=&page=&per_page=`) — tous les produits/variantes avec leur stock, pas seulement ceux sous le seuil |
+| POST | `/api/products/stock/adjust/` | Oui (owner/admin) | Ajustement manuel de stock (produit ou variante), journalise un `StockMovement(reason='manual_adjustment')` |
+| GET | `/api/products/stock/movements/` | Oui (owner/admin) | Registre des mouvements (`?product=&search=&reason=&date_from=&date_to=&page=&per_page=`) — `reason` accepte une liste séparée par des virgules |
 | GET/POST | `/api/products/categories/` | Oui | Liste paginée (`?tab=publie\|desactive\|corbeille`) + créer |
 | GET/PUT/DELETE | `/api/products/categories/<id>/` | Oui | Détail / modifier / corbeille (soft delete) / supprimer définitif |
 | POST | `/api/products/categories/<id>/restore/` | Oui | Restaurer depuis corbeille |
@@ -715,14 +782,29 @@ Contrairement aux canaux de vente de l'Epic 8.2, les webhooks sont **entièremen
 | PUT/DELETE | `/api/orders/failure-reasons/<id>/` | Oui | Modifier / supprimer |
 | GET | `/api/orders/carrier-tracking/` | Oui | Suivi transporteur (`?search=&bucket=&page=&per_page=`) — commandes confirmées/expédiées en transit, groupées en sous-statuts génériques dérivés de `carrier_status` (`buckets: [{key,label,count}]`) |
 | POST | `/api/public/webhooks/yalidine/` | Non (CRC + signature HMAC) | Webhook Yalidine (`parcel_status_updated` notamment) — synchronise `Order.status` en temps réel, voir section Yalidine |
+| GET | `/api/orders/labels/` | Oui (owner/admin) | Pipeline d'impression (`?state=pending\|generated\|printed&search=`) |
+| GET | `/api/orders/labels/print-all/` | Oui (owner/admin) | Fusionne les étiquettes de plusieurs commandes en un seul PDF (`?ids=1,2,3`), marque chacune comme générée |
+| POST | `/api/orders/<id>/label/mark-printed/` | Oui (owner/admin) | Marque le ticket comme physiquement imprimé (`label_printed_at`) |
+| GET | `/api/orders/prepared/` | Oui (owner/admin) | Commandes à préparer / préparées (`?state=pending\|prepared&search=`) |
+| POST | `/api/orders/prepared/mark/` | Oui (owner/admin) | Marque en lot une sélection comme préparée (`{ids: [...]}`) |
+| GET | `/api/orders/predictive-returns/` | Oui | Commandes en transit à risque de retour — `risk_reasons` par ligne (`client_a_risque` / `tentative_echouee`) |
+| GET | `/api/orders/returns/` | Oui | Retours réels à valider (`?substatus=&validated=0\|1&search=`) |
+| POST | `/api/orders/<id>/validate-return/` | Oui (owner/admin) | Confirme la réception physique d'un colis retourné (`return_validated_at`) — ne restocke pas |
+| GET | `/api/orders/stats/dashboard/deliveries/` | Oui (owner/admin ou `stats_view`) | Onglet Livraisons du tableau de bord — entonnoir, cartes secondaires, 6 séries, wilayas, sources, statuts (filtres avancés supportés) |
+| GET | `/api/orders/stats/dashboard/revenue/` | Oui (owner/admin ou `stats_view`) | Onglet Revenus — 8 cartes financières |
+| GET | `/api/orders/stats/dashboard/kpi/` | Oui (owner/admin ou `stats_view`) | Onglet KPI — Top 5 sources / Top 5 wilayas avec funnel complet (filtres avancés supportés) |
 | GET | `/api/orders/clients/` | Oui | Liste clients agrégée par téléphone (`?search=&risk_only=&page=&per_page=`) — `is_risky`/`manual_risk`/`risky_count` calculés à la volée |
 | POST | `/api/orders/clients/<phone>/risk/` | Oui | Bascule le flag de risque manuel (`CustomerRisk.manual_risk`), indépendant du calcul automatique |
 | GET/POST | `/api/orders/blacklist/` | Oui | Liste noire de la boutique — lister / bloquer un numéro (`phone`, `message` optionnel) |
 | PUT/DELETE | `/api/orders/blacklist/<id>/` | Oui | Modifier le message / débloquer (supprimer) un numéro |
-| GET | `/api/orders/complaints/` | Oui | Liste paginée (`?status=&search=&page=&per_page=`) |
-| GET | `/api/orders/complaints/<id>/` | Oui | Détail + historique des échanges (`messages`) |
-| POST | `/api/orders/complaints/<id>/status/` | Oui | Change le statut (`open\|in_progress\|resolved`) + note → log `ComplaintMessage` |
-| POST | `/api/orders/complaints/<id>/messages/` | Oui | Ajoute un message sans changer le statut |
+| GET | `/api/orders/complaints/*` | Oui | ⚠️ **Figé** (2026-08) — remplacé par `/api/inbox/conversations/`, conservé tel quel le temps de la transition, plus aucune écriture ne l'alimente |
+| GET | `/api/inbox/conversations/` | Oui (`inbox_view`) | Liste paginée (`?channel=&status=&assigned=&search=&unread=1&page=&per_page=`) |
+| GET | `/api/inbox/conversations/<id>/` | Oui (`inbox_view`) | Détail + fil de messages — remet `unread_count` à 0 |
+| PUT | `/api/inbox/conversations/<id>/assignment/` | Oui (owner/admin) | Réassigne à un confirmateur |
+| POST | `/api/inbox/conversations/<id>/status/` | Oui (`inbox_view`) | Change le statut (`open\|in_progress\|resolved`) + note (+ pièce jointe) → log `Message` |
+| POST | `/api/inbox/conversations/<id>/messages/` | Oui (`inbox_view`) | Répond au client sans changer le statut |
+| GET | `/api/inbox/unread-count/` | Oui (`inbox_view`) | Alimente la pastille de la cloche/sidebar — sondage 30s partagé avec les nouvelles commandes |
+| POST | `/api/public/complaints/` | Non | Inchangé côté client — crée désormais une `Conversation(channel='complaint')` |
 
 ### Dropshipping & Commissions (Epic 7.3)
 | Méthode | URL | Auth | Description |

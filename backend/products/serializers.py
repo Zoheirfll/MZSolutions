@@ -270,11 +270,12 @@ class StockMovementSerializer(serializers.ModelSerializer):
     reason_label = serializers.SerializerMethodField()
     product_name = serializers.SerializerMethodField()
     option_value = serializers.SerializerMethodField()
+    option_group = serializers.SerializerMethodField()
 
     class Meta:
         model  = StockMovement
-        fields = ['id', 'product', 'product_name', 'variant_option', 'option_value',
-                  'quantity', 'reason', 'reason_label', 'note', 'created_at']
+        fields = ['id', 'product', 'product_name', 'variant_option', 'option_value', 'option_group',
+                  'quantity', 'stock_before', 'stock_after', 'reason', 'reason_label', 'note', 'created_at']
 
     def get_reason_label(self, obj):
         return obj.get_reason_display()
@@ -284,3 +285,6 @@ class StockMovementSerializer(serializers.ModelSerializer):
 
     def get_option_value(self, obj):
         return obj.variant_option.value if obj.variant_option else None
+
+    def get_option_group(self, obj):
+        return obj.variant_option.variant.name if obj.variant_option else None

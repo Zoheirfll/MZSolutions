@@ -71,6 +71,7 @@ PERMISSION_CATALOG = [
     ('channels_view',          'Voir les canaux de vente (Shopify, Google Sheets, Meta Commerce)'),
     ('marketing_view',         'Voir la configuration marketing (pixels)'),
     ('webhooks_view',          'Voir les webhooks'),
+    ('notifications_view',     'Voir la boîte de réception des notifications'),
 ]
 
 ROLES_WITH_PERMISSIONS = ['admin', 'confirmateur', 'dropshipper']
@@ -89,6 +90,7 @@ DEFAULT_PERMISSIONS = {
         'shipping_settings_view': False, 'dropshipping_view': False,
         'finances_view': False, 'team_view': False, 'stats_view': False,
         'channels_view': False, 'marketing_view': False, 'webhooks_view': False,
+        'notifications_view': True,
     },
     'dropshipper': {
         'orders_view': True, 'orders_manage': True,
@@ -98,6 +100,7 @@ DEFAULT_PERMISSIONS = {
         'shipping_settings_view': True, 'dropshipping_view': False,
         'finances_view': False, 'team_view': False, 'stats_view': False,
         'channels_view': False, 'marketing_view': False, 'webhooks_view': False,
+        'notifications_view': True,
     },
 }
 

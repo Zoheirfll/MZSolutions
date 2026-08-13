@@ -16,6 +16,7 @@ from .serializers import (
 )
 from core.permissions import get_store as _get_store, IsOwnerOrAdminForWrites
 from core.pagination import parse_pagination
+from .stock import record_stock_movement, log_stock_change_if_needed
 
 
 # ─── Categories ───────────────────────────────────────────────────────────────
@@ -182,10 +183,12 @@ class ProductDetailView(APIView):
         p, err = self._get(request, pk)
         if err: return err
         store = _get_store(request)
+        stock_before = p.stock
         s = ProductSerializer(p, data=request.data, partial=True,
                               context={'request': request, 'store': store})
         s.is_valid(raise_exception=True)
         s.save()
+        log_stock_change_if_needed(store, p, None, stock_before, p.stock, note='Modification fiche produit')
         return Response(s.data)
 
     def delete(self, request, pk):
@@ -361,10 +364,13 @@ class VariantOptionDetailView(APIView):
     def put(self, request, pk, vid, oid):
         opt, err = self._get(request, pk, vid, oid)
         if err: return err
+        store = _get_store(request)
+        stock_before = opt.stock
         # handle multipart (image upload)
         s = VariantOptionSerializer(opt, data=request.data, partial=True, context={'request': request})
         s.is_valid(raise_exception=True)
         s.save()
+        log_stock_change_if_needed(store, opt.variant.product, opt, stock_before, opt.stock, note='Modification fiche produit')
         return Response(s.data)
 
     def delete(self, request, pk, vid, oid):
@@ -524,32 +530,48 @@ class StockAdjustmentView(APIView):
                 option = VariantOption.objects.get(pk=variant_option_id, variant__product=product)
             except VariantOption.DoesNotExist:
                 return Response({'detail': 'Variante introuvable.'}, status=404)
-            option.stock = max(0, option.stock + quantity)
-            option.save(update_fields=['stock'])
-        else:
-            product.stock = max(0, product.stock + quantity)
-            product.save(update_fields=['stock'])
 
-        movement = StockMovement.objects.create(
-            store=store, product=product, variant_option=option,
-            quantity=quantity, reason='manual_adjustment', note=request.data.get('note', ''),
+        movement = record_stock_movement(
+            store, product, option, quantity,
+            reason='manual_adjustment', note=request.data.get('note', ''),
         )
         return Response(StockMovementSerializer(movement).data, status=201)
 
 
 class StockMovementListView(APIView):
     """Historique des mouvements de stock (US-7.2.2 — StockMovement existait
-    déjà pour l'audit des échanges/ventes, jamais exposé côté dashboard)."""
+    déjà pour l'audit des échanges/ventes, jamais exposé côté dashboard).
+    Endpoint unique réutilisé par les deux pages "Mouvement des stocks" et
+    "Retour au vendeur" (2026-08) — cette dernière pré-filtre juste sur
+    `reason=order_return,order_cancelled,exchange_return` côté frontend,
+    pas la peine d'un second endpoint pour la même donnée."""
     permission_classes = [IsAuthenticated, IsOwnerOrAdminForWrites]
 
     def get(self, request):
         store = _get_store(request)
         if not store:
             return Response({'detail': 'Accès refusé.'}, status=403)
-        qs = store.stock_movements.select_related('product', 'variant_option')
+        qs = store.stock_movements.select_related('product', 'variant_option__variant')
+
         product_id = request.query_params.get('product')
         if product_id:
             qs = qs.filter(product_id=product_id)
+
+        search = request.query_params.get('search', '').strip()
+        if search:
+            qs = qs.filter(product__name__icontains=search)
+
+        reason = request.query_params.get('reason', '').strip()
+        if reason:
+            qs = qs.filter(reason__in=[r for r in reason.split(',') if r])
+
+        date_from = request.query_params.get('date_from', '').strip()
+        if date_from:
+            qs = qs.filter(created_at__date__gte=date_from)
+        date_to = request.query_params.get('date_to', '').strip()
+        if date_to:
+            qs = qs.filter(created_at__date__lte=date_to)
+
         page, per_page = parse_pagination(request, default_per_page=20)
         total = qs.count()
         qs = qs[(page - 1) * per_page: page * per_page]

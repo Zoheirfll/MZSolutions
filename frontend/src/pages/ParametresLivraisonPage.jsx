@@ -4,6 +4,7 @@ import Select from '../components/Select'
 import api from '../api/axios'
 import { theme } from '../theme'
 import { WILAYAS } from '../data/wilayas'
+import { getCommunesForWilaya } from '../data/communes'
 
 // Logos des sociétés de livraison — un fichier par code transporteur dans
 // assets/carriers/ (n'importe quelle extension image), retombe sur l'avatar-
@@ -69,6 +70,7 @@ const CARRIERS = [
 const TABS = [
   { key: 'browse',    label: 'Sociétés de livraison' },
   { key: 'connected', label: 'Mes Sociétés de livraison' },
+  { key: 'tarification', label: 'Tarification' },
 ]
 
 function CopyIcon(props) {
@@ -140,6 +142,126 @@ export default function ParametresLivraisonPage() {
   const [webhookSecret, setWebhookSecret] = useState('')
   const [isActive, setIsActive]         = useState(true)
   const [saving, setSaving]             = useState(false)
+
+  // Tarification par wilaya/commune (onglet "Tarification", équivalent
+  // RiseCart) — la grille éditée ici prend le pas sur le tarif transporteur
+  // en temps réel côté serveur (voir `_resolve_shipping_cost`).
+  const [wilayaRates, setWilayaRates]   = useState([])
+  const [rateLoading, setRateLoading]   = useState(true)
+  const [syncing, setSyncing]           = useState(false)
+  const [rateModal, setRateModal]       = useState(null) // {wilaya_id, wilaya_name, home_price, desk_price, show_home, show_desk}
+  const [savingRate, setSavingRate]     = useState(false)
+  const [communeWilaya, setCommuneWilaya] = useState(null) // {id, name} ou null (vue wilayas)
+  const [communeRates, setCommuneRates] = useState([])
+  const [communeLoading, setCommuneLoading] = useState(false)
+  const [communeModal, setCommuneModal] = useState(null)
+  const [savingCommune, setSavingCommune] = useState(false)
+  const [syncingCommunes, setSyncingCommunes] = useState(false)
+
+  const fetchWilayaRates = () => {
+    setRateLoading(true)
+    api.get('/stores/me/wilaya-rates/')
+      .then(({ data }) => setWilayaRates(data))
+      .catch(() => {})
+      .finally(() => setRateLoading(false))
+  }
+
+  useEffect(() => { if (tab === 'tarification' && !communeWilaya) fetchWilayaRates() }, [tab, communeWilaya])
+
+  const wilayaRateFor = (id) => wilayaRates.find(r => r.wilaya_id === id)
+
+  const openRateModal = (w) => {
+    const existing = wilayaRateFor(w.id)
+    setRateModal({
+      wilaya_id: w.id, wilaya_name: w.name,
+      home_price: existing?.home_price ?? '0',
+      desk_price: existing?.desk_price ?? '',
+      show_home: existing ? existing.show_home : true,
+      show_desk: existing ? existing.show_desk : true,
+    })
+  }
+
+  const saveWilayaRate = async () => {
+    if (!rateModal) return
+    setSavingRate(true)
+    try {
+      await api.post('/stores/me/wilaya-rates/', {
+        wilaya_id: rateModal.wilaya_id,
+        home_price: rateModal.home_price || 0,
+        desk_price: rateModal.desk_price === '' ? null : rateModal.desk_price,
+        show_home: rateModal.show_home,
+        show_desk: rateModal.show_desk,
+      })
+      setRateModal(null)
+      fetchWilayaRates()
+    } catch {} finally { setSavingRate(false) }
+  }
+
+  const removeWilayaRate = async (rate) => {
+    await api.delete(`/stores/me/wilaya-rates/${rate.id}/`)
+    fetchWilayaRates()
+  }
+
+  const syncFromCarrier = async () => {
+    setSyncing(true)
+    try {
+      const { data } = await api.post('/stores/me/wilaya-rates/sync/')
+      fetchWilayaRates()
+      alert(`Tarifs mis à jour : ${data.updated} wilaya(s)${data.failed ? `, ${data.failed} indisponible(s)` : ''}.`)
+    } catch (err) {
+      alert(err?.response?.data?.detail || "Échec de la synchronisation — vérifiez qu'un transporteur par défaut actif est connecté.")
+    } finally { setSyncing(false) }
+  }
+
+  const fetchCommuneRates = (wilayaId) => {
+    setCommuneLoading(true)
+    api.get(`/stores/me/commune-rates/?wilaya_id=${wilayaId}`)
+      .then(({ data }) => setCommuneRates(data))
+      .catch(() => {})
+      .finally(() => setCommuneLoading(false))
+  }
+
+  useEffect(() => { if (communeWilaya) fetchCommuneRates(communeWilaya.id) }, [communeWilaya])
+
+  const openCommuneModal = (name, existing) => {
+    setCommuneModal({
+      commune_name: name,
+      home_price: existing?.home_price ?? '0',
+      desk_price: existing?.desk_price ?? '',
+    })
+  }
+
+  const saveCommuneRate = async () => {
+    if (!communeModal || !communeWilaya) return
+    setSavingCommune(true)
+    try {
+      await api.post('/stores/me/commune-rates/', {
+        wilaya_id: communeWilaya.id,
+        commune_name: communeModal.commune_name,
+        home_price: communeModal.home_price || 0,
+        desk_price: communeModal.desk_price === '' ? null : communeModal.desk_price,
+      })
+      setCommuneModal(null)
+      fetchCommuneRates(communeWilaya.id)
+    } catch {} finally { setSavingCommune(false) }
+  }
+
+  const removeCommuneRate = async (rate) => {
+    await api.delete(`/stores/me/commune-rates/${rate.id}/`)
+    fetchCommuneRates(communeWilaya.id)
+  }
+
+  const syncCommunesFromCarrier = async () => {
+    if (!communeWilaya) return
+    setSyncingCommunes(true)
+    try {
+      const { data } = await api.post('/stores/me/commune-rates/sync/', { wilaya_name: communeWilaya.name })
+      fetchCommuneRates(communeWilaya.id)
+      alert(`${data.updated} commune(s) mise(s) à jour.`)
+    } catch (err) {
+      alert(err?.response?.data?.detail || "Échec de la synchronisation — le transporteur par défaut ne fournit peut-être pas de tarifs par commune.")
+    } finally { setSyncingCommunes(false) }
+  }
 
   const fetchAccounts = () => {
     setLoading(true)
@@ -280,6 +402,7 @@ export default function ParametresLivraisonPage() {
                 <th className="px-4 py-3 text-left font-medium">Statut</th>
                 <th className="px-4 py-3 text-left font-medium">Clé API</th>
                 <th className="px-4 py-3 text-left font-medium">Jeton API</th>
+                <th className="px-4 py-3 text-left font-medium">URL webhook</th>
                 <th className="px-4 py-3 text-left font-medium">Défaut</th>
                 <th className="px-4 py-3 text-left font-medium">Créé à</th>
                 <th className="px-4 py-3 text-right font-medium">Actions</th>
@@ -289,12 +412,12 @@ export default function ParametresLivraisonPage() {
               {loading ? (
                 [...Array(2)].map((_, i) => (
                   <tr key={i} className="border-b" style={{ borderColor: theme.dark.borderRowHover }}>
-                    <td colSpan={9} className="px-4 py-4"><div className={theme.skeleton + ' h-5 w-full'} /></td>
+                    <td colSpan={10} className="px-4 py-4"><div className={theme.skeleton + ' h-5 w-full'} /></td>
                   </tr>
                 ))
               ) : accounts.length === 0 ? (
                 <tr>
-                  <td colSpan={9}>
+                  <td colSpan={10}>
                     <div className={theme.emptyState}>
                       <p className="text-sm">Aucun transporteur connecté pour l'instant.</p>
                       <button onClick={() => setTab('browse')} className={theme.btn.ghost + ' mt-2 cursor-pointer'}>
@@ -321,6 +444,9 @@ export default function ParametresLivraisonPage() {
                   </td>
                   <td className="px-4 py-3"><CopyButton value={a.api_id} label="Copier la clé API" /></td>
                   <td className="px-4 py-3"><CopyButton value={a.api_token_masked} label="Le jeton complet n'est jamais renvoyé" /></td>
+                  <td className="px-4 py-3">
+                    {a.webhook_url ? <CopyButton value={a.webhook_url} label="URL du webhook à coller dans le dashboard du transporteur" /> : <span className="text-xs" style={{ color: theme.dark.muted }}>—</span>}
+                  </td>
                   <td className="px-4 py-3">
                     {a.is_default ? (
                       <span className={theme.badge.info}>Par défaut</span>
@@ -350,6 +476,181 @@ export default function ParametresLivraisonPage() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {tab === 'tarification' && !communeWilaya && (
+        <>
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+            <p className="text-sm max-w-xl" style={{ color: theme.dark.muted }}>
+              Grille de frais de livraison par wilaya — remplace le calcul en temps réel du transporteur pour vos clients dès qu'une ligne existe. Cliquez sur une wilaya pour ses tarifs par commune.
+            </p>
+            <button onClick={syncFromCarrier} disabled={syncing} className={theme.btn.outline + ' text-sm cursor-pointer shrink-0'}>
+              {syncing ? 'Synchronisation…' : 'Mettre à jour depuis la société'}
+            </button>
+          </div>
+          <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border, background: theme.dark.card }}>
+            <table className="w-full text-sm">
+              <thead style={{ background: theme.dark.sidebar }}>
+                <tr className="text-left text-xs" style={{ color: theme.dark.muted }}>
+                  <th className="px-4 py-3 text-left font-medium">ID</th>
+                  <th className="px-4 py-3 text-left font-medium">Nom</th>
+                  <th className="px-4 py-3 text-left font-medium">Frais au bureau</th>
+                  <th className="px-4 py-3 text-left font-medium">Frais à domicile</th>
+                  <th className="px-4 py-3 text-left font-medium">Afficher au bureau</th>
+                  <th className="px-4 py-3 text-left font-medium">Afficher à domicile</th>
+                  <th className="px-4 py-3 text-left font-medium">Communes</th>
+                  <th className="px-4 py-3 text-right font-medium">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rateLoading ? (
+                  [...Array(3)].map((_, i) => (
+                    <tr key={i} className="border-b" style={{ borderColor: theme.dark.borderRowHover }}>
+                      <td colSpan={8} className="px-4 py-4"><div className={theme.skeleton + ' h-5 w-full'} /></td>
+                    </tr>
+                  ))
+                ) : WILAYAS.map(w => {
+                  const rate = wilayaRateFor(w.id)
+                  return (
+                    <tr key={w.id} className="border-b last:border-0 hover:bg-violet-500/5 transition" style={{ borderColor: theme.dark.borderRowHover }}>
+                      <td className="px-4 py-3 text-app-muted-light">{w.id}</td>
+                      <td className="px-4 py-3 text-app-primary font-medium">{w.name}</td>
+                      <td className="px-4 py-3 text-app-primary">{rate?.desk_price != null ? `${rate.desk_price} DA` : '—'}</td>
+                      <td className="px-4 py-3 text-app-primary">{rate ? `${rate.home_price} DA` : '—'}</td>
+                      <td className="px-4 py-3">{rate ? (rate.show_desk ? <span className={theme.badge.success}>Oui</span> : <span className={theme.badge.neutral}>Non</span>) : '—'}</td>
+                      <td className="px-4 py-3">{rate ? (rate.show_home ? <span className={theme.badge.success}>Oui</span> : <span className={theme.badge.neutral}>Non</span>) : '—'}</td>
+                      <td className="px-4 py-3">
+                        <button onClick={() => setCommuneWilaya({ id: w.id, name: w.name })} className="text-xs text-violet-400 hover:text-violet-300 cursor-pointer transition">
+                          Voir les communes
+                        </button>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-end gap-2">
+                          <button onClick={() => openRateModal(w)} className={theme.btn.icon} title={rate ? 'Modifier' : 'Ajouter une nouvelle'}>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="16" height="16">
+                              <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
+                              <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
+                            </svg>
+                          </button>
+                          {rate && (
+                            <button onClick={() => removeWilayaRate(rate)} className={theme.btn.icon + ' hover:text-red-400 hover:bg-red-500/10'} title="Supprimer">
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="16" height="16">
+                                <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+      {tab === 'tarification' && communeWilaya && (
+        <>
+          <div className="flex items-center justify-between gap-3 mb-5 flex-wrap">
+            <div className="flex items-center gap-3">
+              <button onClick={() => setCommuneWilaya(null)} className={theme.btn.ghost + ' text-sm cursor-pointer'}>← Retour aux wilayas</button>
+              <h3 className="font-semibold text-app-primary">Communes — {communeWilaya.name}</h3>
+            </div>
+            <button onClick={syncCommunesFromCarrier} disabled={syncingCommunes} className={theme.btn.outline + ' text-sm cursor-pointer'}>
+              {syncingCommunes ? 'Synchronisation…' : 'Mettre à jour depuis la société'}
+            </button>
+          </div>
+          <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border, background: theme.dark.card }}>
+            <table className="w-full text-sm">
+              <thead style={{ background: theme.dark.sidebar }}>
+                <tr className="text-left text-xs" style={{ color: theme.dark.muted }}>
+                  <th className="px-4 py-3 text-left font-medium">Commune</th>
+                  <th className="px-4 py-3 text-left font-medium">Frais au bureau</th>
+                  <th className="px-4 py-3 text-left font-medium">Frais à domicile</th>
+                  <th className="px-4 py-3 text-right font-medium">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {communeLoading ? (
+                  <tr><td colSpan={4} className="px-4 py-4"><div className={theme.skeleton + ' h-5 w-full'} /></td></tr>
+                ) : getCommunesForWilaya(communeWilaya.id).length === 0 ? (
+                  <tr><td colSpan={4}><div className={theme.emptyState}><p className="text-sm">Liste des communes indisponible pour cette wilaya.</p></div></td></tr>
+                ) : getCommunesForWilaya(communeWilaya.id).map(communeName => {
+                  const r = communeRates.find(cr => cr.commune_name.toLowerCase() === communeName.toLowerCase())
+                  return (
+                    <tr key={communeName} className="border-b last:border-0 hover:bg-violet-500/5 transition" style={{ borderColor: theme.dark.borderRowHover }}>
+                      <td className="px-4 py-3 text-app-primary font-medium">{communeName}</td>
+                      <td className="px-4 py-3 text-app-primary">{r?.desk_price != null ? `${r.desk_price} DA` : '—'}</td>
+                      <td className="px-4 py-3 text-app-primary">{r ? `${r.home_price} DA` : '—'}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-end gap-2">
+                          <button onClick={() => openCommuneModal(communeName, r)} className={theme.btn.icon} title={r ? 'Modifier' : 'Ajouter un tarif'}>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="16" height="16">
+                              <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
+                              <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
+                            </svg>
+                          </button>
+                          {r && (
+                            <button onClick={() => removeCommuneRate(r)} className={theme.btn.icon + ' hover:text-red-400 hover:bg-red-500/10'} title="Supprimer">
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="16" height="16">
+                                <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+      {rateModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setRateModal(null)}>
+          <div className="rounded-xl border p-6 w-full max-w-sm relative" style={{ background: theme.dark.card, borderColor: theme.dark.border }} onClick={e => e.stopPropagation()}>
+            <button onClick={() => setRateModal(null)} className="absolute top-4 right-4 w-7 h-7 rounded-full flex items-center justify-center text-app-muted-light hover:text-app-primary hover:bg-violet-500/10 transition cursor-pointer">✕</button>
+            <h3 className="font-semibold text-app-primary mb-5 text-center">Tarif — {rateModal.wilaya_name}</h3>
+            <label className={theme.labelDark}>Frais de livraison à domicile</label>
+            <input type="number" min="0" value={rateModal.home_price} onChange={e => setRateModal(m => ({ ...m, home_price: e.target.value }))} className={theme.inputDark + ' mb-3'} />
+            <label className={theme.labelDark}>Frais de livraison au bureau</label>
+            <input type="number" min="0" value={rateModal.desk_price} onChange={e => setRateModal(m => ({ ...m, desk_price: e.target.value }))} placeholder="Non proposé" className={theme.inputDark + ' mb-3'} />
+            <label className="flex items-center justify-between text-sm text-app-primary mb-3">
+              Afficher à domicile
+              <StatusToggle active={rateModal.show_home} onChange={() => setRateModal(m => ({ ...m, show_home: !m.show_home }))} />
+            </label>
+            <label className="flex items-center justify-between text-sm text-app-primary mb-5">
+              Afficher au bureau
+              <StatusToggle active={rateModal.show_desk} onChange={() => setRateModal(m => ({ ...m, show_desk: !m.show_desk }))} />
+            </label>
+            <div className="flex gap-2">
+              <button onClick={() => setRateModal(null)} className={theme.btn.secondary + ' flex-1 cursor-pointer'}>Fermer</button>
+              <button onClick={saveWilayaRate} disabled={savingRate} className={theme.btn.primary + ' flex-1 cursor-pointer'}>{savingRate ? '…' : 'Enregistrer'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {communeModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setCommuneModal(null)}>
+          <div className="rounded-xl border p-6 w-full max-w-sm relative" style={{ background: theme.dark.card, borderColor: theme.dark.border }} onClick={e => e.stopPropagation()}>
+            <button onClick={() => setCommuneModal(null)} className="absolute top-4 right-4 w-7 h-7 rounded-full flex items-center justify-center text-app-muted-light hover:text-app-primary hover:bg-violet-500/10 transition cursor-pointer">✕</button>
+            <h3 className="font-semibold text-app-primary mb-5 text-center">Tarif commune — {communeWilaya?.name}</h3>
+            <label className={theme.labelDark}>Nom de la commune</label>
+            <input value={communeModal.commune_name} onChange={e => setCommuneModal(m => ({ ...m, commune_name: e.target.value }))} placeholder="Nom de la commune" className={theme.inputDark + ' mb-3'} />
+            <label className={theme.labelDark}>Frais de livraison à domicile</label>
+            <input type="number" min="0" value={communeModal.home_price} onChange={e => setCommuneModal(m => ({ ...m, home_price: e.target.value }))} className={theme.inputDark + ' mb-3'} />
+            <label className={theme.labelDark}>Frais de livraison au bureau</label>
+            <input type="number" min="0" value={communeModal.desk_price} onChange={e => setCommuneModal(m => ({ ...m, desk_price: e.target.value }))} placeholder="Non proposé" className={theme.inputDark + ' mb-3'} />
+            <div className="flex gap-2 mt-2">
+              <button onClick={() => setCommuneModal(null)} className={theme.btn.secondary + ' flex-1 cursor-pointer'}>Fermer</button>
+              <button onClick={saveCommuneRate} disabled={savingCommune || !communeModal.commune_name.trim()} className={theme.btn.primary + ' flex-1 cursor-pointer'}>{savingCommune ? '…' : 'Enregistrer'}</button>
+            </div>
+          </div>
         </div>
       )}
 

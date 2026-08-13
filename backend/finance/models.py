@@ -2,9 +2,19 @@ from django.db import models
 from stores.models import Store
 
 COST_CATEGORY_CHOICES = [
-    ('operational', 'Opérationnel'),
-    ('marketing',   'Marketing'),
+    ('operational',       'Opérationnel'),
+    ('marketing',         'Marketing'),
+    ('delivery_variance', 'Écarts de livraison'),
+    ('confirmation_fees', 'Frais de confirmation'),
+    ('return_cost',       'Coût de retour'),
+    ('other_debts',       'Autres dettes'),
 ]
+
+# Catégories qui réduisent le profit net dans ProfitabilitySummaryView —
+# toutes sauf aucune pour l'instant, mais explicite plutôt qu'implicite pour
+# que l'ajout d'une future catégorie non financière (si besoin un jour) ne
+# fausse pas silencieusement le calcul.
+PROFIT_IMPACTING_CATEGORIES = [c[0] for c in COST_CATEGORY_CHOICES]
 
 
 class Cost(models.Model):

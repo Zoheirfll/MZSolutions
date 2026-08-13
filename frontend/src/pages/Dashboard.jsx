@@ -1,84 +1,40 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { Package, CheckCircle2, Truck, Clock, PackageCheck, RotateCcw, XCircle, ExternalLink, LineChart, TrendingUp, MapPin, Share2 } from 'lucide-react'
+import { ExternalLink, LineChart, DollarSign, CheckCircle2, Star } from 'lucide-react'
 import DashboardLayout from '../components/DashboardLayout'
-import StatCard from '../components/StatCard'
-import AlgeriaMap from '../components/AlgeriaMap'
 import { useAuth } from '../context/AuthContext'
 import api from '../api/axios'
 import { theme } from '../theme'
+import { usePeriod, PeriodFilter } from './orders/stats/statsShared'
+import DeliveriesTab from './dashboard/DeliveriesTab'
+import RevenueTab from './dashboard/RevenueTab'
+import ConfirmationTab from './dashboard/ConfirmationTab'
+import KpiTab from './dashboard/KpiTab'
+import FilterPanel, { EMPTY_FILTERS } from './dashboard/FilterPanel'
 
-const STAT_DEFS = [
-  { key: 'total',       label: 'Commandes réelles', sub: 'sur total',      color: 'violet', icon: Package },
-  { key: 'confirmed',   label: 'Confirmées',        sub: 'confirmées',     color: 'green',  icon: CheckCircle2 },
-  { key: 'shipped',     label: 'Expédiées',         sub: 'expédiées',      color: 'blue',   icon: Truck },
-  { key: 'pending',     label: 'En attente',        sub: 'en attente',     color: 'orange', icon: Clock },
-  { key: 'delivered',   label: 'Livrées',           sub: 'livrées',        color: 'green',  icon: PackageCheck },
-  { key: 'returned',    label: 'Retours',           sub: 'retournées',     color: 'red',    icon: RotateCcw },
-  { key: 'cancelled',   label: 'Annulées',          sub: 'annulées',       color: 'red',    icon: XCircle },
+const TABS = [
+  { key: 'deliveries',   label: 'Livraisons',    icon: LineChart },
+  { key: 'revenue',      label: 'Revenus',       icon: DollarSign },
+  { key: 'confirmation', label: 'Confirmation',  icon: CheckCircle2 },
+  { key: 'kpi',          label: 'KPI',           icon: Star },
 ]
-
-function StatCardSkeleton() {
-  return (
-    <div className="rounded-2xl p-5 border" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-      <div className={`h-3 w-20 rounded mb-4 ${theme.skeleton}`} />
-      <div className={`h-9 w-16 rounded ${theme.skeleton}`} />
-    </div>
-  )
-}
 
 export default function Dashboard() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [quota, setQuota] = useState(null)
-  const [stats, setStats] = useState(null)
-  const [globalStats, setGlobalStats] = useState(null)
-  const [wilayaStats, setWilayaStats] = useState(null)
-  const [sourceStats, setSourceStats] = useState(null)
-  const [chartData, setChartData] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(false)
+  const [tab, setTab] = useState('deliveries')
+  const period = usePeriod('month')
+  const [filters, setFilters] = useState(EMPTY_FILTERS)
+
+  const buildFilteredQuery = useCallback(() => {
+    const params = new URLSearchParams(period.queryString())
+    Object.entries(filters).forEach(([k, v]) => { if (v) params.set(k, v) })
+    return params.toString()
+  }, [period.queryString, filters])
 
   useEffect(() => {
     api.get('/stores/me/quota/').then(({ data }) => setQuota(data)).catch(() => {})
-
-    // Accessible à tous les rôles (pas de permission stats_view requise) — une erreur ici est
-    // un vrai incident réseau/serveur, donc affiche le bandeau d'erreur.
-    api.get('/orders/stats/').then(({ data }) => setStats(data))
-      .catch(() => setError(true))
-      .finally(() => setLoading(false))
-
-    // Ces deux endpoints (Epic 8.1) exigent la permission `stats_view` — absente par défaut pour
-    // confirmateur/dropshipper. Un 403 ici est un cas attendu (pas d'accès), pas une erreur serveur :
-    // catch séparé, silencieux, qui laisse simplement ces sections masquées plutôt que de déclencher
-    // le bandeau d'erreur global.
-    api.get('/orders/stats/global/?period=month').then(({ data }) => setGlobalStats(data)).catch(() => {})
-    api.get('/orders/stats/wilayas/?period=month').then(({ data }) => setWilayaStats(data.results || [])).catch(() => {})
-    api.get('/orders/stats/sources/?period=month').then(({ data }) => setSourceStats(data.results || [])).catch(() => {})
-    api.get('/orders/stats/orders/?period=custom&date_from=' +
-      new Date(Date.now() - 14 * 86400000).toISOString().slice(0, 10) +
-      '&date_to=' + new Date().toISOString().slice(0, 10))
-      .then(({ data }) => setChartData((data.daily || []).map(d => ({
-        date: new Date(d.date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }),
-        commandes: d.count,
-      }))))
-      .catch(() => {
-        // Repli pour les rôles sans permission `stats_view` (confirmateur/dropshipper par défaut) :
-        // reconstitue la même tendance 15 jours à partir de leurs commandes visibles, pour ne pas
-        // les priver du graphique.
-        api.get('/orders/?per_page=200').then(({ data }) => {
-          const orders = data.results || []
-          const days = Array.from({ length: 15 }).map((_, i) => {
-            const d = new Date(); d.setDate(d.getDate() - (14 - i)); return d
-          })
-          setChartData(days.map(d => {
-            const key = d.toISOString().slice(0, 10)
-            const count = orders.filter(o => (o.created_at || '').slice(0, 10) === key).length
-            return { date: d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }), commandes: count }
-          }))
-        }).catch(() => {})
-      })
   }, [])
 
   const usedPct = quota ? Math.round((quota.orders_used / quota.orders_limit) * 100) : 0
@@ -88,13 +44,10 @@ export default function Dashboard() {
     : 0
   const daysLeftLabel = quota?.is_subscription_active ? "Jours avant renouvellement" : "Jours d'essai"
 
-  const statValue = (key) => stats ? (key === 'total' ? stats.total : stats[key]?.count ?? 0) : 0
-  const returnRate = globalStats?.total_orders
-    ? Math.round((globalStats.returned_count / globalStats.total_orders) * 1000) / 10
-    : 0
+  const goToWilaya = (wilayaName) => navigate(`/dashboard/commandes?wilaya=${encodeURIComponent(wilayaName)}`)
 
   return (
-    <DashboardLayout title="Tableau de bord" subtitle="C'est la première page que vous voyez en vous connectant. Elle résume l'état de votre boutique en un coup d'œil : combien de commandes vous avez reçues, combien sont confirmées, expédiées, livrées, retournées ou annulées. Vous y voyez aussi combien de commandes il vous reste sur votre période d'essai ou votre abonnement, une carte de l'Algérie montrant où viennent vos ventes par wilaya, et un graphique de l'évolution de vos commandes sur les 15 derniers jours. Aucune action n'est requise ici, c'est juste pour vous informer rapidement.">
+    <DashboardLayout title="Tableau de bord" subtitle="C'est la première page que vous voyez en vous connectant. Elle résume l'état de votre boutique : l'onglet Livraisons montre l'entonnoir de vos commandes (réelles → confirmées → expédiées) et la carte des ventes par wilaya, Revenus détaille votre rentabilité, Confirmation le travail de vos confirmateurs, et KPI vos meilleures sources et wilayas. Choisissez la période en haut, elle s'applique aux 4 onglets.">
       {/* Welcome */}
       <div className="mb-7 flex items-center justify-between">
         <div>
@@ -112,12 +65,6 @@ export default function Dashboard() {
           <span className="hidden sm:inline">Voir ma boutique</span>
         </a>
       </div>
-
-      {error && (
-        <div className="rounded-xl border px-4 py-3 mb-6 text-sm bg-red-500/10 border-red-500/25 text-red-400">
-          Impossible de charger certaines statistiques. Réessayez en rechargeant la page.
-        </div>
-      )}
 
       {/* Trial quota banner */}
       {quota && (
@@ -140,7 +87,7 @@ export default function Dashboard() {
                   <span className="text-sm font-normal ml-1" style={{ color: theme.dark.muted }}>jours</span>
                 </p>
               </div>
-              <div className="flex flex-col gap-1.5 min-w-[140px]">
+              <div className="flex flex-col gap-1.5 min-w-35">
                 <div className="flex justify-between text-[10px]" style={{ color: theme.dark.muted }}>
                   <span>Utilisation quota</span><span>{usedPct}%</span>
                 </div>
@@ -169,107 +116,37 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* KPIs clés — taux de confirmation + taux de retour, mis en avant avant le détail par statut.
-          Masqués si l'utilisateur (confirmateur/dropshipper sans permission stats_view) n'y a pas accès.
-          Le chiffre d'affaires n'est volontairement pas affiché ici — donnée sensible, pas destinée à tous les rôles. */}
-      {(loading || globalStats) && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-5">
-          {loading ? (
-            <><StatCardSkeleton /><StatCardSkeleton /></>
-          ) : (
-            <>
-              <StatCard label="Taux de confirmation" sub="30 derniers jours" color="green" icon={TrendingUp}
-                ring={globalStats.confirmation_rate} value={`${globalStats.delivered_count} livrées`} />
-              <StatCard label="Taux de retour" sub="30 derniers jours" color="red" icon={RotateCcw}
-                ring={returnRate} value={`${globalStats.returned_count} retours`} />
-            </>
-          )}
-        </div>
-      )}
+      {/* Onglets */}
+      <div className="flex items-center gap-1 mb-4 p-1 rounded-xl w-fit" style={{ background: theme.dark.card, border: `1px solid ${theme.dark.border}` }}>
+        {TABS.map(t => (
+          <button key={t.key} onClick={() => setTab(t.key)}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer ${tab === t.key ? 'bg-violet-600 text-white shadow-sm' : 'text-app-muted-light hover:text-app-primary'}`}>
+            <t.icon className="w-3.5 h-3.5" strokeWidth={2} />
+            {t.label}
+          </button>
+        ))}
+      </div>
 
-      {/* Chart */}
-      <div className="rounded-2xl border p-5 sm:p-6 mb-7"
-        style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-        <div className="flex items-center gap-2 mb-4">
-          <LineChart className="w-4 h-4 text-violet-400" strokeWidth={2} />
-          <p className="text-sm font-semibold text-app-primary">Commandes — 15 derniers jours</p>
-        </div>
-        {loading ? (
-          <div className={`h-60 rounded-lg ${theme.skeleton}`} />
-        ) : (
-          <ResponsiveContainer width="100%" height={240}>
-            <AreaChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-              <defs>
-                <linearGradient id="ordersGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.4} />
-                  <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke={theme.dark.border} vertical={false} />
-              <XAxis dataKey="date" tick={{ fill: theme.dark.muted, fontSize: 11 }} axisLine={false} tickLine={false} />
-              <YAxis allowDecimals={false} tick={{ fill: theme.dark.muted, fontSize: 11 }} axisLine={false} tickLine={false} />
-              <Tooltip contentStyle={{ background: theme.dark.sidebar, border: `1px solid ${theme.dark.border}`, borderRadius: 8, fontSize: 12 }}
-                labelStyle={{ color: theme.dark.mutedLight }} />
-              <Area type="monotone" dataKey="commandes" stroke="#8b5cf6" strokeWidth={2} fill="url(#ordersGradient)" />
-            </AreaChart>
-          </ResponsiveContainer>
+      <div className="flex items-start justify-between gap-3 flex-wrap mb-1">
+        <PeriodFilter period={period.period} setPeriod={period.setPeriod}
+          dateFrom={period.dateFrom} setDateFrom={period.setDateFrom}
+          dateTo={period.dateTo} setDateTo={period.setDateTo} />
+        {(tab === 'deliveries' || tab === 'kpi') && (
+          <FilterPanel filters={filters} setFilters={setFilters} />
         )}
       </div>
 
-      {/* Top wilayas + sources — masqués si non chargés (403 stats_view ou aucune donnée) */}
-      {(wilayaStats?.length > 0 || sourceStats?.length > 0) && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-7">
-          {wilayaStats?.length > 0 && (
-            <div className="rounded-2xl border p-5 sm:p-6" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-              <div className="flex items-center gap-2 mb-4">
-                <MapPin className="w-4 h-4 text-violet-400" strokeWidth={2} />
-                <p className="text-sm font-semibold text-app-primary">Commandes par wilaya — 30 derniers jours</p>
-              </div>
-              <AlgeriaMap data={wilayaStats} />
-              <div className="mt-4 space-y-1.5">
-                {wilayaStats.slice(0, 3).map(w => (
-                  <div key={w.wilaya} className="flex justify-between text-xs">
-                    <span className="text-app-primary">{w.wilaya}</span>
-                    <span style={{ color: theme.dark.muted }}>{w.orders_count} commande{w.orders_count !== 1 ? 's' : ''}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {sourceStats?.length > 0 && (
-            <div className="rounded-2xl border p-5 sm:p-6" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-              <div className="flex items-center gap-2 mb-4">
-                <Share2 className="w-4 h-4 text-violet-400" strokeWidth={2} />
-                <p className="text-sm font-semibold text-app-primary">Par source de vente — 30 derniers jours</p>
-              </div>
-              <div className="space-y-2.5">
-                {sourceStats.map(s => (
-                  <div key={s.source} className="flex items-center justify-between rounded-lg px-3 py-2.5" style={{ background: theme.dark.sidebar }}>
-                    <span className="text-sm text-app-primary truncate pr-2">{s.source}</span>
-                    <div className="flex items-center gap-4 text-xs shrink-0" style={{ color: theme.dark.muted }}>
-                      <span>{s.orders_count} cmd</span>
-                      <span className="text-emerald-400">{s.confirmed_count} conf.</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
+      {!period.ready ? (
+        <p className="text-sm" style={{ color: theme.dark.muted }}>Choisissez une date de début et de fin.</p>
+      ) : tab === 'deliveries' ? (
+        <DeliveriesTab queryString={buildFilteredQuery} onFilterWilaya={goToWilaya} />
+      ) : tab === 'revenue' ? (
+        <RevenueTab queryString={period.queryString} />
+      ) : tab === 'confirmation' ? (
+        <ConfirmationTab queryString={period.queryString} />
+      ) : (
+        <KpiTab queryString={buildFilteredQuery} />
       )}
-
-      {/* Détail par statut */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-5">
-        {loading ? [...Array(3)].map((_, i) => <StatCardSkeleton key={i} />) : STAT_DEFS.slice(0, 3).map(s => (
-          <StatCard key={s.key} label={s.label} sub={s.sub} color={s.color} icon={s.icon} value={statValue(s.key)} />
-        ))}
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        {loading ? [...Array(4)].map((_, i) => <StatCardSkeleton key={i} />) : STAT_DEFS.slice(3).map(s => (
-          <StatCard key={s.key} label={s.label} sub={s.sub} color={s.color} icon={s.icon} value={statValue(s.key)} />
-        ))}
-      </div>
     </DashboardLayout>
   )
 }

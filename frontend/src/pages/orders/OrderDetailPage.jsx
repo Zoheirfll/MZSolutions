@@ -9,6 +9,13 @@ import { useAuth } from '../../context/AuthContext'
 import { WILAYAS, getWilayaIdByName } from '../../data/wilayas'
 import { getCommunesForWilaya } from '../../data/communes'
 
+const DELIVERY_TYPE_LABELS = {
+  store:     'Vendu depuis le magasin',
+  insurance: 'Assurance',
+  free:      'Livraison gratuite',
+  exchange:  'Échange',
+}
+
 const STATUS_CHOICES = [
   { value: 'pending',          label: 'En attente de confirmation' },
   { value: 'no_answer_1',      label: 'Non joignable — 1ère tentative' },
@@ -511,7 +518,7 @@ export default function OrderDetailPage() {
                     ? order.carrier_label
                     : defaultCarrier
                       ? `${defaultCarrier.carrier_label} (par défaut)`
-                      : order.delivery_type || 'Aucun transporteur configuré'
+                      : (order.delivery_types || []).map(t => DELIVERY_TYPE_LABELS[t] || t).join(' + ') || 'Aucun transporteur configuré'
                 }
               />
               <InfoTile icon={ICONS.cash} label="Paiement" value={order.payment_method_label || '—'} />

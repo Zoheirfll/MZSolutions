@@ -13,6 +13,48 @@ from core.permissions import is_owner_or_admin, has_permission
 from core.pagination import parse_pagination
 from .models import Order, CallAttempt, STATUS_CHOICES
 from .utils import parse_period, order_channel, previous_period
+from .wilaya_codes import wilaya_code
+
+REAL_EXCLUDED_STATUSES = ['duplicate', 'fake']
+IN_TRANSIT_STATUSES = ['shipped', 'out_for_delivery', 'in_progress']
+
+
+def _apply_dashboard_filters(qs, request):
+    """Filtres avancés du panneau "Filtrage" du tableau de bord (US demandée,
+    alignée sur le concurrent RiseCart) — mêmes noms de paramètres et même
+    logique que les filtres déjà établis sur OrderListCreateView.get, pour
+    rester cohérent avec le reste de l'app plutôt que d'inventer une nouvelle
+    convention. `source` filtre par canal de vente exact (voir order_channel()),
+    calculé en Python (pas un champ DB), donc appliqué en dernier via id__in."""
+    wilaya = request.query_params.get('wilaya', '').strip()
+    if wilaya:
+        qs = qs.filter(wilaya=wilaya)
+
+    product = request.query_params.get('product', '').strip()
+    if product:
+        qs = qs.filter(items__product_name__icontains=product).distinct()
+
+    category = request.query_params.get('category', '').strip()
+    if category:
+        qs = qs.filter(items__product__categories__name__icontains=category).distinct()
+
+    confirmateur = request.query_params.get('confirmateur')
+    if confirmateur:
+        qs = qs.filter(assignment__confirmateur_id=confirmateur)
+
+    carrier = request.query_params.get('carrier')
+    if carrier:
+        qs = qs.filter(carrier_id=carrier)
+
+    source = request.query_params.get('source', '').strip()
+    if source:
+        matching_ids = [
+            o.id for o in qs.select_related('dropshipper').prefetch_related('history')
+            if order_channel(o) == source
+        ]
+        qs = qs.filter(id__in=matching_ids)
+
+    return qs
 
 CONFIRMED_STATUSES = ['confirmed', 'shipped', 'delivered']
 PROCESSED_STATUSES = ['no_answer_1', 'no_answer_2', 'no_answer_3', 'confirmed', 'shipped', 'delivered', 'returned', 'cancelled']
@@ -442,3 +484,237 @@ class GlobalStatsView(StatsPermissionMixin, APIView):
         current['total_orders_delta_pct'] = _pct_delta(current['total_orders'], previous['total_orders'])
         current['confirmation_rate_delta_pct'] = _pct_delta(current['confirmation_rate'], previous['confirmation_rate'])
         return Response(current)
+
+
+class DashboardDeliveriesView(StatsPermissionMixin, APIView):
+    """Onglet "Livraisons" du tableau de bord (US demandée, alignée sur le
+    concurrent RiseCart) : entonnoir commandes → réelles → confirmées →
+    expédiées, cartes secondaires, évolution quotidienne à 6 séries,
+    répartition par wilaya/source/statut. "Réelles" = total − (duplicate +
+    fake), décision produit validée le 2026-08-12."""
+
+    def _funnel_counts(self, qs):
+        total = qs.count()
+        real = qs.exclude(status__in=REAL_EXCLUDED_STATUSES).count()
+        confirmed = qs.filter(status__in=CONFIRMED_STATUSES).count()
+        shipped = qs.filter(status__in=IN_TRANSIT_STATUSES + ['delivered']).count()
+        return {
+            'total': total, 'real': real, 'confirmed': confirmed, 'shipped': shipped,
+            'real_pct': round(real / total * 100, 1) if total else 0.0,
+            'confirmed_pct': round(confirmed / real * 100, 1) if real else 0.0,
+            'shipped_pct': round(shipped / confirmed * 100, 1) if confirmed else 0.0,
+        }
+
+    def get(self, request):
+        if (err := self.check_access(request)): return err
+        store, err = self.get_store_or_error(request)
+        if err: return err
+        date_from, date_to, err = parse_period(request)
+        if err: return err
+
+        qs = store.orders.filter(created_at__date__gte=date_from, created_at__date__lte=date_to)
+        qs = _apply_dashboard_filters(qs, request)
+        funnel = self._funnel_counts(qs)
+
+        total = funnel['total']
+        in_transit = qs.filter(status__in=IN_TRANSIT_STATUSES).count()
+        delivered  = qs.filter(status='delivered').count()
+        returned   = qs.filter(status='returned').count()
+        cancelled  = qs.filter(status='cancelled').count()
+        secondary = {
+            'in_transit': {'count': in_transit, 'pct': round(in_transit / total * 100, 1) if total else 0.0},
+            'delivered':  {'count': delivered,  'pct': round(delivered / total * 100, 1) if total else 0.0},
+            'returned':   {'count': returned,   'pct': round(returned / total * 100, 1) if total else 0.0},
+            'cancelled':  {'count': cancelled,  'pct': round(cancelled / total * 100, 1) if total else 0.0},
+        }
+
+        # Timeseries 6 séries — une passe Python plutôt que 6 requêtes agrégées,
+        # le volume de commandes par boutique reste faible sur une période.
+        rows = list(qs.only('created_at', 'status'))
+        by_day = defaultdict(lambda: {'total': 0, 'real': 0, 'confirmed': 0, 'shipped': 0, 'delivered': 0, 'returned': 0})
+        for o in rows:
+            d = o.created_at.date()
+            bucket = by_day[d]
+            bucket['total'] += 1
+            if o.status not in REAL_EXCLUDED_STATUSES:
+                bucket['real'] += 1
+            if o.status in CONFIRMED_STATUSES:
+                bucket['confirmed'] += 1
+            if o.status in IN_TRANSIT_STATUSES or o.status == 'delivered':
+                bucket['shipped'] += 1
+            if o.status == 'delivered':
+                bucket['delivered'] += 1
+            if o.status == 'returned':
+                bucket['returned'] += 1
+        timeseries = [{'date': d.isoformat(), **by_day.get(d, {'total': 0, 'real': 0, 'confirmed': 0, 'shipped': 0, 'delivered': 0, 'returned': 0})}
+                      for d in _daterange(date_from, date_to)]
+
+        by_wilaya_grouped = (qs.values('wilaya')
+                             .annotate(orders_count=Count('id'),
+                                       confirmed_count=Count('id', filter=Q(status__in=CONFIRMED_STATUSES)),
+                                       revenue=Sum('total', filter=Q(status__in=CONFIRMED_STATUSES)))
+                             .order_by('-orders_count'))
+        by_wilaya = [{
+            'wilaya': g['wilaya'] or '—',
+            'wilaya_id': wilaya_code(g['wilaya']),
+            'orders_count': g['orders_count'],
+            'confirmed_count': g['confirmed_count'],
+            'revenue': g['revenue'] or Decimal('0'),
+        } for g in by_wilaya_grouped]
+
+        source_stats = defaultdict(lambda: {'total': 0, 'real': 0, 'confirmed': 0, 'delivered': 0, 'returned': 0, 'cancelled': 0})
+        for o in qs.prefetch_related('history').select_related('dropshipper'):
+            channel = order_channel(o)
+            s = source_stats[channel]
+            s['total'] += 1
+            if o.status not in REAL_EXCLUDED_STATUSES:
+                s['real'] += 1
+            if o.status in CONFIRMED_STATUSES:
+                s['confirmed'] += 1
+            if o.status == 'delivered':
+                s['delivered'] += 1
+            if o.status == 'returned':
+                s['returned'] += 1
+            if o.status == 'cancelled':
+                s['cancelled'] += 1
+        by_source = [{
+            'source': channel,
+            'total': s['total'], 'real': s['real'],
+            'confirmed_pct': round(s['confirmed'] / s['total'] * 100, 1) if s['total'] else 0.0,
+            'delivered_pct': round(s['delivered'] / s['total'] * 100, 1) if s['total'] else 0.0,
+            'returned': s['returned'], 'cancelled': s['cancelled'],
+        } for channel, s in source_stats.items()]
+        by_source.sort(key=lambda r: r['total'], reverse=True)
+
+        by_status = [{'status': code, 'label': label, 'count': qs.filter(status=code).count()}
+                     for code, label in STATUS_CHOICES]
+
+        prev_from, prev_to = previous_period(date_from, date_to)
+        prev_qs = store.orders.filter(created_at__date__gte=prev_from, created_at__date__lte=prev_to)
+        prev_qs = _apply_dashboard_filters(prev_qs, request)
+        previous_funnel = self._funnel_counts(prev_qs)
+        deltas = {
+            'total': _pct_delta(funnel['total'], previous_funnel['total']),
+            'real': _pct_delta(funnel['real'], previous_funnel['real']),
+            'confirmed': _pct_delta(funnel['confirmed'], previous_funnel['confirmed']),
+            'shipped': _pct_delta(funnel['shipped'], previous_funnel['shipped']),
+        }
+
+        return Response({
+            'funnel': funnel,
+            'secondary': secondary,
+            'timeseries': timeseries,
+            'by_wilaya': by_wilaya,
+            'by_source': by_source,
+            'by_status': by_status,
+            'previous_period': {'funnel': previous_funnel},
+            'deltas': deltas,
+        })
+
+
+class DashboardRevenueView(StatsPermissionMixin, APIView):
+    """Onglet "Revenus" du tableau de bord — 8 cartes. Bénéfices/CA/coût
+    produit/commission réutilisent le même calcul que ProfitabilitySummaryView
+    (factorisé plutôt que dupliqué). Écarts de livraison/Frais de
+    confirmation/Coût de retour/Autres dettes = saisie manuelle via
+    finance.Cost (décision produit validée le 2026-08-12 — pas de calcul
+    automatique tant que leur définition métier exacte n'est pas fixée).
+    Dettes de produits = crédits fournisseurs impayés (SupplierCredit −
+    SupplierPayment), donnée déjà en base depuis l'Epic 3.5."""
+
+    def get(self, request):
+        if (err := self.check_access(request)): return err
+        store, err = self.get_store_or_error(request)
+        if err: return err
+        date_from, date_to, err = parse_period(request)
+        if err: return err
+
+        from finance.views import ProfitabilitySummaryView
+        from products.models import SupplierCredit, SupplierPayment
+
+        profitability_request = request
+        profitability_view = ProfitabilitySummaryView()
+        profitability_view.request = request
+        summary_resp = profitability_view.get(_PeriodParamsShim(request, date_from, date_to))
+        summary = summary_resp.data
+
+        product_debts = (
+            (SupplierCredit.objects.filter(supplier__store=store).aggregate(s=Sum('amount'))['s'] or Decimal('0')) -
+            (SupplierPayment.objects.filter(supplier__store=store).aggregate(s=Sum('amount'))['s'] or Decimal('0'))
+        )
+
+        return Response({
+            'profit':               summary.get('net_profit', Decimal('0')),
+            'revenue':              summary.get('revenue', Decimal('0')),
+            'ads_cost':             summary.get('marketing_cost', Decimal('0')),
+            'delivery_variance':    summary.get('delivery_variance_cost', Decimal('0')),
+            'confirmation_fees':    summary.get('confirmation_fees', Decimal('0')),
+            'return_cost':          summary.get('return_cost', Decimal('0')),
+            'product_debts':        max(product_debts, Decimal('0')),
+            'other_debts':          summary.get('other_debts', Decimal('0')),
+        })
+
+
+class _PeriodParamsShim:
+    """`ProfitabilitySummaryView.get()` lit `period_start`/`period_end` (noms
+    de champs date, pas period/date_from/date_to comme `parse_period()`) —
+    ce shim adapte la requête DRF déjà authentifiée du dashboard pour
+    réutiliser le calcul de rentabilité sans le dupliquer."""
+    def __init__(self, request, date_from, date_to):
+        self._request = request
+        self.query_params = {**request.query_params.dict(), 'period_start': date_from.isoformat(), 'period_end': date_to.isoformat()}
+        self.user = request.user
+
+    def __getattr__(self, name):
+        return getattr(self._request, name)
+
+
+class DashboardKpiView(StatsPermissionMixin, APIView):
+    """Onglet "KPI" du tableau de bord — Top 5 sources et Top 5 wilayas avec
+    ventilation complète du funnel (Commandes/Confirmé/Expédié/Livré/Payé/
+    Retour). "Payé" = livrée (COD encaissé à la remise) OU payée en ligne via
+    Chargily et confirmée (une commande Chargily n'est confirmée qu'après le
+    webhook checkout.paid — voir ChargilyWebhookView) — pas de champ "payé"
+    explicite en base, c'est le proxy le plus fiable disponible."""
+
+    def get(self, request):
+        if (err := self.check_access(request)): return err
+        store, err = self.get_store_or_error(request)
+        if err: return err
+        date_from, date_to, err = parse_period(request)
+        if err: return err
+
+        qs = store.orders.filter(created_at__date__gte=date_from, created_at__date__lte=date_to)
+        qs = _apply_dashboard_filters(qs, request)
+
+        def is_paid(o):
+            if o.status == 'delivered':
+                return True
+            return o.payment_method == 'chargily' and o.status in CONFIRMED_STATUSES
+
+        source_stats = defaultdict(lambda: {'orders': 0, 'confirmed': 0, 'shipped': 0, 'delivered': 0, 'paid': 0, 'returned': 0})
+        wilaya_stats  = defaultdict(lambda: {'orders': 0, 'confirmed': 0, 'shipped': 0, 'delivered': 0, 'paid': 0, 'returned': 0})
+        for o in qs.prefetch_related('history').select_related('dropshipper'):
+            for stats, key in ((source_stats, order_channel(o)), (wilaya_stats, o.wilaya or '—')):
+                s = stats[key]
+                s['orders'] += 1
+                if o.status in CONFIRMED_STATUSES:
+                    s['confirmed'] += 1
+                if o.status in IN_TRANSIT_STATUSES or o.status == 'delivered':
+                    s['shipped'] += 1
+                if o.status == 'delivered':
+                    s['delivered'] += 1
+                if is_paid(o):
+                    s['paid'] += 1
+                if o.status == 'returned':
+                    s['returned'] += 1
+
+        def top5(stats_dict, key_name):
+            rows = [{key_name: k, **v} for k, v in stats_dict.items()]
+            rows.sort(key=lambda r: r['orders'], reverse=True)
+            return rows[:5]
+
+        return Response({
+            'top_sources': top5(source_stats, 'source'),
+            'top_wilayas': [{**row, 'wilaya_id': wilaya_code(row['wilaya'])} for row in top5(wilaya_stats, 'wilaya')],
+        })
