@@ -7,8 +7,18 @@ if (import.meta.env.PROD && !import.meta.env.VITE_API_URL) {
   console.error('VITE_API_URL manquant en production — les appels API pointeront vers localhost.')
 }
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
-const IS_NGROK = /ngrok/.test(API_BASE)
+// En dev, sans VITE_API_URL explicite, on utilise une base RELATIVE ('') plutôt
+// que 'http://localhost:8000' en dur — le proxy Vite (vite.config.js, /api et
+// /media → localhost:8000) route alors correctement quel que soit l'hôte qui a
+// chargé la page. Piège réel rencontré : avec une base absolue localhost:8000,
+// un visiteur accédant au site via le tunnel ngrok (qui pointe vers le port
+// 5173) recevait un JS qui tentait d'appeler localhost:8000 sur SA PROPRE
+// machine — connexion impossible, aucune requête n'atteignait jamais le tunnel.
+const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? '' : 'http://localhost:8000')
+// Détecté depuis l'URL réellement chargée par le navigateur (pas API_BASE) —
+// nécessaire même avec une base relative, car ngrok intercepte toutes les
+// requêtes du tunnel, y compris les appels API same-origin.
+const IS_NGROK = typeof window !== 'undefined' && /ngrok/.test(window.location.hostname)
 
 const api = axios.create({
   baseURL: `${API_BASE}/api`,

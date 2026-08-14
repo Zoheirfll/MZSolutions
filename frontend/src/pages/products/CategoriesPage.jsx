@@ -98,6 +98,7 @@ function Modal({ cat, parentOptions, onClose, onSaved }) {
   })
   const [image, setImage]   = useState(null)
   const [saving, setSaving] = useState(false)
+  const [error, setError]   = useState('')
 
   const inputCls = `w-full px-3.5 py-2.5 rounded-lg border text-sm text-app-primary bg-transparent outline-none focus:border-violet-500 transition [color-scheme:dark]`
   const bdrStyle = { borderColor: theme.dark.border }
@@ -105,6 +106,7 @@ function Modal({ cat, parentOptions, onClose, onSaved }) {
   const submit = async e => {
     e.preventDefault()
     setSaving(true)
+    setError('')
     try {
       const fd = new FormData()
       fd.append('name', form.name)
@@ -118,7 +120,11 @@ function Modal({ cat, parentOptions, onClose, onSaved }) {
         await api.post('/products/categories/', fd, opts)
       }
       onSaved()
-    } catch {} finally { setSaving(false) }
+    } catch (err) {
+      const data = err.response?.data
+      const msg = data ? Object.entries(data).map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(' ') : v}`).join(' — ') : "Échec de l'enregistrement."
+      setError(msg)
+    } finally { setSaving(false) }
   }
 
   return (
@@ -129,6 +135,7 @@ function Modal({ cat, parentOptions, onClose, onSaved }) {
           <button onClick={onClose} className="text-app-muted hover:text-app-primary transition cursor-pointer"><CloseIcon /></button>
         </div>
         <form onSubmit={submit} className="space-y-4">
+          {error && <p className="text-sm text-red-400 rounded-lg border border-red-500/40 bg-red-950/20 px-3 py-2">{error}</p>}
           <div>
             <label className="block text-xs text-app-muted-light mb-1.5">Nom *</label>
             <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required className={inputCls} style={bdrStyle} placeholder="Nom de la catégorie" />
@@ -174,6 +181,10 @@ export default function CategoriesPage() {
   const [selected, setSelected] = useState([])
   const [modal, setModal]       = useState(null)
   const [loading, setLoading]   = useState(true)
+  const [quickAddFor, setQuickAddFor] = useState(null) // id du parent en cours d'ajout rapide
+  const [quickAddValue, setQuickAddValue] = useState('')
+  const [quickAdding, setQuickAdding] = useState(false)
+  const [quickAddError, setQuickAddError] = useState('')
 
   const fetchCats = useCallback(() => {
     setLoading(true)
@@ -187,13 +198,38 @@ export default function CategoriesPage() {
 
   useEffect(() => { fetchCats() }, [fetchCats])
 
-  const fetchChildren = async (id) => {
-    if (children[id]) { setExpanded(e => ({ ...e, [id]: !e[id] })); return }
+  const fetchChildren = async (id, { force } = {}) => {
+    if (children[id] && !force) { setExpanded(e => ({ ...e, [id]: !e[id] })); return }
     const params = new URLSearchParams({ parent: id })
     if (tab) params.set('tab', tab)
     const { data } = await api.get(`/products/categories/?${params}`)
     setChildren(c => ({ ...c, [id]: data.results ?? data }))
     setExpanded(e => ({ ...e, [id]: true }))
+  }
+
+  // Ajout rapide — clic sur "+" ouvre juste un champ nom en ligne (comme
+  // RiseCart), sans passer par le modal complet (image/actif/etc.).
+  const startQuickAdd = async (parentId) => {
+    if (!expanded[parentId]) await fetchChildren(parentId)
+    setQuickAddFor(parentId)
+    setQuickAddValue('')
+    setQuickAddError('')
+  }
+
+  const submitQuickAdd = async (parentId) => {
+    const name = quickAddValue.trim()
+    if (!name) { setQuickAddFor(null); return }
+    setQuickAdding(true)
+    setQuickAddError('')
+    try {
+      await api.post('/products/categories/', { name, parent: parentId })
+      await fetchChildren(parentId, { force: true })
+      fetchCats()
+      setQuickAddValue('')
+    } catch (err) {
+      const data = err.response?.data
+      setQuickAddError(data ? Object.values(data).flat().join(' — ') : "Échec de l'ajout.")
+    } finally { setQuickAdding(false) }
   }
 
   const handleToggle = async (cat) => {
@@ -280,7 +316,7 @@ export default function CategoriesPage() {
           ) : (
             <>
               {!indent && (
-                <button onClick={() => setModal({ parent: cat.id })} className="w-7 h-7 rounded flex items-center justify-center text-app-muted-light hover:bg-violet-500/10 transition cursor-pointer" title="Ajouter une sous-catégorie"><PlusIcon width={14} height={14} /></button>
+                <button onClick={() => startQuickAdd(cat.id)} className="w-7 h-7 rounded flex items-center justify-center text-app-muted-light hover:bg-violet-500/10 transition cursor-pointer" title="Ajouter une sous-catégorie"><PlusIcon width={14} height={14} /></button>
               )}
               <button onClick={() => setModal(cat)} className="w-7 h-7 rounded flex items-center justify-center text-emerald-400 hover:bg-emerald-900/20 transition cursor-pointer" title="Modifier"><EditIcon /></button>
             </>
@@ -296,6 +332,31 @@ export default function CategoriesPage() {
       {expanded[cat.id] && (children[cat.id] || []).map(child => (
         <CatRow key={child.id} cat={child} indent />
       ))}
+      {quickAddFor === cat.id && (
+        <div className="flex flex-col gap-1 px-4 py-2 pl-10 border-b" style={{ borderColor: theme.dark.borderRowHover }}>
+          <div className="flex items-center gap-3">
+            <TagIcon width={14} height={14} className="text-app-muted shrink-0" />
+            <input
+              autoFocus
+              value={quickAddValue}
+              onChange={e => setQuickAddValue(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') submitQuickAdd(cat.id)
+                if (e.key === 'Escape') setQuickAddFor(null)
+              }}
+              placeholder="Nom de la sous-catégorie…"
+              disabled={quickAdding}
+              className="flex-1 bg-transparent text-sm text-app-primary outline-none border-b py-1"
+              style={{ borderColor: theme.dark.border }}
+            />
+            <button onClick={() => submitQuickAdd(cat.id)} disabled={quickAdding || !quickAddValue.trim()} className={theme.btn.primary + ' text-xs px-3 py-1.5 cursor-pointer disabled:opacity-50'}>
+              {quickAdding ? '…' : 'Ajouter'}
+            </button>
+            <button onClick={() => setQuickAddFor(null)} className="text-app-muted-light hover:text-app-primary transition cursor-pointer"><CloseIcon width={14} height={14} /></button>
+          </div>
+          {quickAddError && <p className="text-xs text-red-400 pl-6">{quickAddError}</p>}
+        </div>
+      )}
     </>
   )
 

@@ -160,6 +160,15 @@ else:
     CORS_ALLOWED_ORIGIN_REGEXES = []
 CORS_ALLOW_CREDENTIALS = True
 
+# En plus des headers par défaut de django-cors-headers (authorization,
+# content-type, etc.) — X-Stock-Batch-Id (ProductFormPage.jsx) regroupe les
+# mouvements de stock de plusieurs variantes sauvegardées dans la même visite.
+# Sans ce header explicitement autorisé, le préflight CORS bloque TOUTE
+# requête PUT/POST qui l'envoie (silencieusement côté utilisateur : le
+# navigateur affiche juste "Mettre à jour" comme s'il ne se passait rien).
+from corsheaders.defaults import default_headers
+CORS_ALLOW_HEADERS = list(default_headers) + ['x-stock-batch-id']
+
 # Cookies sécurisés / HSTS (Epic 8.6) — actifs seulement en production, pour
 # ne pas casser le serveur de dev HTTP local (DEBUG=True).
 if not DEBUG:

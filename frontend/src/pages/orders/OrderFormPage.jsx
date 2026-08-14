@@ -8,6 +8,7 @@ import { theme } from '../../theme'
 import { WILAYAS, getWilayaIdByName } from '../../data/wilayas'
 import { getCommunesForWilaya } from '../../data/communes'
 import { useAuth } from '../../context/AuthContext'
+import { itemLineTotal } from '../../context/CartContext'
 
 const DELIVERY_OPTIONS = [
   { value: 'store',     label: 'Vendu depuis le magasin' },
@@ -38,6 +39,10 @@ export default function OrderFormPage() {
   const [rateInfo, setRateInfo] = useState(null) // {tarif, tarif_stopdesk} ou null
   const [rateLoading, setRateLoading] = useState(false)
   const [insuranceFee, setInsuranceFee] = useState(0)
+  const [promoCode,    setPromoCode]    = useState('')
+  const [promoApplied, setPromoApplied] = useState(null) // {code, discount_amount} ou null
+  const [promoError,   setPromoError]   = useState('')
+  const [promoChecking, setPromoChecking] = useState(false)
   const [note,         setNote]         = useState('')
   const [saving,       setSaving]       = useState(false)
   const [errors,       setErrors]       = useState({})
@@ -91,9 +96,18 @@ export default function OrderFormPage() {
   // "Vendu depuis le magasin"/"Livraison gratuite" forcent les frais à 0 ;
   // "Assurance" ajoute le supplément configuré — appliqué par-dessus le tarif
   // résolu ci-dessus, sauf si le vendeur a déjà tapé un montant à la main.
+  // Un produit du panier avec livraison gratuite/spécifique écrase tout le
+  // reste — même cascade de priorité que le checkout public (CheckoutPage.jsx).
+  const cartFreeShipping = cartItems.some(i => i.free_shipping)
+  const cartSpecificShipping = cartItems.find(i => i.specific_shipping_enabled)
   useEffect(() => {
     if (shippingCostEdited) return
-    if (deliveryTypes.includes('store') || deliveryTypes.includes('free')) {
+    if (cartFreeShipping) {
+      setShippingCost(0)
+    } else if (cartSpecificShipping) {
+      const specificPrice = stopDesk ? cartSpecificShipping.specific_shipping_desk_price : cartSpecificShipping.specific_shipping_home_price
+      if (specificPrice != null) setShippingCost(specificPrice)
+    } else if (deliveryTypes.includes('store') || deliveryTypes.includes('free')) {
       setShippingCost(0)
     } else if (deliveryTypes.includes('insurance') && rateInfo) {
       const base = (stopDesk && rateInfo.tarif_stopdesk != null) ? rateInfo.tarif_stopdesk : rateInfo.tarif
@@ -102,7 +116,7 @@ export default function OrderFormPage() {
       const base = (stopDesk && rateInfo.tarif_stopdesk != null) ? rateInfo.tarif_stopdesk : rateInfo.tarif
       setShippingCost(base)
     }
-  }, [deliveryTypes, rateInfo, insuranceFee, stopDesk, shippingCostEdited])
+  }, [deliveryTypes, rateInfo, insuranceFee, stopDesk, shippingCostEdited, cartFreeShipping, cartSpecificShipping])
 
   // Bureaux/points relais réels du transporteur — nécessaire pour choisir un
   // `station_code` valide quand la livraison se fait en point relais.
@@ -131,9 +145,25 @@ export default function OrderFormPage() {
     return () => clearTimeout(searchTimer.current)
   }, [search, isDropshipper, allowedProductIds])
 
-  const addProduct = (p, variantOption = null) => {
-    const price = variantOption ? Number(variantOption.price || p.price) : Number(p.price)
-    const key   = variantOption ? `v${variantOption.id}` : `p${p.id}`
+  const addProduct = (p, variantOption = null, subOption = null) => {
+    // Prix de base éventuellement réduit par une offre automatique (Promotion
+    // kind='auto') — une variante sans prix propre hérite du prix produit,
+    // donc doit aussi hériter de sa remise (sinon 4000 au lieu de 3600 affiché).
+    const basePrice = p.active_promotion ? Number(p.active_promotion.discounted_price) : Number(p.price)
+    // Dropshipper avec un prix minimum de vente configuré : il choisit son propre
+    // prix de vente (≥ minimum), sa marge étant prix choisi − prix coûtant (dropshipping_price).
+    const minSellingPrice = (!variantOption && isDropshipper && p.minimum_selling_price != null)
+      ? Number(p.minimum_selling_price) : null
+    const optionPrice = variantOption?.price != null ? Number(variantOption.price) : basePrice
+    const price = subOption ? Number(subOption.price != null ? subOption.price : optionPrice)
+      : variantOption ? optionPrice
+      : (minSellingPrice != null ? minSellingPrice : basePrice)
+    // Offre par palier de quantité — même règle que côté serveur : ne
+    // s'applique pas si la (sous-)option a son propre prix explicite.
+    const offerEligible = !(subOption?.price != null || variantOption?.price != null)
+    const key = subOption ? `s${subOption.id}` : variantOption ? `v${variantOption.id}` : `p${p.id}`
+    const label = subOption ? `${p.name} — ${variantOption.value} / ${subOption.value}`
+      : variantOption ? `${p.name} — ${variantOption.value}` : p.name
     setCartItems(prev => {
       const exists = prev.find(i => i._key === key)
       if (exists) return prev.map(i => i._key === key ? { ...i, quantity: i.quantity + 1 } : i)
@@ -141,8 +171,17 @@ export default function OrderFormPage() {
         _key:          key,
         product:       p.id,
         variant_option: variantOption?.id || null,
-        product_name:  variantOption ? `${p.name} — ${variantOption.value}` : p.name,
+        variant_sub_option: subOption?.id || null,
+        product_name:  label,
         price,
+        minimum_selling_price: minSellingPrice,
+        offer_enabled:  offerEligible ? p.offer_enabled : false,
+        offer_quantity: offerEligible ? p.offer_quantity : null,
+        offer_price:    offerEligible ? p.offer_price : null,
+        free_shipping: p.free_shipping,
+        specific_shipping_enabled: p.specific_shipping_enabled,
+        specific_shipping_home_price: p.specific_shipping_home_price,
+        specific_shipping_desk_price: p.specific_shipping_desk_price,
         quantity:      1,
       }]
     })
@@ -155,16 +194,47 @@ export default function OrderFormPage() {
     setCartItems(prev => prev.map(i => i._key === key ? { ...i, quantity: qty } : i))
   }
 
+  const updatePrice = (key, value) => {
+    setCartItems(prev => prev.map(i => i._key === key ? { ...i, price: value } : i))
+  }
+
   const removeItem = key => setCartItems(prev => prev.filter(i => i._key !== key))
 
   const communeOptions = getCommunesForWilaya(getWilayaIdByName(client.wilaya)).map(name => ({ value: name, label: name }))
 
-  const subtotal = cartItems.reduce((s, i) => s + i.price * i.quantity, 0)
-  const total    = subtotal + Number(shippingCost || 0)
+  const subtotal = cartItems.reduce((s, i) => s + itemLineTotal(i), 0)
+  const discountAmount = promoApplied ? Number(promoApplied.discount_amount) : 0
+  const total    = Math.max(subtotal - discountAmount, 0) + Number(shippingCost || 0)
+
+  const applyPromoCode = async () => {
+    const code = promoCode.trim()
+    if (!code) return
+    setPromoChecking(true)
+    setPromoError('')
+    try {
+      const { data } = await api.post('/products/promotions/validate/', {
+        code, items: cartItems.map(({ _key, minimum_selling_price, ...i }) => i),
+      })
+      setPromoApplied(data)
+    } catch (err) {
+      setPromoApplied(null)
+      setPromoError(err.response?.data?.detail || "Code promo invalide.")
+    } finally {
+      setPromoChecking(false)
+    }
+  }
+
+  const removePromoCode = () => { setPromoApplied(null); setPromoCode(''); setPromoError('') }
 
   const handleSubmit = async () => {
     setSaving(true)
     setErrors({})
+    const belowMinimum = cartItems.find(i => i.minimum_selling_price != null && Number(i.price) < i.minimum_selling_price)
+    if (belowMinimum) {
+      setErrors({ detail: `Le prix de vente de « ${belowMinimum.product_name} » doit être d'au moins ${belowMinimum.minimum_selling_price} DA.` })
+      setSaving(false)
+      return
+    }
     try {
       await api.post('/orders/', {
         ...client,
@@ -173,7 +243,8 @@ export default function OrderFormPage() {
         stop_desk: stopDesk,
         station_code: stationCode,
         note,
-        items: cartItems.map(({ _key, ...i }) => i),
+        items: cartItems.map(({ _key, minimum_selling_price, ...i }) => i),
+        ...(promoApplied ? { promo_code: promoApplied.code } : {}),
         ...(scheduleEnabled && scheduledAt ? { scheduled_at: new Date(scheduledAt).toISOString() } : {}),
       })
       navigate(scheduleEnabled && scheduledAt ? '/dashboard/commandes/programmees' : '/dashboard/commandes')
@@ -215,6 +286,7 @@ export default function OrderFormPage() {
                   {searching && <p className="px-4 py-3 text-xs text-app-muted">Recherche…</p>}
                   {products.map(p => {
                     const allOptions = (p.variants || []).flatMap(v => v.options || [])
+                    const basePrice = p.active_promotion ? Number(p.active_promotion.discounted_price) : Number(p.price)
                     return (
                       <div key={p.id} className="border-b last:border-0" style={{ borderColor: theme.dark.border }}>
                         {/* Produit direct si pas d'options de variante */}
@@ -224,19 +296,34 @@ export default function OrderFormPage() {
                             className="w-full text-left px-4 py-2.5 text-sm text-app-primary hover:bg-violet-500/5 transition flex items-center justify-between"
                           >
                             <span>{p.name}</span>
-                            <span className="text-violet-300 text-xs">{Number(p.price).toLocaleString('fr-DZ')} DZD</span>
+                            <span className="text-violet-300 text-xs">{basePrice.toLocaleString('fr-DZ')} DZD</span>
                           </button>
                         )}
-                        {/* Options de variante */}
+                        {/* Options de variante — si l'option a des sous-options (2e niveau,
+                            ex: pointures sous une couleur), on liste directement chaque
+                            sous-option plutôt que l'option elle-même (choix obligatoire). */}
                         {allOptions.map(opt => (
-                          <button
-                            key={opt.id}
-                            onClick={() => addProduct(p, opt)}
-                            className="w-full text-left px-4 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition flex items-center justify-between"
-                          >
-                            <span>{p.name} — {opt.value}</span>
-                            <span className="text-violet-300 text-xs">{Number(opt.price || p.price).toLocaleString('fr-DZ')} DZD</span>
-                          </button>
+                          opt.sub_options?.length > 0 ? (
+                            opt.sub_options.map(sub => (
+                              <button
+                                key={sub.id}
+                                onClick={() => addProduct(p, opt, sub)}
+                                className="w-full text-left px-4 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition flex items-center justify-between"
+                              >
+                                <span>{p.name} — {opt.value} / {sub.value}</span>
+                                <span className="text-violet-300 text-xs">{Number(sub.price != null ? sub.price : (opt.price != null ? opt.price : basePrice)).toLocaleString('fr-DZ')} DZD</span>
+                              </button>
+                            ))
+                          ) : (
+                            <button
+                              key={opt.id}
+                              onClick={() => addProduct(p, opt)}
+                              className="w-full text-left px-4 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition flex items-center justify-between"
+                            >
+                              <span>{p.name} — {opt.value}</span>
+                              <span className="text-violet-300 text-xs">{Number(opt.price != null ? opt.price : basePrice).toLocaleString('fr-DZ')} DZD</span>
+                            </button>
+                          )
                         ))}
                       </div>
                     )
@@ -270,7 +357,22 @@ export default function OrderFormPage() {
                     {cartItems.map(item => (
                       <tr key={item._key} className="border-b" style={{ borderColor: theme.dark.borderRowHover }}>
                         <td className="py-2.5 pr-3 text-app-primary">{item.product_name}</td>
-                        <td className="py-2.5 text-right text-app-primary">{Number(item.price).toLocaleString('fr-DZ')}</td>
+                        <td className="py-2.5 text-right text-app-primary">
+                          {item.minimum_selling_price != null ? (
+                            <div className="flex flex-col items-end">
+                              <input
+                                type="number" min={item.minimum_selling_price} step="0.01" value={item.price}
+                                onChange={e => updatePrice(item._key, e.target.value)}
+                                className="w-24 px-2 py-1 rounded border text-right text-sm bg-transparent outline-none focus:border-violet-500"
+                                style={bdrStyle}
+                              />
+                              <span className="text-[10px] mt-0.5" style={{ color: theme.dark.muted }}>min. {item.minimum_selling_price}</span>
+                            </div>
+                          ) : Number(item.price).toLocaleString('fr-DZ')}
+                          {item.offer_enabled && item.offer_quantity && item.quantity >= item.offer_quantity && (
+                            <div className="text-[10px] mt-0.5" style={{ color: '#6ee7b7' }}>Offre : {item.offer_quantity} pour {Number(item.offer_price).toLocaleString('fr-DZ')}</div>
+                          )}
+                        </td>
                         <td className="py-2.5 text-center">
                           <div className="flex items-center justify-center gap-1">
                             <button onClick={() => updateQty(item._key, item.quantity - 1)} className="w-6 h-6 rounded border text-app-muted-light hover:text-app-primary text-xs" style={{ borderColor: theme.dark.border }}>−</button>
@@ -279,7 +381,7 @@ export default function OrderFormPage() {
                           </div>
                         </td>
                         <td className="py-2.5 text-right text-app-primary font-medium">
-                          {(item.price * item.quantity).toLocaleString('fr-DZ')}
+                          {itemLineTotal(item).toLocaleString('fr-DZ')}
                         </td>
                         <td className="py-2.5 text-center">
                           <button onClick={() => removeItem(item._key)} className="text-red-400 hover:text-red-300 transition" title="Retirer">
@@ -425,11 +527,47 @@ export default function OrderFormPage() {
           <div className="rounded-xl border p-5" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
             <h2 className="font-semibold text-app-primary mb-4 text-center">Panier</h2>
 
+            <div className="mb-4">
+              <label className="block text-xs text-app-muted-light mb-1.5">Code promo</label>
+              {promoApplied ? (
+                <div className="flex items-center justify-between px-3 py-2 rounded-lg border text-sm" style={bdrStyle}>
+                  <span className="text-emerald-400 font-medium">{promoApplied.code}</span>
+                  <button type="button" onClick={removePromoCode} className="text-app-muted-light hover:text-app-primary transition text-xs cursor-pointer">Retirer</button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <input
+                    value={promoCode}
+                    onChange={e => setPromoCode(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); applyPromoCode() } }}
+                    placeholder="Code"
+                    className={`${inputCls} flex-1`}
+                    style={bdrStyle}
+                  />
+                  <button
+                    type="button"
+                    onClick={applyPromoCode}
+                    disabled={promoChecking || !promoCode.trim() || cartItems.length === 0}
+                    className="px-3 py-2 rounded-lg text-xs font-semibold text-white bg-violet-600 hover:bg-violet-500 transition cursor-pointer disabled:opacity-60"
+                  >
+                    {promoChecking ? '…' : 'Appliquer'}
+                  </button>
+                </div>
+              )}
+              {promoError && <p className="text-red-400 text-xs mt-1">{promoError}</p>}
+            </div>
+
             <div className="space-y-2 mb-4">
               <div className="flex justify-between text-sm">
                 <span style={{ color: theme.dark.muted }}>Total des articles</span>
                 <span className="text-app-primary">{subtotal.toLocaleString('fr-DZ')} <span className="text-xs text-app-muted">DZD</span></span>
               </div>
+              {promoApplied && (
+                <div className="flex justify-between text-sm">
+                  <span style={{ color: theme.dark.muted }}>Réduction ({promoApplied.code})</span>
+                  <span className="text-emerald-400">-{discountAmount.toLocaleString('fr-DZ')} <span className="text-xs">DZD</span></span>
+                </div>
+              )}
               <div className="flex justify-between text-sm">
                 <span style={{ color: theme.dark.muted }}>Frais de livraison</span>
                 <span className="text-app-primary">{Number(shippingCost || 0).toLocaleString('fr-DZ')} <span className="text-xs text-app-muted">DZD</span></span>
@@ -509,8 +647,16 @@ export default function OrderFormPage() {
               />
             </div>
             <div className="mb-4 min-h-4">
-              {rateLoading && <p className="text-xs mt-1" style={{ color: theme.dark.muted }}>Récupération du tarif…</p>}
-              {!rateLoading && rateInfo && !shippingCostEdited && !deliveryTypes.includes('store') && (
+              {cartFreeShipping && (
+                <p className="text-xs mt-1 text-emerald-400">Livraison gratuite (article du panier marqué "Livraison gratuite").</p>
+              )}
+              {!cartFreeShipping && cartSpecificShipping && (
+                <p className="text-xs mt-1 text-violet-400">
+                  Tarif spécifique ({cartSpecificShipping.product_name}) : {Number(stopDesk ? cartSpecificShipping.specific_shipping_desk_price : cartSpecificShipping.specific_shipping_home_price).toLocaleString('fr-DZ')} DZD
+                </p>
+              )}
+              {!cartFreeShipping && !cartSpecificShipping && rateLoading && <p className="text-xs mt-1" style={{ color: theme.dark.muted }}>Récupération du tarif…</p>}
+              {!cartFreeShipping && !cartSpecificShipping && !rateLoading && rateInfo && !shippingCostEdited && !deliveryTypes.includes('store') && (
                 <p className="text-xs mt-1 text-emerald-400">
                   Tarif {stopDesk ? 'point relais' : 'domicile'} : {(stopDesk && rateInfo.tarif_stopdesk != null ? rateInfo.tarif_stopdesk : rateInfo.tarif).toLocaleString('fr-DZ')} DZD
                   {deliveryTypes.includes('insurance') && ` (+ ${insuranceFee.toLocaleString('fr-DZ')} DZD assurance)`}

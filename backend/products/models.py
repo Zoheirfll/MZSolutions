@@ -72,10 +72,73 @@ class Product(models.Model):
     free_shipping      = models.BooleanField(default=False)
     allow_out_of_stock = models.BooleanField(default=False)
     drop_shipping      = models.BooleanField(default=False)
+    # Offre quantité (2026-08) — ex: 2 unités facturées 2500 DA au lieu de 2×1500
+    offer_enabled  = models.BooleanField(default=False)
+    offer_quantity = models.PositiveIntegerField(null=True, blank=True, help_text="Nombre d'unités du palier (ex: 2)")
+    offer_price    = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Prix total facturé pour ce palier de quantité")
+    # Prix de livraison spécifique (2026-08) — écrase la grille wilaya/commune
+    # et le tarif transporteur en temps réel pour toute commande contenant ce produit
+    specific_shipping_enabled    = models.BooleanField(default=False)
+    specific_shipping_home_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    specific_shipping_desk_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    # Dropshipping (2026-08) — remplace le calcul %/fixe de dropshipping.Commission
+    # pour les produits où ces deux champs sont renseignés : le dropshipper choisit
+    # son propre prix de vente (>= minimum_selling_price) à la commande manuelle,
+    # sa marge = prix de vente choisi − dropshipping_price.
+    dropshipping_price    = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Prix « coûtant » facturé au dropshipper — sa marge = prix de vente qu'il choisit moins ce prix")
+    minimum_selling_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Prix plancher que le dropshipper doit respecter en revendant ce produit")
     is_active          = models.BooleanField(default=True)
     meta_title         = models.CharField(max_length=70, blank=True, help_text="Balise <title> de la fiche produit publique — retombe sur le nom du produit si vide")
     meta_description   = models.CharField(max_length=160, blank=True, help_text="Balise <meta name=\"description\"> — retombe sur un extrait de la description si vide")
+    meta_keywords      = models.CharField(max_length=255, blank=True, help_text="Mots-clés séparés par des virgules")
+    meta_robots        = models.CharField(max_length=20, blank=True, choices=[
+        ('index,follow', 'Indexer, suivre les liens (défaut)'),
+        ('noindex,follow', 'Ne pas indexer, suivre les liens'),
+        ('index,nofollow', 'Indexer, ne pas suivre les liens'),
+        ('noindex,nofollow', 'Ne pas indexer, ne pas suivre les liens'),
+    ], help_text="Balise <meta name=\"robots\"> — vide = index,follow (comportement par défaut)")
+    og_image           = models.ImageField(upload_to='products/seo/', null=True, blank=True,
+                                            validators=[validate_image_extension, validate_image_size],
+                                            help_text="Image de partage Facebook/WhatsApp (Open Graph) — retombe sur la 1ère image du produit si vide")
+    twitter_image      = models.ImageField(upload_to='products/seo/', null=True, blank=True,
+                                            validators=[validate_image_extension, validate_image_size],
+                                            help_text="Image de la carte Twitter — retombe sur og_image puis la 1ère image du produit si vide")
+    # Onglet "Autres" (2026-08, aligné sur RiseCart)
+    # Alerte de stock à 3 paliers — surcharge StoreSettings.low_stock_threshold
+    # (global) pour CE produit précis si renseignés (ex: seuil "faible" à 10,
+    # "très faible" à 5, "critique" à 3).
+    stock_alert_1 = models.PositiveIntegerField(null=True, blank=True, help_text="Seuil d'alerte stock faible (remplace le seuil global de la boutique pour ce produit)")
+    stock_alert_2 = models.PositiveIntegerField(null=True, blank=True, help_text="Seuil d'alerte stock très faible")
+    stock_alert_3 = models.PositiveIntegerField(null=True, blank=True, help_text="Seuil d'alerte stock critique")
+    # Position d'entrepôt — purement informatif (organisation interne), aucun
+    # effet sur le stock/la vente.
+    has_position   = models.BooleanField(default=False)
+    position_range = models.CharField(max_length=50, blank=True, help_text="Ex: allée/rayon")
+    position_stage = models.CharField(max_length=50, blank=True, help_text="Ex: étage/niveau")
+    position_slot  = models.CharField(max_length=50, blank=True, help_text="Ex: emplacement précis")
+    # Visibilité sur la boutique publique
+    show_title             = models.BooleanField(default=True)
+    show_images             = models.BooleanField(default=True)
+    show_full_price         = models.BooleanField(default=True, help_text="Afficher le prix hors remise (barré) quand une réduction s'applique")
+    show_discounted_price   = models.BooleanField(default=True, help_text="Afficher le prix réduit — si désactivé avec show_full_price actif, seul le prix plein est visible")
+    show_countdown          = models.BooleanField(default=False, help_text="Affiche un compte à rebours jusqu'à countdown_end sur la fiche produit publique")
+    countdown_end           = models.DateTimeField(null=True, blank=True)
     created_at         = models.DateTimeField(auto_now_add=True)
+
+    @property
+    def effective_stock_alerts(self):
+        """(seuil_faible, seuil_tres_faible, seuil_critique) — retombe sur
+        StoreSettings.low_stock_threshold (unique) pour les paliers non
+        renseignés sur ce produit précis."""
+        try:
+            default = self.store.settings.low_stock_threshold
+        except Exception:
+            default = 5
+        return (
+            self.stock_alert_1 if self.stock_alert_1 is not None else default,
+            self.stock_alert_2,
+            self.stock_alert_3,
+        )
 
     class Meta:
         constraints = [
@@ -89,9 +152,14 @@ class Product(models.Model):
     @property
     def total_stock(self):
         variants = self.variants.all()
-        if variants.exists():
-            return sum(opt.stock for v in variants for opt in v.options.all())
-        return self.stock
+        if not variants.exists():
+            return self.stock
+        total = 0
+        for v in variants:
+            for opt in v.options.all():
+                sub_options = list(opt.sub_options.all())
+                total += sum(s.stock for s in sub_options) if sub_options else opt.stock
+        return total
 
     def active_auto_promotion(self):
         """Première offre automatique valide ciblant ce produit (directement ou via une de ses catégories)."""
@@ -148,6 +216,31 @@ class VariantOption(models.Model):
 
     def __str__(self):
         return f"{self.variant.name}: {self.value}"
+
+
+class VariantSubOption(models.Model):
+    """Second niveau de variante — ex: l'option "Noir" (VariantOption) d'une
+    variante "Couleur" (ProductVariant.sub_option_name = "Taille") a ses
+    propres sous-options 41/42/43, chacune avec son propre stock/prix.
+    `ProductVariant.sub_option_name` existait déjà pour nommer ce 2e niveau
+    mais restait purement décoratif jusqu'ici — aucun modèle ne le portait."""
+    option              = models.ForeignKey(VariantOption, on_delete=models.CASCADE, related_name='sub_options')
+    value               = models.CharField(max_length=100)     # ex: "41"
+    price               = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    cost_price          = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    stock               = models.PositiveIntegerField(default=0)
+    sku                 = models.CharField(max_length=100, blank=True)
+    dropshipping_price    = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    minimum_selling_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    allow_out_of_stock  = models.BooleanField(default=False)
+    is_active           = models.BooleanField(default=True)
+    order               = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ['order']
+
+    def __str__(self):
+        return f"{self.option}: {self.value}"
 
 
 class ProductReview(models.Model):
@@ -257,6 +350,7 @@ class StockMovement(models.Model):
     store          = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='stock_movements')
     product        = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='stock_movements')
     variant_option = models.ForeignKey(VariantOption, null=True, blank=True, on_delete=models.SET_NULL, related_name='stock_movements')
+    variant_sub_option = models.ForeignKey(VariantSubOption, null=True, blank=True, on_delete=models.SET_NULL, related_name='stock_movements')
     quantity       = models.IntegerField()  # signé : positif = entrée, négatif = sortie
     stock_before   = models.IntegerField(null=True, blank=True, help_text="Stock juste avant ce mouvement — null pour l'historique antérieur au chantier 2026-08 (aucun instantané passé disponible)")
     stock_after    = models.IntegerField(null=True, blank=True)

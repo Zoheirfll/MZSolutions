@@ -1,7 +1,7 @@
 import hashlib
 import hmac
 import json
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from io import BytesIO
 from datetime import date, timedelta
 from django.core.mail import send_mail
@@ -52,18 +52,43 @@ def _quota_block_reason(quota):
     return None
 
 
-def _authoritative_item_price(store, item):
+def _authoritative_item_price(store, item, quantity=1):
     """Résout le prix réel (serveur) d'une ligne de panier — ne jamais faire
     confiance au `price` envoyé par le client (Epic 8.6, faille critique :
     un client pouvait auparavant payer le montant de son choix en modifiant
     la requête réseau). Même logique de prix que `PublicProductDetailView` :
-    l'option de variante a son propre prix (jamais remisé par une offre
-    auto) ; sinon le prix de base du produit, remisé si une offre auto
-    (`Promotion kind='auto'`) est active."""
-    from products.models import Product, VariantOption
+    la sous-option (2e niveau, ex: pointure sous une couleur) ou l'option de
+    variante a son propre prix s'il est renseigné (jamais remisé par une
+    offre auto/quantité) ; sinon le prix de base du produit, remisé si une
+    offre auto (`Promotion kind='auto'`) est active, puis ajusté par l'offre
+    de quantité du produit (`_apply_offer_pricing`) si `quantity` l'atteint."""
+    from products.models import Product, VariantOption, VariantSubOption
 
+    variant_sub_option_id = item.get('variant_sub_option')
     variant_option_id = item.get('variant_option')
     product_id = item.get('product')
+
+    def _inherited_price(product):
+        promo = product.active_auto_promotion()
+        base_price = product.price - promo.compute_discount(product.price) if promo else product.price
+        return _apply_offer_pricing(product, base_price, quantity)
+
+    if variant_sub_option_id:
+        try:
+            sub = VariantSubOption.objects.select_related('option__variant__product').get(
+                pk=variant_sub_option_id, option_id=variant_option_id,
+                option__variant__product__store=store, option__variant__product_id=product_id,
+            )
+        except VariantSubOption.DoesNotExist:
+            return None
+        if sub.price is not None:
+            return sub.price
+        opt = sub.option
+        if opt.price is not None:
+            return opt.price
+        # Ni la sous-option ni l'option n'ont de prix propre : hérite du prix
+        # produit (remise auto + offre palier), même logique que le niveau 1.
+        return _inherited_price(opt.variant.product)
 
     if variant_option_id:
         try:
@@ -72,17 +97,40 @@ def _authoritative_item_price(store, item):
             )
         except VariantOption.DoesNotExist:
             return None
-        return opt.price if opt.price is not None else opt.variant.product.price
+        if opt.price is not None:
+            return opt.price
+        # Pas de prix propre à l'option : elle hérite du prix du produit, donc
+        # doit aussi hériter de sa remise auto active ET de son offre par palier
+        # de quantité (sinon "Nike Dunk" à 4000 -10% affichait 3600 sur la fiche
+        # produit mais 4000 une fois en panier, et l'offre 2=6000 ne s'appliquait
+        # jamais si le client avait choisi une variante).
+        return _inherited_price(opt.variant.product)
 
     try:
         product = store.products.get(pk=product_id)
     except Product.DoesNotExist:
         return None
 
-    promo = product.active_auto_promotion()
-    if promo:
-        return product.price - promo.compute_discount(product.price)
-    return product.price
+    return _inherited_price(product)
+
+
+def _apply_offer_pricing(product, unit_price, quantity):
+    """Offre par palier de quantité (2026-08, ex: 2 unités facturées 2500 DA
+    au lieu de 2×1500) — recalcule un prix unitaire EFFECTIF tel que
+    effective_price × quantity reconstitue le bon total, pour rester
+    compatible avec le schéma existant (OrderItem.price × quantity), sans
+    ajouter de champ. Un palier complet coûte `offer_price` ; le reste de la
+    quantité (hors palier) reste au prix normal. Ne s'applique jamais à une
+    option de variante (prix propre, jamais remisé, même règle que les
+    offres auto)."""
+    if not product or not product.offer_enabled or not product.offer_quantity or product.offer_price is None:
+        return unit_price
+    if quantity < product.offer_quantity:
+        return unit_price
+    full_blocks = quantity // product.offer_quantity
+    remainder = quantity % product.offer_quantity
+    total = full_blocks * product.offer_price + remainder * unit_price
+    return (total / quantity).quantize(unit_price) if hasattr(unit_price, 'quantize') else total / quantity
 
 
 MAX_ORDER_ITEM_QUANTITY = 10000
@@ -215,8 +263,13 @@ def _deduct_stock_for_order(store, order):
     temps) et journalise un StockMovement par ligne, traçable comme pour les
     échanges."""
     from products.stock import record_stock_movement
-    for item in order.items.select_related('product', 'variant_option').all():
-        if item.variant_option:
+    for item in order.items.select_related('product', 'variant_option', 'variant_sub_option').all():
+        if item.variant_sub_option:
+            record_stock_movement(
+                store, item.product, item.variant_option, -item.quantity,
+                reason='order_sale', note=f"Commande #{order.id}", variant_sub_option=item.variant_sub_option,
+            )
+        elif item.variant_option:
             record_stock_movement(
                 store, item.product, item.variant_option, -item.quantity,
                 reason='order_sale', note=f"Commande #{order.id}",
@@ -253,8 +306,10 @@ def _restock_order_items(store, order, reason, note):
     2026-08-12, ferme le TBD "pas de restockage automatique"). L'appelant
     est responsable de la garde d'idempotence (`Order.restocked_at`)."""
     from products.stock import record_stock_movement
-    for item in order.items.select_related('product', 'variant_option').all():
-        if item.variant_option:
+    for item in order.items.select_related('product', 'variant_option', 'variant_sub_option').all():
+        if item.variant_sub_option:
+            record_stock_movement(store, item.product, item.variant_option, item.quantity, reason=reason, note=note, variant_sub_option=item.variant_sub_option)
+        elif item.variant_option:
             record_stock_movement(store, item.product, item.variant_option, item.quantity, reason=reason, note=note)
         elif item.product:
             record_stock_movement(store, item.product, None, item.quantity, reason=reason, note=note)
@@ -294,16 +349,27 @@ def _sync_commission_for_order(store, order, new_status):
             for c in Commission.objects.filter(store=store, dropshipper_id=order.dropshipper_id)
         }
         for item in order.items.select_related('product').all():
-            if not item.product_id or item.product_id not in commissions:
+            if not item.product_id:
                 continue
             if CommissionEntry.objects.filter(order_item=item).exists():
                 continue
-            commission = commissions[item.product_id]
-            CommissionEntry.objects.create(
-                store=store, dropshipper_id=order.dropshipper_id, order_item=item,
-                product_id=item.product_id,
-                amount=commission.compute_amount(item.price, item.quantity),
-            )
+            product = item.product
+            if product is not None and product.dropshipping_price is not None:
+                # Nouveau modèle : marge = prix de vente choisi par le dropshipper − prix « coûtant »
+                amount = (item.price - product.dropshipping_price) * item.quantity
+                if amount <= 0:
+                    continue
+                CommissionEntry.objects.create(
+                    store=store, dropshipper_id=order.dropshipper_id, order_item=item,
+                    product_id=item.product_id, amount=amount,
+                )
+            elif item.product_id in commissions:
+                commission = commissions[item.product_id]
+                CommissionEntry.objects.create(
+                    store=store, dropshipper_id=order.dropshipper_id, order_item=item,
+                    product_id=item.product_id,
+                    amount=commission.compute_amount(item.price, item.quantity),
+                )
     elif new_status in ('returned', 'cancelled'):
         CommissionEntry.objects.filter(order_item__order=order).delete()
 
@@ -520,12 +586,33 @@ class OrderListCreateView(APIView):
         # toute création, pour ne rien laisser en base si un article est invalide.
         resolved_prices = []
         for item in items_data:
-            if _validate_item_quantity(item) is None:
+            qty = _validate_item_quantity(item)
+            if qty is None:
                 return Response({'detail': 'Quantité invalide pour un article de la commande.'}, status=400)
-            price = _authoritative_item_price(store, item)
+            price = _authoritative_item_price(store, item, quantity=qty)
             if price is None:
                 return Response({'detail': 'Un article de la commande est introuvable.'}, status=400)
             resolved_prices.append(price)
+
+        # Prix de vente choisi par le dropshipper (2026-08) — uniquement pour
+        # les produits où le vendeur a défini `minimum_selling_price` (nouveau
+        # modèle : le dropshipper garde la marge prix de vente − dropshipping_price,
+        # au lieu d'une commission %/fixe). Le prix client n'est accepté QUE
+        # s'il est ≥ au plancher — jamais fait confiance en dessous.
+        if dropshipper_membership:
+            from products.models import Product
+            products_by_id = {p.id: p for p in Product.objects.filter(id__in=[i.get('product') for i in items_data if i.get('product')])}
+            for idx, item in enumerate(items_data):
+                product = products_by_id.get(item.get('product'))
+                if not product or product.minimum_selling_price is None or item.get('variant_option'):
+                    continue
+                try:
+                    requested_price = Decimal(str(item.get('price')))
+                except (InvalidOperation, TypeError, ValueError):
+                    continue
+                if requested_price < product.minimum_selling_price:
+                    return Response({'detail': f"Le prix de vente de « {product.name} » doit être d'au moins {product.minimum_selling_price} DA."}, status=400)
+                resolved_prices[idx] = requested_price
 
         shipping_cost = _validate_shipping_cost(request)
         if shipping_cost is None:
@@ -535,6 +622,27 @@ class OrderListCreateView(APIView):
         if delivery_types is None:
             return Response({'detail': 'delivery_types invalide.'}, status=400)
         shipping_cost = _apply_delivery_type_shipping(store, shipping_cost, delivery_types)
+
+        # Code promo (2026-08) — même validation/verrouillage que le checkout
+        # public (PublicOrderView), pour que "Nouvelle commande" (création
+        # manuelle par le vendeur/dropshipper) puisse aussi appliquer un coupon.
+        from products.models import Promotion
+        resolved_items_data = [
+            {**item, 'price': price} for item, price in zip(items_data, resolved_prices)
+        ]
+        promo = None
+        discount_amount = 0
+        promo_code_input = (request.data.get('promo_code') or '').strip().upper()
+        if promo_code_input:
+            try:
+                promo = Promotion.objects.select_for_update().get(store=store, kind='code', code=promo_code_input)
+            except Promotion.DoesNotExist:
+                return Response({'detail': 'Code promo invalide.'}, status=400)
+            if not promo.is_valid_now():
+                return Response({'detail': "Ce code promo est expiré, inactif ou a atteint son nombre maximum d'utilisations."}, status=400)
+            discount_amount = promo.compute_discount_for_items(resolved_items_data)
+            if discount_amount <= 0:
+                return Response({'detail': "Ce code promo ne s'applique à aucun article de cette commande."}, status=400)
 
         order = Order.objects.create(
             store         = store,
@@ -552,6 +660,8 @@ class OrderListCreateView(APIView):
             delivery_types = delivery_types,
             note          = request.data.get('note', ''),
             dropshipper   = dropshipper_membership,
+            promo_code      = promo.code if promo else '',
+            discount_amount = discount_amount,
         )
 
         for item, price in zip(items_data, resolved_prices):
@@ -559,12 +669,17 @@ class OrderListCreateView(APIView):
                 order             = order,
                 product_id        = item.get('product'),
                 variant_option_id = item.get('variant_option'),
+                variant_sub_option_id = item.get('variant_sub_option'),
                 product_name      = item.get('product_name', ''),
                 price             = price,
                 quantity          = _validate_item_quantity(item),
             )
 
         order.recalculate()
+
+        if promo:
+            promo.uses_count += 1
+            promo.save(update_fields=['uses_count'])
 
         if scheduled_at:
             # Effets de bord (stock, confirmateur, quota, webhook) différés jusqu'à
@@ -700,7 +815,7 @@ class OrderDetailView(APIView):
                 # Nouvel article (pas d'id) OU changement de produit/variante sur
                 # un article existant : résolution de prix identique à la création
                 # de commande (jamais la valeur envoyée par le client).
-                price = _authoritative_item_price(store, entry)
+                price = _authoritative_item_price(store, entry, quantity=qty)
                 if price is None:
                     continue
                 from products.models import VariantOption
@@ -2196,6 +2311,7 @@ class PublicShippingRateView(APIView):
 
     def get(self, request, slug):
         from stores.models import Store
+        from products.models import Product
         try:
             store = Store.objects.get(slug=slug, is_active=True)
         except Store.DoesNotExist:
@@ -2203,10 +2319,31 @@ class PublicShippingRateView(APIView):
 
         wilaya_name = request.query_params.get('wilaya', '')
         commune_name = request.query_params.get('commune', '')
+
+        # Un article du panier avec livraison gratuite/spécifique écrase la
+        # grille/transporteur — même cascade de priorité que PublicOrderView
+        # (jusqu'ici appliquée seulement à la commande finale, jamais affichée
+        # à l'avance sur cette page, ce qui donnait l'impression que le tarif
+        # "n'était pas mentionné").
+        product_ids_param = request.query_params.get('product_ids', '').strip()
+        if product_ids_param:
+            product_ids = [pid for pid in product_ids_param.split(',') if pid.isdigit()]
+            cart_products = list(store.products.filter(id__in=product_ids))
+            if any(p.free_shipping for p in cart_products):
+                return Response({'tarif': 0, 'tarif_stopdesk': 0, 'source': 'free_shipping'})
+            specific = next((p for p in cart_products if p.specific_shipping_enabled), None)
+            if specific and (specific.specific_shipping_home_price is not None or specific.specific_shipping_desk_price is not None):
+                return Response({
+                    'tarif':          specific.specific_shipping_home_price,
+                    'tarif_stopdesk': specific.specific_shipping_desk_price,
+                    'source': 'specific_shipping',
+                    'source_product': specific.name,
+                })
+
         rates = _resolve_shipping_rates(store, wilaya_name, commune_name)
         if not rates:
             return Response({'detail': 'Tarif indisponible pour cette wilaya.'}, status=404)
-        return Response(rates)
+        return Response({**rates, 'source': 'grille'})
 
 
 class StoreShippingRateView(APIView):
@@ -2298,9 +2435,10 @@ class PublicOrderView(APIView):
         # qu'un prix falsifié ne puisse pas non plus fausser la remise.
         resolved_prices = []
         for item in items_data:
-            if _validate_item_quantity(item) is None:
+            qty = _validate_item_quantity(item)
+            if qty is None:
                 return Response({'detail': 'Quantité invalide pour un article du panier.'}, status=400)
-            price = _authoritative_item_price(store, item)
+            price = _authoritative_item_price(store, item, quantity=qty)
             if price is None:
                 return Response({'detail': 'Un article du panier est introuvable.'}, status=400)
             resolved_prices.append(price)
@@ -2348,13 +2486,24 @@ class PublicOrderView(APIView):
         )
 
         # Livraison offerte si un article du panier a Product.free_shipping=True
-        # (StoreSettings.free_shipping_if_product_free_shipping) — écrase le
-        # tarif résolu ci-dessus, priorité absolue sur le reste de la grille.
-        if settings_obj and settings_obj.free_shipping_if_product_free_shipping:
-            from products.models import Product
-            product_ids = [i.get('product') for i in items_data if i.get('product')]
-            if Product.objects.filter(id__in=product_ids, free_shipping=True).exists():
-                shipping_cost = Decimal('0')
+        # — toujours appliqué (décision produit 2026-08-14 : un produit marqué
+        # "Livraison gratuite" l'est TOUJOURS, pas besoin d'un réglage boutique
+        # séparé à activer en plus). Priorité absolue sur tout le reste.
+        from products.models import Product
+        product_ids = [i.get('product') for i in items_data if i.get('product')]
+        cart_products = list(Product.objects.filter(id__in=product_ids))
+        if any(p.free_shipping for p in cart_products):
+            shipping_cost = Decimal('0')
+        else:
+            # Prix de livraison spécifique (2026-08) — un produit du panier
+            # impose son propre tarif domicile/bureau, écrase la grille
+            # wilaya/commune et le tarif transporteur en temps réel.
+            specific = next((p for p in cart_products if p.specific_shipping_enabled), None)
+            if specific:
+                stop_desk = bool(request.data.get('stop_desk'))
+                specific_price = specific.specific_shipping_desk_price if stop_desk else specific.specific_shipping_home_price
+                if specific_price is not None:
+                    shipping_cost = specific_price
 
         order = Order.objects.create(
             store         = store,
@@ -2378,6 +2527,7 @@ class PublicOrderView(APIView):
                 order             = order,
                 product_id        = item.get('product'),
                 variant_option_id = item.get('variant_option'),
+                variant_sub_option_id = item.get('variant_sub_option'),
                 product_name      = item.get('product_name', ''),
                 price             = price,
                 quantity          = _validate_item_quantity(item),

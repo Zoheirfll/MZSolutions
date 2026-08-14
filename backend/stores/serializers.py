@@ -67,7 +67,7 @@ class StoreSettingsSerializer(serializers.ModelSerializer):
                   'menu_items',
                   'notify_duplicate_orders', 'notify_new_orders',
                   'sms_notifications_enabled', 'order_confirmed_otp_enabled', 'sms_api_token', 'sms_api_token_masked',
-                  'deduct_stock_on_order_create', 'free_shipping_if_product_free_shipping',
+                  'deduct_stock_on_order_create',
                   'max_order_amount', 'max_order_quantity', 'order_prefix', 'order_suffix']
 
     def get_sms_api_token_masked(self, obj):

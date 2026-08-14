@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Category, Product, ProductImage, ProductVariant, VariantOption, Supplier, SupplierCredit, SupplierPayment, ProductReview, Promotion, StockMovement
+from .models import Category, Product, ProductImage, ProductVariant, VariantOption, VariantSubOption, Supplier, SupplierCredit, SupplierPayment, ProductReview, Promotion, StockMovement
 
 
 def _abs_url(request, file_field):
@@ -22,6 +22,13 @@ def _can_view_purchase_prices(context):
 class CategorySerializer(serializers.ModelSerializer):
     children_count = serializers.SerializerMethodField()
     image_url      = serializers.SerializerMethodField()
+    # Explicite pour contourner un piège DRF : sur une requête multipart/
+    # form-data (QueryDict), un BooleanField absent de la requête est traité
+    # comme False (mimique une case à cocher HTML décochée) plutôt que de
+    # retomber sur le default=True du modèle — n'affecte pas l'UI actuelle
+    # (le formulaire envoie toujours is_active explicitement) mais casserait
+    # silencieusement tout futur appelant qui omettrait le champ.
+    is_active = serializers.BooleanField(required=False, default=True)
 
     class Meta:
         model  = Category
@@ -46,13 +53,29 @@ class ProductImageSerializer(serializers.ModelSerializer):
         return _abs_url(self.context.get('request'), obj.image)
 
 
+class VariantSubOptionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model  = VariantSubOption
+        fields = ['id', 'value', 'price', 'cost_price', 'stock', 'sku',
+                  'dropshipping_price', 'minimum_selling_price',
+                  'allow_out_of_stock', 'is_active', 'order']
+        read_only_fields = ['id']
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if not _can_view_purchase_prices(self.context):
+            data.pop('cost_price', None)
+        return data
+
+
 class VariantOptionSerializer(serializers.ModelSerializer):
     image_url = serializers.SerializerMethodField()
+    sub_options = VariantSubOptionSerializer(many=True, read_only=True)
 
     class Meta:
         model  = VariantOption
         fields = ['id', 'value', 'price', 'cost_price', 'stock', 'sku',
-                  'image', 'image_url', 'allow_out_of_stock', 'is_active', 'order']
+                  'image', 'image_url', 'allow_out_of_stock', 'is_active', 'order', 'sub_options']
         read_only_fields = ['id']
 
     def to_representation(self, instance):
@@ -170,10 +193,27 @@ class ProductSerializer(serializers.ModelSerializer):
             'stock', 'total_stock', 'sku', 'weight',
             'categories', 'category_names', 'supplier', 'supplier_name',
             'free_shipping', 'allow_out_of_stock', 'drop_shipping',
+            'offer_enabled', 'offer_quantity', 'offer_price',
+            'specific_shipping_enabled', 'specific_shipping_home_price', 'specific_shipping_desk_price',
+            'dropshipping_price', 'minimum_selling_price',
+            'stock_alert_1', 'stock_alert_2', 'stock_alert_3',
+            'has_position', 'position_range', 'position_stage', 'position_slot',
+            'show_title', 'show_images', 'show_full_price', 'show_discounted_price',
+            'show_countdown', 'countdown_end',
             'is_active', 'created_at', 'images', 'variants', 'sold_count',
             'active_promotion', 'meta_title', 'meta_description',
+            'meta_keywords', 'meta_robots', 'og_image', 'og_image_url', 'twitter_image', 'twitter_image_url',
         ]
         read_only_fields = ['id', 'created_at']
+
+    og_image_url = serializers.SerializerMethodField()
+    twitter_image_url = serializers.SerializerMethodField()
+
+    def get_og_image_url(self, obj):
+        return _abs_url(self.context.get('request'), obj.og_image)
+
+    def get_twitter_image_url(self, obj):
+        return _abs_url(self.context.get('request'), obj.twitter_image)
 
     def get_category_names(self, obj):
         return [c.name for c in obj.categories.all()]

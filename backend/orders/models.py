@@ -3,7 +3,7 @@ import uuid
 from django.db import models
 from django.conf import settings
 from stores.models import Store
-from products.models import Product, VariantOption
+from products.models import Product, VariantOption, VariantSubOption
 from core.validators import validate_image_extension, validate_image_size
 
 
@@ -269,6 +269,7 @@ class OrderItem(models.Model):
     order          = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items')
     product        = models.ForeignKey(Product, null=True, blank=True, on_delete=models.SET_NULL)
     variant_option = models.ForeignKey(VariantOption, null=True, blank=True, on_delete=models.SET_NULL)
+    variant_sub_option = models.ForeignKey(VariantSubOption, null=True, blank=True, on_delete=models.SET_NULL)
     product_name   = models.CharField(max_length=200)
     price          = models.DecimalField(max_digits=12, decimal_places=2)
     quantity       = models.PositiveIntegerField(default=1)

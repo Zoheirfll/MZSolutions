@@ -112,7 +112,6 @@ class StoreSettings(models.Model):
     order_confirmed_otp_enabled = models.BooleanField(default=False, help_text="Désactivé tant qu'aucun fournisseur SMS n'est configuré (TBD)")
     sms_api_token = models.CharField(max_length=200, blank=True, help_text="Jeton du futur fournisseur SMS — stocké pour quand l'intégration sera branchée")
     deduct_stock_on_order_create = models.BooleanField(default=True, help_text="Si désactivé, le stock n'est décrémenté qu'à la confirmation de la commande plutôt qu'à sa création")
-    free_shipping_if_product_free_shipping = models.BooleanField(default=False, help_text="Livraison offerte sur tout le panier si au moins un article a Product.free_shipping=True")
     max_order_amount   = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, help_text="Montant maximum accepté pour une commande sur la boutique publique (vide = pas de limite)")
     max_order_quantity = models.PositiveIntegerField(null=True, blank=True, help_text="Quantité totale maximum d'articles pour une commande sur la boutique publique (vide = pas de limite)")
     order_prefix = models.CharField(max_length=20, blank=True)

@@ -59,14 +59,18 @@ function ProductCard({ product, slug }) {
       style={{ background: 'var(--sf-card-bg)', borderColor: 'color-mix(in srgb, var(--sf-primary) 15%, transparent)' }}
       onMouseEnter={e => { e.currentTarget.style.borderColor = 'color-mix(in srgb, var(--sf-primary) 40%, transparent)' }}
       onMouseLeave={e => { e.currentTarget.style.borderColor = 'color-mix(in srgb, var(--sf-primary) 15%, transparent)' }}>
-      <div className="aspect-square overflow-hidden" style={{ background: 'var(--sf-primary-light)' }}>
-        {product.image_url
-          ? <img src={product.image_url} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-          : <div className="w-full h-full flex items-center justify-center opacity-30"><PackageIcon className="w-10 h-10" /></div>
-        }
-      </div>
+      {product.show_images !== false && (
+        <div className="aspect-square overflow-hidden" style={{ background: 'var(--sf-primary-light)' }}>
+          {product.image_url
+            ? <img src={product.image_url} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+            : <div className="w-full h-full flex items-center justify-center opacity-30"><PackageIcon className="w-10 h-10" /></div>
+          }
+        </div>
+      )}
       <div className="p-3">
-        <p className="text-sm font-medium truncate" style={{ color: 'var(--sf-text)' }}>{product.name}</p>
+        {product.show_title !== false && (
+          <p className="text-sm font-medium truncate" style={{ color: 'var(--sf-text)' }}>{product.name}</p>
+        )}
         <div className="flex items-center gap-2 mt-1">
           <span className="font-semibold" style={{ color: 'var(--sf-primary)' }}>{Number(product.price).toLocaleString('fr-DZ')} DZD</span>
           {product.original_price ? (

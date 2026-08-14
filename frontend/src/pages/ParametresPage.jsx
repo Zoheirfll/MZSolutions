@@ -286,9 +286,10 @@ function GeneralTab() {
             label="OTP de confirmation de commande" hint="Fournisseur SMS non configuré pour l'instant." />
           <Toggle value={settings.deduct_stock_on_order_create} onChange={v => setSettings(s => ({ ...s, deduct_stock_on_order_create: v }))}
             label="Mettre à jour le stock dès la création de la commande" hint="Si désactivé, le stock n'est décrémenté qu'à la confirmation." />
-          <Toggle value={settings.free_shipping_if_product_free_shipping} onChange={v => setSettings(s => ({ ...s, free_shipping_if_product_free_shipping: v }))}
-            label="Livraison gratuite si le panier contient un produit avec livraison gratuite" hint="Basé sur l'option « Livraison gratuite » de la fiche produit." />
         </div>
+        <p className="text-xs mt-3" style={{ color: theme.dark.muted }}>
+          Un produit marqué « Livraison gratuite » dans sa fiche l'est toujours — aucun réglage supplémentaire à activer ici.
+        </p>
         <Field label="Jeton SMS (pour quand un fournisseur sera configuré)">
           <input value={settings.sms_api_token || ''} onChange={e => setSettings(s => ({ ...s, sms_api_token: e.target.value }))} className={inputCls + ' mt-1'} style={bdrStyle}
             placeholder={settings.sms_api_token_masked || 'Non configuré'} />

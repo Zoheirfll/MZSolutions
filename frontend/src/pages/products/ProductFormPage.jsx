@@ -2,17 +2,26 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import DashboardLayout from '../../components/DashboardLayout'
 import Select from '../../components/Select'
+import RichEditor from '../../components/RichEditor'
 import api from '../../api/axios'
 import { theme } from '../../theme'
 import { useAuth } from '../../context/AuthContext'
 
-const SECTIONS = ['Détails du produit', 'Description', 'Images', 'Variantes', 'SEO']
+const SECTIONS = ['Détails du produit', 'Description', 'Images', 'Variantes', 'SEO', 'Autres']
 
 const EMPTY = {
   name: '', price: '', compare_price: '', cost_price: '',
   stock: '', sku: '', weight: '', categories: [], supplier: '',
   free_shipping: false, allow_out_of_stock: false, drop_shipping: false,
+  offer_enabled: false, offer_quantity: '', offer_price: '',
+  specific_shipping_enabled: false, specific_shipping_home_price: '', specific_shipping_desk_price: '',
+  dropshipping_price: '', minimum_selling_price: '',
+  stock_alert_1: '', stock_alert_2: '', stock_alert_3: '',
+  has_position: false, position_range: '', position_stage: '', position_slot: '',
+  show_title: true, show_images: true, show_full_price: true, show_discounted_price: true,
+  show_countdown: false, countdown_end: '',
   is_active: true, description: '', meta_title: '', meta_description: '',
+  meta_keywords: '', meta_robots: '',
 }
 
 const EMPTY_OPTION = {
@@ -67,6 +76,13 @@ function ChevronIcon({ direction = 'down', ...props }) {
 
 // Construit un arbre { ...category, children: [...] } à partir de la liste
 // plate renvoyée par /products/categories/ (chaque item a un champ `parent`).
+// La description est stockée en HTML (RichEditor/TipTap) — pour les aperçus
+// texte brut (SEO, meta description), on retire les balises.
+function stripHtml(html) {
+  if (!html) return ''
+  return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
 function buildCategoryTree(flat) {
   if (!Array.isArray(flat)) return []
   const byId = new Map(flat.map(c => [c.id, { ...c, children: [] }]))
@@ -93,13 +109,14 @@ function CategoryTreeNode({ node, depth, selectedIds, onToggle }) {
   )
 }
 
-function Toggle({ label, value, onChange }) {
+function Toggle({ label, value, onChange, disabled }) {
   return (
     <div className="flex items-center gap-3">
       <button
         type="button"
+        disabled={disabled}
         onClick={() => onChange(!value)}
-        className={`w-10 h-5 rounded-full transition-colors relative shrink-0 ${value ? 'bg-violet-600' : 'bg-(--border-color-hover)'}`}
+        className={`w-10 h-5 rounded-full transition-colors relative shrink-0 disabled:opacity-40 disabled:cursor-not-allowed ${value ? 'bg-violet-600' : 'bg-(--border-color-hover)'}`}
       >
         <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${value ? 'left-5' : 'left-0.5'}`} />
       </button>
@@ -173,6 +190,45 @@ function VariantBlock({ productId, variant, onDeleted, onUpdated, stockBatchId }
   const deleteOption = async (oid) => {
     await api.delete(`/products/${productId}/variants/${variant.id}/options/${oid}/`)
     setOptions(o => o.filter(x => x.id !== oid))
+  }
+
+  // 2e niveau de variante (ex: pointures 41/42/43 sous l'option "Noir") —
+  // n'a de sens que si le vendeur a nommé ce 2e niveau (variant.sub_option_name).
+  const addSubOption = async (opt) => {
+    try {
+      const { data } = await api.post(
+        `/products/${productId}/variants/${variant.id}/options/${opt.id}/sub-options/`,
+        { value: 'Nouvelle valeur', stock: 0 },
+      )
+      setOptions(o => o.map(x => x.id === opt.id ? { ...x, sub_options: [...(x.sub_options || []), data] } : x))
+    } catch {}
+  }
+
+  const updateSubOption = (optId, subId, patch) => {
+    setOptions(o => o.map(x => x.id === optId
+      ? { ...x, sub_options: (x.sub_options || []).map(s => s.id === subId ? { ...s, ...patch } : s) }
+      : x))
+  }
+
+  const saveSubOption = async (optId, sub) => {
+    try {
+      await api.put(`/products/${productId}/variants/${variant.id}/options/${optId}/sub-options/${sub.id}/`, {
+        value: sub.value,
+        price: sub.price || null,
+        cost_price: sub.cost_price || null,
+        stock: sub.stock,
+        sku: sub.sku,
+        dropshipping_price: sub.dropshipping_price || null,
+        minimum_selling_price: sub.minimum_selling_price || null,
+        allow_out_of_stock: sub.allow_out_of_stock,
+        is_active: sub.is_active,
+      }, { headers: { 'X-Stock-Batch-Id': stockBatchId } })
+    } catch {}
+  }
+
+  const deleteSubOption = async (optId, subId) => {
+    await api.delete(`/products/${productId}/variants/${variant.id}/options/${optId}/sub-options/${subId}/`)
+    setOptions(o => o.map(x => x.id === optId ? { ...x, sub_options: (x.sub_options || []).filter(s => s.id !== subId) } : x))
   }
 
   return (
@@ -312,6 +368,56 @@ function VariantBlock({ productId, variant, onDeleted, onUpdated, stockBatchId }
                   )}
                 </div>
               </div>
+
+              {/* Sous-variantes (2e niveau, ex: pointures 41/42/43 sous "Noir") */}
+              {subName.trim() && (
+                <div className="border-t pt-3 mt-1" style={{ borderColor: theme.dark.border }}>
+                  <p className="text-xs font-medium text-app-muted-light mb-2">{subName} de "{opt.value}"</p>
+                  <div className="space-y-2">
+                    {(opt.sub_options || []).map(sub => (
+                      <div key={sub.id} className="grid grid-cols-6 gap-2 items-end rounded-lg border p-2.5" style={{ borderColor: theme.dark.border }}>
+                        <div className="col-span-1">
+                          <label className="block text-[10px] text-app-muted mb-0.5">Valeur</label>
+                          <input value={sub.value} onChange={e => updateSubOption(opt.id, sub.id, { value: e.target.value })}
+                            onBlur={() => saveSubOption(opt.id, sub)} className={`${inputCls} text-xs px-2 py-1.5`} style={bdrStyle} />
+                        </div>
+                        <div className="col-span-1">
+                          <label className="block text-[10px] text-app-muted mb-0.5">Stock</label>
+                          <input type="number" min="0" value={sub.stock} onChange={e => updateSubOption(opt.id, sub.id, { stock: Number(e.target.value) })}
+                            onBlur={() => saveSubOption(opt.id, sub)} className={`${inputCls} text-xs px-2 py-1.5`} style={bdrStyle} />
+                        </div>
+                        <div className="col-span-1">
+                          <label className="block text-[10px] text-app-muted mb-0.5">Prix</label>
+                          <input type="number" min="0" step="0.01" value={sub.price || ''} placeholder="—" onChange={e => updateSubOption(opt.id, sub.id, { price: e.target.value })}
+                            onBlur={() => saveSubOption(opt.id, sub)} className={`${inputCls} text-xs px-2 py-1.5`} style={bdrStyle} />
+                        </div>
+                        <div className="col-span-1">
+                          <label className="block text-[10px] text-app-muted mb-0.5">Prix drop</label>
+                          <input type="number" min="0" step="0.01" value={sub.dropshipping_price || ''} placeholder="—" onChange={e => updateSubOption(opt.id, sub.id, { dropshipping_price: e.target.value })}
+                            onBlur={() => saveSubOption(opt.id, sub)} className={`${inputCls} text-xs px-2 py-1.5`} style={bdrStyle} />
+                        </div>
+                        <div className="col-span-1">
+                          <label className="block text-[10px] text-app-muted mb-0.5">Min. vente drop</label>
+                          <input type="number" min="0" step="0.01" value={sub.minimum_selling_price || ''} placeholder="—" onChange={e => updateSubOption(opt.id, sub.id, { minimum_selling_price: e.target.value })}
+                            onBlur={() => saveSubOption(opt.id, sub)} className={`${inputCls} text-xs px-2 py-1.5`} style={bdrStyle} />
+                        </div>
+                        <div className="col-span-1 flex items-center justify-between gap-1">
+                          <Toggle value={sub.allow_out_of_stock} onChange={v => { updateSubOption(opt.id, sub.id, { allow_out_of_stock: v }); saveSubOption(opt.id, { ...sub, allow_out_of_stock: v }) }} />
+                          <button onClick={() => deleteSubOption(opt.id, sub.id)} className="w-6 h-6 shrink-0 flex items-center justify-center rounded bg-red-600/15 text-red-400 hover:bg-red-600/30 transition"><TrashIcon /></button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => addSubOption(opt)}
+                    className="w-full mt-2 py-1.5 rounded-lg border border-dashed text-xs text-violet-400 hover:border-violet-500 hover:bg-violet-600/5 transition"
+                    style={{ borderColor: theme.dark.border }}
+                  >
+                    + Ajouter {subName || 'une sous-variante'}
+                  </button>
+                </div>
+              )}
             </div>
           ))}
 
@@ -321,7 +427,7 @@ function VariantBlock({ productId, variant, onDeleted, onUpdated, stockBatchId }
             className="w-full py-2 rounded-lg border-2 border-dashed text-sm text-violet-400 hover:border-violet-500 hover:bg-violet-600/5 transition"
             style={{ borderColor: theme.dark.border }}
           >
-            + Ajouter une sous-option
+            + Ajouter une option
           </button>
         </div>
       )}
@@ -450,6 +556,7 @@ export default function ProductFormPage() {
   const stockBatchId = useRef(crypto.randomUUID()).current
 
   const [section, setSection]       = useState(SECTIONS[0])
+  const sectionIndex = SECTIONS.indexOf(section)
   const [form, setForm]             = useState(EMPTY)
   const [categories, setCategories] = useState([])
   const [suppliers, setSuppliers]   = useState([])
@@ -459,7 +566,11 @@ export default function ProductFormPage() {
   const [pendingVariants, setPendingVariants] = useState([]) // création : variantes/options en brouillon
   const [saving, setSaving]         = useState(false)
   const [errors, setErrors]         = useState({})
+  const [ogImageUrl, setOgImageUrl]           = useState(null)
+  const [twitterImageUrl, setTwitterImageUrl] = useState(null)
   const fileRef = useRef()
+  const ogImageRef = useRef()
+  const twitterImageRef = useRef()
 
   const pendingImagesRef = useRef(pendingImages)
   pendingImagesRef.current = pendingImages
@@ -479,9 +590,23 @@ export default function ProductFormPage() {
           weight: data.weight ?? '', categories: (data.categories || []).map(Number), supplier: data.supplier ?? '',
           free_shipping: data.free_shipping, allow_out_of_stock: data.allow_out_of_stock,
           drop_shipping: data.drop_shipping, is_active: data.is_active,
+          offer_enabled: data.offer_enabled, offer_quantity: data.offer_quantity ?? '', offer_price: data.offer_price ?? '',
+          specific_shipping_enabled: data.specific_shipping_enabled,
+          specific_shipping_home_price: data.specific_shipping_home_price ?? '',
+          specific_shipping_desk_price: data.specific_shipping_desk_price ?? '',
+          dropshipping_price: data.dropshipping_price ?? '', minimum_selling_price: data.minimum_selling_price ?? '',
+          stock_alert_1: data.stock_alert_1 ?? '', stock_alert_2: data.stock_alert_2 ?? '', stock_alert_3: data.stock_alert_3 ?? '',
+          has_position: data.has_position, position_range: data.position_range || '',
+          position_stage: data.position_stage || '', position_slot: data.position_slot || '',
+          show_title: data.show_title, show_images: data.show_images,
+          show_full_price: data.show_full_price, show_discounted_price: data.show_discounted_price,
+          show_countdown: data.show_countdown, countdown_end: data.countdown_end ? data.countdown_end.slice(0, 16) : '',
           description: data.description,
           meta_title: data.meta_title || '', meta_description: data.meta_description || '',
+          meta_keywords: data.meta_keywords || '', meta_robots: data.meta_robots || '',
         })
+        setOgImageUrl(data.og_image_url || null)
+        setTwitterImageUrl(data.twitter_image_url || null)
         setImages(data.images || [])
         setVariants(data.variants || [])
       }).catch(() => {})
@@ -492,6 +617,10 @@ export default function ProductFormPage() {
     const { name, value, type, checked } = e.target
     setForm(f => ({ ...f, [name]: type === 'checkbox' ? checked : value }))
   }
+
+  const activeVariants = isEdit ? variants : pendingVariants
+  const hasVariants = activeVariants.some(v => (v.options || []).length > 0)
+  const totalStock = activeVariants.reduce((sum, v) => sum + (v.options || []).reduce((s, o) => s + (Number(o.stock) || 0), 0), 0)
 
   const categoryTree = useMemo(() => buildCategoryTree(categories), [categories])
   const toggleCategory = (catId) => setForm(f => ({
@@ -509,6 +638,16 @@ export default function ProductFormPage() {
       fd.append('image', file)
       await api.post(`/products/${productId}/images/`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
     }
+  }
+
+  // Images SEO (Open Graph/Twitter) — upload immédiat comme les images de
+  // variante, uniquement disponible en édition (le produit doit déjà exister).
+  const uploadSeoImage = async (field, file) => {
+    const fd = new FormData()
+    fd.append(field, file)
+    const { data } = await api.put(`/products/${id}/`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+    if (field === 'og_image') setOgImageUrl(data.og_image_url)
+    else setTwitterImageUrl(data.twitter_image_url)
   }
 
   // Idem pour les variantes/options en brouillon — créées réellement une
@@ -540,6 +679,16 @@ export default function ProductFormPage() {
       weight:        form.weight       || null,
       categories:    form.categories,
       supplier:      form.supplier     || null,
+      offer_quantity: form.offer_quantity || null,
+      offer_price:    form.offer_price    || null,
+      specific_shipping_home_price: form.specific_shipping_home_price || null,
+      specific_shipping_desk_price: form.specific_shipping_desk_price || null,
+      dropshipping_price:    form.dropshipping_price    || null,
+      minimum_selling_price: form.minimum_selling_price || null,
+      stock_alert_1: form.stock_alert_1 || null,
+      stock_alert_2: form.stock_alert_2 || null,
+      stock_alert_3: form.stock_alert_3 || null,
+      countdown_end: form.countdown_end ? new Date(form.countdown_end).toISOString() : null,
     }
     try {
       if (isEdit) {
@@ -642,6 +791,15 @@ export default function ProductFormPage() {
         <div className="flex-1">
           <form onSubmit={handleSave}>
 
+            {Object.keys(errors).length > 0 && (
+              <div className="rounded-xl border border-red-500/40 bg-red-950/20 p-4 mb-4 text-sm text-red-400 space-y-1">
+                <p className="font-semibold">La sauvegarde a échoué :</p>
+                {Object.entries(errors).map(([field, msg]) => (
+                  <p key={field}>{Array.isArray(msg) ? msg.join(' ') : String(msg)}</p>
+                ))}
+              </div>
+            )}
+
             {/* ── Détails du produit ── */}
             {section === 'Détails du produit' && (
               <div className="rounded-xl border p-6 space-y-5" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
@@ -668,7 +826,16 @@ export default function ProductFormPage() {
                   </div>
                   <div>
                     <label className="block text-xs text-app-muted-light mb-1.5">Stock</label>
-                    <input name="stock" type="number" min="0" value={form.stock} onChange={change} className={inputCls} style={bdrStyle} placeholder="0" />
+                    <input
+                      name="stock" type="number" min="0"
+                      value={hasVariants ? totalStock : form.stock} onChange={change}
+                      readOnly={hasVariants} className={inputCls} style={bdrStyle} placeholder="0"
+                    />
+                    {hasVariants && (
+                      <p className="text-xs mt-1" style={{ color: theme.dark.muted }}>
+                        Stock final calculé à partir des variantes (onglet "Variantes").
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -714,16 +881,90 @@ export default function ProductFormPage() {
                 <div className="border-t pt-4 grid grid-cols-2 gap-x-8" style={{ borderColor: theme.dark.border }}>
                   {[
                     ['Livraison gratuite', 'free_shipping'],
-                    ['Autoriser achats en rupture de stock', 'allow_out_of_stock'],
+                    ['Autoriser achats en rupture de stock', 'allow_out_of_stock', hasVariants],
                     ['Drop Shipping', 'drop_shipping'],
                     ['Produit actif', 'is_active'],
-                  ].map(([label, name]) => (
+                  ].map(([label, name, disabled]) => (
                     <div key={name} className="flex items-center justify-between py-2">
                       <span className="text-sm text-app-primary">{label}</span>
-                      <Toggle value={form[name]} onChange={v => setForm(f => ({ ...f, [name]: v }))} />
+                      <Toggle value={form[name]} onChange={v => setForm(f => ({ ...f, [name]: v }))} disabled={disabled} />
                     </div>
                   ))}
                 </div>
+                {form.free_shipping && (
+                  <p className="text-xs" style={{ color: theme.dark.muted }}>
+                    Ce produit sera toujours en livraison gratuite, quelle que soit la wilaya ou le transporteur.
+                  </p>
+                )}
+                {hasVariants && (
+                  <p className="text-xs" style={{ color: theme.dark.muted }}>
+                    Ce produit a des variantes — la rupture de stock se gère par option dans l'onglet "Variantes" (ce réglage global n'a aucun effet tant qu'il y a des variantes).
+                  </p>
+                )}
+
+                {/* Offre disponible (palier de quantité) */}
+                <div className="border-t pt-4" style={{ borderColor: theme.dark.border }}>
+                  <div className="flex items-center justify-between py-2">
+                    <div>
+                      <span className="text-sm text-app-primary">Offre disponible</span>
+                      <p className="text-xs mt-0.5" style={{ color: theme.dark.muted }}>Prix total fixe à partir d'une certaine quantité (ex : 2 pour 2500 DZD au lieu de 3000 DZD)</p>
+                    </div>
+                    <Toggle value={form.offer_enabled} onChange={v => setForm(f => ({ ...f, offer_enabled: v }))} />
+                  </div>
+                  {form.offer_enabled && (
+                    <div className="grid grid-cols-2 gap-4 mt-2">
+                      <div>
+                        <label className="block text-xs text-app-muted-light mb-1.5">Quantité du palier</label>
+                        <input type="number" min="2" value={form.offer_quantity} onChange={e => setForm(f => ({ ...f, offer_quantity: e.target.value }))} className={inputCls} style={bdrStyle} placeholder="2" />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-app-muted-light mb-1.5">Prix total du palier <span className="text-app-muted">DZD</span></label>
+                        <input type="number" min="0" step="0.01" value={form.offer_price} onChange={e => setForm(f => ({ ...f, offer_price: e.target.value }))} className={inputCls} style={bdrStyle} placeholder="2500" />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Prix de livraison spécifique */}
+                <div className="border-t pt-4" style={{ borderColor: theme.dark.border }}>
+                  <div className="flex items-center justify-between py-2">
+                    <div>
+                      <span className="text-sm text-app-primary">Prix de livraison spécifique</span>
+                      <p className="text-xs mt-0.5" style={{ color: theme.dark.muted }}>Remplace le tarif de livraison habituel (grille wilaya/transporteur) pour ce produit précis</p>
+                    </div>
+                    <Toggle value={form.specific_shipping_enabled} onChange={v => setForm(f => ({ ...f, specific_shipping_enabled: v }))} />
+                  </div>
+                  {form.specific_shipping_enabled && (
+                    <div className="grid grid-cols-2 gap-4 mt-2">
+                      <div>
+                        <label className="block text-xs text-app-muted-light mb-1.5">Livraison à domicile <span className="text-app-muted">DZD</span></label>
+                        <input type="number" min="0" step="0.01" value={form.specific_shipping_home_price} onChange={e => setForm(f => ({ ...f, specific_shipping_home_price: e.target.value }))} className={inputCls} style={bdrStyle} placeholder="0" />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-app-muted-light mb-1.5">Livraison en point relais <span className="text-app-muted">DZD</span></label>
+                        <input type="number" min="0" step="0.01" value={form.specific_shipping_desk_price} onChange={e => setForm(f => ({ ...f, specific_shipping_desk_price: e.target.value }))} className={inputCls} style={bdrStyle} placeholder="0" />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Dropshipping — prix coûtant / prix minimum de vente */}
+                {form.drop_shipping && (
+                  <div className="border-t pt-4" style={{ borderColor: theme.dark.border }}>
+                    <span className="text-sm text-app-primary">Tarification dropshipping</span>
+                    <p className="text-xs mt-0.5 mb-2" style={{ color: theme.dark.muted }}>Le dropshipper choisit son propre prix de vente (au moins le minimum) — sa marge = prix de vente choisi moins le prix coûtant.</p>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs text-app-muted-light mb-1.5">Prix coûtant (dropshipper) <span className="text-app-muted">DZD</span></label>
+                        <input type="number" min="0" step="0.01" value={form.dropshipping_price} onChange={e => setForm(f => ({ ...f, dropshipping_price: e.target.value }))} className={inputCls} style={bdrStyle} placeholder="0" />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-app-muted-light mb-1.5">Prix minimum de vente <span className="text-app-muted">DZD</span></label>
+                        <input type="number" min="0" step="0.01" value={form.minimum_selling_price} onChange={e => setForm(f => ({ ...f, minimum_selling_price: e.target.value }))} className={inputCls} style={bdrStyle} placeholder="0" />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -731,13 +972,9 @@ export default function ProductFormPage() {
             {section === 'Description' && (
               <div className="rounded-xl border p-6" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
                 <label className="block text-xs text-app-muted-light mb-2">Description du produit</label>
-                <textarea
-                  name="description"
+                <RichEditor
                   value={form.description}
-                  onChange={change}
-                  rows={10}
-                  className={`${inputCls} resize-none`}
-                  style={bdrStyle}
+                  onChange={html => setForm(f => ({ ...f, description: html }))}
                   placeholder="Décrivez votre produit…"
                 />
               </div>
@@ -849,16 +1086,40 @@ export default function ProductFormPage() {
             {/* ── SEO ── */}
             {section === 'SEO' && (
               <div className="rounded-xl border p-6 space-y-5" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-xs text-app-muted-light">Titre (balise &lt;title&gt;)</label>
-                    <span className="text-xs" style={{ color: form.meta_title.length > 70 ? '#f87171' : theme.dark.muted }}>{form.meta_title.length}/70</span>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="col-span-1">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-xs text-app-muted-light">Titre (balise &lt;title&gt;)</label>
+                      <span className="text-xs" style={{ color: form.meta_title.length > 70 ? '#f87171' : theme.dark.muted }}>{form.meta_title.length}/70</span>
+                    </div>
+                    <input
+                      name="meta_title" value={form.meta_title} onChange={change} maxLength={70}
+                      className={inputCls} style={bdrStyle}
+                      placeholder={form.name || 'Retombe sur le nom du produit si vide'}
+                    />
                   </div>
-                  <input
-                    name="meta_title" value={form.meta_title} onChange={change} maxLength={70}
-                    className={inputCls} style={bdrStyle}
-                    placeholder={form.name || 'Retombe sur le nom du produit si vide'}
-                  />
+                  <div>
+                    <label className="block text-xs text-app-muted-light mb-1.5">Balise méta robots</label>
+                    <Select
+                      value={form.meta_robots}
+                      onChange={v => setForm(f => ({ ...f, meta_robots: v }))}
+                      options={[
+                        { value: '', label: 'index, follow (défaut)' },
+                        { value: 'noindex,follow', label: 'noindex, follow' },
+                        { value: 'index,nofollow', label: 'index, nofollow' },
+                        { value: 'noindex,nofollow', label: 'noindex, nofollow' },
+                      ]}
+                      className={inputCls}
+                      style={{ ...bdrStyle, background: theme.dark.sidebar }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-app-muted-light mb-1.5">Mots-clés</label>
+                    <input
+                      value={form.meta_keywords} onChange={e => setForm(f => ({ ...f, meta_keywords: e.target.value }))}
+                      className={inputCls} style={bdrStyle} placeholder="chaussure, sport, running"
+                    />
+                  </div>
                 </div>
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
@@ -868,8 +1129,38 @@ export default function ProductFormPage() {
                   <textarea
                     name="meta_description" value={form.meta_description} onChange={change} maxLength={160} rows={3}
                     className={`${inputCls} resize-none`} style={bdrStyle}
-                    placeholder={form.description ? form.description.slice(0, 160) : 'Retombe sur un extrait de la description si vide'}
+                    placeholder={form.description ? stripHtml(form.description).slice(0, 160) : 'Retombe sur un extrait de la description si vide'}
                   />
+                </div>
+
+                {/* Images de partage (Open Graph / Twitter) */}
+                <div className="grid grid-cols-2 gap-4">
+                  {[
+                    { label: 'URL de l\'image Open Graph (Facebook/WhatsApp)', url: ogImageUrl, ref: ogImageRef, field: 'og_image' },
+                    { label: 'URL de l\'image de la carte Twitter', url: twitterImageUrl, ref: twitterImageRef, field: 'twitter_image' },
+                  ].map(({ label, url, ref, field }) => (
+                    <div key={field}>
+                      <label className="block text-xs text-app-muted-light mb-1.5">{label}</label>
+                      <input ref={ref} type="file" accept="image/*" className="hidden"
+                        onChange={e => e.target.files[0] && uploadSeoImage(field, e.target.files[0])} />
+                      {!isEdit ? (
+                        <div className="rounded-xl border-2 border-dashed flex items-center justify-center aspect-video text-xs text-app-muted text-center px-4" style={{ borderColor: theme.dark.border }}>
+                          Disponible après le premier enregistrement du produit
+                        </div>
+                      ) : url ? (
+                        <div className="relative group aspect-video">
+                          <img src={url} alt="" className="w-full h-full object-cover rounded-xl" />
+                          <button type="button" onClick={() => ref.current?.click()}
+                            className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/40 opacity-0 group-hover:opacity-100 transition text-white text-sm">Changer</button>
+                        </div>
+                      ) : (
+                        <div onClick={() => ref.current?.click()}
+                          className="border-2 border-dashed rounded-xl flex items-center justify-center cursor-pointer hover:border-violet-500 transition aspect-video text-sm text-violet-400"
+                          style={{ borderColor: theme.dark.border }}
+                        >Télécharger une image</div>
+                      )}
+                    </div>
+                  ))}
                 </div>
 
                 {/* Aperçu façon résultat Google */}
@@ -881,25 +1172,135 @@ export default function ProductFormPage() {
                     </p>
                     <p className="text-[#8ab4f8] text-lg truncate mt-0.5">{form.meta_title || form.name || 'Titre du produit'}</p>
                     <p className="text-sm text-app-muted-light mt-0.5 line-clamp-2">
-                      {form.meta_description || form.description || 'La description du produit apparaîtra ici.'}
+                      {form.meta_description || stripHtml(form.description) || 'La description du produit apparaîtra ici.'}
                     </p>
                   </div>
                 </div>
               </div>
             )}
 
+            {/* ── Autres ── */}
+            {section === 'Autres' && (
+              <div className="space-y-4">
+                {/* Alerte de stock */}
+                <div className="rounded-xl border p-6" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
+                  <p className="text-sm font-semibold text-app-primary mb-1">Alerte de stock</p>
+                  <p className="text-xs mb-4" style={{ color: theme.dark.muted }}>
+                    Seuils propres à ce produit — remplacent le seuil global de la boutique (Stock & Inventaire) pour ce produit précis. Laissez vide pour garder le seuil global.
+                  </p>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs text-app-muted-light mb-1.5">Seuil 1 — stock faible</label>
+                      <input type="number" min="0" value={form.stock_alert_1} onChange={e => setForm(f => ({ ...f, stock_alert_1: e.target.value }))} className={inputCls} style={bdrStyle} placeholder="10" />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-app-muted-light mb-1.5">Seuil 2 — très faible</label>
+                      <input type="number" min="0" value={form.stock_alert_2} onChange={e => setForm(f => ({ ...f, stock_alert_2: e.target.value }))} className={inputCls} style={bdrStyle} placeholder="5" />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-app-muted-light mb-1.5">Seuil 3 — critique</label>
+                      <input type="number" min="0" value={form.stock_alert_3} onChange={e => setForm(f => ({ ...f, stock_alert_3: e.target.value }))} className={inputCls} style={bdrStyle} placeholder="3" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Position en entrepôt */}
+                <div className="rounded-xl border p-6" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-sm font-semibold text-app-primary">Position en entrepôt</p>
+                    <Toggle value={form.has_position} onChange={v => setForm(f => ({ ...f, has_position: v }))} />
+                  </div>
+                  <p className="text-xs mb-4" style={{ color: theme.dark.muted }}>
+                    Purement informatif — pour retrouver physiquement l'article, aucun effet sur le stock ou la vente.
+                  </p>
+                  {form.has_position && (
+                    <div className="grid grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-xs text-app-muted-light mb-1.5">Allée / Rayon</label>
+                        <input value={form.position_range} onChange={e => setForm(f => ({ ...f, position_range: e.target.value }))} className={inputCls} style={bdrStyle} placeholder="ex: A" />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-app-muted-light mb-1.5">Étage / Niveau</label>
+                        <input value={form.position_stage} onChange={e => setForm(f => ({ ...f, position_stage: e.target.value }))} className={inputCls} style={bdrStyle} placeholder="ex: 1" />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-app-muted-light mb-1.5">Emplacement</label>
+                        <input value={form.position_slot} onChange={e => setForm(f => ({ ...f, position_slot: e.target.value }))} className={inputCls} style={bdrStyle} placeholder="ex: Milieu" />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Visibilité sur la boutique */}
+                <div className="rounded-xl border p-6" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
+                  <p className="text-sm font-semibold text-app-primary mb-1">Visibilité sur la boutique</p>
+                  <p className="text-xs mb-4" style={{ color: theme.dark.muted }}>
+                    "Produit actif" (onglet Détails) contrôle si la fiche existe publiquement — ces réglages affinent ce qui s'y affiche.
+                  </p>
+                  <div className="grid grid-cols-2 gap-x-8 gap-y-3">
+                    {[
+                      ['Afficher le titre', 'show_title'],
+                      ['Afficher les images', 'show_images'],
+                      ['Afficher le prix hors remise (barré)', 'show_full_price'],
+                      ['Afficher le prix réduit', 'show_discounted_price'],
+                      ['Afficher un compte à rebours', 'show_countdown'],
+                    ].map(([label, name]) => (
+                      <div key={name} className="flex items-center justify-between py-1">
+                        <span className="text-sm text-app-primary">{label}</span>
+                        <Toggle value={form[name]} onChange={v => setForm(f => ({ ...f, [name]: v }))} />
+                      </div>
+                    ))}
+                  </div>
+                  {form.show_countdown && (
+                    <div className="mt-3">
+                      <label className="block text-xs text-app-muted-light mb-1.5">Fin du compte à rebours</label>
+                      <input
+                        type="datetime-local" value={form.countdown_end}
+                        onChange={e => setForm(f => ({ ...f, countdown_end: e.target.value }))}
+                        className={`${inputCls} max-w-xs`} style={bdrStyle}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Footer actions */}
             <div className="mt-4 flex items-center justify-between">
-              <button type="button" onClick={() => navigate('/dashboard/produits')} className="text-sm text-app-muted-light hover:text-app-primary transition">
-                ← Retour à la liste
-              </button>
-              <button
-                type="submit"
-                disabled={saving}
-                className="px-6 py-2.5 rounded-lg text-sm font-semibold text-white bg-violet-600 hover:bg-violet-500 transition disabled:opacity-60"
-              >
-                {saving ? 'Enregistrement…' : isEdit ? 'Mettre à jour' : 'Enregistrer le produit'}
-              </button>
+              <div className="flex items-center gap-3">
+                <button type="button" onClick={() => navigate('/dashboard/produits')} className="text-sm text-app-muted-light hover:text-app-primary transition">
+                  ← Retour à la liste
+                </button>
+                {sectionIndex > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setSection(SECTIONS[sectionIndex - 1])}
+                    className="px-4 py-2 rounded-lg text-sm font-medium border text-app-primary hover:bg-violet-500/5 transition"
+                    style={bdrStyle}
+                  >
+                    ← Précédent
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-3">
+                {sectionIndex < SECTIONS.length - 1 && (
+                  <button
+                    type="button"
+                    onClick={() => setSection(SECTIONS[sectionIndex + 1])}
+                    className="px-4 py-2 rounded-lg text-sm font-medium border text-app-primary hover:bg-violet-500/5 transition"
+                    style={bdrStyle}
+                  >
+                    Suivant →
+                  </button>
+                )}
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="px-6 py-2.5 rounded-lg text-sm font-semibold text-white bg-violet-600 hover:bg-violet-500 transition disabled:opacity-60"
+                >
+                  {saving ? 'Enregistrement…' : isEdit ? 'Mettre à jour' : 'Enregistrer le produit'}
+                </button>
+              </div>
             </div>
           </form>
         </div>

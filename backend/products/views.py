@@ -6,11 +6,11 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
 
-from .models import (Category, Product, ProductImage, ProductVariant, VariantOption, Supplier,
+from .models import (Category, Product, ProductImage, ProductVariant, VariantOption, VariantSubOption, Supplier,
                       SupplierCredit, SupplierPayment, ProductReview, Promotion, StockMovement)
 from .serializers import (
     CategorySerializer, ProductSerializer, ProductImageSerializer,
-    ProductVariantSerializer, VariantOptionSerializer,
+    ProductVariantSerializer, VariantOptionSerializer, VariantSubOptionSerializer,
     SupplierSerializer, SupplierCreditSerializer, SupplierPaymentSerializer,
     ProductReviewSerializer, PromotionSerializer, StockMovementSerializer,
 )
@@ -384,6 +384,65 @@ class VariantOptionDetailView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+class VariantSubOptionView(APIView):
+    """2e niveau de variante (ex: pointures 41/42/43 sous l'option "Noir")."""
+    permission_classes = [IsAuthenticated, IsOwnerOrAdminForWrites]
+
+    def _option(self, request, pk, vid, oid):
+        store = _get_store(request)
+        if not store:
+            return None, Response({'detail': 'Accès refusé.'}, status=403)
+        try:
+            opt = VariantOption.objects.get(pk=oid, variant_id=vid, variant__product_id=pk, variant__product__store=store)
+            return opt, None
+        except VariantOption.DoesNotExist:
+            return None, Response({'detail': 'Option introuvable.'}, status=404)
+
+    def post(self, request, pk, vid, oid):
+        opt, err = self._option(request, pk, vid, oid)
+        if err: return err
+        s = VariantSubOptionSerializer(data=request.data, context={'request': request})
+        s.is_valid(raise_exception=True)
+        s.save(option=opt)
+        return Response(s.data, status=status.HTTP_201_CREATED)
+
+
+class VariantSubOptionDetailView(APIView):
+    permission_classes = [IsAuthenticated, IsOwnerOrAdminForWrites]
+
+    def _get(self, request, pk, vid, oid, sid):
+        store = _get_store(request)
+        if not store:
+            return None, Response({'detail': 'Accès refusé.'}, status=403)
+        try:
+            sub = VariantSubOption.objects.get(
+                pk=sid, option_id=oid, option__variant_id=vid,
+                option__variant__product_id=pk, option__variant__product__store=store,
+            )
+            return sub, None
+        except VariantSubOption.DoesNotExist:
+            return None, Response({'detail': 'Sous-option introuvable.'}, status=404)
+
+    def put(self, request, pk, vid, oid, sid):
+        sub, err = self._get(request, pk, vid, oid, sid)
+        if err: return err
+        store = _get_store(request)
+        stock_before = sub.stock
+        s = VariantSubOptionSerializer(sub, data=request.data, partial=True, context={'request': request})
+        s.is_valid(raise_exception=True)
+        s.save()
+        log_stock_change_if_needed(store, sub.option.variant.product, sub.option, stock_before, sub.stock,
+                                    note='Modification fiche produit', variant_sub_option=sub,
+                                    batch_id=request.headers.get('X-Stock-Batch-Id') or None)
+        return Response(s.data)
+
+    def delete(self, request, pk, vid, oid, sid):
+        sub, err = self._get(request, pk, vid, oid, sid)
+        if err: return err
+        sub.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
 # ─── Low-stock alert ─────────────────────────────────────────────────────────
 
 class LowStockView(APIView):
@@ -394,39 +453,56 @@ class LowStockView(APIView):
         if not store:
             return Response({'detail': 'Accès refusé.'}, status=403)
         try:
-            threshold = store.settings.low_stock_threshold
+            default_threshold = store.settings.low_stock_threshold
         except Exception:
-            threshold = 5
+            default_threshold = 5
+
+        def _alert_level(p, stock, threshold):
+            """1 = faible (seuil normal), 2 = très faible, 3 = critique — les
+            paliers 2/3 (stock_alert_2/stock_alert_3) sont optionnels et
+            purement informatifs (aucun effet sur la vente)."""
+            if p.stock_alert_3 is not None and stock <= p.stock_alert_3:
+                return 3
+            if p.stock_alert_2 is not None and stock <= p.stock_alert_2:
+                return 2
+            if stock <= threshold:
+                return 1
+            return None
 
         results = []
         products = store.products.prefetch_related('variants__options').filter(is_active=True)
         for p in products:
+            threshold = p.stock_alert_1 if p.stock_alert_1 is not None else default_threshold
             variants = list(p.variants.all())
             options  = [opt for v in variants for opt in v.options.all()]
             if options:
                 for v in variants:
                     for opt in v.options.all():
-                        if opt.stock <= threshold:
+                        level = _alert_level(p, opt.stock, threshold)
+                        if level:
                             results.append({
                                 'product_id':   p.id,
                                 'product_name': p.name,
                                 'variant_name': v.name,
                                 'option_value': opt.value,
                                 'stock':        opt.stock,
+                                'alert_level':  level,
                             })
             else:
                 # Pas de variantes, ou des variantes sans aucune option — le stock
                 # se gère alors directement sur le produit.
-                if p.stock <= threshold:
+                level = _alert_level(p, p.stock, threshold)
+                if level:
                     results.append({
                         'product_id':   p.id,
                         'product_name': p.name,
                         'variant_name': None,
                         'option_value': None,
                         'stock':        p.stock,
+                        'alert_level':  level,
                     })
 
-        return Response({'threshold': threshold, 'count': len(results), 'results': results})
+        return Response({'threshold': default_threshold, 'count': len(results), 'results': results})
 
 
 class InventoryListView(APIView):
@@ -700,6 +776,37 @@ class PromotionListCreateView(APIView):
         s.is_valid(raise_exception=True)
         s.save(store=store)
         return Response(s.data, status=status.HTTP_201_CREATED)
+
+
+class PromotionValidateView(APIView):
+    """Aperçu d'un code promo pour une commande créée depuis le dashboard
+    ("Nouvelle commande") — même calcul que PublicPromoValidateView (boutique
+    publique), juste authentifié/store-scopé au lieu de passer par un slug."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        store = _get_store(request)
+        if not store:
+            return Response({'detail': 'Aucune boutique.'}, status=403)
+        code = (request.data.get('code') or '').strip().upper()
+        try:
+            promo = store.promotions.get(kind='code', code=code)
+        except Promotion.DoesNotExist:
+            return Response({'detail': 'Code promo introuvable.'}, status=404)
+        if not promo.is_valid_now():
+            return Response({'detail': "Ce code promo est expiré, inactif ou a atteint son nombre maximum d'utilisations."}, status=400)
+
+        items = request.data.get('items', [])
+        discount_amount = promo.compute_discount_for_items(items)
+        if discount_amount <= 0:
+            return Response({'detail': "Ce code promo ne s'applique à aucun article de cette commande."}, status=400)
+
+        return Response({
+            'code':            promo.code,
+            'discount_type':   promo.discount_type,
+            'discount_value':  str(promo.discount_value),
+            'discount_amount': str(discount_amount),
+        })
 
 
 class PromotionDetailView(APIView):
@@ -1104,6 +1211,11 @@ class PublicProductListView(APIView):
                 'image_url':       image_url,
                 'categories':      [{'id': c.id, 'name': c.name} for c in p.categories.all()],
                 'free_shipping':   p.free_shipping,
+                'offer_enabled':   p.offer_enabled,
+                'offer_quantity':  p.offer_quantity,
+                'offer_price':     str(p.offer_price) if p.offer_price is not None else None,
+                'show_title':      p.show_title,
+                'show_images':     p.show_images,
             })
 
         return Response({'count': total, 'page': page, 'per_page': per_page, 'results': results})
@@ -1198,7 +1310,7 @@ class PublicProductDetailView(APIView):
             return Response({'detail': 'Boutique introuvable.'}, status=404)
         try:
             product = store.products.prefetch_related(
-                'images', 'categories', 'variants__options', 'reviews'
+                'images', 'categories', 'variants__options__sub_options', 'reviews'
             ).get(pk=pk, is_active=True)
         except Product.DoesNotExist:
             return Response({'detail': 'Produit introuvable.'}, status=404)
@@ -1213,11 +1325,20 @@ class PublicProductDetailView(APIView):
             options = []
             for opt in v.options.filter(is_active=True).order_by('order'):
                 opt_image = request.build_absolute_uri(opt.image.url) if opt.image else None
+                sub_options = [
+                    {
+                        'id': sub.id, 'value': sub.value,
+                        'price': str(sub.price) if sub.price is not None else None,
+                        'stock': sub.stock, 'allow_out_of_stock': sub.allow_out_of_stock,
+                    }
+                    for sub in opt.sub_options.filter(is_active=True).order_by('order')
+                ]
                 options.append({
                     'id': opt.id, 'value': opt.value,
                     'price': str(opt.price) if opt.price else None,
                     'stock': opt.stock, 'allow_out_of_stock': opt.allow_out_of_stock,
                     'image_url': opt_image,
+                    'sub_options': sub_options,
                 })
             if options:
                 variants.append({'id': v.id, 'name': v.name, 'sub_option_name': v.sub_option_name, 'options': options})
@@ -1253,12 +1374,28 @@ class PublicProductDetailView(APIView):
             'description':     product.description,
             'meta_title':      product.meta_title,
             'meta_description': product.meta_description,
+            'meta_keywords':   product.meta_keywords,
+            'meta_robots':     product.meta_robots or 'index,follow',
+            'og_image_url':      request.build_absolute_uri(product.og_image.url) if product.og_image else None,
+            'twitter_image_url': request.build_absolute_uri(product.twitter_image.url) if product.twitter_image else None,
             'price':           str(display_price),
             'original_price':  str(original_price) if original_price is not None else None,
             'compare_price':   str(product.compare_price) if product.compare_price else None,
             'stock':           product.stock,
             'free_shipping':   product.free_shipping,
             'allow_out_of_stock': product.allow_out_of_stock,
+            'offer_enabled':   product.offer_enabled,
+            'offer_quantity':  product.offer_quantity,
+            'offer_price':     str(product.offer_price) if product.offer_price is not None else None,
+            'specific_shipping_enabled':    product.specific_shipping_enabled,
+            'specific_shipping_home_price': str(product.specific_shipping_home_price) if product.specific_shipping_home_price is not None else None,
+            'specific_shipping_desk_price': str(product.specific_shipping_desk_price) if product.specific_shipping_desk_price is not None else None,
+            'show_title':            product.show_title,
+            'show_images':           product.show_images,
+            'show_full_price':       product.show_full_price,
+            'show_discounted_price': product.show_discounted_price,
+            'show_countdown':        product.show_countdown,
+            'countdown_end':         product.countdown_end,
             'categories':      [{'id': c.id, 'name': c.name} for c in product.categories.all()],
             'images':          images,
             'variants':        variants,

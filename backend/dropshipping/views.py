@@ -83,9 +83,9 @@ class DropshipperProductListCreateView(APIView):
         store = _get_store(request)
         product_id = request.data.get('product')
         try:
-            product = store.products.get(pk=product_id)
+            product = store.products.get(pk=product_id, drop_shipping=True)
         except Product.DoesNotExist:
-            return Response({'detail': 'Produit introuvable.'}, status=404)
+            return Response({'detail': "Produit introuvable ou non ouvert au dropshipping."}, status=404)
 
         obj, created = DropshipperProduct.objects.get_or_create(
             store=store, dropshipper=dropshipper, product=product,

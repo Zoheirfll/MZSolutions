@@ -35,7 +35,7 @@ function ProductCard({ product, slug }) {
       onMouseEnter={e => { e.currentTarget.style.borderColor = 'color-mix(in srgb, var(--sf-primary) 40%, transparent)' }}
       onMouseLeave={e => { e.currentTarget.style.borderColor = 'color-mix(in srgb, var(--sf-primary) 15%, transparent)' }}>
       <div className="relative aspect-square overflow-hidden" style={{ background: 'var(--sf-primary-light)' }}>
-        {product.image_url
+        {product.show_images === false ? null : product.image_url
           ? <img src={product.image_url} alt={product.name}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
           : <div className="w-full h-full flex items-center justify-center opacity-30">
@@ -54,7 +54,9 @@ function ProductCard({ product, slug }) {
         )}
       </div>
       <div className="p-3.5">
-        <p className="text-sm font-semibold truncate transition-colors" style={{ color: 'var(--sf-text)' }}>{product.name}</p>
+        {product.show_title !== false && (
+          <p className="text-sm font-semibold truncate transition-colors" style={{ color: 'var(--sf-text)' }}>{product.name}</p>
+        )}
         <div className="flex items-baseline gap-2 mt-1.5">
           <span className="font-bold text-base" style={{ color: 'var(--sf-primary)' }}>{Number(product.price).toLocaleString('fr-DZ')} DA</span>
           {strikePrice && (

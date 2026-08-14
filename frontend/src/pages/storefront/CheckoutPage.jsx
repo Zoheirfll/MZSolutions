@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import StorefrontLayout from './StorefrontLayout'
 import Select from '../../components/Select'
 import publicApi from '../../api/publicApi'
-import { useCart } from '../../context/CartContext'
+import { useCart, itemLineTotal } from '../../context/CartContext'
 import { trackEvent } from '../../lib/pixels'
 import { WILAYAS, getWilayaIdByName } from '../../data/wilayas'
 import { getCommunesForWilaya } from '../../data/communes'
@@ -123,11 +123,13 @@ export default function CheckoutPage() {
     setShippingLoading(true)
     const params = new URLSearchParams({ wilaya: client.wilaya })
     if (client.commune) params.set('commune', client.commune)
+    const productIds = cartItems.map(i => i.product).filter(Boolean).join(',')
+    if (productIds) params.set('product_ids', productIds)
     publicApi.get(`/store/${slug}/shipping-rate/?${params.toString()}`)
       .then(({ data }) => setShippingRate(data))
       .catch(() => setShippingRate(null))
       .finally(() => setShippingLoading(false))
-  }, [client.wilaya, client.commune, slug])
+  }, [client.wilaya, client.commune, slug, cartItems])
 
   // Liste des bureaux réels dès que le client choisit "point relais"
   useEffect(() => {
@@ -294,6 +296,9 @@ export default function CheckoutPage() {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate" style={{ color: 'var(--sf-text)' }}>{item.product_name}</p>
                       <p className="text-xs" style={{ color: 'var(--sf-text-muted)' }}>Prix unitaire : {Number(item.price).toLocaleString('fr-DZ')} DZD</p>
+                      {item.offer_enabled && item.offer_quantity && item.quantity >= item.offer_quantity && (
+                        <p className="text-xs font-medium" style={{ color: '#6ee7b7' }}>Offre appliquée : {item.offer_quantity} pour {Number(item.offer_price).toLocaleString('fr-DZ')} DZD</p>
+                      )}
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
                       <button type="button" onClick={() => updateQuantity(slug, item._key, item.quantity - 1)} className="w-7 h-7 rounded flex items-center justify-center transition"
@@ -307,7 +312,7 @@ export default function CheckoutPage() {
                       </button>
                     </div>
                     <p className="w-20 text-right text-sm font-semibold hidden sm:block" style={{ color: 'var(--sf-text)' }}>
-                      {(item.price * item.quantity).toLocaleString('fr-DZ')}
+                      {itemLineTotal(item).toLocaleString('fr-DZ')}
                     </p>
                     <button type="button" onClick={() => removeItem(slug, item._key)} className="shrink-0 transition" style={{ color: '#f87171' }}>
                       <TrashIcon className="w-4 h-4" />
@@ -469,7 +474,11 @@ export default function CheckoutPage() {
                   </div>
                 )}
                 <div className="flex justify-between">
-                  <span style={{ color: 'var(--sf-text-muted)' }}>Frais de livraison</span>
+                  <span style={{ color: 'var(--sf-text-muted)' }}>
+                    Frais de livraison
+                    {shippingRate?.source === 'free_shipping' && <span className="block text-xs mt-0.5" style={{ color: '#6ee7b7' }}>Livraison gratuite ({shippingRate.source_product || 'article du panier'})</span>}
+                    {shippingRate?.source === 'specific_shipping' && <span className="block text-xs mt-0.5" style={{ color: 'var(--sf-primary)' }}>Tarif spécifique ({shippingRate.source_product})</span>}
+                  </span>
                   <span style={{ color: 'var(--sf-text)' }}>
                     {shippingLoading ? '…' : `${shippingCost.toLocaleString('fr-DZ')} DZD`}
                   </span>

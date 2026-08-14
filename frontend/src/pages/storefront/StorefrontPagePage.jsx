@@ -58,21 +58,6 @@ export default function StorefrontPagePage() {
           </>
         )}
       </div>
-
-      {/* Inline prose styles scoped to .sf-prose */}
-      <style>{`
-        .sf-prose h2 { font-size: 1.5rem; font-weight: 700; margin: 1.5rem 0 0.75rem; color: var(--sf-text); }
-        .sf-prose h3 { font-size: 1.2rem; font-weight: 600; margin: 1.25rem 0 0.5rem; color: var(--sf-text); }
-        .sf-prose p  { margin: 0.75rem 0; }
-        .sf-prose ul { list-style: disc; padding-left: 1.5rem; margin: 0.75rem 0; }
-        .sf-prose ol { list-style: decimal; padding-left: 1.5rem; margin: 0.75rem 0; }
-        .sf-prose li { margin: 0.25rem 0; }
-        .sf-prose a  { color: var(--sf-primary); text-decoration: underline; }
-        .sf-prose strong { font-weight: 700; }
-        .sf-prose em { font-style: italic; }
-        .sf-prose blockquote { border-left: 3px solid var(--sf-primary); padding-left: 1rem; margin: 1rem 0; opacity: 0.8; font-style: italic; }
-        .sf-prose hr { border: none; border-top: 1px solid var(--sf-footer-border); margin: 2rem 0; }
-      `}</style>
     </StorefrontLayout>
   )
 }

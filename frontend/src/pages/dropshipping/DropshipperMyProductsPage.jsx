@@ -28,15 +28,15 @@ export default function DropshipperMyProductsPage() {
 
   useEffect(() => {
     setLoading(true)
-    Promise.all([fetchSelected(), api.get('/products/?per_page=50')])
-      .then(([, prod]) => setCatalog(prod.data.results ?? []))
+    Promise.all([fetchSelected(), api.get('/products/?per_page=100')])
+      .then(([, prod]) => setCatalog((prod.data.results ?? []).filter(p => p.drop_shipping)))
       .finally(() => setLoading(false))
   }, [])
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      api.get(`/products/?search=${encodeURIComponent(search)}&per_page=50`)
-        .then(({ data }) => setCatalog(data.results ?? []))
+      api.get(`/products/?search=${encodeURIComponent(search)}&per_page=100`)
+        .then(({ data }) => setCatalog((data.results ?? []).filter(p => p.drop_shipping)))
     }, 350)
     return () => clearTimeout(timer)
   }, [search])
@@ -74,19 +74,21 @@ export default function DropshipperMyProductsPage() {
             <thead style={{ background: theme.dark.sidebar }}>
               <tr className="text-left text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
                 <th className="px-4 py-3 font-medium">PRODUIT</th>
-                <th className="px-4 py-3 font-medium">PRIX</th>
+                <th className="px-4 py-3 font-medium">PRIX COÛTANT</th>
+                <th className="px-4 py-3 font-medium">PRIX MIN. DE VENTE</th>
                 <th className="px-4 py-3 font-medium">ACTIONS</th>
               </tr>
             </thead>
             <tbody>
               {catalog.length === 0 ? (
-                <tr><td colSpan={3} className="px-4 py-8 text-center text-sm text-app-muted">Aucun produit trouvé.</td></tr>
+                <tr><td colSpan={4} className="px-4 py-8 text-center text-sm text-app-muted">Aucun produit trouvé.</td></tr>
               ) : catalog.map(p => {
                 const isSelected = selectedProductIds.has(p.id)
                 return (
                   <tr key={p.id} className="border-b hover:bg-violet-500/5 transition" style={{ borderColor: theme.dark.borderRowHover }}>
                     <td className="px-4 py-3 text-app-primary">{p.name}</td>
-                    <td className="px-4 py-3 text-app-muted-light">{money(p.price)}</td>
+                    <td className="px-4 py-3 text-app-muted-light">{p.dropshipping_price != null ? money(p.dropshipping_price) : '—'}</td>
+                    <td className="px-4 py-3 text-app-muted-light">{p.minimum_selling_price != null ? money(p.minimum_selling_price) : '—'}</td>
                     <td className="px-4 py-3">
                       <button
                         onClick={() => toggle(p)}

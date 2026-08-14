@@ -5,6 +5,7 @@ import publicApi from '../../api/publicApi'
 import { useCart } from '../../context/CartContext'
 import { trackEvent } from '../../lib/pixels'
 import useDocumentMeta from '../../hooks/useDocumentMeta'
+import { sanitizeHtml } from '../../lib/sanitize'
 
 function PackageIcon(props) {
   return (
@@ -24,6 +25,25 @@ function TruckIcon(props) {
       <circle cx="7.5" cy="17.5" r="2.5" />
       <circle cx="17.5" cy="17.5" r="2.5" />
     </svg>
+  )
+}
+
+function CountdownBadge({ endDate }) {
+  const [remaining, setRemaining] = useState(() => new Date(endDate).getTime() - Date.now())
+  useEffect(() => {
+    const timer = setInterval(() => setRemaining(new Date(endDate).getTime() - Date.now()), 1000)
+    return () => clearInterval(timer)
+  }, [endDate])
+  if (remaining <= 0) return null
+  const d = Math.floor(remaining / 86400000)
+  const h = Math.floor((remaining % 86400000) / 3600000)
+  const m = Math.floor((remaining % 3600000) / 60000)
+  const s = Math.floor((remaining % 60000) / 1000)
+  return (
+    <div className="inline-flex items-center gap-1.5 mb-4 px-3 py-1.5 rounded-lg text-sm font-semibold"
+      style={{ background: 'rgba(239,68,68,0.15)', color: '#fca5a5' }}>
+      Offre se termine dans {d > 0 ? `${d}j ` : ''}{String(h).padStart(2, '0')}:{String(m).padStart(2, '0')}:{String(s).padStart(2, '0')}
+    </div>
   )
 }
 
@@ -148,6 +168,8 @@ export default function StorefrontProductPage() {
   const [loading,       setLoading]       = useState(true)
   const [activeImage,   setActiveImage]   = useState(null)
   const [selectedOpts,  setSelectedOpts]  = useState({})
+  const [selectedSubOpts, setSelectedSubOpts] = useState({}) // 2e niveau (ex: pointure) — clé = variant.id
+  const [selectedQty,   setSelectedQty]   = useState(1)
   const [added,         setAdded]         = useState(false)
   const [reviewModalOpen, setReviewModalOpen] = useState(false)
   const [reviewSent,      setReviewSent]      = useState(false)
@@ -158,10 +180,19 @@ export default function StorefrontProductPage() {
       .then(({ data }) => {
         setProduct(data)
         if (data.images?.length > 0) setActiveImage(data.images[0].url)
-        // Pré-sélectionner première option de chaque variante
+        // Pré-sélectionner première option de chaque variante, et sa
+        // première sous-option (2e niveau) si elle en a.
         const defaults = {}
-        data.variants?.forEach(v => { if (v.options?.[0]) defaults[v.id] = v.options[0] })
+        const subDefaults = {}
+        data.variants?.forEach(v => {
+          if (v.options?.[0]) {
+            defaults[v.id] = v.options[0]
+            if (v.options[0].sub_options?.[0]) subDefaults[v.id] = v.options[0].sub_options[0]
+          }
+        })
         setSelectedOpts(defaults)
+        setSelectedSubOpts(subDefaults)
+        setSelectedQty(1)
       })
       .catch(() => {})
       .finally(() => setLoading(false))
@@ -169,7 +200,13 @@ export default function StorefrontProductPage() {
 
   useDocumentMeta(
     product?.meta_title || product?.name,
-    product?.meta_description || (product?.description || '').slice(0, 160),
+    product?.meta_description || (product?.description || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160),
+    {
+      robots: product?.meta_robots,
+      keywords: product?.meta_keywords,
+      ogImage: product?.og_image_url || product?.images?.[0]?.url,
+      twitterImage: product?.twitter_image_url,
+    },
   )
 
   if (loading) return (
@@ -206,22 +243,38 @@ export default function StorefrontProductPage() {
     </StorefrontLayout>
   )
 
-  // Prix effectif selon option sélectionnée
-  const selectedOption = Object.values(selectedOpts)[0] || null
-  const displayPrice   = selectedOption?.price ?? product.price
+  // Prix effectif selon option (+ sous-option, 2e niveau) sélectionnée
+  const selectedVariantId = Object.keys(selectedOpts)[0] || null
+  const selectedOption = selectedVariantId ? selectedOpts[selectedVariantId] : null
+  const selectedSubOption = selectedOption?.sub_options?.length
+    ? (selectedSubOpts[selectedVariantId] || selectedOption.sub_options[0])
+    : null
+  const displayPrice = selectedSubOption?.price ?? selectedOption?.price ?? product.price
   const inStock = product.variants.length > 0
-    ? Object.values(selectedOpts).every(o => o.stock > 0 || o.allow_out_of_stock)
+    ? Object.entries(selectedOpts).every(([vid, o]) => {
+        const sub = o.sub_options?.length ? (selectedSubOpts[vid] || o.sub_options[0]) : null
+        return sub ? (sub.stock > 0 || sub.allow_out_of_stock) : (o.stock > 0 || o.allow_out_of_stock)
+      })
     : (product.stock > 0 || product.allow_out_of_stock)
 
   const buildCartItem = () => {
-    const key = selectedOption ? `v${selectedOption.id}` : `p${product.id}`
+    const key = selectedSubOption ? `s${selectedSubOption.id}` : selectedOption ? `v${selectedOption.id}` : `p${product.id}`
+    // Une (sous-)option avec son propre prix n'est jamais concernée par
+    // l'offre de palier du produit — même règle que _authoritative_item_price.
+    const offerEligible = !(selectedSubOption?.price != null || selectedOption?.price != null)
+    const label = selectedSubOption ? `${product.name} — ${selectedOption.value} / ${selectedSubOption.value}`
+      : selectedOption ? `${product.name} — ${selectedOption.value}` : product.name
     return {
       _key:           key,
       product:        product.id,
       variant_option: selectedOption?.id || null,
-      product_name:   selectedOption ? `${product.name} — ${selectedOption.value}` : product.name,
+      variant_sub_option: selectedSubOption?.id || null,
+      product_name:   label,
       price:          displayPrice,
-      quantity:       1,
+      offer_enabled:  offerEligible ? product.offer_enabled : false,
+      offer_quantity: offerEligible ? product.offer_quantity : null,
+      offer_price:    offerEligible ? product.offer_price : null,
+      quantity:       offerEligible ? selectedQty : 1,
       image_url:      activeImage,
     }
   }
@@ -255,25 +308,27 @@ export default function StorefrontProductPage() {
 
         <div className="flex flex-col md:flex-row gap-6 md:gap-10">
           {/* Galerie */}
-          <div className="w-full md:w-96 shrink-0">
-            <div className="aspect-square rounded-xl overflow-hidden mb-3" style={{ border: '1px solid var(--sf-header-border)', background: 'var(--sf-primary-light)' }}>
-              {activeImage
-                ? <img src={activeImage} alt={product.name} className="w-full h-full object-cover" />
-                : <div className="w-full h-full flex items-center justify-center opacity-30"><PackageIcon className="w-16 h-16" /></div>
-              }
-            </div>
-            {product.images.length > 1 && (
-              <div className="flex gap-2 flex-wrap">
-                {product.images.map(img => (
-                  <button key={img.id} onClick={() => setActiveImage(img.url)}
-                    className="w-16 h-16 rounded-lg overflow-hidden transition"
-                    style={{ border: `2px solid ${activeImage === img.url ? 'var(--sf-primary)' : 'var(--sf-header-border)'}` }}>
-                    <img src={img.url} alt="" className="w-full h-full object-cover" />
-                  </button>
-                ))}
+          {product.show_images !== false && (
+            <div className="w-full md:w-96 shrink-0">
+              <div className="aspect-square rounded-xl overflow-hidden mb-3" style={{ border: '1px solid var(--sf-header-border)', background: 'var(--sf-primary-light)' }}>
+                {activeImage
+                  ? <img src={activeImage} alt={product.name} className="w-full h-full object-cover" />
+                  : <div className="w-full h-full flex items-center justify-center opacity-30"><PackageIcon className="w-16 h-16" /></div>
+                }
               </div>
-            )}
-          </div>
+              {product.images.length > 1 && (
+                <div className="flex gap-2 flex-wrap">
+                  {product.images.map(img => (
+                    <button key={img.id} onClick={() => setActiveImage(img.url)}
+                      className="w-16 h-16 rounded-lg overflow-hidden transition"
+                      style={{ border: `2px solid ${activeImage === img.url ? 'var(--sf-primary)' : 'var(--sf-header-border)'}` }}>
+                      <img src={img.url} alt="" className="w-full h-full object-cover" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Détails */}
           <div className="flex-1 min-w-0">
@@ -286,7 +341,9 @@ export default function StorefrontProductPage() {
               </div>
             )}
 
-            <h1 className="text-2xl font-bold mb-3" style={{ color: 'var(--sf-text)' }}>{product.name}</h1>
+            {product.show_title !== false && (
+              <h1 className="text-2xl font-bold mb-3" style={{ color: 'var(--sf-text)' }}>{product.name}</h1>
+            )}
 
             {/* Rating */}
             {product.avg_rating && (
@@ -296,10 +353,17 @@ export default function StorefrontProductPage() {
               </div>
             )}
 
+            {/* Compte à rebours */}
+            {product.show_countdown && product.countdown_end && (
+              <CountdownBadge endDate={product.countdown_end} />
+            )}
+
             {/* Prix */}
             <div className="flex items-baseline gap-3 mb-5 flex-wrap">
-              <span className="text-3xl font-bold" style={{ color: 'var(--sf-primary)' }}>{Number(displayPrice).toLocaleString('fr-DZ')} DZD</span>
-              {product.original_price ? (
+              {product.show_discounted_price !== false && (
+                <span className="text-3xl font-bold" style={{ color: 'var(--sf-primary)' }}>{Number(displayPrice).toLocaleString('fr-DZ')} DZD</span>
+              )}
+              {product.show_full_price !== false && (product.original_price ? (
                 <>
                   <span className="text-lg line-through" style={{ color: 'var(--sf-text-muted)' }}>{Number(product.original_price).toLocaleString('fr-DZ')} DZD</span>
                   <span className={`${badgeCls} ring-red-400/40`} style={{ background: 'rgba(239,68,68,0.15)', color: '#fca5a5' }}>
@@ -313,8 +377,43 @@ export default function StorefrontProductPage() {
                     -{Math.round((1 - product.price / product.compare_price) * 100)}%
                   </span>
                 </>
-              )}
+              ))}
             </div>
+
+            {/* Offre par palier de quantité */}
+            {product.offer_enabled && product.offer_quantity && product.offer_price != null && (
+              <div className="mb-5 grid grid-cols-2 gap-3">
+                {[
+                  { qty: 1, total: displayPrice, label: '1 article' },
+                  { qty: product.offer_quantity, total: Number(product.offer_price), label: `${product.offer_quantity} articles` },
+                ].map(tier => {
+                  const active = selectedQty === tier.qty
+                  const savings = displayPrice * tier.qty - tier.total
+                  return (
+                    <button
+                      key={tier.qty}
+                      type="button"
+                      onClick={() => setSelectedQty(tier.qty)}
+                      className="relative text-left px-4 py-3 rounded-xl transition"
+                      style={active
+                        ? { border: '2px solid var(--sf-primary)', background: 'var(--sf-primary-light)' }
+                        : { border: '1px solid var(--sf-header-border)' }}
+                    >
+                      {tier.qty > 1 && (
+                        <span className={`${badgeCls} absolute -top-2.5 right-3 ring-emerald-400/40`} style={{ background: '#065f46', color: '#6ee7b7' }}>
+                          Le plus populaire
+                        </span>
+                      )}
+                      <p className="text-sm font-semibold" style={{ color: 'var(--sf-text)' }}>{tier.label}</p>
+                      <p className="text-lg font-bold mt-0.5" style={{ color: 'var(--sf-primary)' }}>{tier.total.toLocaleString('fr-DZ')} DZD</p>
+                      {tier.qty > 1 && savings > 0 && (
+                        <p className="text-xs mt-0.5" style={{ color: '#6ee7b7' }}>Économisez {savings.toLocaleString('fr-DZ')} DZD</p>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
 
             {/* Variantes */}
             {product.variants.map(v => (
@@ -326,7 +425,10 @@ export default function StorefrontProductPage() {
                     return (
                       <button
                         key={opt.id}
-                        onClick={() => setSelectedOpts(s => ({ ...s, [v.id]: opt }))}
+                        onClick={() => {
+                          setSelectedOpts(s => ({ ...s, [v.id]: opt }))
+                          setSelectedSubOpts(s => ({ ...s, [v.id]: opt.sub_options?.[0] || null }))
+                        }}
                         className="px-4 py-1.5 rounded-lg text-sm font-medium transition"
                         style={active
                           ? { border: '1px solid var(--sf-primary)', background: 'var(--sf-primary-light)', color: 'var(--sf-primary)' }
@@ -341,6 +443,29 @@ export default function StorefrontProductPage() {
                     )
                   })}
                 </div>
+
+                {/* Sous-variantes (2e niveau, ex: pointures sous une couleur) */}
+                {selectedOpts[v.id]?.sub_options?.length > 0 && (
+                  <div className="flex gap-2 flex-wrap mt-2">
+                    {selectedOpts[v.id].sub_options.map(sub => {
+                      const activeSub = selectedSubOpts[v.id]?.id === sub.id
+                      const subInStock = sub.stock > 0 || sub.allow_out_of_stock
+                      return (
+                        <button
+                          key={sub.id}
+                          disabled={!subInStock}
+                          onClick={() => setSelectedSubOpts(s => ({ ...s, [v.id]: sub }))}
+                          className="px-3.5 py-1.5 rounded-lg text-sm font-medium transition disabled:opacity-40 disabled:cursor-not-allowed"
+                          style={activeSub
+                            ? { border: '1px solid var(--sf-primary)', background: 'var(--sf-primary-light)', color: 'var(--sf-primary)' }
+                            : { border: '1px solid var(--sf-header-border)', color: 'var(--sf-text)' }}
+                        >
+                          {sub.value}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
             ))}
 
@@ -354,6 +479,11 @@ export default function StorefrontProductPage() {
               {product.free_shipping && (
                 <span className={`${badgeCls} ring-violet-400/30`} style={{ background: 'var(--sf-primary-light)', color: 'var(--sf-primary)' }}>
                   <TruckIcon className="w-3 h-3" /> Livraison gratuite
+                </span>
+              )}
+              {!product.free_shipping && product.specific_shipping_enabled && product.specific_shipping_home_price != null && (
+                <span className={`${badgeCls} ring-violet-400/30`} style={{ background: 'var(--sf-primary-light)', color: 'var(--sf-primary)' }}>
+                  <TruckIcon className="w-3 h-3" /> Livraison : {Number(product.specific_shipping_home_price).toLocaleString('fr-DZ')} DZD
                 </span>
               )}
             </div>
@@ -384,7 +514,8 @@ export default function StorefrontProductPage() {
             {product.description && (
               <div className="mt-6 pt-6" style={{ borderTop: '1px solid var(--sf-header-border)' }}>
                 <h3 className="text-sm font-semibold mb-2" style={{ color: 'var(--sf-text)' }}>Description</h3>
-                <p className="text-sm leading-relaxed whitespace-pre-line" style={{ color: 'var(--sf-text-muted)' }}>{product.description}</p>
+                <div className="sf-prose text-sm" style={{ color: 'var(--sf-text-muted)' }}
+                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(product.description) }} />
               </div>
             )}
           </div>

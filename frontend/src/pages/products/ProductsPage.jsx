@@ -4,6 +4,7 @@ import DashboardLayout from '../../components/DashboardLayout'
 import Select from '../../components/Select'
 import api from '../../api/axios'
 import { theme } from '../../theme'
+import { useAuth } from '../../context/AuthContext'
 
 const PER_PAGE_OPTIONS = [10, 25, 50]
 
@@ -45,6 +46,15 @@ function ImageIcon(props) {
   )
 }
 
+function EyeIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="15" height="15" {...props}>
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  )
+}
+
 function AlertIcon(props) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="13" height="13" {...props}>
@@ -77,6 +87,7 @@ function EmptyState({ icon, title, subtitle }) {
 
 export default function ProductsPage() {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [data, setData]         = useState({ results: [], count: 0, page: 1, per_page: 10 })
   const [search, setSearch]     = useState('')
   const [catSearch, setCatSearch] = useState('')
@@ -111,6 +122,8 @@ export default function ProductsPage() {
     await api.put(`/products/${product.id}/`, { is_active: !product.is_active })
     fetchProducts()
   }
+
+  const variantCount = (p) => (p.variants || []).reduce((s, v) => s + (v.options?.length || 0), 0)
 
   const handleDelete = async (id) => {
     if (!confirm('Supprimer ce produit ?')) return
@@ -187,7 +200,7 @@ export default function ProductsPage() {
 
       {/* Table */}
       <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border }}>
-        <table className="w-full text-sm min-w-180">
+        <table className="w-full text-sm min-w-260">
           <thead style={{ background: theme.dark.sidebar }}>
             <tr className="text-left text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
               <th className="px-4 py-3 w-10"><input type="checkbox" checked={allChecked} onChange={toggleAll} className="accent-violet-600" /></th>
@@ -197,16 +210,20 @@ export default function ProductsPage() {
               <th className="px-4 py-3 font-medium">PRIX</th>
               <th className="px-4 py-3 font-medium">PRIX PROMO</th>
               <th className="px-4 py-3 font-medium">CATÉGORIE</th>
+              <th className="px-4 py-3 font-medium">VARIANTES</th>
               <th className="px-4 py-3 font-medium">QUANTITÉ</th>
               <th className="px-4 py-3 font-medium">VENDU</th>
+              <th className="px-4 py-3 font-medium">STATUT</th>
+              <th className="px-4 py-3 font-medium">CATALOGUE</th>
+              <th className="px-4 py-3 font-medium">AFFICHER</th>
               <th className="px-4 py-3 font-medium">ACTIONS</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={10}><Spinner /></td></tr>
+              <tr><td colSpan={14}><Spinner /></td></tr>
             ) : data.results.length === 0 ? (
-              <tr><td colSpan={10}>
+              <tr><td colSpan={14}>
                 <EmptyState icon={<ImageIcon />} title="Aucun produit trouvé" subtitle="Ajoutez votre premier produit pour commencer." />
               </td></tr>
             ) : data.results.map(p => {
@@ -244,6 +261,11 @@ export default function ProductsPage() {
                   {p.category_names?.length > 0 ? p.category_names.join(', ') : '—'}
                 </td>
                 <td className="px-4 py-3">
+                  {variantCount(p) > 0 ? (
+                    <span className={theme.badge.info}>{variantCount(p)} variante{variantCount(p) > 1 ? 's' : ''}</span>
+                  ) : <span className="text-app-muted">—</span>}
+                </td>
+                <td className="px-4 py-3">
                   <div className="flex items-center gap-1.5">
                     <span className={isLowStock ? 'text-red-400 font-semibold' : 'text-app-primary'}>{stockQty}</span>
                     {isLowStock && <AlertIcon className="text-red-400 shrink-0" />}
@@ -251,16 +273,35 @@ export default function ProductsPage() {
                 </td>
                 <td className="px-4 py-3 text-app-muted">{p.sold_count}</td>
                 <td className="px-4 py-3">
+                  <button
+                    onClick={() => handleToggle(p)}
+                    className={(p.is_active ? theme.badge.success : theme.badge.neutral) + ' cursor-pointer hover:opacity-80 transition'}
+                  >{p.is_active ? 'Actif' : 'Inactif'}</button>
+                </td>
+                <td className="px-4 py-3">
+                  {p.is_active
+                    ? <span className={theme.badge.success} title="Inclus dans le flux catalogue Meta/Google (produits actifs uniquement)">Inclus</span>
+                    : <span className={theme.badge.neutral} title="Exclu du flux catalogue tant que le produit est inactif">Exclu</span>
+                  }
+                </td>
+                <td className="px-4 py-3">
+                  {user?.store_slug ? (
+                    <a
+                      href={`/store/${user.store_slug}/products/${p.id}`}
+                      target="_blank" rel="noreferrer"
+                      onClick={e => e.stopPropagation()}
+                      className="p-1.5 rounded text-app-muted-light hover:text-violet-300 transition inline-flex"
+                      title="Aperçu sur la boutique publique"
+                    ><EyeIcon /></a>
+                  ) : <span className="text-app-muted">—</span>}
+                </td>
+                <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => navigate(`/dashboard/produits/${p.id}/modifier`)}
                       className="p-1.5 rounded text-violet-300 hover:bg-violet-600/20 transition cursor-pointer"
                       title="Modifier"
                     ><EditIcon /></button>
-                    <button
-                      onClick={() => handleToggle(p)}
-                      className={(p.is_active ? theme.badge.success : theme.badge.neutral) + ' cursor-pointer hover:opacity-80 transition'}
-                    >{p.is_active ? 'Actif' : 'Inactif'}</button>
                     <button
                       onClick={() => handleDelete(p.id)}
                       className="p-1.5 rounded text-red-400 hover:bg-red-900/20 transition cursor-pointer"

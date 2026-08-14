@@ -4,6 +4,7 @@ from .views import (
     ProductListCreateView, ProductDetailView, ProductImageView, ProductImageReorderView,
     ProductVariantView, ProductVariantDetailView,
     VariantOptionView, VariantOptionDetailView,
+    VariantSubOptionView, VariantSubOptionDetailView,
     LowStockView, InventoryListView, StockAdjustmentView, StockMovementListView,
     SupplierListCreateView, SupplierDetailView,
     SupplierCreditView, SupplierCreditDetailView,
@@ -11,7 +12,7 @@ from .views import (
     SupplierBalanceView,
     AllCreditsView, AllPaymentsView,
     ProductReviewListView, ProductReviewDetailView, PublicReviewView,
-    PromotionListCreateView, PromotionDetailView,
+    PromotionListCreateView, PromotionDetailView, PromotionValidateView,
 )
 
 urlpatterns = [
@@ -27,6 +28,8 @@ urlpatterns = [
     path('<int:pk>/variants/<int:vid>/',                   ProductVariantDetailView.as_view()),
     path('<int:pk>/variants/<int:vid>/options/',           VariantOptionView.as_view()),
     path('<int:pk>/variants/<int:vid>/options/<int:oid>/', VariantOptionDetailView.as_view()),
+    path('<int:pk>/variants/<int:vid>/options/<int:oid>/sub-options/',              VariantSubOptionView.as_view()),
+    path('<int:pk>/variants/<int:vid>/options/<int:oid>/sub-options/<int:sid>/',    VariantSubOptionDetailView.as_view()),
 
     # Categories
     path('categories/',                                    CategoryListCreateView.as_view()),
@@ -64,5 +67,6 @@ urlpatterns = [
 
     # Promotions
     path('promotions/',                                    PromotionListCreateView.as_view()),
+    path('promotions/validate/',                           PromotionValidateView.as_view()),
     path('promotions/<int:pk>/',                           PromotionDetailView.as_view()),
 ]
