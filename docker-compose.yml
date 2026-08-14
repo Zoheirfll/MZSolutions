@@ -35,6 +35,7 @@ services:
       context: ./frontend
       args:
         VITE_API_URL: ${SITE_URL}
+        VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID:-000000000000-placeholder.apps.googleusercontent.com}
     volumes:
       - frontend_dist:/output
 
