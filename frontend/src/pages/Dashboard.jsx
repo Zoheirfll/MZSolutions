@@ -11,6 +11,7 @@ import RevenueTab from './dashboard/RevenueTab'
 import ConfirmationTab from './dashboard/ConfirmationTab'
 import KpiTab from './dashboard/KpiTab'
 import FilterPanel, { EMPTY_FILTERS } from './dashboard/FilterPanel'
+import ConfirmateurDashboard from './dashboard/ConfirmateurDashboard'
 
 const TABS = [
   { key: 'deliveries',   label: 'Livraisons',    icon: LineChart },
@@ -19,7 +20,21 @@ const TABS = [
   { key: 'kpi',          label: 'KPI',           icon: Star },
 ]
 
+// Le tableau de bord analytique ci-dessous nécessite stats_view (masqué par
+// défaut pour confirmateur/dropshipper) — un confirmateur voit à la place un
+// tableau de bord dédié à SON travail (commandes assignées), jamais les
+// stats de toute la boutique. Le composant `Dashboard` exporté ci-dessous
+// choisit lequel afficher AVANT tout hook, pour ne jamais appeler les hooks
+// de l'un ou l'autre de façon conditionnelle (Rules of Hooks).
 export default function Dashboard() {
+  const { user } = useAuth()
+  if (user?.team_role === 'confirmateur' && !user?.permissions?.stats_view) {
+    return <ConfirmateurDashboard />
+  }
+  return <OwnerAnalyticsDashboard />
+}
+
+function OwnerAnalyticsDashboard() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [quota, setQuota] = useState(null)

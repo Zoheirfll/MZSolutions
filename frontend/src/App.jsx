@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import { CartProvider } from './context/CartContext'
 import PrivateRoute from './components/PrivateRoute'
+import { useAuth } from './context/AuthContext'
 import Auth from './pages/Auth'
 import Dashboard from './pages/Dashboard'
 import StorePage from './pages/StorePage'
@@ -11,6 +12,7 @@ import ParametresPage from './pages/ParametresPage'
 import ComingSoon from './pages/ComingSoon'
 import TeamPage from './pages/TeamPage'
 import PermissionsPage from './pages/PermissionsPage'
+import AuditPage from './pages/AuditPage'
 import SalesChannelsPage from './pages/SalesChannelsPage'
 import MarketingPixelsPage from './pages/MarketingPixelsPage'
 import WebhooksPage from './pages/WebhooksPage'
@@ -83,8 +85,31 @@ import PaymentReadyPage from './pages/finance/PaymentReadyPage'
 import PaymentCollectedPage from './pages/finance/PaymentCollectedPage'
 import PaymentsExcelUploadPage from './pages/finance/PaymentsExcelUploadPage'
 
-function PD({ children }) {
-  return <PrivateRoute>{children}</PrivateRoute>
+// `perm` gate applied on top of authentication — sans ça, seule la sidebar masquait un lien,
+// n'importe quel membre authentifié pouvait accéder à n'importe quelle page en tapant l'URL.
+// Miroir exact de la logique de visibilité de la sidebar (DashboardLayout.jsx).
+function PD({ children, perm }) {
+  return (
+    <PrivateRoute>
+      <PermGate perm={perm}>{children}</PermGate>
+    </PrivateRoute>
+  )
+}
+
+function PermGate({ children, perm }) {
+  const { user } = useAuth()
+  if (!perm) return children
+  const teamRole = user?.team_role || null
+  const can = key => !!user?.permissions?.[key]
+  const ownerOrAdmin = !teamRole || teamRole === 'admin'
+  const checkOne = p => {
+    if (p === 'ownerAdmin') return ownerOrAdmin
+    if (p === 'confirmateur' || p === 'dropshipper' || p === 'admin') return teamRole === p
+    if (p === 'dropshipping_view_notDropshipper') return teamRole !== 'dropshipper' && can('dropshipping_view')
+    return can(p)
+  }
+  const allowed = Array.isArray(perm) ? perm.some(checkOne) : checkOne(perm)
+  return allowed ? children : <Navigate to="/dashboard/parametres" replace />
 }
 
 function App() {
@@ -107,79 +132,80 @@ function App() {
           <Route path="/reset-password"   element={<ResetPassword />} />
           <Route path="/accept-invitation" element={<AcceptInvitation />} />
 
-          <Route path="/dashboard"                           element={<PD><Dashboard /></PD>} />
-          <Route path="/dashboard/boutique"                  element={<PD><StorePage /></PD>} />
+          <Route path="/dashboard"                           element={<PD perm={['dashboard_view', 'confirmateur']}><Dashboard /></PD>} />
+          <Route path="/dashboard/boutique"                  element={<PD perm="store_view"><StorePage /></PD>} />
           <Route path="/dashboard/parametres"                element={<PD><ParametresPage /></PD>} />
           <Route path="/dashboard/faq"                       element={<PD><FaqPage /></PD>} />
           <Route path="/dashboard/contact"                   element={<PD><ContactPage /></PD>} />
-          <Route path="/dashboard/boutique/theme"            element={<PD><ThemePage /></PD>} />
-          <Route path="/dashboard/boutique/pages"            element={<PD><PagesPage /></PD>} />
-          <Route path="/dashboard/boutique/pages/nouvelle"   element={<PD><PageFormPage /></PD>} />
-          <Route path="/dashboard/boutique/pages/:id/modifier" element={<PD><PageFormPage /></PD>} />
-          <Route path="/dashboard/boutique/menu"             element={<PD><MenuPage /></PD>} />
-          <Route path="/dashboard/boutique/fichiers"         element={<PD><FileManagerPage /></PD>} />
-          <Route path="/dashboard/stock"                     element={<PD><StockPage /></PD>} />
-          <Route path="/dashboard/stock/mouvements"          element={<PD><StockMovementsPage /></PD>} />
-          <Route path="/dashboard/stock/retour-vendeur"      element={<PD><BackToSellerPage /></PD>} />
-          <Route path="/dashboard/parametres-livraison"      element={<PD><ParametresLivraisonPage /></PD>} />
-          <Route path="/dashboard/produits"                  element={<PD><ProductsPage /></PD>} />
-          <Route path="/dashboard/produits/nouveau"          element={<PD><ProductFormPage /></PD>} />
-          <Route path="/dashboard/produits/:id/modifier"     element={<PD><ProductFormPage /></PD>} />
-          <Route path="/dashboard/produits/categories"       element={<PD><CategoriesPage /></PD>} />
-          <Route path="/dashboard/produits/fournisseurs"              element={<PD><SuppliersPage /></PD>} />
-          <Route path="/dashboard/produits/fournisseurs/credits"    element={<PD><SupplierCreditPage /></PD>} />
-          <Route path="/dashboard/produits/fournisseurs/versements"  element={<PD><SupplierPaymentPage /></PD>} />
-          <Route path="/dashboard/produits/avis"             element={<PD><ReviewsPage /></PD>} />
-          <Route path="/dashboard/produits/promotions/coupons" element={<PD><CouponsPage /></PD>} />
-          <Route path="/dashboard/produits/promotions/auto"    element={<PD><AutoPromotionsPage /></PD>} />
-          <Route path="/dashboard/commandes"                 element={<PD><OrdersPage /></PD>} />
-          <Route path="/dashboard/commandes/nouvelle"                    element={<PD><OrderFormPage /></PD>} />
-          <Route path="/dashboard/commandes/programmees"                 element={<PD><ScheduledOrdersPage /></PD>} />
-          <Route path="/dashboard/dispatch/confirmateur"                 element={<PD><DispatchByConfirmateurPage /></PD>} />
-          <Route path="/dashboard/dispatch/transporteur"                 element={<PD><DispatchByCarrierPage /></PD>} />
-          <Route path="/dashboard/dispatch/wilaya"                       element={<PD><DispatchByWilayaPage /></PD>} />
-          <Route path="/dashboard/commandes/raisons-echec"                element={<PD><FailureReasonsPage /></PD>} />
-          <Route path="/dashboard/commandes/taux-confirmation"           element={<PD><ConfirmationRatePage /></PD>} />
-          <Route path="/dashboard/commandes/:id"                         element={<PD><OrderDetailPage /></PD>} />
-          <Route path="/dashboard/commandes/paniers-abandonnes"           element={<PD><AbandonedCartsPage /></PD>} />
-          <Route path="/dashboard/commandes/annulations/demandes"       element={<PD><CancellationsPage mode="requests" /></PD>} />
-          <Route path="/dashboard/commandes/annulations/confirmees"     element={<PD><CancellationsPage mode="confirmed" /></PD>} />
-          <Route path="/dashboard/expeditions"                          element={<PD><ShipmentsPage /></PD>} />
-          <Route path="/dashboard/boite-reception"                        element={<PD><InboxPage /></PD>} />
-          <Route path="/dashboard/boite-reception/:id"                    element={<PD><InboxPage /></PD>} />
-          <Route path="/dashboard/echanges"                              element={<PD><ExchangesPage /></PD>} />
-          <Route path="/dashboard/echanges/:id"                          element={<PD><ExchangeDetailPage /></PD>} />
-          <Route path="/dashboard/clients"                   element={<PD><ClientsPage /></PD>} />
-          <Route path="/dashboard/clients/risque"            element={<PD><AtRiskCustomersPage /></PD>} />
-          <Route path="/dashboard/clients/liste-noire"        element={<PD><BlacklistPage /></PD>} />
-          <Route path="/dashboard/dropshipping"               element={<PD><DropshippersPage /></PD>} />
-          <Route path="/dashboard/dropshipping/:id"           element={<PD><DropshipperDetailPage /></PD>} />
-          <Route path="/dashboard/mes-produits"               element={<PD><DropshipperMyProductsPage /></PD>} />
-          <Route path="/dashboard/mes-commissions"            element={<PD><DropshipperMyEarningsPage /></PD>} />
-          <Route path="/dashboard/finances/couts"             element={<PD><CostsPage /></PD>} />
-          <Route path="/dashboard/finances/rentabilite"       element={<PD><ProfitabilityPage /></PD>} />
-          <Route path="/dashboard/paiements/pret"             element={<PD><PaymentReadyPage /></PD>} />
-          <Route path="/dashboard/paiements/recupere"         element={<PD><PaymentCollectedPage /></PD>} />
-          <Route path="/dashboard/paiements/import-excel"     element={<PD><PaymentsExcelUploadPage /></PD>} />
-          <Route path="/dashboard/canaux-vente"               element={<PD><SalesChannelsPage /></PD>} />
-          <Route path="/dashboard/marketing"                  element={<PD><MarketingPixelsPage /></PD>} />
-          <Route path="/dashboard/webhooks"                   element={<PD><WebhooksPage /></PD>} />
-          <Route path="/dashboard/expeditions/etiquettes"     element={<PD><LabelsPage /></PD>} />
-          <Route path="/dashboard/expeditions/preparees"      element={<PD><PreparedOrdersPage /></PD>} />
-          <Route path="/dashboard/expeditions/retour-predictif" element={<PD><PredictiveReturnsPage /></PD>} />
-          <Route path="/dashboard/expeditions/retours"        element={<PD><ReturnValidationPage /></PD>} />
-          <Route path="/dashboard/stats"                     element={<PD><GlobalStatsPage /></PD>} />
-          <Route path="/dashboard/stats/commandes"           element={<PD><OrdersStatsPage /></PD>} />
-          <Route path="/dashboard/stats/retours"             element={<PD><ReturnsStatsPage /></PD>} />
-          <Route path="/dashboard/stats/echecs"              element={<PD><FailuresStatsPage /></PD>} />
-          <Route path="/dashboard/stats/vente-stock"         element={<PD><StockSalesStatsPage /></PD>} />
-          <Route path="/dashboard/stats/produits"            element={<PD><ProductsStatsPage /></PD>} />
-          <Route path="/dashboard/stats/confirmateurs"       element={<PD><ConfirmationRatePage /></PD>} />
-          <Route path="/dashboard/stats/wilayas"             element={<PD><WilayaStatsPage /></PD>} />
-          <Route path="/dashboard/stats/sources"             element={<PD><SourceStatsPage /></PD>} />
-          <Route path="/dashboard/equipe"                    element={<PD><TeamPage /></PD>} />
-          <Route path="/dashboard/equipe/permissions"        element={<PD><PermissionsPage /></PD>} />
-          <Route path="/dashboard/abonnement"                element={<PD><SubscriptionPage /></PD>} />
+          <Route path="/dashboard/boutique/theme"            element={<PD perm="store_theme_view"><ThemePage /></PD>} />
+          <Route path="/dashboard/boutique/pages"            element={<PD perm="store_pages_view"><PagesPage /></PD>} />
+          <Route path="/dashboard/boutique/pages/nouvelle"   element={<PD perm="store_pages_view"><PageFormPage /></PD>} />
+          <Route path="/dashboard/boutique/pages/:id/modifier" element={<PD perm="store_pages_view"><PageFormPage /></PD>} />
+          <Route path="/dashboard/boutique/menu"             element={<PD perm="store_menu_view"><MenuPage /></PD>} />
+          <Route path="/dashboard/boutique/fichiers"         element={<PD perm="store_files_view"><FileManagerPage /></PD>} />
+          <Route path="/dashboard/stock"                     element={<PD perm="stock_view"><StockPage /></PD>} />
+          <Route path="/dashboard/stock/mouvements"          element={<PD perm="stock_movements_view"><StockMovementsPage /></PD>} />
+          <Route path="/dashboard/stock/retour-vendeur"      element={<PD perm="stock_return_view"><BackToSellerPage /></PD>} />
+          <Route path="/dashboard/parametres-livraison"      element={<PD perm="shipping_settings_view"><ParametresLivraisonPage /></PD>} />
+          <Route path="/dashboard/produits"                  element={<PD perm="products_view"><ProductsPage /></PD>} />
+          <Route path="/dashboard/produits/nouveau"          element={<PD perm="products_view"><ProductFormPage /></PD>} />
+          <Route path="/dashboard/produits/:id/modifier"     element={<PD perm="products_view"><ProductFormPage /></PD>} />
+          <Route path="/dashboard/produits/categories"       element={<PD perm="categories_view"><CategoriesPage /></PD>} />
+          <Route path="/dashboard/produits/fournisseurs"              element={<PD perm="suppliers_view"><SuppliersPage /></PD>} />
+          <Route path="/dashboard/produits/fournisseurs/credits"    element={<PD perm="supplier_credits_view"><SupplierCreditPage /></PD>} />
+          <Route path="/dashboard/produits/fournisseurs/versements"  element={<PD perm="supplier_payments_view"><SupplierPaymentPage /></PD>} />
+          <Route path="/dashboard/produits/avis"             element={<PD perm="reviews_view"><ReviewsPage /></PD>} />
+          <Route path="/dashboard/produits/promotions/coupons" element={<PD perm="coupons_view"><CouponsPage /></PD>} />
+          <Route path="/dashboard/produits/promotions/auto"    element={<PD perm="auto_promotions_view"><AutoPromotionsPage /></PD>} />
+          <Route path="/dashboard/commandes"                 element={<PD perm="orders_view"><OrdersPage /></PD>} />
+          <Route path="/dashboard/commandes/nouvelle"                    element={<PD perm="orders_create_view"><OrderFormPage /></PD>} />
+          <Route path="/dashboard/commandes/programmees"                 element={<PD perm="orders_scheduled_view"><ScheduledOrdersPage /></PD>} />
+          <Route path="/dashboard/dispatch/confirmateur"                 element={<PD perm="dispatch_confirmateur_view"><DispatchByConfirmateurPage /></PD>} />
+          <Route path="/dashboard/dispatch/transporteur"                 element={<PD perm="dispatch_carrier_view"><DispatchByCarrierPage /></PD>} />
+          <Route path="/dashboard/dispatch/wilaya"                       element={<PD perm="dispatch_wilaya_view"><DispatchByWilayaPage /></PD>} />
+          <Route path="/dashboard/commandes/raisons-echec"                element={<PD perm="failure_reasons_view"><FailureReasonsPage /></PD>} />
+          <Route path="/dashboard/commandes/taux-confirmation"           element={<PD perm="confirmation_rate_view"><ConfirmationRatePage /></PD>} />
+          <Route path="/dashboard/commandes/:id"                         element={<PD perm="orders_view"><OrderDetailPage /></PD>} />
+          <Route path="/dashboard/commandes/paniers-abandonnes"           element={<PD perm="abandoned_carts_view"><AbandonedCartsPage /></PD>} />
+          <Route path="/dashboard/commandes/annulations/demandes"       element={<PD perm="cancellation_requests_view"><CancellationsPage mode="requests" /></PD>} />
+          <Route path="/dashboard/commandes/annulations/confirmees"     element={<PD perm="cancellation_confirmed_view"><CancellationsPage mode="confirmed" /></PD>} />
+          <Route path="/dashboard/expeditions"                          element={<PD perm="shipments_view"><ShipmentsPage /></PD>} />
+          <Route path="/dashboard/boite-reception"                        element={<PD perm="inbox_view"><InboxPage /></PD>} />
+          <Route path="/dashboard/boite-reception/:id"                    element={<PD perm="inbox_view"><InboxPage /></PD>} />
+          <Route path="/dashboard/echanges"                              element={<PD perm="exchanges_view"><ExchangesPage /></PD>} />
+          <Route path="/dashboard/echanges/:id"                          element={<PD perm="exchanges_view"><ExchangeDetailPage /></PD>} />
+          <Route path="/dashboard/clients"                   element={<PD perm="clients_view"><ClientsPage /></PD>} />
+          <Route path="/dashboard/clients/risque"            element={<PD perm="clients_risk_view"><AtRiskCustomersPage /></PD>} />
+          <Route path="/dashboard/clients/liste-noire"        element={<PD perm="blacklist_view"><BlacklistPage /></PD>} />
+          <Route path="/dashboard/dropshipping"               element={<PD perm="dropshipping_view_notDropshipper"><DropshippersPage /></PD>} />
+          <Route path="/dashboard/dropshipping/:id"           element={<PD perm="dropshipping_view_notDropshipper"><DropshipperDetailPage /></PD>} />
+          <Route path="/dashboard/mes-produits"               element={<PD perm="dropshipper"><DropshipperMyProductsPage /></PD>} />
+          <Route path="/dashboard/mes-commissions"            element={<PD perm="dropshipper"><DropshipperMyEarningsPage /></PD>} />
+          <Route path="/dashboard/finances/couts"             element={<PD perm="costs_view"><CostsPage /></PD>} />
+          <Route path="/dashboard/finances/rentabilite"       element={<PD perm="profitability_view"><ProfitabilityPage /></PD>} />
+          <Route path="/dashboard/paiements/pret"             element={<PD perm="payments_ready_view"><PaymentReadyPage /></PD>} />
+          <Route path="/dashboard/paiements/recupere"         element={<PD perm="payments_collected_view"><PaymentCollectedPage /></PD>} />
+          <Route path="/dashboard/paiements/import-excel"     element={<PD perm="payments_import_view"><PaymentsExcelUploadPage /></PD>} />
+          <Route path="/dashboard/canaux-vente"               element={<PD perm="channels_view"><SalesChannelsPage /></PD>} />
+          <Route path="/dashboard/marketing"                  element={<PD perm="marketing_view"><MarketingPixelsPage /></PD>} />
+          <Route path="/dashboard/webhooks"                   element={<PD perm="webhooks_view"><WebhooksPage /></PD>} />
+          <Route path="/dashboard/expeditions/etiquettes"     element={<PD perm="labels_view"><LabelsPage /></PD>} />
+          <Route path="/dashboard/expeditions/preparees"      element={<PD perm="prepared_orders_view"><PreparedOrdersPage /></PD>} />
+          <Route path="/dashboard/expeditions/retour-predictif" element={<PD perm="predictive_returns_view"><PredictiveReturnsPage /></PD>} />
+          <Route path="/dashboard/expeditions/retours"        element={<PD perm="return_validation_view"><ReturnValidationPage /></PD>} />
+          <Route path="/dashboard/stats"                     element={<PD perm="stats_global_view"><GlobalStatsPage /></PD>} />
+          <Route path="/dashboard/stats/commandes"           element={<PD perm="stats_orders_view"><OrdersStatsPage /></PD>} />
+          <Route path="/dashboard/stats/retours"             element={<PD perm="stats_returns_view"><ReturnsStatsPage /></PD>} />
+          <Route path="/dashboard/stats/echecs"              element={<PD perm="stats_failures_view"><FailuresStatsPage /></PD>} />
+          <Route path="/dashboard/stats/vente-stock"         element={<PD perm="stats_stock_sales_view"><StockSalesStatsPage /></PD>} />
+          <Route path="/dashboard/stats/produits"            element={<PD perm="stats_products_view"><ProductsStatsPage /></PD>} />
+          <Route path="/dashboard/stats/confirmateurs"       element={<PD perm="stats_confirmateurs_view"><ConfirmationRatePage /></PD>} />
+          <Route path="/dashboard/stats/wilayas"             element={<PD perm="stats_wilayas_view"><WilayaStatsPage /></PD>} />
+          <Route path="/dashboard/stats/sources"             element={<PD perm="stats_sources_view"><SourceStatsPage /></PD>} />
+          <Route path="/dashboard/equipe"                    element={<PD perm="team_view"><TeamPage /></PD>} />
+          <Route path="/dashboard/equipe/permissions"        element={<PD perm="ownerAdmin"><PermissionsPage /></PD>} />
+          <Route path="/dashboard/audit"                     element={<PD perm="audit_view"><AuditPage /></PD>} />
+          <Route path="/dashboard/abonnement"                element={<PD perm="subscription_view"><SubscriptionPage /></PD>} />
 
           <Route path="*" element={<Navigate to="/auth" replace />} />
         </Routes>

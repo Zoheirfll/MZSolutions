@@ -12,6 +12,7 @@ from .serializers import (
     DropshipperProductSerializer, CommissionSerializer, CommissionEntrySerializer,
     CommissionPaymentSerializer, DropshipperSummarySerializer,
 )
+from audit.utils import log_audit
 
 
 def _get_store(request):
@@ -149,6 +150,7 @@ class CommissionListCreateView(APIView):
             store=store, dropshipper=dropshipper, product=product,
             defaults={'commission_type': commission_type, 'value': value},
         )
+        log_audit(request, 'commission.configured', target=commission, description=f"Commission configurée — {dropshipper.first_name} {dropshipper.last_name} / {product.name} : {value} ({commission_type})")
         return Response(CommissionSerializer(commission).data, status=201)
 
 
@@ -175,11 +177,13 @@ class CommissionDetailView(APIView):
         commission.commission_type = commission_type
         commission.value = value
         commission.save()
+        log_audit(request, 'commission.configured', target=commission, description=f"Commission modifiée — {commission.dropshipper.first_name} {commission.dropshipper.last_name} / {commission.product.name} : {value} ({commission_type})")
         return Response(CommissionSerializer(commission).data)
 
     def delete(self, request, pk):
         commission, err = self._get(request, pk)
         if err: return err
+        log_audit(request, 'commission.deleted', target=commission, description=f"Commission supprimée — {commission.dropshipper.first_name} {commission.dropshipper.last_name} / {commission.product.name}")
         commission.delete()
         return Response(status=204)
 
@@ -286,4 +290,5 @@ class DropshipperPayView(APIView):
         payment = CommissionPayment.objects.create(
             store=store, dropshipper=dropshipper, amount=balance, note=request.data.get('note', ''),
         )
+        log_audit(request, 'commission_payment.created', target=payment, description=f"Solde payé — {dropshipper.first_name} {dropshipper.last_name} : {balance}")
         return Response(CommissionPaymentSerializer(payment).data, status=201)

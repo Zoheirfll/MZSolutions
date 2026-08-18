@@ -14,6 +14,7 @@ from . import shopify_oauth
 from .clients import get_channel_client
 from .models import ChannelConnection, ChannelSyncLog, CHANNEL_CHOICES
 from .serializers import ChannelConnectionSerializer, ChannelSyncLogSerializer
+from audit.utils import log_audit
 
 
 def _get_store(request):
@@ -61,6 +62,7 @@ class ChannelConnectionListCreateView(APIView):
                 'is_active':  True,
             },
         )
+        log_audit(request, 'channel.connected', target=connection, description=f"Canal {connection.get_channel_display()} connecté")
         return Response(ChannelConnectionSerializer(connection).data, status=201)
 
 
@@ -83,11 +85,13 @@ class ChannelConnectionDetailView(APIView):
             if field in request.data:
                 setattr(connection, field, request.data[field])
         connection.save()
+        log_audit(request, 'channel.updated', target=connection, description=f"Canal {connection.get_channel_display()} modifié")
         return Response(ChannelConnectionSerializer(connection).data)
 
     def delete(self, request, pk):
         connection, err = self._get(request, pk)
         if err: return err
+        log_audit(request, 'channel.disconnected', target=connection, description=f"Canal {connection.get_channel_display()} déconnecté")
         connection.delete()
         return Response(status=204)
 
@@ -136,6 +140,7 @@ class ChannelSyncView(APIView):
         connection.last_synced_at = timezone.now()
         connection.save(update_fields=['last_synced_at'])
 
+        log_audit(request, 'channel.synced', target=connection, description=f"Synchronisation {direction} — {connection.get_channel_display()} — {status_value}", metadata={'direction': direction, 'status': status_value, 'items_synced': log.items_synced})
         return Response(ChannelSyncLogSerializer(log).data, status=201)
 
 

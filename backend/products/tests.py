@@ -73,12 +73,25 @@ class ProductTests(TestCase):
         resp = client.post('/api/products/', {'name': 'P2', 'price': '200', 'sku': 'SKU1'}, format='json')
         self.assertEqual(resp.status_code, 201)
 
-    def test_cost_price_hidden_without_purchase_prices_permission(self):
+    def test_product_detail_forbidden_without_products_view_or_orders_manage(self):
+        # 2026-08 : products_view protège désormais vraiment la lecture (avant,
+        # IsOwnerOrAdminForWrites laissait passer n'importe quel membre) —
+        # un confirmateur par défaut (products_view=False, orders_manage=False)
+        # doit être bloqué.
         product = Product.objects.create(store=self.store, name='Secret Cost', price=Decimal('500'), cost_price=Decimal('200'))
         conf_user, _ = make_team_member(self.store, 'confirmateur')
         client = auth_client(conf_user)
         resp = client.get(f'/api/products/{product.id}/')
-        self.assertEqual(resp.status_code, 200)  # lecture ouverte à tout membre (IsOwnerOrAdminForWrites)
+        self.assertEqual(resp.status_code, 403)
+
+    def test_cost_price_hidden_without_purchase_prices_permission(self):
+        from team.models import RolePermission
+        product = Product.objects.create(store=self.store, name='Secret Cost', price=Decimal('500'), cost_price=Decimal('200'))
+        conf_user, _ = make_team_member(self.store, 'confirmateur')
+        RolePermission.objects.create(store=self.store, role='confirmateur', permission='products_view', enabled=True)
+        client = auth_client(conf_user)
+        resp = client.get(f'/api/products/{product.id}/')
+        self.assertEqual(resp.status_code, 200)  # products_view accordé
         self.assertNotIn('cost_price', resp.data)  # mais purchase_prices_view=False par défaut pour confirmateur
 
     def test_cost_price_visible_to_owner(self):

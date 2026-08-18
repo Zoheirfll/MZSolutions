@@ -15,6 +15,7 @@ from orders.utils import order_channel
 from dropshipping.models import CommissionEntry
 from .models import Cost, COST_CATEGORY_CHOICES
 from .serializers import CostSerializer
+from audit.utils import log_audit
 
 
 def _get_store(request):
@@ -32,7 +33,7 @@ class CostListCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        if not (is_owner_or_admin(request) or has_permission(request, 'finances_view')):
+        if not (is_owner_or_admin(request) or has_permission(request, 'costs_view')):
             return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
         store = _get_store(request)
         qs = Cost.objects.filter(store=store)
@@ -56,7 +57,8 @@ class CostListCreateView(APIView):
         store = _get_store(request)
         serializer = CostSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        serializer.save(store=store)
+        cost = serializer.save(store=store)
+        log_audit(request, 'cost.created', target=cost, description=f"Coût ajouté : {cost.label} — {cost.amount}")
         return Response(serializer.data, status=201)
 
 
@@ -78,11 +80,13 @@ class CostDetailView(APIView):
         serializer = CostSerializer(cost, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
+        log_audit(request, 'cost.updated', target=cost, description=f"Coût modifié : {cost.label}")
         return Response(serializer.data)
 
     def delete(self, request, pk):
         cost, err = self._get(request, pk)
         if err: return err
+        log_audit(request, 'cost.deleted', target=cost, description=f"Coût supprimé : {cost.label}")
         cost.delete()
         return Response(status=204)
 
@@ -118,7 +122,7 @@ class ProfitabilityView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        if not (is_owner_or_admin(request) or has_permission(request, 'finances_view')):
+        if not (is_owner_or_admin(request) or has_permission(request, 'profitability_view')):
             return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
         store = _get_store(request)
         group_by = request.query_params.get('group_by', 'product')
@@ -179,7 +183,7 @@ class ProfitabilitySummaryView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        if not (is_owner_or_admin(request) or has_permission(request, 'finances_view')):
+        if not (is_owner_or_admin(request) or has_permission(request, 'profitability_view')):
             return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
         store = _get_store(request)
         period_start = request.query_params.get('period_start')
@@ -330,7 +334,7 @@ class PaymentsSummaryView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        if not (is_owner_or_admin(request) or has_permission(request, 'finances_view')):
+        if not (is_owner_or_admin(request) or has_permission(request, 'payments_ready_view') or has_permission(request, 'payments_collected_view')):
             return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
         store = _get_store(request)
         state = request.query_params.get('state', 'ready')
@@ -345,7 +349,7 @@ class PaymentsOrdersListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        if not (is_owner_or_admin(request) or has_permission(request, 'finances_view')):
+        if not (is_owner_or_admin(request) or has_permission(request, 'payments_ready_view') or has_permission(request, 'payments_collected_view')):
             return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
         store = _get_store(request)
         state = request.query_params.get('state', 'ready')
@@ -390,6 +394,7 @@ class PaymentsMarkCollectedView(APIView):
             order.payment_collected_amount = Decimal(str(amount)) if amount is not None else order.total
             order.save(update_fields=['payment_collected_at', 'payment_collected_amount'])
             updated += 1
+        log_audit(request, 'payment.marked_collected', description=f"{updated} paiement(s) COD pointé(s) comme reversé(s)", metadata={'order_ids': order_ids, 'updated': updated})
         return Response({'updated': updated})
 
 
@@ -400,7 +405,7 @@ class PaymentsReconciliationView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        if not (is_owner_or_admin(request) or has_permission(request, 'finances_view')):
+        if not (is_owner_or_admin(request) or has_permission(request, 'payments_collected_view')):
             return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
         store = _get_store(request)
         orders = (Order.objects.filter(store=store, status='delivered', payment_method='cod', payment_collected_at__isnull=False)
@@ -481,4 +486,5 @@ class PaymentsExcelImportView(APIView):
             matched += 1
             total_amount += order.payment_collected_amount
 
+        log_audit(request, 'payment.excel_imported', description=f"Import Excel paiements — {matched} rapproché(s), {unmatched} non trouvé(s)", metadata={'matched': matched, 'unmatched': unmatched, 'total_amount': str(total_amount)})
         return Response({'matched': matched, 'unmatched': unmatched, 'total_amount': total_amount})

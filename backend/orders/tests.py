@@ -430,6 +430,20 @@ class ComplaintPublicFlowTests(TestCase):
         self.assertIsNotNone(conv.assigned_to)
         self.assertIn(conv.assigned_to_id, [conf1.id, conf2.id])
 
+    def test_offline_confirmateur_not_assigned(self):
+        """Un confirmateur hors ligne (toggle désactivé) ne doit jamais
+        recevoir de commande/réclamation via le round-robin automatique."""
+        from inbox.models import Conversation
+        conf_user, conf = make_team_member(self.store, 'confirmateur')
+        conf.is_online = False
+        conf.save(update_fields=['is_online'])
+        resp = self.client.post('/api/public/complaints/', {
+            'store_slug': self.store.slug, 'order_id': self.order.id, 'phone': '0555222222',
+            'subject': 'Pb', 'description': 'Description',
+        }, content_type='application/json')
+        conv = Conversation.objects.get(id=resp.data['id'])
+        self.assertIsNone(conv.assigned_to)
+
     def test_owner_can_reassign_complaint(self):
         conf_user, conf = make_team_member(self.store, 'confirmateur')
         complaint = Complaint.objects.create(store=self.store, order=self.order, subject='S', description='D')
@@ -536,10 +550,14 @@ class StatsViewsPermissionTests(TestCase):
         return [
             '/api/orders/stats/orders/', '/api/orders/stats/returns/', '/api/orders/stats/failures/',
             '/api/orders/stats/stock-sales/', '/api/orders/stats/products/', '/api/orders/stats/wilayas/',
-            '/api/orders/stats/sources/', '/api/orders/stats/global/', '/api/orders/stats/confirmation/',
+            '/api/orders/stats/sources/', '/api/orders/stats/global/',
         ]
 
     def test_confirmateur_without_permission_forbidden_on_all_stats_endpoints(self):
+        # /api/orders/stats/confirmation/ n'est PAS dans cette liste — voir
+        # test_confirmateur_can_access_own_confirmation_stats (2026-08, tableau
+        # de bord confirmateur) : ouverte au rôle, mais restreinte à ses
+        # propres commandes assignées, jamais 403 pur pour ce rôle-là.
         conf_user, _ = make_team_member(self.store, 'confirmateur')
         client = auth_client(conf_user)
         for url in self._urls():
@@ -548,13 +566,31 @@ class StatsViewsPermissionTests(TestCase):
 
     def test_owner_allowed_on_all_stats_endpoints(self):
         client = auth_client(self.owner)
-        for url in self._urls():
+        for url in self._urls() + ['/api/orders/stats/confirmation/']:
             resp = client.get(url)
             self.assertEqual(resp.status_code, 200, url)
 
+    def test_confirmateur_can_access_own_confirmation_stats(self):
+        conf_user, conf = make_team_member(self.store, 'confirmateur')
+        client = auth_client(conf_user)
+        resp = client.get('/api/orders/stats/confirmation/')
+        self.assertEqual(resp.status_code, 200)
+        # Toujours restreint à lui-même, même si un autre id est envoyé.
+        resp2 = client.get('/api/orders/stats/confirmation/?confirmateur=999999')
+        self.assertEqual(resp2.status_code, 200)
+        confirmateur_ids = [b['confirmateur_id'] for b in resp2.json()['by_confirmateur']]
+        self.assertNotIn(999999, confirmateur_ids)
+
+    def test_dashboard_deliveries_and_kpi_open_to_confirmateur_but_dashboard_revenue_stays_owner_only(self):
+        conf_user, _ = make_team_member(self.store, 'confirmateur')
+        client = auth_client(conf_user)
+        self.assertEqual(client.get('/api/orders/stats/dashboard/deliveries/').status_code, 200)
+        self.assertEqual(client.get('/api/orders/stats/dashboard/kpi/').status_code, 200)
+        self.assertEqual(client.get('/api/orders/stats/dashboard/revenue/').status_code, 403)
+
     def test_confirmateur_granted_stats_view_permission_allowed(self):
         conf_user, _ = make_team_member(self.store, 'confirmateur')
-        RolePermission.objects.create(store=self.store, role='confirmateur', permission='stats_view', enabled=True)
+        RolePermission.objects.create(store=self.store, role='confirmateur', permission='stats_global_view', enabled=True)
         client = auth_client(conf_user)
         resp = client.get('/api/orders/stats/global/')
         self.assertEqual(resp.status_code, 200)

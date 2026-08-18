@@ -23,6 +23,97 @@ function Spinner() {
   )
 }
 
+// Regroupe une liste plate de permissions en { category: { subcategory: [permissions] } },
+// en conservant l'ordre d'apparition dans le catalogue (pas de tri alphabétique
+// qui mélangerait l'ordre logique des sections).
+function groupByCategory(catalog) {
+  const groups = []
+  const catIndex = new Map()
+  for (const perm of catalog) {
+    const cat = perm.category || 'Autres'
+    const sub = perm.subcategory || 'Autres'
+    if (!catIndex.has(cat)) {
+      catIndex.set(cat, { name: cat, subIndex: new Map(), subcategories: [] })
+      groups.push(catIndex.get(cat))
+    }
+    const catGroup = catIndex.get(cat)
+    if (!catGroup.subIndex.has(sub)) {
+      catGroup.subIndex.set(sub, { name: sub, items: [] })
+      catGroup.subcategories.push(catGroup.subIndex.get(sub))
+    }
+    catGroup.subIndex.get(sub).items.push(perm)
+  }
+  return groups
+}
+
+function ToggleSwitch({ enabled, busy, onClick, title }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={busy}
+      title={title}
+      className={`w-9 h-5 rounded-full transition-colors duration-150 relative cursor-pointer disabled:opacity-60 shrink-0 ${enabled ? 'bg-violet-600' : 'bg-violet-500/15'}`}
+    >
+      <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-150 ${enabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+    </button>
+  )
+}
+
+function CategoryAccordion({ groups, renderRow, renderCategoryActions }) {
+  const [openCats, setOpenCats] = useState(() => new Set())
+  const toggleCat = name => setOpenCats(s => {
+    const next = new Set(s)
+    next.has(name) ? next.delete(name) : next.add(name)
+    return next
+  })
+
+  return (
+    <div className="space-y-3">
+      {groups.map(group => {
+        const isOpen = openCats.has(group.name)
+        const total = group.subcategories.reduce((n, s) => n + s.items.length, 0)
+        const allKeys = group.subcategories.flatMap(s => s.items.map(p => p.key))
+        return (
+          <div key={group.name} className="rounded-xl border overflow-hidden" style={{ borderColor: theme.dark.border }}>
+            <div
+              className="w-full flex items-center justify-between px-4 py-3 gap-3"
+              style={{ background: theme.dark.sidebar }}
+            >
+              <button
+                onClick={() => toggleCat(group.name)}
+                className="flex-1 flex items-center justify-between text-left cursor-pointer transition min-w-0"
+              >
+                <span className="text-sm font-semibold text-app-primary">{group.name}</span>
+                <span className="flex items-center gap-2 ml-3">
+                  <span className="text-xs" style={{ color: theme.dark.muted }}>{total} permission{total > 1 ? 's' : ''}</span>
+                  <svg className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </span>
+              </button>
+              {renderCategoryActions && <div className="shrink-0" onClick={e => e.stopPropagation()}>{renderCategoryActions(group.name, allKeys)}</div>}
+            </div>
+            {isOpen && (
+              <div className="divide-y" style={{ borderColor: theme.dark.border }}>
+                {group.subcategories.map(sub => (
+                  <div key={sub.name}>
+                    {group.subcategories.length > 1 && (
+                      <p className="px-4 pt-3 pb-1 text-[11px] font-medium uppercase tracking-wide" style={{ color: theme.dark.muted }}>
+                        {sub.name}
+                      </p>
+                    )}
+                    {sub.items.map(renderRow)}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 function RoleMatrix() {
   const [data, setData]     = useState(null)
   const [loading, setLoading] = useState(true)
@@ -53,45 +144,71 @@ function RoleMatrix() {
     }
   }
 
+  const toggleAll = async (role, keys, enable) => {
+    setSaving(`${role}:__category__`)
+    setData(d => ({ ...d, matrix: { ...d.matrix, [role]: { ...d.matrix[role], ...Object.fromEntries(keys.map(k => [k, enable])) } } }))
+    try {
+      await Promise.all(keys.map(permission => api.post('/team/permissions/', { role, permission, enabled: enable })))
+      fetchData()
+    } catch (err) {
+      fetchData()
+      setToast({ type: 'error', message: err.response?.data?.detail || 'Erreur lors de la mise à jour groupée.' })
+    } finally {
+      setSaving(null)
+    }
+  }
+
   if (loading || !data) return <Spinner />
+
+  const groups = groupByCategory(data.catalog)
 
   return (
     <>
-    <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border }}>
-      <table className="w-full text-sm min-w-140">
-        <thead style={{ background: theme.dark.sidebar }}>
-          <tr className="text-left text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
-            <th className="px-4 py-3 font-medium">PERMISSION</th>
-            {data.roles.map(role => (
-              <th key={role} className="px-4 py-3 font-medium text-center">{ROLE_LABELS[role] || role}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {data.catalog.map(({ key, label }) => (
-            <tr key={key} className="border-b hover:bg-violet-500/5 transition" style={{ borderColor: theme.dark.borderRowHover }}>
-              <td className="px-4 py-3 text-app-primary">{label}</td>
-              {data.roles.map(role => {
-                const enabled = data.matrix[role]?.[key]
-                const busy = saving === `${role}:${key}`
-                return (
-                  <td key={role} className="px-4 py-3 text-center">
-                    <button
-                      onClick={() => toggle(role, key, enabled)}
-                      disabled={busy}
-                      className={`w-9 h-5 rounded-full transition-colors duration-150 relative cursor-pointer disabled:opacity-60 ${enabled ? 'bg-violet-600' : 'bg-violet-500/15'}`}
-                      title={enabled ? 'Activé — cliquer pour désactiver' : 'Désactivé — cliquer pour activer'}
-                    >
-                      <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-150 ${enabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
-                    </button>
-                  </td>
-                )
-              })}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <CategoryAccordion
+      groups={groups}
+      renderCategoryActions={(_categoryName, allKeys) => (
+        <div className="flex items-center gap-3">
+          {data.roles.map(role => {
+            const busy = saving === `${role}:__category__`
+            const allOn = allKeys.every(k => data.matrix[role]?.[k])
+            return (
+              <button
+                key={role}
+                disabled={busy}
+                onClick={() => toggleAll(role, allKeys, !allOn)}
+                className="text-[11px] px-2 py-1 rounded-md border transition disabled:opacity-50 cursor-pointer hover:bg-violet-500/10"
+                style={{ borderColor: theme.dark.border, color: theme.dark.muted }}
+                title={`${allOn ? 'Tout désactiver' : 'Tout activer'} — ${ROLE_LABELS[role] || role}`}
+              >
+                {ROLE_LABELS[role] || role} : {allOn ? 'tout désactiver' : 'tout activer'}
+              </button>
+            )
+          })}
+        </div>
+      )}
+      renderRow={({ key, label }) => (
+        <div key={key} className="flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-violet-500/5 transition">
+          <span className="text-sm text-app-primary">{label}</span>
+          <div className="flex items-center gap-5 shrink-0">
+            {data.roles.map(role => {
+              const enabled = data.matrix[role]?.[key]
+              const busy = saving === `${role}:${key}`
+              return (
+                <div key={role} className="flex flex-col items-center gap-1 w-16">
+                  <span className="text-[10px]" style={{ color: theme.dark.muted }}>{ROLE_LABELS[role] || role}</span>
+                  <ToggleSwitch
+                    enabled={enabled}
+                    busy={busy}
+                    onClick={() => toggle(role, key, enabled)}
+                    title={enabled ? 'Activé — cliquer pour désactiver' : 'Désactivé — cliquer pour activer'}
+                  />
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+    />
     <Toast toast={toast} onClose={() => setToast(null)} />
     </>
   )
@@ -127,37 +244,64 @@ function MemberMatrix({ memberId }) {
     }
   }
 
+  const toggleAll = async (keys, enable) => {
+    setSaving('__category__')
+    setCatalog(c => c.map(e => keys.includes(e.key) ? { ...e, enabled: enable } : e))
+    try {
+      await Promise.all(keys.map(permission => api.post(`/team/members/${memberId}/permissions/`, { permission, enabled: enable })))
+      fetchCatalog()
+    } catch (err) {
+      fetchCatalog()
+      setToast({ type: 'error', message: err.response?.data?.detail || 'Erreur lors de la mise à jour groupée.' })
+    } finally {
+      setSaving(null)
+    }
+  }
+
   if (loading) return <Spinner />
+
+  const groups = groupByCategory(catalog)
 
   return (
     <>
-    <div className="rounded-xl border overflow-hidden" style={{ borderColor: theme.dark.border }}>
-      <div className="divide-y" style={{ borderColor: theme.dark.border }}>
-        {catalog.map(({ key, label, enabled, is_custom }) => {
-          const busy = saving === key
-          return (
-            <div key={key} className="flex items-center justify-between gap-3 px-4 py-3">
-              <span className="text-sm text-app-primary flex items-center gap-2">
-                {label}
-                {is_custom && (
-                  <span className="text-xs px-1.5 py-0.5 rounded-full bg-violet-600/20 text-violet-300">
-                    Personnalisé
-                  </span>
-                )}
-              </span>
-              <button
-                onClick={() => toggle(key, enabled)}
-                disabled={busy}
-                className={`w-9 h-5 rounded-full transition-colors duration-150 relative cursor-pointer disabled:opacity-60 shrink-0 ${enabled ? 'bg-violet-600' : 'bg-violet-500/15'}`}
-                title={enabled ? 'Activé — cliquer pour désactiver' : 'Désactivé — cliquer pour activer'}
-              >
-                <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-150 ${enabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
-              </button>
-            </div>
-          )
-        })}
-      </div>
-    </div>
+    <CategoryAccordion
+      groups={groups}
+      renderCategoryActions={(_categoryName, allKeys) => {
+        const busy = saving === '__category__'
+        const allOn = allKeys.every(k => catalog.find(e => e.key === k)?.enabled)
+        return (
+          <button
+            disabled={busy}
+            onClick={() => toggleAll(allKeys, !allOn)}
+            className="text-[11px] px-2 py-1 rounded-md border transition disabled:opacity-50 cursor-pointer hover:bg-violet-500/10"
+            style={{ borderColor: theme.dark.border, color: theme.dark.muted }}
+          >
+            {allOn ? 'Tout désactiver' : 'Tout activer'}
+          </button>
+        )
+      }}
+      renderRow={({ key, label, enabled, is_custom }) => {
+        const busy = saving === key
+        return (
+          <div key={key} className="flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-violet-500/5 transition">
+            <span className="text-sm text-app-primary flex items-center gap-2">
+              {label}
+              {is_custom && (
+                <span className="text-xs px-1.5 py-0.5 rounded-full bg-violet-600/20 text-violet-300">
+                  Personnalisé
+                </span>
+              )}
+            </span>
+            <ToggleSwitch
+              enabled={enabled}
+              busy={busy}
+              onClick={() => toggle(key, enabled)}
+              title={enabled ? 'Activé — cliquer pour désactiver' : 'Désactivé — cliquer pour activer'}
+            />
+          </div>
+        )
+      }}
+    />
     <Toast toast={toast} onClose={() => setToast(null)} />
     </>
   )

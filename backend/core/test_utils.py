@@ -3,6 +3,7 @@ dupliquer le boilerplate de création boutique/membre/authentification dans
 chaque app. Pas un module de test lui-même (pas de classe Test*)."""
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
+from django.utils import timezone
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -44,6 +45,14 @@ def make_team_member(store, role, email=None):
         store=store, user=user, role=role,
         first_name=role.capitalize(), last_name='Test', email=email, is_active=True,
     )
+    if role == 'confirmateur':
+        # Le round-robin automatique (commandes/réclamations/inbox) ne
+        # retient que les confirmateurs "en ligne" — en ligne par défaut
+        # dans les fixtures de test pour ne pas casser tous les tests
+        # d'auto-assignation existants qui ne testent pas ce comportement.
+        member.is_online = True
+        member.last_seen_at = timezone.now()
+        member.save(update_fields=['is_online', 'last_seen_at'])
     return user, member
 
 

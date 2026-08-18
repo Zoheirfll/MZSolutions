@@ -214,6 +214,8 @@ export default function DashboardLayout({ children, title, subtitle }) {
   const [quota, setQuota] = useState(null)
   const [notifyNewOrders, setNotifyNewOrders] = useState(true) // StoreSettings.notify_new_orders — optimiste jusqu'au fetch
   const pendingOrdersRef = useRef(null) // null = pas encore chargé (évite un faux positif au premier fetch)
+  const [isOnline, setIsOnline] = useState(false)
+  const [onlineBusy, setOnlineBusy] = useState(false)
 
   useEffect(() => {
     api.get('/products/low-stock/').then(({ data }) => setLowStockCount(data.count)).catch(() => {})
@@ -261,6 +263,34 @@ export default function DashboardLayout({ children, title, subtitle }) {
     const interval = setInterval(checkPendingOrders, 30000)
     return () => clearInterval(interval)
   }, [notifyNewOrders])
+
+  // Présence en ligne des confirmateurs — le round-robin des nouvelles
+  // commandes n'assigne qu'aux confirmateurs "en ligne" (toggle manuel +
+  // heartbeat récent, voir team.models.online_confirmateurs_queryset).
+  // Heartbeat envoyé tant que le toggle est actif, pour que l'absence de
+  // ping (onglet fermé, PC éteint) fasse retomber le statut automatiquement
+  // côté serveur sans action du confirmateur.
+  useEffect(() => {
+    if (teamRole !== 'confirmateur') return
+    setIsOnline(!!user?.is_online)
+  }, [teamRole, user?.is_online])
+
+  useEffect(() => {
+    if (teamRole !== 'confirmateur' || !isOnline) return
+    const ping = () => api.post('/team/online-status/', { online: true }).catch(() => {})
+    ping()
+    const interval = setInterval(ping, 60000)
+    return () => clearInterval(interval)
+  }, [teamRole, isOnline])
+
+  const toggleOnlineStatus = () => {
+    const next = !isOnline
+    setOnlineBusy(true)
+    api.post('/team/online-status/', { online: next })
+      .then(() => setIsOnline(next))
+      .catch(() => {})
+      .finally(() => setOnlineBusy(false))
+  }
 
   // Alerte visuelle à l'approche de la limite (US-8.5.2) — essai gratuit
   // uniquement (un abonnement payant actif n'affiche pas cette alerte).
@@ -362,7 +392,7 @@ export default function DashboardLayout({ children, title, subtitle }) {
           <div>
             <p className="text-[10px] font-semibold px-2 mb-2 tracking-widest" style={{ color: theme.dark.muted }}>E-COMMERCE</p>
             <ul className="space-y-0.5">
-              <li>{mainLink('/dashboard', ICONS.dashboard, 'Tableau de bord', true)}</li>
+              {(can('dashboard_view') || teamRole === 'confirmateur') && <li>{mainLink('/dashboard', ICONS.dashboard, 'Tableau de bord', true)}</li>}
               {can('inbox_view') && <li>{mainLink('/dashboard/boite-reception', ICONS.inbox, 'Boîte de réception', false, inboxUnreadCount)}</li>}
 
               {/* Commandes — expandable */}
@@ -388,38 +418,36 @@ export default function DashboardLayout({ children, title, subtitle }) {
                 {expanded.commandes && (
                   <ul className="mt-0.5 ml-5 space-y-0.5 border-l pl-3" style={{ borderColor: theme.dark.border }}>
                     <li>{link('/dashboard/commandes', 'Toutes les commandes', true)}</li>
-                    {!can('orders_manage') ? null : (
-                      <>
-                        <li>{link('/dashboard/commandes/programmees', 'Commandes programmées')}</li>
-                        <li>{link('/dashboard/commandes/nouvelle', 'Nouvelle commande')}</li>
-                        <li>{link('/dashboard/commandes/taux-confirmation', 'Taux de confirmation')}</li>
-                        <li>{link('/dashboard/commandes/paniers-abandonnes', 'Paniers abandonnés')}</li>
-                        {/* Annulation — expandable */}
-                        <li>
-                          <button
-                            onClick={() => setExpanded(e => ({ ...e, annulation: !e.annulation }))}
-                            className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-sm transition-colors duration-200 text-app-muted-light hover:text-app-primary hover:bg-violet-500/5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
-                          >
-                            <span>Annulation</span>
-                            <svg className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${expanded.annulation ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                            </svg>
-                          </button>
-                          {expanded.annulation && (
-                            <ul className="mt-0.5 ml-4 space-y-0.5 border-l pl-3" style={{ borderColor: theme.dark.border }}>
-                              <li>{link('/dashboard/commandes/annulations/demandes', "Demande d'annulation")}</li>
-                              <li>{link('/dashboard/commandes/annulations/confirmees', 'Annulation confirmée')}</li>
-                            </ul>
-                          )}
-                        </li>
-                      </>
+                    {can('orders_scheduled_view') && <li>{link('/dashboard/commandes/programmees', 'Commandes programmées')}</li>}
+                    {can('orders_create_view') && <li>{link('/dashboard/commandes/nouvelle', 'Nouvelle commande')}</li>}
+                    {can('confirmation_rate_view') && <li>{link('/dashboard/commandes/taux-confirmation', 'Taux de confirmation')}</li>}
+                    {can('abandoned_carts_view') && <li>{link('/dashboard/commandes/paniers-abandonnes', 'Paniers abandonnés')}</li>}
+                    {/* Annulation — expandable */}
+                    {(can('cancellation_requests_view') || can('cancellation_confirmed_view')) && (
+                      <li>
+                        <button
+                          onClick={() => setExpanded(e => ({ ...e, annulation: !e.annulation }))}
+                          className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-sm transition-colors duration-200 text-app-muted-light hover:text-app-primary hover:bg-violet-500/5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+                        >
+                          <span>Annulation</span>
+                          <svg className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${expanded.annulation ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                        </button>
+                        {expanded.annulation && (
+                          <ul className="mt-0.5 ml-4 space-y-0.5 border-l pl-3" style={{ borderColor: theme.dark.border }}>
+                            {can('cancellation_requests_view') && <li>{link('/dashboard/commandes/annulations/demandes', "Demande d'annulation")}</li>}
+                            {can('cancellation_confirmed_view') && <li>{link('/dashboard/commandes/annulations/confirmees', 'Annulation confirmée')}</li>}
+                          </ul>
+                        )}
+                      </li>
                     )}
                   </ul>
                 )}
               </li>
 
-              {/* Dispatch Commandes — règles de routage automatique (produit/wilaya → confirmateur/transporteur) */}
-              {can('orders_manage') && (
+              {/* Dispatch Commandes — règles de routage automatique (produit/wilaya → confirmateur/transporteur) — 3 permissions dédiées, désactivées par défaut même si orders_manage est accordé (réservé admin par défaut) */}
+              {(can('dispatch_confirmateur_view') || can('dispatch_carrier_view') || can('dispatch_wilaya_view')) && (
                 <li>
                   <button
                     onClick={() => setExpanded(e => ({ ...e, dispatch: !e.dispatch }))}
@@ -434,16 +462,16 @@ export default function DashboardLayout({ children, title, subtitle }) {
                   </button>
                   {expanded.dispatch && (
                     <ul className="mt-0.5 ml-5 space-y-0.5 border-l pl-3" style={{ borderColor: theme.dark.border }}>
-                      <li>{link('/dashboard/dispatch/confirmateur', 'Par confirmateur')}</li>
-                      <li>{link('/dashboard/dispatch/transporteur', 'Par société de livraison')}</li>
-                      <li>{link('/dashboard/dispatch/wilaya', 'Par wilaya')}</li>
+                      {can('dispatch_confirmateur_view') && <li>{link('/dashboard/dispatch/confirmateur', 'Par confirmateur')}</li>}
+                      {can('dispatch_carrier_view') && <li>{link('/dashboard/dispatch/transporteur', 'Par société de livraison')}</li>}
+                      {can('dispatch_wilaya_view') && <li>{link('/dashboard/dispatch/wilaya', 'Par wilaya')}</li>}
                     </ul>
                   )}
                 </li>
               )}
 
               {/* Suivi des commandes — regroupe échecs d'appel / échanges (les réclamations vivent désormais dans la Boîte de réception) */}
-              {(can('orders_manage') || can('exchanges_view')) && (
+              {(can('failure_reasons_view') || can('exchanges_view')) && (
                 <li>
                   <button
                     onClick={() => setExpanded(e => ({ ...e, suivi: !e.suivi }))}
@@ -466,7 +494,7 @@ export default function DashboardLayout({ children, title, subtitle }) {
                   </button>
                   {expanded.suivi && (
                     <ul className="mt-0.5 ml-5 space-y-0.5 border-l pl-3" style={{ borderColor: theme.dark.border }}>
-                      {can('orders_manage') && <li>{link('/dashboard/commandes/raisons-echec', 'Gestion des échecs')}</li>}
+                      {can('failure_reasons_view') && <li>{link('/dashboard/commandes/raisons-echec', 'Gestion des échecs')}</li>}
                       {can('exchanges_view') && (
                         <li className="flex items-center justify-between">
                           {link('/dashboard/echanges', 'Gestion échanges')}
@@ -479,7 +507,9 @@ export default function DashboardLayout({ children, title, subtitle }) {
               )}
 
               {/* Produits & Catégories */}
-              {can('products_view') && (
+              {(can('products_view') || can('categories_view') || can('suppliers_view') || can('purchase_prices_view') ||
+                can('supplier_credits_view') || can('supplier_payments_view') || can('reviews_view') ||
+                can('coupons_view') || can('auto_promotions_view')) && (
                 <li>
                   <button
                     onClick={() => setExpanded(e => ({ ...e, produits: !e.produits }))}
@@ -494,36 +524,38 @@ export default function DashboardLayout({ children, title, subtitle }) {
                   </button>
                   {expanded.produits && (
                     <ul className="mt-0.5 ml-5 space-y-0.5 border-l pl-3" style={{ borderColor: theme.dark.border }}>
-                      <li>{link('/dashboard/produits', 'Tous les produits', true)}</li>
-                      <li>{link('/dashboard/produits/nouveau', 'Ajouter produit')}</li>
-                      <li>{link('/dashboard/produits/categories', 'Catégories')}</li>
-                      <li>
-                        <button
-                          onClick={() => setExpanded(e => ({ ...e, fournisseurs: !e.fournisseurs }))}
-                          className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-sm transition-colors duration-200 text-app-muted-light hover:text-app-primary hover:bg-violet-500/5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
-                        >
-                          <span>Fournisseur</span>
-                          <svg className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${expanded.fournisseurs ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                          </svg>
-                        </button>
-                        {expanded.fournisseurs && (
-                          <ul className="mt-0.5 ml-4 space-y-0.5 border-l pl-3" style={{ borderColor: theme.dark.border }}>
-                            <li>{link('/dashboard/produits/fournisseurs', 'Fournisseur', true)}</li>
-                            <li>{link('/dashboard/produits/fournisseurs/credits', 'Crédit Fournisseur')}</li>
-                            <li>{link('/dashboard/produits/fournisseurs/versements', 'Versement fournisseur')}</li>
-                          </ul>
-                        )}
-                      </li>
-                      <li>{link('/dashboard/produits/avis', 'Avis')}</li>
-                      <li>{link('/dashboard/produits/promotions/coupons', 'Coupons')}</li>
-                      <li>{link('/dashboard/produits/promotions/auto', 'Réductions automatiques')}</li>
+                      {can('products_view') && <li>{link('/dashboard/produits', 'Tous les produits', true)}</li>}
+                      {can('products_view') && <li>{link('/dashboard/produits/nouveau', 'Ajouter produit')}</li>}
+                      {can('categories_view') && <li>{link('/dashboard/produits/categories', 'Catégories')}</li>}
+                      {(can('suppliers_view') || can('supplier_credits_view') || can('supplier_payments_view')) && (
+                        <li>
+                          <button
+                            onClick={() => setExpanded(e => ({ ...e, fournisseurs: !e.fournisseurs }))}
+                            className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-sm transition-colors duration-200 text-app-muted-light hover:text-app-primary hover:bg-violet-500/5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+                          >
+                            <span>Fournisseur</span>
+                            <svg className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${expanded.fournisseurs ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                          </button>
+                          {expanded.fournisseurs && (
+                            <ul className="mt-0.5 ml-4 space-y-0.5 border-l pl-3" style={{ borderColor: theme.dark.border }}>
+                              {can('suppliers_view') && <li>{link('/dashboard/produits/fournisseurs', 'Fournisseur', true)}</li>}
+                              {can('supplier_credits_view') && <li>{link('/dashboard/produits/fournisseurs/credits', 'Crédit Fournisseur')}</li>}
+                              {can('supplier_payments_view') && <li>{link('/dashboard/produits/fournisseurs/versements', 'Versement fournisseur')}</li>}
+                            </ul>
+                          )}
+                        </li>
+                      )}
+                      {can('reviews_view') && <li>{link('/dashboard/produits/avis', 'Avis')}</li>}
+                      {can('coupons_view') && <li>{link('/dashboard/produits/promotions/coupons', 'Coupons')}</li>}
+                      {can('auto_promotions_view') && <li>{link('/dashboard/produits/promotions/auto', 'Réductions automatiques')}</li>}
                     </ul>
                   )}
                 </li>
               )}
 
-              {can('clients_view') && (
+              {(can('clients_view') || can('clients_risk_view') || can('blacklist_view')) && (
                 <li>
                   <button
                     onClick={() => setExpanded(e => ({ ...e, clients: !e.clients }))}
@@ -538,9 +570,9 @@ export default function DashboardLayout({ children, title, subtitle }) {
                   </button>
                   {expanded.clients && (
                     <ul className="mt-0.5 ml-5 space-y-0.5 border-l pl-3" style={{ borderColor: theme.dark.border }}>
-                      <li>{link('/dashboard/clients', 'Clients', true)}</li>
-                      <li>{link('/dashboard/clients/risque', 'Clients à risque')}</li>
-                      <li>{link('/dashboard/clients/liste-noire', 'Liste noire')}</li>
+                      {can('clients_view') && <li>{link('/dashboard/clients', 'Clients', true)}</li>}
+                      {can('clients_risk_view') && <li>{link('/dashboard/clients/risque', 'Clients à risque')}</li>}
+                      {can('blacklist_view') && <li>{link('/dashboard/clients/liste-noire', 'Liste noire')}</li>}
                     </ul>
                   )}
                 </li>
@@ -563,7 +595,7 @@ export default function DashboardLayout({ children, title, subtitle }) {
                   <li>{mainLink('/dashboard/mes-commissions', ICONS.subscription, 'Mes commissions')}</li>
                 </>
               )}
-              {can('finances_view') && (
+              {(can('profitability_view') || can('costs_view')) && (
                 <li>
                   <button
                     onClick={() => setExpanded(e => ({ ...e, finances: !e.finances }))}
@@ -578,13 +610,13 @@ export default function DashboardLayout({ children, title, subtitle }) {
                   </button>
                   {expanded.finances && (
                     <ul className="mt-0.5 ml-5 space-y-0.5 border-l pl-3" style={{ borderColor: theme.dark.border }}>
-                      <li>{link('/dashboard/finances/rentabilite', 'Rentabilité')}</li>
-                      <li>{link('/dashboard/finances/couts', 'Coûts')}</li>
+                      {can('profitability_view') && <li>{link('/dashboard/finances/rentabilite', 'Rentabilité')}</li>}
+                      {can('costs_view') && <li>{link('/dashboard/finances/couts', 'Coûts')}</li>}
                     </ul>
                   )}
                 </li>
               )}
-              {can('finances_view') && (
+              {(can('payments_ready_view') || can('payments_collected_view') || can('payments_import_view')) && (
                 <li>
                   <button
                     onClick={() => setExpanded(e => ({ ...e, paiements: !e.paiements }))}
@@ -599,14 +631,14 @@ export default function DashboardLayout({ children, title, subtitle }) {
                   </button>
                   {expanded.paiements && (
                     <ul className="mt-0.5 ml-5 space-y-0.5 border-l pl-3" style={{ borderColor: theme.dark.border }}>
-                      <li>{link('/dashboard/paiements/pret', 'Paiement prêt')}</li>
-                      <li>{link('/dashboard/paiements/recupere', 'Paiement récupéré')}</li>
-                      <li>{link('/dashboard/paiements/import-excel', 'Importer un fichier Excel')}</li>
+                      {can('payments_ready_view') && <li>{link('/dashboard/paiements/pret', 'Paiement prêt')}</li>}
+                      {can('payments_collected_view') && <li>{link('/dashboard/paiements/recupere', 'Paiement récupéré')}</li>}
+                      {can('payments_import_view') && <li>{link('/dashboard/paiements/import-excel', 'Importer un fichier Excel')}</li>}
                     </ul>
                   )}
                 </li>
               )}
-              {can('shipping_settings_view') && (
+              {(can('shipments_view') || can('labels_view') || can('prepared_orders_view') || can('predictive_returns_view') || can('return_validation_view')) && (
                 <li>
                   <button
                     onClick={() => setExpanded(e => ({ ...e, expeditions: !e.expeditions }))}
@@ -621,16 +653,16 @@ export default function DashboardLayout({ children, title, subtitle }) {
                   </button>
                   {expanded.expeditions && (
                     <ul className="mt-0.5 ml-5 space-y-0.5 border-l pl-3" style={{ borderColor: theme.dark.border }}>
-                      <li>{link('/dashboard/expeditions', 'Expéditions', true)}</li>
-                      <li>{link('/dashboard/expeditions/etiquettes', 'Étiquettes')}</li>
-                      <li>{link('/dashboard/expeditions/preparees', 'Commandes préparées')}</li>
-                      <li>{link('/dashboard/expeditions/retour-predictif', 'Retour prédictif')}</li>
-                      <li>{link('/dashboard/expeditions/retours', 'Validation des retours')}</li>
+                      {can('shipments_view') && <li>{link('/dashboard/expeditions', 'Expéditions', true)}</li>}
+                      {can('labels_view') && <li>{link('/dashboard/expeditions/etiquettes', 'Étiquettes')}</li>}
+                      {can('prepared_orders_view') && <li>{link('/dashboard/expeditions/preparees', 'Commandes préparées')}</li>}
+                      {can('predictive_returns_view') && <li>{link('/dashboard/expeditions/retour-predictif', 'Retour prédictif')}</li>}
+                      {can('return_validation_view') && <li>{link('/dashboard/expeditions/retours', 'Validation des retours')}</li>}
                     </ul>
                   )}
                 </li>
               )}
-              {can('stock_view') && (
+              {(can('stock_view') || can('stock_movements_view') || can('stock_return_view')) && (
                 <li>
                   <button
                     onClick={() => setExpanded(e => ({ ...e, stock: !e.stock }))}
@@ -652,14 +684,16 @@ export default function DashboardLayout({ children, title, subtitle }) {
                   </button>
                   {expanded.stock && (
                     <ul className="mt-0.5 ml-5 space-y-0.5 border-l pl-3" style={{ borderColor: theme.dark.border }}>
-                      <li>{link('/dashboard/stock', 'Stock & Inventaire', true)}</li>
-                      <li>{link('/dashboard/stock/mouvements', 'Mouvement des stocks')}</li>
-                      <li>{link('/dashboard/stock/retour-vendeur', 'Retour au vendeur')}</li>
+                      {can('stock_view') && <li>{link('/dashboard/stock', 'Stock & Inventaire', true)}</li>}
+                      {can('stock_movements_view') && <li>{link('/dashboard/stock/mouvements', 'Mouvement des stocks')}</li>}
+                      {can('stock_return_view') && <li>{link('/dashboard/stock/retour-vendeur', 'Retour au vendeur')}</li>}
                     </ul>
                   )}
                 </li>
               )}
-              {can('stats_view') && (
+              {(can('stats_global_view') || can('stats_orders_view') || can('stats_returns_view') || can('stats_failures_view') ||
+                can('stats_stock_sales_view') || can('stats_products_view') || can('stats_confirmateurs_view') ||
+                can('stats_wilayas_view') || can('stats_sources_view')) && (
                 <li>
                   <button
                     onClick={() => setExpanded(e => ({ ...e, stats: !e.stats }))}
@@ -674,15 +708,15 @@ export default function DashboardLayout({ children, title, subtitle }) {
                   </button>
                   {expanded.stats && (
                     <ul className="mt-0.5 ml-5 space-y-0.5 border-l pl-3" style={{ borderColor: theme.dark.border }}>
-                      <li>{link('/dashboard/stats', 'Statistiques globales', true)}</li>
-                      <li>{link('/dashboard/stats/commandes', 'Statistiques commandes')}</li>
-                      <li>{link('/dashboard/stats/retours', 'Statistique retours')}</li>
-                      <li>{link('/dashboard/stats/echecs', 'Statistique des échecs')}</li>
-                      <li>{link('/dashboard/stats/vente-stock', 'Statistique vente de stock')}</li>
-                      <li>{link('/dashboard/stats/produits', 'Statistiques des produits')}</li>
-                      <li>{link('/dashboard/stats/confirmateurs', 'Statistique par confirmateur')}</li>
-                      <li>{link('/dashboard/stats/wilayas', 'Statistiques par wilaya')}</li>
-                      <li>{link('/dashboard/stats/sources', 'Statistiques des sources')}</li>
+                      {can('stats_global_view') && <li>{link('/dashboard/stats', 'Statistiques globales', true)}</li>}
+                      {can('stats_orders_view') && <li>{link('/dashboard/stats/commandes', 'Statistiques commandes')}</li>}
+                      {can('stats_returns_view') && <li>{link('/dashboard/stats/retours', 'Statistique retours')}</li>}
+                      {can('stats_failures_view') && <li>{link('/dashboard/stats/echecs', 'Statistique des échecs')}</li>}
+                      {can('stats_stock_sales_view') && <li>{link('/dashboard/stats/vente-stock', 'Statistique vente de stock')}</li>}
+                      {can('stats_products_view') && <li>{link('/dashboard/stats/produits', 'Statistiques des produits')}</li>}
+                      {can('stats_confirmateurs_view') && <li>{link('/dashboard/stats/confirmateurs', 'Statistique par confirmateur')}</li>}
+                      {can('stats_wilayas_view') && <li>{link('/dashboard/stats/wilayas', 'Statistiques par wilaya')}</li>}
+                      {can('stats_sources_view') && <li>{link('/dashboard/stats/sources', 'Statistiques des sources')}</li>}
                     </ul>
                   )}
                 </li>
@@ -691,18 +725,19 @@ export default function DashboardLayout({ children, title, subtitle }) {
           </div>
 
           {/* PARAMÈTRES */}
-          {(can('store_view') || can('shipping_settings_view') || can('team_view')) && (
+          {(can('store_view') || can('store_theme_view') || can('store_pages_view') || can('store_menu_view') || can('store_files_view') ||
+            can('shipping_settings_view') || can('team_view') || can('audit_view') || can('subscription_view') || !teamRole || teamRole === 'admin') && (
             <div>
               <p className="text-[10px] font-semibold px-2 mb-2 tracking-widest" style={{ color: theme.dark.muted }}>PARAMÈTRES</p>
               <ul className="space-y-0.5">
-                {can('store_view') && (
+                {(can('store_view') || can('store_theme_view') || can('store_pages_view') || can('store_menu_view') || can('store_files_view')) && (
                   <li>
                     {mainLink('/dashboard/boutique', ICONS.store, 'Ma boutique')}
                     <ul className="ml-7 mt-0.5 space-y-0.5">
-                      <li>{link('/dashboard/boutique/theme',   'Thème & Apparence')}</li>
-                      <li>{link('/dashboard/boutique/pages',   'Pages')}</li>
-                      <li>{link('/dashboard/boutique/menu',    'Menu')}</li>
-                      <li>{link('/dashboard/boutique/fichiers','Fichiers')}</li>
+                      {can('store_theme_view') && <li>{link('/dashboard/boutique/theme',   'Thème & Apparence')}</li>}
+                      {can('store_pages_view') && <li>{link('/dashboard/boutique/pages',   'Pages')}</li>}
+                      {can('store_menu_view') && <li>{link('/dashboard/boutique/menu',    'Menu')}</li>}
+                      {can('store_files_view') && <li>{link('/dashboard/boutique/fichiers','Fichiers')}</li>}
                     </ul>
                   </li>
                 )}
@@ -715,7 +750,10 @@ export default function DashboardLayout({ children, title, subtitle }) {
                 {(!teamRole || teamRole === 'admin') && (
                   <li>{mainLink('/dashboard/equipe/permissions', ICONS.team, 'Permissions par rôle')}</li>
                 )}
-                {(!teamRole || teamRole === 'admin') && (
+                {can('audit_view') && (
+                  <li>{mainLink('/dashboard/audit', ICONS.tracking, 'Audit')}</li>
+                )}
+                {can('subscription_view') && (
                   <li>{mainLink('/dashboard/abonnement', ICONS.subscription, 'Abonnement')}</li>
                 )}
               </ul>
@@ -758,6 +796,22 @@ export default function DashboardLayout({ children, title, subtitle }) {
             </div>
           </div>
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            {/* Disponibilité confirmateur — un confirmateur "Indisponible" ne reçoit
+                plus de commande via le round-robin automatique (voir online-status/) */}
+            {teamRole === 'confirmateur' && (
+              <button
+                onClick={toggleOnlineStatus}
+                disabled={onlineBusy}
+                className="hidden sm:inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors duration-150 cursor-pointer disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+                style={isOnline
+                  ? { borderColor: 'rgba(34,197,94,0.35)', color: '#22c55e', background: 'rgba(34,197,94,0.06)' }
+                  : { borderColor: theme.dark.border, color: theme.dark.muted }}
+                title={isOnline ? 'Vous recevez des commandes automatiquement' : 'Vous ne recevez aucune commande automatique'}
+              >
+                <span className="w-1.5 h-1.5 rounded-full" style={{ background: isOnline ? '#22c55e' : '#6b7280' }} />
+                {isOnline ? 'Disponible' : 'Indisponible'}
+              </button>
+            )}
             {/* Cloche — mène à la boîte de réception (US "tout doit y arriver", 2026-08) */}
             <button
               onClick={() => navigate('/dashboard/boite-reception')}
@@ -831,25 +885,29 @@ export default function DashboardLayout({ children, title, subtitle }) {
                   >
                     Voir ma boutique
                   </a>
-                  <button onClick={() => { setProfileOpen(false); navigate('/dashboard/boutique') }}
-                    className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition-colors duration-100 text-left cursor-pointer">
-                    Ma boutique
-                  </button>
+                  {can('store_view') && (
+                    <button onClick={() => { setProfileOpen(false); navigate('/dashboard/boutique') }}
+                      className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition-colors duration-100 text-left cursor-pointer">
+                      Ma boutique
+                    </button>
+                  )}
                   <button onClick={() => { setProfileOpen(false); navigate('/dashboard/parametres') }}
                     className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition-colors duration-100 text-left cursor-pointer">
                     Paramètres
                   </button>
-                  <button onClick={() => { setProfileOpen(false); navigate('/dashboard/parametres-livraison') }}
-                    className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition-colors duration-100 text-left cursor-pointer">
-                    Paramètres livraison
-                  </button>
+                  {can('shipping_settings_view') && (
+                    <button onClick={() => { setProfileOpen(false); navigate('/dashboard/parametres-livraison') }}
+                      className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition-colors duration-100 text-left cursor-pointer">
+                      Paramètres livraison
+                    </button>
+                  )}
                   {can('team_view') && (
                     <button onClick={() => { setProfileOpen(false); navigate('/dashboard/equipe') }}
                       className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition-colors duration-100 text-left cursor-pointer">
                       Équipe
                     </button>
                   )}
-                  {(!teamRole || teamRole === 'admin') && (
+                  {can('subscription_view') && (
                     <button onClick={() => { setProfileOpen(false); navigate('/dashboard/abonnement') }}
                       className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition-colors duration-100 text-left cursor-pointer">
                       Abonnement
@@ -888,7 +946,7 @@ export default function DashboardLayout({ children, title, subtitle }) {
             </div>
           </div>
         </header>
-        {showQuotaAlert && (!teamRole || teamRole === 'admin') && (
+        {showQuotaAlert && can('subscription_view') && (
           <div className="flex items-center justify-between gap-3 px-5 sm:px-8 py-2.5 text-sm shrink-0 bg-red-500/10 border-b border-red-500/25">
             <span className="text-red-400">
               {usedPct >= 80 && daysLeft !== null && daysLeft <= 3

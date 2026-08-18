@@ -7,11 +7,12 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
 
-from .models import TeamMember, RolePermission, TeamMemberPermission, PERMISSION_CATALOG, ROLES_WITH_PERMISSIONS, get_effective_permissions
+from .models import TeamMember, RolePermission, TeamMemberPermission, PERMISSION_CATALOG, PERMISSION_CATEGORIES, ROLES_WITH_PERMISSIONS, get_effective_permissions
 import secrets
 from .serializers import InviteSerializer, TeamMemberSerializer, AcceptInvitationSerializer
 from accounts.serializers import get_tokens, UserSerializer
-from core.permissions import IsOwnerOrAdminForWrites, is_owner_or_admin
+from core.permissions import IsOwnerOrAdminForWrites, is_owner_or_admin, has_permission
+from audit.utils import log_audit
 
 logger = logging.getLogger(__name__)
 
@@ -82,6 +83,7 @@ class InviteView(APIView):
                     TeamMemberPermission.objects.create(member=member, permission=key, enabled=value)
 
         _send_invite_email(member)
+        log_audit(request, 'team.member_invited', target=member, description=f"Membre invité : {member.first_name} {member.last_name} ({member.role})")
 
         return Response(TeamMemberSerializer(member).data, status=status.HTTP_201_CREATED)
 
@@ -90,6 +92,14 @@ class TeamListView(APIView):
     permission_classes = [IsAuthenticated, IsOwnerOrAdminForWrites]
 
     def get(self, request):
+        # IsOwnerOrAdminForWrites laisse passer la LECTURE à n'importe quel
+        # membre authentifié (voir sa docstring) — sans ce garde-fou
+        # supplémentaire, n'importe quel confirmateur/dropshipper pouvait
+        # lister toute l'équipe (noms, emails, téléphones de ses collègues),
+        # `team_view` existait déjà dans le catalogue de permissions mais
+        # n'était jamais vérifiée par cette vue précise.
+        if not (is_owner_or_admin(request) or has_permission(request, 'team_view')):
+            return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
         store = _get_store(request)
         if not store:
             return Response({'detail': 'Aucune boutique.'}, status=403)
@@ -122,6 +132,7 @@ class TeamMemberDetailView(APIView):
         serializer = TeamMemberSerializer(member, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
+        log_audit(request, 'team.member_updated', target=member, description=f"Membre modifié : {member.first_name} {member.last_name}", metadata={'changed_fields': list(request.data.keys())})
         return Response(serializer.data)
 
     def delete(self, request, pk):
@@ -130,6 +141,7 @@ class TeamMemberDetailView(APIView):
             return err
         member.is_active = False
         member.save(update_fields=['is_active'])
+        log_audit(request, 'team.member_deactivated', target=member, description=f"Membre désactivé : {member.first_name} {member.last_name}")
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -152,6 +164,7 @@ class TeamMemberReactivateView(APIView):
             return Response({'detail': "Cette invitation n'a jamais été acceptée — renvoyez l'invitation plutôt que de réactiver."}, status=400)
         member.is_active = True
         member.save(update_fields=['is_active'])
+        log_audit(request, 'team.member_reactivated', target=member, description=f"Membre réactivé : {member.first_name} {member.last_name}")
         return Response(TeamMemberSerializer(member).data)
 
 
@@ -173,6 +186,7 @@ class TeamMemberResendInviteView(APIView):
         member.invited_at = timezone.now()
         member.save(update_fields=['invite_token', 'invited_at'])
         _send_invite_email(member)
+        log_audit(request, 'team.invite_resent', target=member, description=f"Invitation renvoyée à {member.first_name} {member.last_name}")
         return Response(TeamMemberSerializer(member).data)
 
 
@@ -209,6 +223,40 @@ class AcceptInvitationView(APIView):
         })
 
 
+class OnlineStatusView(APIView):
+    """Auto-service — un confirmateur (ou tout membre d'équipe) bascule sa
+    propre disponibilité et/ou envoie un heartbeat périodique. Pas de
+    restriction owner/admin : chacun ne contrôle que son propre statut,
+    jamais celui d'un autre membre."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        try:
+            member = request.user.team_membership
+        except Exception:
+            return Response({'detail': "Réservé aux membres d'équipe (l'owner n'a pas de statut en ligne)."}, status=400)
+
+        update_fields = ['last_seen_at']
+        member.last_seen_at = timezone.now()
+        status_changed = False
+        if 'online' in request.data:
+            new_online = bool(request.data.get('online'))
+            status_changed = new_online != member.is_online
+            member.is_online = new_online
+            update_fields.append('is_online')
+        member.save(update_fields=update_fields)
+        # Un heartbeat silencieux (sans 'online', ou sans changement réel) ne
+        # journalise rien — seul le vrai basculement de disponibilité compte,
+        # sinon le journal serait noyé sous un ping/minute par confirmateur.
+        if status_changed:
+            log_audit(
+                request, 'confirmateur.online' if member.is_online else 'confirmateur.offline',
+                target=member,
+                description=f"{member.first_name} {member.last_name} est passé {'disponible' if member.is_online else 'indisponible'}",
+            )
+        return Response(TeamMemberSerializer(member).data)
+
+
 class RolePermissionsView(APIView):
     """Matrice de permissions par rôle (Epic 7.5) — owner/admin uniquement.
     GET renvoie le catalogue complet + les valeurs effectives par rôle ;
@@ -232,7 +280,11 @@ class RolePermissionsView(APIView):
         if not store:
             return Response({'detail': 'Accès refusé.'}, status=403)
         return Response({
-            'catalog': [{'key': k, 'label': label} for k, label in PERMISSION_CATALOG],
+            'catalog': [
+                {'key': k, 'label': label, 'category': PERMISSION_CATEGORIES.get(k, ('Autres', 'Autres'))[0],
+                 'subcategory': PERMISSION_CATEGORIES.get(k, ('Autres', 'Autres'))[1]}
+                for k, label in PERMISSION_CATALOG
+            ],
             'roles':   ROLES_WITH_PERMISSIONS,
             'matrix':  {role: get_effective_permissions(store, role) for role in ROLES_WITH_PERMISSIONS},
         })
@@ -255,6 +307,11 @@ class RolePermissionsView(APIView):
         RolePermission.objects.update_or_create(
             store=store, role=role, permission=permission,
             defaults={'enabled': enabled},
+        )
+        log_audit(
+            request, 'team.permission_changed', store=store,
+            description=f"Permission « {permission} » {'activée' if enabled else 'désactivée'} pour le rôle {role}",
+            metadata={'role': role, 'permission': permission, 'enabled': enabled},
         )
         return Response({'role': role, 'permissions': get_effective_permissions(store, role)})
 
@@ -286,7 +343,9 @@ class TeamMemberPermissionsView(APIView):
         custom_keys = set(TeamMemberPermission.objects.filter(member=member).values_list('permission', flat=True))
         return Response({
             'catalog': [
-                {'key': k, 'label': label, 'enabled': effective.get(k, False), 'is_custom': k in custom_keys}
+                {'key': k, 'label': label, 'enabled': effective.get(k, False), 'is_custom': k in custom_keys,
+                 'category': PERMISSION_CATEGORIES.get(k, ('Autres', 'Autres'))[0],
+                 'subcategory': PERMISSION_CATEGORIES.get(k, ('Autres', 'Autres'))[1]}
                 for k, label in PERMISSION_CATALOG
             ],
         })
@@ -304,5 +363,10 @@ class TeamMemberPermissionsView(APIView):
         TeamMemberPermission.objects.update_or_create(
             member=member, permission=permission,
             defaults={'enabled': enabled},
+        )
+        log_audit(
+            request, 'team.member_permission_changed', target=member,
+            description=f"Permission « {permission} » {'activée' if enabled else 'désactivée'} pour {member.first_name} {member.last_name}",
+            metadata={'permission': permission, 'enabled': enabled},
         )
         return Response({'permissions': get_effective_permissions(store, member.role, member=member)})

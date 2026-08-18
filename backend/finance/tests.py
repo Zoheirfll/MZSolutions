@@ -31,7 +31,7 @@ class CostTests(TestCase):
 
     def test_confirmateur_with_granted_permission_can_view(self):
         from team.models import RolePermission
-        RolePermission.objects.create(store=self.store, role='confirmateur', permission='finances_view', enabled=True)
+        RolePermission.objects.create(store=self.store, role='confirmateur', permission='costs_view', enabled=True)
         conf_user, _ = make_team_member(self.store, 'confirmateur')
         client = auth_client(conf_user)
         resp = client.get('/api/finance/costs/')
@@ -39,7 +39,7 @@ class CostTests(TestCase):
 
     def test_confirmateur_cannot_write_even_with_view_permission(self):
         from team.models import RolePermission
-        RolePermission.objects.create(store=self.store, role='confirmateur', permission='finances_view', enabled=True)
+        RolePermission.objects.create(store=self.store, role='confirmateur', permission='costs_view', enabled=True)
         conf_user, _ = make_team_member(self.store, 'confirmateur')
         client = auth_client(conf_user)
         resp = client.post('/api/finance/costs/', {

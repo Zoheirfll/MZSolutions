@@ -11,7 +11,7 @@ function Field({ label, error, children }) {
     <div className="flex flex-col gap-1.5">
       <label className="block text-sm font-medium text-gray-700 mb-0.5">{label}</label>
       {children}
-      {error && <p className="mt-1 text-xs text-red-500 flex items-center gap-1">{error}</p>}
+      {error && <p className="mt-1 text-xs text-red-600 flex items-center gap-1">{error}</p>}
     </div>
   )
 }
@@ -38,6 +38,31 @@ function GoogleButton({ onClick, loading, children }) {
       )}
       {loading ? 'Connexion...' : children}
     </button>
+  )
+}
+
+// Le tableau de bord analytique (/dashboard) nécessite stats_view — masqué
+// par défaut pour confirmateur/dropshipper (matrice de permissions Epic 7.5).
+// Sans ce garde-fou, ces rôles atterrissaient après connexion sur une page
+// qui leur envoie des requêtes 403/404 en boucle et affiche "Impossible de
+// charger les statistiques" — on les redirige vers une page qu'ils peuvent
+// réellement utiliser.
+function landingPathFor(user) {
+  // /dashboard affiche un tableau de bord dédié (commandes assignées) pour
+  // un confirmateur sans stats_view — donc toujours accessible pour lui.
+  // Seul le dropshipper n'a aucune variante de /dashboard qui lui convienne.
+  if (user?.team_role === 'dropshipper' && !user?.permissions?.stats_view) return '/dashboard/mes-produits'
+  return '/dashboard'
+}
+
+function StepIndicator({ step, total, label }) {
+  return (
+    <div className="flex items-center gap-2 self-start mb-1">
+      {Array.from({ length: total }, (_, i) => (
+        <span key={i} className={`h-1.5 rounded-full transition-all ${i < step ? 'w-6 bg-violet-600' : 'w-3 bg-gray-200'}`} />
+      ))}
+      <span className="text-xs font-medium text-gray-500 ml-1">{label}</span>
+    </div>
   )
 }
 
@@ -83,6 +108,7 @@ function VerifyEmailStep({ email, onVerified }) {
 
   return (
     <div className="flex flex-col items-center gap-5 max-w-sm text-center">
+      <StepIndicator step={2} total={2} label="Étape 2 sur 2" />
       <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-100 to-violet-50 border border-violet-200 flex items-center justify-center shadow-sm">
         <svg className="w-8 h-8 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
@@ -90,7 +116,7 @@ function VerifyEmailStep({ email, onVerified }) {
       </div>
       <div>
         <h2 className="text-lg font-bold text-gray-900 mb-1">Vérifiez votre email</h2>
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-gray-600">
           Code à 6 chiffres envoyé à<br />
           <span className="font-semibold text-violet-700">{email}</span>
         </p>
@@ -108,7 +134,7 @@ function VerifyEmailStep({ email, onVerified }) {
         ))}
       </div>
 
-      {error && <p className="text-red-500 text-sm bg-red-50 px-4 py-2 rounded-xl w-full">{error}</p>}
+      {error && <p className="text-red-600 text-sm bg-red-50 px-4 py-2 rounded-xl w-full">{error}</p>}
       {resent && <p className="text-emerald-600 text-sm bg-emerald-50 px-4 py-2 rounded-xl w-full">Nouveau code envoyé !</p>}
 
       <button onClick={handleVerify} disabled={loading || codes.join('').length < 6}
@@ -121,7 +147,7 @@ function VerifyEmailStep({ email, onVerified }) {
         ) : 'Vérifier le code'}
       </button>
 
-      <p className="text-sm text-gray-500">
+      <p className="text-sm text-gray-600">
         Pas reçu le code ?{' '}
         <button onClick={handleResend} className="text-violet-600 font-semibold hover:underline cursor-pointer">
           Renvoyer
@@ -153,13 +179,14 @@ function GoogleStoreStep({ googleToken, userInfo, onDone }) {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4 max-w-sm w-full">
+      <StepIndicator step={2} total={2} label="Dernière étape" />
       <div className="flex items-center gap-3 bg-violet-50 border border-violet-100 rounded-xl px-4 py-3">
         <div className="w-9 h-9 rounded-full bg-violet-600 text-white flex items-center justify-center font-bold text-sm shrink-0">
           {userInfo.name[0]}
         </div>
         <div className="text-sm min-w-0">
           <p className="font-semibold text-gray-800 truncate">{userInfo.name}</p>
-          <p className="text-gray-500 text-xs truncate">{userInfo.email}</p>
+          <p className="text-gray-600 text-xs truncate">{userInfo.email}</p>
         </div>
       </div>
       <p className="text-sm text-gray-600 font-medium">Plus qu'une étape — nommez votre boutique :</p>
@@ -169,7 +196,7 @@ function GoogleStoreStep({ googleToken, userInfo, onDone }) {
       </Field>
       <Field label="URL de la boutique *">
         <div className="flex border border-gray-300 rounded-xl overflow-hidden focus-within:border-violet-500 focus-within:ring-2 focus-within:ring-violet-100 transition">
-          <span className="px-3 py-2.5 bg-violet-50 text-violet-500 text-xs border-r border-gray-300 whitespace-nowrap flex items-center font-medium">
+          <span className="px-3 py-2.5 bg-violet-50 text-violet-700 text-xs border-r border-gray-300 whitespace-nowrap flex items-center font-medium">
             mzsolutions.app/
           </span>
           <input type="text" placeholder="ma-boutique"
@@ -207,7 +234,7 @@ export default function Auth() {
   const handleLogin = async (e) => {
     e.preventDefault(); setErrors({}); setLoading(true)
     try {
-      await login(loginForm.email, loginForm.password); navigate('/dashboard')
+      const { user } = await login(loginForm.email, loginForm.password); navigate(landingPathFor(user))
     } catch (err) {
       const data = err.response?.data
       if (data?.code === 'email_not_verified') {
@@ -247,7 +274,7 @@ export default function Auth() {
         const userInfo = await userInfoRes.json()
         const { data } = await api.post('/auth/google/login/', { access_token: tokenResp.access_token })
         localStorage.setItem('access', data.access); localStorage.setItem('refresh', data.refresh)
-        setUser(data.user); navigate('/dashboard')
+        setUser(data.user); navigate(landingPathFor(data.user))
       } catch (err) {
         if (err.response?.status === 404) {
           setErrors({ general: "Aucun compte Google associé. Veuillez vous inscrire d'abord." })
@@ -275,8 +302,8 @@ export default function Auth() {
     onError: () => setErrors({ general: 'Inscription Google annulée.' }),
   })
 
-  const onVerified = (user) => { setUser(user); navigate('/dashboard') }
-  const onGoogleDone = (user) => { setUser(user); navigate('/dashboard') }
+  const onVerified = (user) => { setUser(user); navigate(landingPathFor(user)) }
+  const onGoogleDone = (user) => { setUser(user); navigate(landingPathFor(user)) }
 
   return (
     <div className="flex min-h-dvh font-sans">
@@ -292,11 +319,34 @@ export default function Auth() {
           </span>
         </div>
 
-        {/* Tabs */}
-        <div className="flex bg-gray-100 rounded-2xl p-1 w-fit mb-8 gap-1">
+        {/* Bandeau de confiance — visible uniquement sur mobile/tablette, là où
+            le panneau hero (preuve sociale, garanties) est entièrement masqué
+            (hidden lg:flex ci-dessous) : sans ça, un visiteur mobile ne voit
+            plus AUCUN signal de confiance avant de créer un compte. */}
+        <div className="lg:hidden flex flex-wrap items-center gap-x-4 gap-y-1.5 mb-6 text-xs font-medium text-gray-600">
+          <span className="flex items-center gap-1.5">
+            <svg className="w-3.5 h-3.5 text-emerald-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+            </svg>
+            Paiement sécurisé (Chargily)
+          </span>
+          <span className="flex items-center gap-1.5">
+            <svg className="w-3.5 h-3.5 text-emerald-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 4.556-3.04 8.526-7.5 9.75A9.717 9.717 0 0112 22.5c-4.556-1.224-7.5-5.194-7.5-9.75V6.75l7.5-3.75 7.5 3.75V12z" />
+            </svg>
+            Essai gratuit — 50 commandes
+          </span>
+        </div>
+
+        {/* Tabs — volontairement discrète (petite, fond neutre, pas d'ombre)
+            pour ne PAS rivaliser avec le titre/CTA principal juste en dessous :
+            le rapport DesignMeter pointait une "compétition d'attention"
+            entre bascule connexion/inscription et l'action principale de la
+            page, faisant hésiter les visiteurs. */}
+        <div className="flex bg-gray-100 rounded-xl p-0.5 w-fit mb-7 gap-0.5">
           {['login', 'register'].map((t) => (
             <button key={t} onClick={() => switchTab(t)}
-              className={`px-5 py-2 text-sm font-semibold rounded-xl transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
+              className={`px-4 py-1.5 text-sm font-semibold rounded-lg transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
                 tab === t
                   ? 'bg-white text-violet-700 shadow-sm'
                   : 'text-gray-500 hover:text-gray-700'
@@ -310,8 +360,8 @@ export default function Auth() {
         {tab === 'login' && (
           <div className="flex flex-col gap-5 max-w-sm">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Bon retour !</h1>
-              <p className="text-sm text-gray-500 mt-1">Connectez-vous à votre espace vendeur.</p>
+              <h1 className="text-3xl font-bold text-gray-900">Bon retour !</h1>
+              <p className="text-sm text-gray-600 mt-1.5">Connectez-vous à votre espace vendeur.</p>
             </div>
 
             <GoogleButton onClick={() => googleLogin()} loading={gLoading}>
@@ -320,7 +370,7 @@ export default function Auth() {
 
             <div className="flex items-center gap-3">
               <div className="flex-1 h-px bg-gray-100" />
-              <span className="text-xs text-gray-400 font-medium">ou par email</span>
+              <span className="text-sm text-gray-600 font-medium">ou par email</span>
               <div className="flex-1 h-px bg-gray-100" />
             </div>
 
@@ -344,7 +394,7 @@ export default function Auth() {
                     }
                   </button>
                 </div>
-                <Link to="/forgot-password" className="text-xs text-violet-600 hover:underline self-end mt-0.5">
+                <Link to="/forgot-password" className="text-sm font-medium text-violet-600 hover:text-violet-700 hover:underline self-end mt-0.5">
                   Mot de passe oublié ?
                 </Link>
               </Field>
@@ -376,7 +426,7 @@ export default function Auth() {
               }
             </form>
 
-            <p className="text-sm text-gray-500 text-center">
+            <p className="text-sm text-gray-600 text-center">
               Pas encore de compte ?{' '}
               <button onClick={() => switchTab('register')} className="text-violet-600 font-semibold cursor-pointer hover:underline">
                 S'inscrire gratuitement
@@ -396,7 +446,7 @@ export default function Auth() {
               <>
                 <div>
                   <h1 className="text-2xl font-bold text-gray-900">Créez votre boutique</h1>
-                  <p className="text-sm text-gray-500 mt-1">Essai gratuit — 50 commandes incluses.</p>
+                  <p className="text-sm text-gray-600 mt-1">Essai gratuit — 50 commandes incluses.</p>
                 </div>
 
                 <GoogleButton onClick={() => googleRegister()} loading={gLoading}>
@@ -405,7 +455,7 @@ export default function Auth() {
 
                 <div className="flex items-center gap-3">
                   <div className="flex-1 h-px bg-gray-100" />
-                  <span className="text-xs text-gray-400 font-medium">ou par email</span>
+                  <span className="text-sm text-gray-600 font-medium">ou par email</span>
                   <div className="flex-1 h-px bg-gray-100" />
                 </div>
 
@@ -439,7 +489,7 @@ export default function Auth() {
                   </Field>
                   <Field label="URL de la boutique *" error={errors.store_slug}>
                     <div className="flex border border-gray-300 rounded-xl overflow-hidden focus-within:border-violet-500 focus-within:ring-2 focus-within:ring-violet-100 transition">
-                      <span className="px-3 py-2.5 bg-violet-50 text-violet-500 text-xs border-r border-gray-200 whitespace-nowrap flex items-center font-medium">
+                      <span className="px-3 py-2.5 bg-violet-50 text-violet-700 text-xs border-r border-gray-200 whitespace-nowrap flex items-center font-medium">
                         mzsolutions.app/
                       </span>
                       <input type="text" placeholder="ma-boutique"
@@ -462,6 +512,15 @@ export default function Auth() {
                         }
                       </button>
                     </div>
+                    {/* Aide visible en permanence (pas seulement dans le placeholder,
+                        qui disparaît dès qu'on tape) — évite qu'un mot de passe rejeté
+                        après soumission ressemble à un blocage inexpliqué. */}
+                    <p className={`text-xs mt-1 flex items-center gap-1 ${registerForm.password.length >= 8 ? 'text-emerald-600' : 'text-gray-500'}`}>
+                      {registerForm.password.length >= 8 && (
+                        <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                      )}
+                      Au moins 8 caractères
+                    </p>
                   </Field>
                   {errors.general && (
                     <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-4 py-3">{errors.general}</p>
@@ -476,7 +535,7 @@ export default function Auth() {
                   </button>
                 </form>
 
-                <p className="text-sm text-gray-500 text-center">
+                <p className="text-sm text-gray-600 text-center">
                   Déjà un compte ?{' '}
                   <button onClick={() => switchTab('login')} className="text-violet-600 font-semibold cursor-pointer hover:underline">
                     Se connecter

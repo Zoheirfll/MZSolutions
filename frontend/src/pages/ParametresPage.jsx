@@ -367,11 +367,14 @@ function SessionsTab() {
 
 export default function ParametresPage() {
   const [tab, setTab] = useState('account')
+  const { user } = useAuth()
+  const ownerOrAdmin = !user?.team_role || user.team_role === 'admin'
+  const visibleTabs = ownerOrAdmin ? TABS : TABS.filter(t => t.key !== 'general')
 
   return (
     <DashboardLayout title="Paramètres" subtitle="Informations de votre compte, réglages généraux de la boutique et historique de connexion.">
       <div className="flex items-center gap-1 mb-6 p-1 rounded-xl w-fit overflow-x-auto" style={{ background: theme.dark.card, border: `1px solid ${theme.dark.border}` }}>
-        {TABS.map(t => (
+        {visibleTabs.map(t => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}

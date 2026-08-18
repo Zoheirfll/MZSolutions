@@ -13,7 +13,7 @@ class DropshipperProductSelectionTests(TestCase):
     def setUp(self):
         self.owner, self.store = make_owner()
         self.drop_user, self.drop = make_team_member(self.store, 'dropshipper')
-        self.product = Product.objects.create(store=self.store, name='P', price=Decimal('1000'))
+        self.product = Product.objects.create(store=self.store, name='P', price=Decimal('1000'), drop_shipping=True)
 
     def test_dropshipper_can_select_own_product(self):
         client = auth_client(self.drop_user)
@@ -45,7 +45,7 @@ class CommissionConfigTests(TestCase):
     def setUp(self):
         self.owner, self.store = make_owner()
         self.drop_user, self.drop = make_team_member(self.store, 'dropshipper')
-        self.product = Product.objects.create(store=self.store, name='P', price=Decimal('1000'))
+        self.product = Product.objects.create(store=self.store, name='P', price=Decimal('1000'), drop_shipping=True)
 
     def test_owner_configures_commission_upsert(self):
         client = auth_client(self.owner)
@@ -87,7 +87,7 @@ class CommissionCalculationOnDeliveryTests(TestCase):
     def setUp(self):
         self.owner, self.store = make_owner()
         self.drop_user, self.drop = make_team_member(self.store, 'dropshipper')
-        self.product = Product.objects.create(store=self.store, name='P', price=Decimal('1000'))
+        self.product = Product.objects.create(store=self.store, name='P', price=Decimal('1000'), drop_shipping=True)
         Commission.objects.create(store=self.store, dropshipper=self.drop, product=self.product,
                                    commission_type='percentage', value=Decimal('10'))
         self.order = Order.objects.create(store=self.store, first_name='C', phone='0600', wilaya='Alger', dropshipper=self.drop)

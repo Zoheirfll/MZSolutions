@@ -39,6 +39,17 @@ def _apply_dashboard_filters(qs, request):
         qs = qs.filter(items__product__categories__name__icontains=category).distinct()
 
     confirmateur = request.query_params.get('confirmateur')
+    # Un confirmateur sans stats_view voit le même tableau de bord que le
+    # vendeur (mêmes composants), mais TOUJOURS filtré sur lui-même — la
+    # valeur qu'il enverrait dans la query string est ignorée, jamais fait
+    # confiance (sinon il pourrait consulter les stats d'un collègue en
+    # changeant juste ?confirmateur=<id>).
+    try:
+        self_membership = request.user.team_membership
+    except Exception:
+        self_membership = None
+    if self_membership and self_membership.role == 'confirmateur' and not (is_owner_or_admin(request) or has_permission(request, 'dashboard_view')):
+        confirmateur = self_membership.id
     if confirmateur:
         qs = qs.filter(assignment__confirmateur_id=confirmateur)
 
@@ -90,12 +101,43 @@ def _pct_delta(current, prev):
 
 
 class StatsPermissionMixin:
+    """`permission_key` — chaque sous-classe déclare la permission (2026-08,
+    catalogue granulaire une-permission-par-page) qui gate SA page précise ;
+    ne jamais retomber sur une clé générique 'stats_view' (n'existe plus)."""
     permission_classes = [IsAuthenticated]
+    permission_key = None
 
     def check_access(self, request):
-        if not (is_owner_or_admin(request) or has_permission(request, 'stats_view')):
+        assert self.permission_key, f"{type(self).__name__} doit déclarer permission_key"
+        if not (is_owner_or_admin(request) or has_permission(request, self.permission_key)):
             return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
         return None
+
+    def get_store_or_error(self, request):
+        store = _get_store(request)
+        if not store:
+            return None, Response({'detail': 'Accès refusé.'}, status=403)
+        return store, None
+
+
+def _confirmateur_self_or_stats_access(request, permission_key='dashboard_view'):
+    """Comme StatsPermissionMixin.check_access, mais ouvre aussi l'accès à un
+    confirmateur — réservé aux SEULES vues qui appellent réellement
+    `_apply_dashboard_filters()` sur toute requête sous-jacente (sinon un
+    confirmateur verrait les données de toute la boutique, pas seulement les
+    siennes). Ne PAS remonter cette exception dans StatsPermissionMixin lui-même
+    : plusieurs vues qui en héritent (OrdersStatsDetailView, ReturnsStats...)
+    n'ont aucune logique de scoping par confirmateur et fuiraient sinon les
+    données de toute la boutique."""
+    if is_owner_or_admin(request) or has_permission(request, permission_key):
+        return None
+    try:
+        membership = request.user.team_membership
+    except Exception:
+        membership = None
+    if membership and membership.role == 'confirmateur':
+        return None
+    return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
 
     def get_store_or_error(self, request):
         store = _get_store(request)
@@ -111,6 +153,7 @@ def _daterange(date_from, date_to):
 
 class OrdersStatsDetailView(StatsPermissionMixin, APIView):
     """Statistiques commandes : évolution quotidienne + répartition par statut."""
+    permission_key = 'stats_orders_view'
 
     def get(self, request):
         if (err := self.check_access(request)): return err
@@ -145,6 +188,7 @@ class OrdersStatsDetailView(StatsPermissionMixin, APIView):
 
 class ReturnsStatsView(StatsPermissionMixin, APIView):
     """Statistiques retours : évolution + taux de retour sur la période."""
+    permission_key = 'stats_returns_view'
 
     def get(self, request):
         if (err := self.check_access(request)): return err
@@ -185,6 +229,7 @@ class ReturnsStatsView(StatsPermissionMixin, APIView):
 
 class FailureStatsView(StatsPermissionMixin, APIView):
     """Statistiques des échecs d'appel, ventilées par raison (FailureReason)."""
+    permission_key = 'stats_failures_view'
 
     def get(self, request):
         if (err := self.check_access(request)): return err
@@ -227,6 +272,7 @@ class FailureStatsView(StatsPermissionMixin, APIView):
 
 class StockSalesStatsView(StatsPermissionMixin, APIView):
     """Statistiques de vente de stock : unités vendues par produit sur la période."""
+    permission_key = 'stats_stock_sales_view'
 
     def get(self, request):
         if (err := self.check_access(request)): return err
@@ -286,6 +332,7 @@ class ProductsStatsView(StatsPermissionMixin, APIView):
     directement traduisible en `.annotate()`. La pagination ci-dessous borne
     la taille de la réponse ; `prefetch_related` évite le N+1 SQL (une seule
     requête par relation, pas une par commande)."""
+    permission_key = 'stats_products_view'
 
     def get(self, request):
         if (err := self.check_access(request)): return err
@@ -356,6 +403,7 @@ class ProductsStatsView(StatsPermissionMixin, APIView):
 
 class WilayaStatsView(StatsPermissionMixin, APIView):
     """Statistiques par wilaya : commandes, confirmées, revenu sur la période."""
+    permission_key = 'stats_wilayas_view'
 
     def get(self, request):
         if (err := self.check_access(request)): return err
@@ -413,6 +461,7 @@ class WilayaStatsView(StatsPermissionMixin, APIView):
 
 class SourceStatsView(StatsPermissionMixin, APIView):
     """Statistiques par source (canal de vente) : commandes, confirmées, revenu."""
+    permission_key = 'stats_sources_view'
 
     def get(self, request):
         if (err := self.check_access(request)): return err
@@ -466,6 +515,7 @@ class SourceStatsView(StatsPermissionMixin, APIView):
 
 class GlobalStatsView(StatsPermissionMixin, APIView):
     """Vue d'ensemble : KPIs clés sur la période (résumé de toutes les autres vues)."""
+    permission_key = 'stats_global_view'
 
     def _summary(self, store, date_from, date_to):
         qs = store.orders.filter(created_at__date__gte=date_from, created_at__date__lte=date_to)
@@ -586,7 +636,15 @@ class DashboardDeliveriesView(StatsPermissionMixin, APIView):
     concurrent RiseCart) : entonnoir commandes → réelles → confirmées →
     expédiées, cartes secondaires, évolution quotidienne à 6 séries,
     répartition par wilaya/source/statut. "Réelles" = total − (duplicate +
-    fake), décision produit validée le 2026-08-12."""
+    fake), décision produit validée le 2026-08-12.
+
+    Ouverte aussi au rôle confirmateur (tableau de bord confirmateur, 2026-08)
+    — sûr ici précisément parce que TOUTE requête ci-dessous passe par
+    `_apply_dashboard_filters()`, qui le restreint alors à ses propres
+    commandes assignées."""
+
+    def check_access(self, request):
+        return _confirmateur_self_or_stats_access(request)
 
     def _funnel_counts(self, qs):
         total = qs.count()
@@ -715,7 +773,19 @@ class DashboardRevenueView(StatsPermissionMixin, APIView):
     finance.Cost (décision produit validée le 2026-08-12 — pas de calcul
     automatique tant que leur définition métier exacte n'est pas fixée).
     Dettes de produits = crédits fournisseurs impayés (SupplierCredit −
-    SupplierPayment), donnée déjà en base depuis l'Epic 3.5."""
+    SupplierPayment), donnée déjà en base depuis l'Epic 3.5.
+
+    ⚠️ Contrairement aux 2 autres onglets du tableau de bord confirmateur
+    (Livraisons/KPI), CETTE vue n'est PAS ouverte au rôle confirmateur : le
+    profit net, les coûts publicitaires et les dettes fournisseurs sont des
+    données financières de toute la boutique, sans notion de "mes revenus à
+    moi" possible pour un confirmateur (rien à filtrer par assignation). D'où
+    un check_access strict, qui n'hérite volontairement pas de l'exception
+    confirmateur du mixin. Clé `stats_global_view` réutilisée (pas de clé
+    dédiée) : reste désactivée par défaut pour confirmateur/dropshipper
+    (contrairement à `dashboard_view`), tout en restant configurable via la
+    matrice si le vendeur veut explicitement l'ouvrir."""
+    permission_key = 'stats_global_view'
 
     def get(self, request):
         if (err := self.check_access(request)): return err
@@ -770,7 +840,13 @@ class DashboardKpiView(StatsPermissionMixin, APIView):
     Retour). "Payé" = livrée (COD encaissé à la remise) OU payée en ligne via
     Chargily et confirmée (une commande Chargily n'est confirmée qu'après le
     webhook checkout.paid — voir ChargilyWebhookView) — pas de champ "payé"
-    explicite en base, c'est le proxy le plus fiable disponible."""
+    explicite en base, c'est le proxy le plus fiable disponible.
+
+    Ouverte aussi au rôle confirmateur — voir DashboardDeliveriesView, même
+    garde-fou (`_apply_dashboard_filters()` sur toute la requête)."""
+
+    def check_access(self, request):
+        return _confirmateur_self_or_stats_access(request)
 
     def get(self, request):
         if (err := self.check_access(request)): return err

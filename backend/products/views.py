@@ -14,9 +14,10 @@ from .serializers import (
     SupplierSerializer, SupplierCreditSerializer, SupplierPaymentSerializer,
     ProductReviewSerializer, PromotionSerializer, StockMovementSerializer,
 )
-from core.permissions import get_store as _get_store, IsOwnerOrAdminForWrites
+from core.permissions import get_store as _get_store, IsOwnerOrAdminForWrites, is_owner_or_admin, has_permission
 from core.pagination import parse_pagination
 from .stock import record_stock_movement, log_stock_change_if_needed
+from audit.utils import log_audit
 
 
 # ─── Categories ───────────────────────────────────────────────────────────────
@@ -28,6 +29,11 @@ class CategoryListCreateView(APIView):
         store = _get_store(request)
         if not store:
             return Response({'detail': 'Aucune boutique.'}, status=403)
+        # categories_view seul (page dédiée) — orders_create_view inclus aussi :
+        # un confirmateur qui crée des commandes doit pouvoir chercher une
+        # catégorie sans qu'on lui accorde categories_view en plus.
+        if not (is_owner_or_admin(request) or has_permission(request, 'categories_view') or has_permission(request, 'orders_create_view')):
+            return Response({'detail': 'Accès refusé.'}, status=403)
         qs = store.categories.all()
         parent = request.query_params.get('parent')
         if parent == 'null':
@@ -64,7 +70,8 @@ class CategoryListCreateView(APIView):
             return Response({'detail': 'Aucune boutique.'}, status=403)
         s = CategorySerializer(data=request.data, context={'request': request})
         s.is_valid(raise_exception=True)
-        s.save(store=store)
+        cat = s.save(store=store)
+        log_audit(request, 'category.created', target=cat, description=f"Catégorie créée : {cat.name}")
         return Response(s.data, status=status.HTTP_201_CREATED)
 
 
@@ -91,6 +98,7 @@ class CategoryDetailView(APIView):
         s = CategorySerializer(cat, data=request.data, partial=True, context={'request': request})
         s.is_valid(raise_exception=True)
         s.save()
+        log_audit(request, 'category.updated', target=cat, description=f"Catégorie modifiée : {cat.name}")
         return Response(s.data)
 
     def delete(self, request, pk):
@@ -98,10 +106,12 @@ class CategoryDetailView(APIView):
         if err: return err
         # Soft delete (Corbeille) — hard delete si déjà en corbeille
         if cat.is_deleted:
+            log_audit(request, 'category.deleted', target=cat, description=f"Catégorie supprimée définitivement : {cat.name}")
             cat.delete()
         else:
             cat.is_deleted = True
             cat.save(update_fields=['is_deleted'])
+            log_audit(request, 'category.trashed', target=cat, description=f"Catégorie envoyée à la corbeille : {cat.name}")
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -118,6 +128,7 @@ class CategoryRestoreView(APIView):
             return Response({'detail': 'Catégorie introuvable.'}, status=404)
         cat.is_deleted = False
         cat.save(update_fields=['is_deleted'])
+        log_audit(request, 'category.restored', target=cat, description=f"Catégorie restaurée : {cat.name}")
         return Response(CategorySerializer(cat, context={'request': request}).data)
 
 
@@ -130,6 +141,8 @@ class ProductListCreateView(APIView):
         store = _get_store(request)
         if not store:
             return Response({'detail': 'Aucune boutique.'}, status=403)
+        if not (is_owner_or_admin(request) or has_permission(request, 'products_view') or has_permission(request, 'orders_create_view')):
+            return Response({'detail': 'Accès refusé.'}, status=403)
 
         qs = store.products.select_related('supplier').prefetch_related('categories', 'images', 'variants__options').all()
 
@@ -158,7 +171,8 @@ class ProductListCreateView(APIView):
             return Response({'detail': 'Aucune boutique.'}, status=403)
         s = ProductSerializer(data=request.data, context={'request': request, 'store': store})
         s.is_valid(raise_exception=True)
-        s.save(store=store)
+        product = s.save(store=store)
+        log_audit(request, 'product.created', target=product, description=f"Produit créé : {product.name}")
         return Response(s.data, status=status.HTTP_201_CREATED)
 
 
@@ -175,6 +189,8 @@ class ProductDetailView(APIView):
             return None, Response({'detail': 'Produit introuvable.'}, status=404)
 
     def get(self, request, pk):
+        if not (is_owner_or_admin(request) or has_permission(request, 'products_view') or has_permission(request, 'orders_create_view')):
+            return Response({'detail': 'Accès refusé.'}, status=403)
         p, err = self._get(request, pk)
         if err: return err
         return Response(ProductSerializer(p, context={'request': request}).data)
@@ -190,11 +206,13 @@ class ProductDetailView(APIView):
         s.save()
         log_stock_change_if_needed(store, p, None, stock_before, p.stock, note='Modification fiche produit',
                                     batch_id=request.headers.get('X-Stock-Batch-Id') or None)
+        log_audit(request, 'product.updated', target=p, description=f"Produit modifié : {p.name}", metadata={'changed_fields': list(request.data.keys())})
         return Response(s.data)
 
     def delete(self, request, pk):
         p, err = self._get(request, pk)
         if err: return err
+        log_audit(request, 'product.deleted', target=p, description=f"Produit supprimé : {p.name}")
         p.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -449,6 +467,8 @@ class LowStockView(APIView):
     permission_classes = [IsAuthenticated, IsOwnerOrAdminForWrites]
 
     def get(self, request):
+        if not (is_owner_or_admin(request) or has_permission(request, 'stock_view')):
+            return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
         store = _get_store(request)
         if not store:
             return Response({'detail': 'Accès refusé.'}, status=403)
@@ -511,6 +531,8 @@ class InventoryListView(APIView):
     permission_classes = [IsAuthenticated, IsOwnerOrAdminForWrites]
 
     def get(self, request):
+        if not (is_owner_or_admin(request) or has_permission(request, 'stock_view')):
+            return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
         store = _get_store(request)
         if not store:
             return Response({'detail': 'Accès refusé.'}, status=403)
@@ -613,6 +635,11 @@ class StockAdjustmentView(APIView):
             store, product, option, quantity,
             reason='manual_adjustment', note=request.data.get('note', ''),
         )
+        log_audit(
+            request, 'stock.manual_adjustment', target=product,
+            description=f"Ajustement manuel de stock — {product.name}{' (' + option.value + ')' if option else ''} : {'+' if quantity > 0 else ''}{quantity}",
+            metadata={'quantity': quantity, 'note': request.data.get('note', '')},
+        )
         return Response(StockMovementSerializer(movement).data, status=201)
 
 
@@ -626,6 +653,10 @@ class StockMovementListView(APIView):
     permission_classes = [IsAuthenticated, IsOwnerOrAdminForWrites]
 
     def get(self, request):
+        # Endpoint partagé par 2 pages (Mouvement des stocks / Retour au
+        # vendeur, cette dernière pré-filtre juste reason= côté frontend).
+        if not (is_owner_or_admin(request) or has_permission(request, 'stock_movements_view') or has_permission(request, 'stock_return_view')):
+            return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
         store = _get_store(request)
         if not store:
             return Response({'detail': 'Accès refusé.'}, status=403)
@@ -708,6 +739,8 @@ class SupplierListCreateView(APIView):
         store = _get_store(request)
         if not store:
             return Response({'detail': 'Aucune boutique.'}, status=403)
+        if not (is_owner_or_admin(request) or has_permission(request, 'suppliers_view')):
+            return Response({'detail': 'Accès refusé.'}, status=403)
         qs = store.suppliers.all().order_by('-created_at')
         return Response(SupplierSerializer(qs, many=True).data)
 
@@ -717,7 +750,8 @@ class SupplierListCreateView(APIView):
             return Response({'detail': 'Aucune boutique.'}, status=403)
         s = SupplierSerializer(data=request.data)
         s.is_valid(raise_exception=True)
-        s.save(store=store)
+        sup = s.save(store=store)
+        log_audit(request, 'supplier.created', target=sup, description=f"Fournisseur créé : {sup.first_name} {sup.last_name}")
         return Response(s.data, status=status.HTTP_201_CREATED)
 
 
@@ -744,11 +778,13 @@ class SupplierDetailView(APIView):
         s = SupplierSerializer(sup, data=request.data, partial=True)
         s.is_valid(raise_exception=True)
         s.save()
+        log_audit(request, 'supplier.updated', target=sup, description=f"Fournisseur modifié : {sup.first_name} {sup.last_name}")
         return Response(s.data)
 
     def delete(self, request, pk):
         sup, err = self._get(request, pk)
         if err: return err
+        log_audit(request, 'supplier.deleted', target=sup, description=f"Fournisseur supprimé : {sup.first_name} {sup.last_name}")
         sup.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -762,6 +798,10 @@ class PromotionListCreateView(APIView):
         store = _get_store(request)
         if not store:
             return Response({'detail': 'Aucune boutique.'}, status=403)
+        # Endpoint partagé par 2 pages (Coupons kind=code / Réductions auto
+        # kind=auto, filtré côté requête).
+        if not (is_owner_or_admin(request) or has_permission(request, 'coupons_view') or has_permission(request, 'auto_promotions_view')):
+            return Response({'detail': 'Accès refusé.'}, status=403)
         qs = store.promotions.all().order_by('-created_at')
         kind = request.query_params.get('kind')
         if kind in ('code', 'auto'):
@@ -774,7 +814,8 @@ class PromotionListCreateView(APIView):
             return Response({'detail': 'Aucune boutique.'}, status=403)
         s = PromotionSerializer(data=request.data, context={'store': store})
         s.is_valid(raise_exception=True)
-        s.save(store=store)
+        promo = s.save(store=store)
+        log_audit(request, 'promotion.created', target=promo, description=f"Promotion créée : {promo.name} ({promo.kind})")
         return Response(s.data, status=status.HTTP_201_CREATED)
 
 
@@ -832,11 +873,13 @@ class PromotionDetailView(APIView):
         s = PromotionSerializer(promo, data=request.data, partial=True, context={'store': promo.store})
         s.is_valid(raise_exception=True)
         s.save()
+        log_audit(request, 'promotion.updated', target=promo, description=f"Promotion modifiée : {promo.name}")
         return Response(s.data)
 
     def delete(self, request, pk):
         promo, err = self._get(request, pk)
         if err: return err
+        log_audit(request, 'promotion.deleted', target=promo, description=f"Promotion supprimée : {promo.name}")
         promo.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -856,6 +899,8 @@ class SupplierCreditView(APIView):
             return None, Response({'detail': 'Fournisseur introuvable.'}, status=404)
 
     def get(self, request, pk):
+        if not (is_owner_or_admin(request) or has_permission(request, 'supplier_credits_view')):
+            return Response({'detail': 'Accès refusé.'}, status=403)
         sup, err = self._supplier(request, pk)
         if err: return err
         qs = sup.credits.all().order_by('-date', '-created_at')
@@ -866,7 +911,8 @@ class SupplierCreditView(APIView):
         if err: return err
         s = SupplierCreditSerializer(data=request.data)
         s.is_valid(raise_exception=True)
-        s.save(supplier=sup)
+        credit = s.save(supplier=sup)
+        log_audit(request, 'supplier_credit.created', target=credit, description=f"Crédit fournisseur ajouté — {sup.first_name} {sup.last_name} : {credit.amount}")
         return Response(s.data, status=status.HTTP_201_CREATED)
 
 
@@ -881,6 +927,7 @@ class SupplierCreditDetailView(APIView):
             credit = SupplierCredit.objects.get(pk=cid, supplier_id=pk, supplier__store=store)
         except SupplierCredit.DoesNotExist:
             return Response({'detail': 'Crédit introuvable.'}, status=404)
+        log_audit(request, 'supplier_credit.deleted', target=credit, description=f"Crédit fournisseur supprimé : {credit.amount}")
         credit.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -898,6 +945,8 @@ class SupplierPaymentView(APIView):
             return None, Response({'detail': 'Fournisseur introuvable.'}, status=404)
 
     def get(self, request, pk):
+        if not (is_owner_or_admin(request) or has_permission(request, 'supplier_payments_view')):
+            return Response({'detail': 'Accès refusé.'}, status=403)
         sup, err = self._supplier(request, pk)
         if err: return err
         qs = sup.payments.all().order_by('-date', '-created_at')
@@ -908,7 +957,8 @@ class SupplierPaymentView(APIView):
         if err: return err
         s = SupplierPaymentSerializer(data=request.data)
         s.is_valid(raise_exception=True)
-        s.save(supplier=sup)
+        payment = s.save(supplier=sup)
+        log_audit(request, 'supplier_payment.created', target=payment, description=f"Versement fournisseur ajouté — {sup.first_name} {sup.last_name} : {payment.amount}")
         return Response(s.data, status=status.HTTP_201_CREATED)
 
 
@@ -923,6 +973,7 @@ class SupplierPaymentDetailView(APIView):
             payment = SupplierPayment.objects.get(pk=pid, supplier_id=pk, supplier__store=store)
         except SupplierPayment.DoesNotExist:
             return Response({'detail': 'Versement introuvable.'}, status=404)
+        log_audit(request, 'supplier_payment.deleted', target=payment, description=f"Versement fournisseur supprimé : {payment.amount}")
         payment.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -933,6 +984,8 @@ class SupplierBalanceView(APIView):
     def get(self, request, pk):
         store = _get_store(request)
         if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        if not (is_owner_or_admin(request) or has_permission(request, 'supplier_credits_view') or has_permission(request, 'supplier_payments_view')):
             return Response({'detail': 'Accès refusé.'}, status=403)
         try:
             sup = store.suppliers.get(pk=pk)
@@ -958,6 +1011,8 @@ class AllCreditsView(APIView):
         store = _get_store(request)
         if not store:
             return Response({'detail': 'Accès refusé.'}, status=403)
+        if not (is_owner_or_admin(request) or has_permission(request, 'supplier_credits_view')):
+            return Response({'detail': 'Accès refusé.'}, status=403)
         qs = SupplierCredit.objects.filter(supplier__store=store).select_related('supplier').order_by('-date', '-created_at')
         supplier_id = request.query_params.get('supplier')
         if supplier_id:
@@ -974,7 +1029,8 @@ class AllCreditsView(APIView):
             return Response({'detail': 'Fournisseur invalide.'}, status=400)
         s = SupplierCreditSerializer(data=request.data)
         s.is_valid(raise_exception=True)
-        s.save()
+        credit = s.save()
+        log_audit(request, 'supplier_credit.created', target=credit, description=f"Crédit fournisseur ajouté : {credit.amount}")
         return Response(s.data, status=status.HTTP_201_CREATED)
 
 
@@ -984,6 +1040,8 @@ class AllPaymentsView(APIView):
     def get(self, request):
         store = _get_store(request)
         if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        if not (is_owner_or_admin(request) or has_permission(request, 'supplier_payments_view')):
             return Response({'detail': 'Accès refusé.'}, status=403)
         qs = SupplierPayment.objects.filter(supplier__store=store).select_related('supplier').order_by('-date', '-created_at')
         supplier_id = request.query_params.get('supplier')
@@ -1000,7 +1058,8 @@ class AllPaymentsView(APIView):
             return Response({'detail': 'Fournisseur invalide.'}, status=400)
         s = SupplierPaymentSerializer(data=request.data)
         s.is_valid(raise_exception=True)
-        s.save()
+        payment = s.save()
+        log_audit(request, 'supplier_payment.created', target=payment, description=f"Versement fournisseur ajouté : {payment.amount}")
         return Response(s.data, status=status.HTTP_201_CREATED)
 
 
@@ -1013,6 +1072,8 @@ class ProductReviewListView(APIView):
         store = _get_store(request)
         if not store:
             return Response({'detail': 'Aucune boutique.'}, status=403)
+        if not (is_owner_or_admin(request) or has_permission(request, 'reviews_view')):
+            return Response({'detail': 'Accès refusé.'}, status=403)
         qs = ProductReview.objects.filter(product__store=store).select_related('product').order_by('-created_at')
         approved = request.query_params.get('approved')
         if approved == '1':
@@ -1062,11 +1123,14 @@ class ProductReviewDetailView(APIView):
         s = ProductReviewSerializer(review, data=request.data, partial=True)
         s.is_valid(raise_exception=True)
         s.save()
+        if 'is_approved' in request.data:
+            log_audit(request, 'review.moderated', target=review, description=f"Avis {'approuvé' if review.is_approved else 'rejeté'} — {review.product.name}", metadata={'is_approved': review.is_approved})
         return Response(s.data)
 
     def delete(self, request, pk):
         review, err = self._get(request, pk)
         if err: return err
+        log_audit(request, 'review.deleted', target=review, description=f"Avis supprimé — {review.product.name}")
         review.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 

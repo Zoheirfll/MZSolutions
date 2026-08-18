@@ -1,7 +1,7 @@
 from django.urls import path
 from .views import (
     OrderListCreateView, OrderDetailView,
-    OrderStatusView, OrderRejectCancellationView, OrderStatsView, ConfirmationRateView,
+    OrderStatusView, OrderRejectCancellationView, OrderStatsView, ConfirmationRateView, ConfirmateurMyStatsView,
     OrderAssignmentView,
     CallAttemptListView, CallAttemptDetailView,
     FailureReasonListView, FailureReasonDetailView, FailureReasonAttemptsView, FailureHistoryListView,
@@ -49,6 +49,7 @@ urlpatterns = [
     path('',                                      OrderListCreateView.as_view()),
     path('stats/',                                OrderStatsView.as_view()),
     path('stats/confirmation/',                   ConfirmationRateView.as_view()),
+    path('stats/my-summary/',                     ConfirmateurMyStatsView.as_view()),
     path('stats/orders/',                         OrdersStatsDetailView.as_view()),
     path('stats/returns/',                        ReturnsStatsView.as_view()),
     path('stats/failures/',                       FailureStatsView.as_view()),

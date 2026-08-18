@@ -7,14 +7,10 @@ def assign_conversation_round_robin(conversation):
     ComplaintAssignment séparée depuis la fusion 2026-08) — un confirmateur
     très sollicité sur les commandes ne doit pas être systématiquement écarté
     de la boîte de réception."""
-    from team.models import TeamMember
+    from team.models import online_confirmateurs_queryset
     from .models import Conversation
 
-    confirmateurs = list(
-        TeamMember.objects.filter(
-            store=conversation.store, role='confirmateur', is_active=True, user__isnull=False,
-        ).order_by('id')
-    )
+    confirmateurs = list(online_confirmateurs_queryset(conversation.store).order_by('id'))
     if not confirmateurs:
         return None
 

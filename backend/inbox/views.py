@@ -13,6 +13,7 @@ from core.validators import validate_uploaded_file
 from .models import Conversation, Message, CONVERSATION_STATUS_CHOICES
 from .serializers import ConversationSerializer, ConversationDetailSerializer, MessageSerializer
 from .assignment import assign_conversation_round_robin
+from audit.utils import log_audit
 
 
 def _get_store(request):
@@ -133,6 +134,7 @@ class ConversationAssignmentView(APIView):
         conv.assigned_at = timezone.now()
         conv.assigned_by = request.user
         conv.save(update_fields=['assigned_to', 'assigned_at', 'assigned_by'])
+        log_audit(request, 'conversation.assigned', target=conv, description=f"Conversation réassignée à {confirmateur.first_name} {confirmateur.last_name}")
         return Response(ConversationSerializer(conv, context={'request': request}).data)
 
 
@@ -165,6 +167,12 @@ class ConversationStatusView(APIView):
         )
         conv.last_message_at = timezone.now()
         conv.save(update_fields=['last_message_at'])
+        note = request.data.get('note', '')
+        log_audit(
+            request, 'conversation.status_changed', target=conv,
+            description=f"Statut conversation changé à « {new_status} »" + (f" — note : {note}" if note else ""),
+            metadata={'status': new_status, 'note': note},
+        )
         return Response(ConversationDetailSerializer(conv, context={'request': request}).data)
 
 
@@ -191,6 +199,7 @@ class ConversationMessageCreateView(APIView):
         Message.objects.create(conversation=conv, direction='outbound', body=body, author=request.user, attachment=attachment)
         conv.last_message_at = timezone.now()
         conv.save(update_fields=['last_message_at'])
+        log_audit(request, 'conversation.message_sent', target=conv, description=f"Message envoyé — {body[:120]}" if body else "Message envoyé (pièce jointe)")
         return Response(ConversationDetailSerializer(conv, context={'request': request}).data, status=status.HTTP_201_CREATED)
 
 

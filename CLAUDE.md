@@ -73,6 +73,7 @@ channels/        — ChannelConnection, ChannelSyncLog, clients Shopify/Google S
 channels/clients/ — architecture client de canal (base.py BaseChannelClient/MockChannelClient, shopify.py, google_sheets.py, get_channel_client()) — même principe que orders/carriers/
 webhooks/        — WebhookEndpoint, WebhookLog, IncomingWebhookKey, dispatch.py (fire_event, réel — pas mocké) (voir Epic 8.4)
 core/            — app Django générique (utilitaires partagés) : permissions.py (is_owner_or_admin, IsOwnerOrAdminForWrites)
+audit/           — journal d'audit transversal (2026-08) : AuditLog, log_audit() — voir section dédiée
 ```
 
 ### Paiement en ligne — Chargily Pay
@@ -354,7 +355,17 @@ role: admin | confirmateur | dropshipper
 first_name, last_name, email, phone
 invite_token (auto-généré), is_active, invited_at, activated_at
 wilaya, commune, address (extras dropshipper)
+is_online (toggle manuel), last_seen_at (heartbeat) — présence en ligne (2026-08), voir section dédiée
 ```
+
+**Présence en ligne des confirmateurs (2026-08)** — US : "un confirmateur ne doit recevoir une commande que s'il est réellement en ligne, pas juste actif". `is_online` (toggle manuel "Disponible"/"Indisponible") + `last_seen_at` (heartbeat) combinés — décision produit : les deux signaux ensemble, pas l'un ou l'autre seul (toggle seul resterait bloqué "Disponible" si l'onglet est fermé sans y penser ; heartbeat seul ne permet pas de se déclarer explicitement indisponible en pause).
+
+- `TeamMember.is_currently_online` (property) = `is_online=True` **et** `last_seen_at` dans les `ONLINE_HEARTBEAT_TIMEOUT` dernières minutes (3 min, `team/models.py`). `team.models.online_confirmateurs_queryset(store)` — source unique du filtre (actif + en ligne), utilisée par les **3** round-robin automatiques existants : `orders.utils.assign_order_round_robin` (commandes), `orders.utils.assign_complaint_round_robin` (réclamations), `inbox.assignment.assign_conversation_round_robin` (boîte de réception).
+- **Portée volontairement limitée à l'assignation automatique** — la réassignation manuelle par le vendeur (`OrderAssignmentView`, `ComplaintAssignmentView`, `ConversationAssignmentView`) reste inchangée : le vendeur peut toujours choisir n'importe quel confirmateur actif, en ligne ou non.
+- **Fallback si personne n'est en ligne** (décision produit) : la commande/réclamation/conversation reste **non assignée**, en attente — pas de repli automatique sur le round-robin classique. Comportement identique au cas déjà existant "aucun confirmateur actif".
+- `POST /api/team/online-status/` (auto-service, `IsAuthenticated` seul — chacun ne contrôle que son propre statut) : `{online: bool}` optionnel pour basculer explicitement, mais met **toujours** à jour `last_seen_at` (heartbeat). 400 si appelé par l'owner (pas de `team_membership`).
+- Frontend : toggle "Disponible"/"Indisponible" dans la topbar (`DashboardLayout.jsx`), visible uniquement `teamRole === 'confirmateur'` — heartbeat envoyé toutes les 60s tant que le toggle est actif (`setInterval`, s'arrête si l'onglet est fermé). `TeamPage.jsx` affiche un badge "En ligne"/"Hors ligne" à côté du badge "Actif" pour les confirmateurs (lecture seule côté owner/admin, snapshot au chargement de la page — pas de sondage dédié).
+- Testé via `manage.py test team orders.tests inbox` (119 tests) : toggle self-service, heartbeat sans `online` ne touche que `last_seen_at`, `is_currently_online` faux après expiration du heartbeat même avec `is_online=True`, round-robin ignore un confirmateur hors ligne (commande/réclamation/conversation non assignée) — `core/test_utils.py::make_team_member` met les confirmateurs de test en ligne par défaut pour ne pas casser les tests d'auto-assignation existants qui ne portent pas sur ce comportement.
 
 ### `team.RolePermission` (Epic 7.5)
 
@@ -365,10 +376,11 @@ permission (clé du catalogue fixe), enabled
 
 Système de permissions **par rôle** (pas par membre individuel — décision produit, plus simple à gérer et suffisant pour "chaque rôle a son layout"). Seuls les **overrides explicites** sont stockés (`unique_together (store, role, permission)`) — l'absence de ligne retombe sur `team.models.DEFAULT_PERMISSIONS[role]`, qui reflète le comportement codé en dur avant cette epic (confirmateur très restreint, dropshipper voit produits/clients/stock mais pas team/finances/dropshipping). Catalogue fixe dans `team.models.PERMISSION_CATALOG` (`orders_view`, `orders_manage`, `complaints_view`, `exchanges_view`, `products_view`, `purchase_prices_view`, `clients_view`, `stock_view`, `store_view`, `shipping_settings_view`, `dropshipping_view`, `finances_view`, `team_view`, `stats_view`, `channels_view`, `marketing_view`, `webhooks_view` — les quatre derniers ajoutés au fil des Epics 8.1 à 8.4, toujours masqués par défaut pour confirmateur/dropshipper). ⚠️ Piège rencontré deux fois (Epics 8.1 et 8.4) : ajouter une nouvelle section owner/admin à la sidebar sans l'intégrer à la matrice de permissions dès le départ (codée en dur `!teamRole || teamRole === 'admin'` à la place) — toujours passer par `can('xxx_view')` côté frontend et `has_permission(request, 'xxx_view')` côté backend pour toute nouvelle section, jamais un check de rôle direct.
 
-**Portée volontairement limitée à la lecture** : ce système ne gate que la _visibilité_ (sidebar) et 2 endpoints réels côté serveur — jamais les actions d'écriture (créer/modifier/supprimer restent `is_owner_or_admin` partout, inchangé). Deux enforcements serveur concrets :
+**Portée volontairement limitée à la lecture** : ce système ne gate que la _visibilité_ (sidebar + routes frontend) et les endpoints de lecture côté serveur — jamais les actions d'écriture (créer/modifier/supprimer restent `is_owner_or_admin` partout, inchangé). Tous les endpoints GET consommés par une page gatée par une permission `_view` doivent appliquer `is_owner_or_admin(request) OR has_permission(request, key)` — jamais `is_owner_or_admin` strict (le toggle accordé n'aurait alors aucun effet, bug réel trouvé et corrigé en 2026-08 sur `team_view`/`clients_view`/`stock_view`/`store_view`/une partie de `shipping_settings_view`), et jamais `IsOwnerOrAdminForWrites` seul sans check explicite (le toggle ne protégerait alors rien, la lecture resterait ouverte à tout membre — cas de `products_view`, corrigé avec une clause `OR has_permission(request, 'orders_manage')` en plus, pour ne pas casser la recherche produit du formulaire de commande manuelle).
 
-- `purchase_prices_view` : `cost_price` retiré de `ProductSerializer`/`VariantOptionSerializer` (`to_representation`) si absent — donnée jamais gatée avant cette epic
+- `purchase_prices_view` : `cost_price` retiré de `ProductSerializer`/`VariantOptionSerializer` (`to_representation`) si absent — donnée jamais gatée avant cette epic. Étendu en 2026-08 aux crédits/versements fournisseurs (`AllCreditsView`/`AllPaymentsView`/`SupplierBalanceView`/`SupplierCreditView`/`SupplierPaymentView`)
 - `dropshipping_view` / `finances_view` : `DropshipperListView.get`/`DropshipperDetailView.get` et `CostListCreateView.get`/`ProfitabilityView.get`/`ProfitabilitySummaryView.get` acceptent `is_owner_or_admin(request) OR has_permission(request, key)` — permet au vendeur d'élever un confirmateur/dropshipper en lecture seule sur ces sections normalement owner/admin-only
+- `team_view` (`TeamListView`), `clients_view` (`ClientListView`, `BlacklistListCreateView`), `stock_view` (`LowStockView`, `InventoryListView`, `StockMovementListView`), `store_view` (`MyStoreView`, `StoreSettingsView.get`, `StorePageListCreateView.get`/`StorePageDetailView.get`, `MediaFolder`/`MediaFile`/`MediaStorageSummaryView` en lecture), `shipping_settings_view` (`CarrierAccountListCreateView`, `WilayaRateListCreateView`, `CommuneRateListCreateView`, `ShipmentListView`, `LabelsListView`, `PreparedOrdersListView`, en plus de `PredictiveReturnsListView`/`ReturnValidationListView`/`CarrierTrackingListView` déjà corrigées) — tous corrigés en 2026-08 pour respecter le toggle accordé (voir section Sécurité, "Audit de cohérence de la matrice de permissions")
 
 `core.permissions.has_permission(request, key)` / `get_effective_permissions(request)` — l'owner (pas de `team_membership`) a toujours accès total, non configurable. `UserSerializer` (`/api/auth/me/`) expose `permissions: {clé: bool}` calculées côté serveur pour l'utilisateur courant — le frontend (`DashboardLayout.jsx`) pilote désormais la sidebar via `user.permissions` plutôt que des conditions `teamRole === '...'` codées en dur (celles-ci subsistent uniquement pour ce qui est lié à l'identité, pas configurable : pages propres au dropshipper, qui gère l'équipe).
 
@@ -388,6 +400,33 @@ Override de permission **par personne**, au-dessus de la matrice par rôle (`Rol
 **Modification après coup** : `GET/POST /api/team/members/<id>/permissions/` (`TeamMemberPermissionsView`, owner/admin uniquement, store-scopé comme le reste de `team/views.py`) — GET renvoie le catalogue complet avec `is_custom` (indique si ce membre précis a un override sur cette clé) ; POST fait un upsert **inconditionnel** d'un toggle (contrairement à l'invitation, qui ne stocke que les diffs — donc forcer manuellement une valeur égale au défaut du rôle crée quand même un override, ce qui « épingle » ce membre : un changement ultérieur du défaut du rôle ne se propagera plus à lui tant que l'override n'est pas retiré manuellement — pas de bouton "réinitialiser au défaut du rôle" pour l'instant, TBD). `TeamPage.jsx` expose ce réglage via un bouton « Permissions » par ligne de `MembersTable`, modal `MemberPermissionsModal` avec toggles à sauvegarde immédiate (même UX que `PermissionsPage.jsx`) et badge « Personnalisé » sur les clés avec `is_custom=true`.
 
 `PermissionsPage.jsx` (matrice par rôle) reste inchangée — toujours le réglage rapide "tous les confirmateurs d'un coup".
+
+### `audit.AuditLog` — Journal d'audit transversal (2026-08)
+
+```
+store (FK), actor (FK User, nullable), actor_name (figé), actor_role : owner | admin | confirmateur | dropshipper
+action (ex: "order.status_changed"), target_type, target_id, target_repr (ex: "Commande #123")
+description (phrase lisible), metadata (JSONField, détail structuré), created_at
+```
+
+US demandée explicitement : **« je veux vraiment tout, sans exception »** sur les actions des confirmateurs/admins. App Django dédiée (`audit/`, isolée du reste, même choix que `dropshipping/`/`finance/`/`webhooks/`) plutôt qu'une table par entité (`OrderStatusHistory`, `ComplaintMessage`... continuent d'exister séparément pour leur usage métier propre) — `AuditLog` est le journal **transversal**, un seul endroit pour tout voir d'un coup, `target_type`/`target_id` en texte libre pour ne coupler `audit` à aucune autre app.
+
+- **Point d'entrée unique** : `audit.utils.log_audit(request, action, target=None, description='', metadata=None, store=None)` — résout automatiquement `store`/`actor`/`actor_role` depuis `request.user` (owner si pas de `team_membership`, sinon le rôle du membre). Best-effort : une erreur ici ne fait jamais échouer l'action métier appelante (try/except, `logger.exception`), même philosophie que `webhooks.dispatch.fire_event`.
+- **Actions journalisées** (`audit.models.ACTION_CATALOG`, ~85 clés — catalogue indicatif pour le filtre frontend, `log_audit` accepte n'importe quelle clé), couvrant quasiment toutes les surfaces d'écriture owner/admin/confirmateur du projet :
+  - **Commandes** : créée/modifiée/supprimée/statut changé/assignée/transporteur attribué/annulation rejetée/étiquette imprimée/préparée/retour validé/expédition relancée/suivi synchronisé manuellement ; tentative d'appel créée/supprimée ; échange approuvé/rejeté ; panier abandonné relancé ; motif d'échec créé/modifié/supprimé
+  - **Boîte de réception** (réclamations/échanges/messages) : statut changé, message envoyé, réassignée
+  - **Équipe & présence** : invitation/modification/désactivation/réactivation/renvoi d'invitation, permission de rôle/individuelle modifiée, confirmateur passé disponible/indisponible (un vrai changement seulement, jamais le heartbeat)
+  - **Clients** : flag de risque manuel basculé ; liste noire ajout/modif/retrait
+  - **Livraison** : compte transporteur connecté/modifié/déconnecté, tarif wilaya/commune mis à jour/supprimé/synchronisé, règle de dispatch créée/modifiée/supprimée
+  - **Catalogue** : catégorie créée/modifiée/corbeille/restaurée/supprimée, produit créé/modifié/supprimé, ajustement manuel de stock, fournisseur créé/modifié/supprimé + crédits/versements, promotion créée/modifiée/supprimée, avis modéré/supprimé
+  - **Boutique** : boutique modifiée, paramètres généraux modifiés, page créée/modifiée/supprimée, pixel marketing créé/modifié/supprimé, checkout d'abonnement démarré
+  - **Intégrations** : canal de vente connecté/modifié/déconnecté/synchronisé, endpoint webhook créé/modifié/supprimé, clé de webhook entrant régénérée
+  - **Finances & dropshipping** : coût créé/modifié/supprimé, paiement(s) COD pointé(s)/import Excel, commission dropshipper configurée/supprimée, solde dropshipper payé
+- **Le heartbeat de présence ne journalise rien** (`team.views.OnlineStatusView`) — seul un vrai basculement `is_online` (True→False ou l'inverse) crée une entrée `confirmateur.online`/`confirmateur.offline`, sinon le journal serait noyé sous un ping/minute par confirmateur connecté.
+- **Portée volontairement exclue** : les actions du checkout public (`PublicOrderView`, etc. — pas un agissement d'un confirmateur/admin), les transitions automatiques système (`sync_order_from_carrier` avec `changed_by=None`, `cancel_stale_calls`, `activate_scheduled_orders`, webhooks entrants Chargily/Shopify/Yalidine) et les uploads de fichiers granulaires (images produit, dossiers/fichiers médias, variantes/options/sous-options individuelles — trop fins pour l'usage "qui a fait quoi", couverts indirectement par `product.updated`/`category.updated`) — hors périmètre "agissement **des confirmateurs et admin**" ou jugés trop bas niveau pour un journal d'audit lisible. À étendre si le besoin se confirme (le point d'entrée `log_audit()` est en place partout, l'ajout est mécanique).
+- `GET /api/audit/logs/` (`AuditLogListView`, owner/admin uniquement — donnée sensible incluant les actions d'autres admins) — filtres `actor`, `action`, `target_type`, `date_from`/`date_to`, `search` (acteur/description/cible), pagination `page`/`per_page`. `GET /api/audit/meta/` (`AuditMetaView`) — peuple les filtres frontend : actions **réellement présentes** dans les logs de la boutique (pas tout `ACTION_CATALOG`, pour ne jamais proposer un filtre vide) + liste des acteurs (owner + tous les membres, actifs ou non — un log passé peut référencer un membre depuis désactivé).
+- **Frontend** : `AuditPage.jsx` (`/dashboard/audit`), lien sidebar "Audit" **owner/admin uniquement** (même convention que "Permissions par rôle"/"Abonnement" — pas de permission dédiée dans la matrice, donnée trop sensible). Filtres acteur/action/période/recherche + tableau paginé, lecture seule.
+- Testé via `manage.py test audit team orders.tests inbox` (131 tests) puis suite complète `manage.py test` (263 tests, aucune régression) : résolution acteur owner/confirmateur, jamais d'exception remontée sur entrée invalide, isolation multi-tenant, filtres (acteur/action/recherche), intégration réelle (changement de statut de commande → entrée créée, toggle en ligne → une seule entrée par vrai changement, pas par heartbeat).
 
 ### `products.Category`
 
@@ -940,6 +979,14 @@ Contrairement aux canaux de vente de l'Epic 8.2, les webhooks sont **entièremen
 | PUT/DELETE | `/api/team/members/<id>/`      | Oui               | Modifier rôle / désactiver                                                                                                             |
 | GET/POST   | `/api/team/accept-invitation/` | Non               | Vérifie token / active compte                                                                                                          |
 | GET/POST   | `/api/team/permissions/`       | Oui (owner/admin) | Matrice de permissions par rôle (Epic 7.5) — GET catalogue+valeurs effectives, POST upsert un toggle (`role`, `permission`, `enabled`) |
+| POST       | `/api/team/online-status/`    | Oui (auto-service) | Bascule sa propre disponibilité (`online: bool` optionnel) et/ou envoie un heartbeat — voir section Présence en ligne (2026-08) |
+
+### Audit (2026-08)
+
+| Méthode | URL                | Auth               | Description                                                                                          |
+| ------- | ------------------ | ------------------- | ----------------------------------------------------------------------------------------------------- |
+| GET     | `/api/audit/logs/` | Oui (owner/admin)  | Journal d'audit — filtres `actor`, `action`, `target_type`, `date_from`/`date_to`, `search`, pagination |
+| GET     | `/api/audit/meta/` | Oui (owner/admin)  | Catalogue des actions/acteurs réellement présents dans les logs, pour peupler les filtres frontend      |
 
 ### Produits
 
@@ -1374,6 +1421,18 @@ Testé à chaque étape : `manage.py check` + suite de tests ciblée après chaq
 - Nommage composants : PascalCase. Fichiers : PascalCase.jsx
 - Tailwind v4 : utiliser les classes canoniques (ex: `shrink-0` et non `flex-shrink-0`)
 
+### ⚠️ Règle obligatoire — toute nouvelle route dashboard doit déclarer sa permission
+
+Trouvé en 2026-08 : pendant des mois, **seule la sidebar** (`DashboardLayout.jsx`, `can('xxx_view')`) empêchait un rôle non autorisé de voir un lien — mais `PrivateRoute`/`App.jsx` ne vérifiait **que l'authentification**, jamais le rôle. N'importe quel membre connecté (confirmateur, dropshipper) pouvait accéder à n'importe quelle page (Marketing, Webhooks, Audit, Paramètres généraux, crédits fournisseurs...) en tapant directement l'URL. Corrigé sur les ~70 pages du dashboard (`<PD perm="xxx_view">` dans `App.jsx`, redirige vers `/dashboard/parametres` si non autorisé) + côté backend (chaque endpoint consommé doit lui-même vérifier `is_owner_or_admin(request) OR has_permission(request, 'xxx_view')`, jamais se reposer sur le frontend).
+
+**Pour toute nouvelle page/fonctionnalité dashboard, dans la même modification que l'ajout de la route — jamais après coup, jamais dans une passe de sécurité séparée :**
+1. **Ajouter sa clé au `PERMISSION_CATALOG`** (`team/models.py`), avec un libellé et une catégorie/sous-catégorie (`PERMISSION_CATEGORIES`) — **par défaut, toute page doit être configurable dans la matrice** (décision produit 2026-08, revenue sur l'ancienne exception "Audit/Abonnement en `ownerAdmin` car trop sensible" — ces deux-là ont depuis leurs propres permissions `audit_view`/`subscription_view`). N'utiliser `ownerAdmin` (non configurable) que pour une action qui serait elle-même une élévation de privilège si accordée à un non-admin (seul cas restant : `/dashboard/equipe/permissions`, éditer la matrice). `dropshipper`/`confirmateur` restent réservés aux pages strictement identitaires (ex: "Mes produits"), jamais comme raccourci pour éviter d'ajouter une vraie permission.
+2. Ajouter la valeur par défaut du nouveau flag dans `DEFAULT_PERMISSIONS['confirmateur']`/`['dropshipper']` (généralement `False` si la donnée est nouvelle/sensible — l'admin l'a automatiquement via la compréhension `{key: True for key, _ in PERMISSION_CATALOG}`).
+3. Poser `perm=` sur `<PD>` dans `App.jsx` — jamais `<PD>` seul pour une page sous `/dashboard/*` autre que celles de la whitelist (`parametres`, `faq`, `contact`). Ajouter le lien sidebar correspondant dans `DashboardLayout.jsx` derrière `can('xxx_view')` (jamais un check de rôle `teamRole === '...'` codé en dur).
+4. Vérifier que **chaque** endpoint backend consommé par la page applique la **même** formule `is_owner_or_admin(request) OR has_permission(request, 'xxx_view')` — jamais `is_owner_or_admin` strict (le toggle accordé n'aurait alors aucun effet, bug réel trouvé sur 5 permissions en 2026-08) et jamais `IsOwnerOrAdminForWrites` seul sans check explicite dans `get()` (la lecture resterait ouverte à tout membre, toggle inutile — cas de `products_view`). Le frontend seul ne protège rien.
+5. `frontend/src/tests/App.test.jsx` échoue automatiquement si une route `/dashboard/*` est ajoutée sans `perm=` (hors whitelist) — à faire passer avant de committer, ne jamais l'assouplir pour contourner un cas particulier.
+6. Attention au piège symétrique : si la page appelle un endpoint requérant une permission que le rôle affiché n'a pas forcément (ex: `products_view` accordé mais pas `purchase_prices_view`), l'appel échoue silencieusement (`.catch(() => {})`) et l'écran reste bloqué sur "Chargement…" indéfiniment — vérifier que le `perm=` de la route correspond exactement à ce que l'API exige, pas juste à ce qui semble logique.
+
 ---
 
 ## Décisions Techniques Prises
@@ -1439,6 +1498,47 @@ Le stockage des tokens JWT en `localStorage` (plutôt que cookies httpOnly) a é
 - Migration JWT vers cookies httpOnly (voir décision ci-dessus).
 - Chiffrement au repos des secrets stockés en base (`ChannelConnection.api_secret`, `CarrierAccount.api_token`, `WebhookEndpoint.secret`) — actuellement en clair en base de données (protégés par l'accès DB, pas par un chiffrement applicatif).
 - Scan de dépendances automatisé (`pip-audit`/`npm audit` en CI) — pas de pipeline CI configuré à ce stade du projet.
+
+### Faille élevée corrigée — lecture store-wide ouverte à tout membre authentifié (2026-08)
+
+Trouvée en testant manuellement un compte confirmateur réel (`/dashboard/equipe` affichait la liste complète des collègues — noms, emails, téléphones — alors que le lien est absent de sa barre latérale : masquer un lien côté frontend ne protège rien, seule l'API compte). Root cause systémique : `IsOwnerOrAdminForWrites` (`core/permissions.py`) n'autorise PAS QUE l'écriture malgré son nom — il laisse passer toute **lecture** (GET) à n'importe quel membre authentifié de la boutique, quel que soit son rôle. Plusieurs vues s'appuyaient sur cette classe (ou sur `IsAuthenticated` seul) sans aucune vérification de permission `_view` supplémentaire, alors que ces permissions existaient déjà dans `PERMISSION_CATALOG` (Epic 7.5) sans jamais être vérifiées par le code — masquées côté sidebar uniquement, jamais gatées côté serveur.
+
+**Décision produit prise en corrigeant** : plutôt que d'ouvrir ces vues aux rôles disposant de la permission `_view` correspondante (comme fait pour `stats_view`/`marketing_view`/etc. dans les epics précédentes), tout est verrouillé **strictement owner/admin** — plus simple, plus sûr par défaut, pas de risque qu'une permission mal comprise dans la matrice ré-ouvre la fuite. Vues corrigées (`if not is_owner_or_admin(request): return 403`, avant tout accès aux données) :
+
+- **`team/views.py::TeamListView.get`** — listait tous les membres (noms/emails/téléphones) à n'importe quel rôle. C'est la fuite qui a déclenché cet audit.
+- **`orders/views.py`** : `ClientListView.get` (liste clients agrégée par téléphone, avec statut de risque — la fuite la plus grave, aucune restriction du tout avant), `BlacklistListCreateView.get`, `CarrierAccountListCreateView.get`, `WilayaRateListCreateView.get`, `CommuneRateListCreateView.get`, `DispatchRuleListCreateView.get`, `AbandonedCartListView.get` (paniers abandonnés = téléphone + contenu panier), `ComplaintListView.get` (legacy figé, remplacé par l'inbox mais toujours atteignable), `ExchangeListView.get`.
+- **`stores/views.py`** : `StorePageListCreateView`/`StorePageDetailView` (GET **et** POST/PUT/DELETE — un confirmateur pouvait créer/modifier/supprimer des pages publiques de la boutique, pas seulement les lire), `MediaFolderListCreateView`/`MediaFolderDeleteView`, `MediaFileListView`/`MediaFileUploadView`/`MediaFileDeleteView`/`MediaFileBulkDeleteView`, `MediaStorageSummaryView`.
+
+Chaque vue vérifiée par requête HTTP réelle simulée (compte confirmateur réel créé en base, `manage.py shell`) : 403 confirmé pour confirmateur, 200 confirmé inchangé pour owner. Suite complète (265 tests) revérifiée sans régression après coup.
+
+**Deuxième passe** (même session, après un test manuel plus large sur un compte confirmateur réel) — d'autres vues store-wide trouvées ouvertes :
+
+- **`products/views.py`** : `LowStockView.get`, `InventoryListView.get`, `StockMovementListView.get` — stock bas, inventaire complet, historique des mouvements de stock, tous exposés à tout membre authentifié sans vérification de `stock_view`. Corrigé strictement owner/admin.
+- **`stores/views.py`** : `MyStoreView`, `QuotaView`, `StoreSettingsView` utilisaient `request.user.store` **directement** au lieu du helper standard `_get_store_from_request` — ça ne fonctionnait que pour l'owner : un **admin légitime recevait un 404 accidentel** (pas un vrai contrôle d'accès), et un confirmateur obtenait le même 404 par hasard plutôt que par une vérification intentionnelle. Corrigé : `is_owner_or_admin(request)` explicite + `_get_store_from_request`, vérifié en réel que l'admin fonctionne de nouveau correctement (régression fonctionnelle non liée à la sécurité, découverte et corrigée au passage).
+- **`stores/views.py::PixelConfigListCreateView`/`PixelConfigDetailView`** (marketing) — déjà correctement gatées `marketing_view` depuis l'Epic 8.4, revérifiées en réel plutôt que supposées correctes : confirmées OK.
+- **`channels/views.py`/`webhooks/views.py`** (canaux de vente, endpoints webhook) — déjà gatées `channels_view`/`webhooks_view`, revérifiées en réel : confirmées OK.
+
+⚠️ **Portée de cette passe** : concentrée sur les vues renvoyant des données **store-wide non filtrées** (aucun scoping par rôle dans la requête elle-même). Les vues commandes/appels/expéditions (`OrderListCreateView`, `CallAttemptListView`, etc.) n'ont pas été repassées une à une dans cette session — elles s'appuient sur un filtrage déjà intégré à la requête (confirmateur → `assignment__confirmateur=membership`, dropshipper → `dropshipper=membership`, documenté ailleurs dans ce fichier) plutôt que sur `IsOwnerOrAdminForWrites` seul. Si un doute subsiste dessus, à auditer dans une passe dédiée.
+
+### Troisième passe — routes frontend jamais gatées + cohérence de la matrice de permissions (2026-08)
+
+Déclenchée par un rapport utilisateur réel (compte confirmateur accédant à `/dashboard/marketing` en tapant l'URL). Root cause différente des deux passes précédentes : cette fois ce n'est pas un endpoint backend ouvert, c'est **`PrivateRoute`/`App.jsx` qui ne vérifiait que l'authentification, jamais le rôle** — sur la quasi-totalité des ~70 routes du dashboard, seule la sidebar masquait le lien. Corrigé par un système `<PD perm="xxx_view">` (voir section Conventions de Code, règle obligatoire pour toute nouvelle route) + `frontend/src/tests/App.test.jsx` qui échoue si une route est ajoutée sans `perm=`.
+
+En creusant plus loin (l'utilisateur a explicitement demandé un audit exhaustif "page par page, rôle par rôle"), deux classes de bugs supplémentaires trouvées :
+
+- **IDOR / écritures non protégées** : `ComplaintDetailView`/`ExchangeDetailView` (détail accessible sans vérifier la permission), `ExchangeStatusView`/`ComplaintStatusView` (écriture avec impact stock réel, **aucun** contrôle de permission, pas même la lecture) — corrigées.
+- **Bug fonctionnel** : `ExchangeListView` ignorait `exchanges_view` (toujours strict owner/admin) — un vendeur qui accordait cette permission à un confirmateur constatait que ça ne débloquait rien.
+- **`CarrierTrackingListView`/`PredictiveReturnsListView`/`ReturnValidationListView`/`OrderStatsView`/`CarrierRatesView`/`CarrierDesksView`** — aucun contrôle de rôle du tout, exposaient des données store-wide à tout membre authentifié. Gatées `orders_manage`/`shipping_settings_view`/`orders_view` selon la page qui les consomme.
+- **`AllCreditsView`/`AllPaymentsView`/`SupplierBalanceView`/`SupplierCreditView`/`SupplierPaymentView`** — données financières fournisseurs ouvertes à tout membre, gatées `purchase_prices_view`.
+
+**Audit de cohérence de la matrice de permissions** (déclenché par la question directe de l'utilisateur : "est-ce que toutes les fonctionnalités sont incluses dans permissions par rôle ?") — a révélé que la matrice elle-même mentait sur plusieurs cases :
+
+- **Bug de nommage réel** : le catalogue utilisait la clé `notifications_view` alors que **tout** le code (routes, sidebar, `inbox/views.py`) vérifie `inbox_view` — le toggle "Boîte de réception" n'avait **jamais eu le moindre effet réel** pour confirmateur/dropshipper, malgré `DEFAULT_PERMISSIONS` qui l'affichait activé par défaut. Renommé en `inbox_view`. `complaints_view` retiré du catalogue (mort — le legacy Réclamations est verrouillé owner/admin strict depuis la 2ᵉ passe, ce toggle ne faisait plus rien).
+- **5 permissions sur 17 étaient des toggles décoratifs** (`team_view`, `clients_view`, `stock_view`, `store_view`, une partie de `shipping_settings_view`) : le backend restait strictement `is_owner_or_admin`, jamais `is_owner_or_admin OR has_permission(...)` — accorder la permission dans la matrice ne débloquait rien. `shipping_settings_view` était le cas le plus trompeur : 2 endpoints sur 8 (Retour prédictif, Validation des retours) respectaient déjà le toggle, les 6 autres (comptes transporteurs, grilles tarifaires wilaya/commune, Expéditions, Étiquettes, Commandes préparées) non — un vendeur qui testait une des deux pages qui marchaient concluait à tort que la permission fonctionnait partout. Tous corrigés (liste complète des vues dans la section `team.RolePermission` ci-dessus).
+- **`products_view` était un toggle inutile dans l'autre sens** : `IsOwnerOrAdminForWrites` laissait déjà passer toute lecture à n'importe quel membre authentifié, peu importe le toggle. Fermé (`ProductListCreateView`/`ProductDetailView`/`CategoryListCreateView`), avec une clause `OR has_permission(request, 'orders_manage')` — sans elle, un confirmateur avec `orders_manage` accordé mais pas `products_view` n'aurait plus pu chercher de produit dans `OrderFormPage.jsx` (recherche `/products/?search=`), cassant la création de commande manuelle.
+- **Catégories/sous-catégories** — `team.models.PERMISSION_CATEGORIES` (nouveau dict, purement présentationnel, n'affecte pas `has_permission()`) regroupe les 17 permissions en 6 catégories (Commandes, Catalogue, Clients, Logistique, Boutique & équipe, Ventes & finances, Intégrations) avec sous-catégories, exposé par `TeamPermissionsView`/`TeamMemberPermissionsView` (`category`/`subcategory` dans la réponse JSON). `PermissionsPage.jsx` réécrite en accordéon repliable (`CategoryAccordion`) au lieu d'un tableau à 17 lignes.
+
+Vérifié via `manage.py test orders products stores team inbox dropshipping` (168+ tests, aucune régression) à chaque lot de correctifs.
 
 ---
 

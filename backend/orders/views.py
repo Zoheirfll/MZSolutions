@@ -23,6 +23,7 @@ from . import chargily
 from .carriers import get_carrier_client
 from .carriers.ecotrack import TrackingNotFoundError
 from .carriers.yalidine import YALIDINE_STATUS_MAP
+from audit.utils import log_audit
 from core.permissions import IsOwnerOrAdminForWrites, is_owner_or_admin, has_permission
 from core.validators import validate_uploaded_file
 from core.pagination import parse_pagination
@@ -695,6 +696,8 @@ class OrderListCreateView(APIView):
                 quota.orders_used += 1
                 quota.save(update_fields=['orders_used'])
 
+        log_audit(request, 'order.created', target=order, description=f"Commande manuelle créée pour {order.first_name} {order.last_name}")
+
         return Response(OrderDetailSerializer(order).data, status=status.HTTP_201_CREATED)
 
 
@@ -862,6 +865,13 @@ class OrderDetailView(APIView):
             order.scheduled_at = new_scheduled_at
         order.save()
         order.recalculate()
+
+        changed_fields = [f for f in allowed if f in request.data] + (['items'] if items_payload is not None else [])
+        log_audit(
+            request, 'order.updated', target=order,
+            description=f"Commande modifiée — champs : {', '.join(changed_fields) or 'aucun'}",
+            metadata={'changed_fields': changed_fields, 'note': request.data.get('note')},
+        )
         return Response(OrderDetailSerializer(order).data)
 
     def delete(self, request, pk):
@@ -869,6 +879,7 @@ class OrderDetailView(APIView):
             return Response({'detail': 'Suppression réservée au propriétaire ou administrateur.'}, status=403)
         order, err = self._get(request, pk)
         if err: return err
+        log_audit(request, 'order.deleted', target=order, description=f"Commande #{order.id} supprimée")
         order.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -899,9 +910,17 @@ class OrderStatusView(APIView):
                 return Response(OrderDetailSerializer(order).data)
             order.refresh_from_db()
 
+        previous_status = order.status
+        note = request.data.get('note', '')
         carrier_warning = _transition_order_status(
             store, order, new_status, changed_by=request.user,
-            note=request.data.get('note', ''), carrier_id=request.data.get('carrier_id'),
+            note=note, carrier_id=request.data.get('carrier_id'),
+        )
+
+        log_audit(
+            request, 'order.status_changed', target=order,
+            description=f"Statut changé de « {previous_status} » à « {new_status} »" + (f" — note : {note}" if note else ""),
+            metadata={'from': previous_status, 'to': new_status, 'note': note},
         )
 
         data = OrderDetailSerializer(order).data
@@ -1020,6 +1039,8 @@ class OrderAssignCarrierView(APIView):
         else:
             warning = _create_shipment_for_order(store, order, account)
 
+        log_audit(request, 'order.carrier_assigned', target=order, description=f"Transporteur {account.name} attribué à la commande")
+
         data = OrderDetailSerializer(order).data
         if warning:
             data['carrier_warning'] = warning
@@ -1081,6 +1102,7 @@ class OrderRejectCancellationView(APIView):
             changed_by = request.user,
             note       = f"Demande d'annulation rejetée{' — ' + note if note else ''}",
         )
+        log_audit(request, 'order.cancellation_rejected', target=order, description=f"Demande d'annulation rejetée, statut restauré à « {restored_status} »")
         return Response(OrderDetailSerializer(order).data)
 
 
@@ -1088,6 +1110,8 @@ class CarrierAccountListCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        if not (is_owner_or_admin(request) or has_permission(request, 'shipping_settings_view')):
+            return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
         store = _get_store(request)
         if not store:
             return Response({'detail': 'Accès refusé.'}, status=403)
@@ -1119,6 +1143,7 @@ class CarrierAccountListCreateView(APIView):
             is_active         = request.data.get('is_active', True),
             is_default        = request.data.get('is_default', False),
         )
+        log_audit(request, 'carrier_account.created', target=account, description=f"Compte transporteur {account.get_carrier_display()} connecté")
         return Response(CarrierAccountSerializer(account).data, status=status.HTTP_201_CREATED)
 
 
@@ -1143,6 +1168,7 @@ class CarrierAccountDetailView(APIView):
             if field in request.data:
                 setattr(account, field, request.data[field])
         account.save()
+        log_audit(request, 'carrier_account.updated', target=account, description=f"Compte transporteur {account.get_carrier_display()} modifié", metadata={'changed_fields': list(request.data.keys())})
         return Response(CarrierAccountSerializer(account).data)
 
     def delete(self, request, pk):
@@ -1150,6 +1176,7 @@ class CarrierAccountDetailView(APIView):
             return Response({'detail': 'Suppression réservée au propriétaire ou administrateur.'}, status=403)
         account, err = self._get(request, pk)
         if err: return err
+        log_audit(request, 'carrier_account.deleted', target=account, description=f"Compte transporteur {account.get_carrier_display()} déconnecté")
         account.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -1164,6 +1191,8 @@ class CarrierRatesView(APIView):
     def get(self, request, pk):
         store = _get_store(request)
         if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        if not (is_owner_or_admin(request) or has_permission(request, 'orders_create_view') or has_permission(request, 'shipping_settings_view')):
             return Response({'detail': 'Accès refusé.'}, status=403)
         try:
             account = store.carrier_accounts.get(pk=pk, is_active=True)
@@ -1194,6 +1223,8 @@ class CarrierDesksView(APIView):
         store = _get_store(request)
         if not store:
             return Response({'detail': 'Accès refusé.'}, status=403)
+        if not (is_owner_or_admin(request) or has_permission(request, 'orders_create_view') or has_permission(request, 'shipping_settings_view')):
+            return Response({'detail': 'Accès refusé.'}, status=403)
         try:
             account = store.carrier_accounts.get(pk=pk, is_active=True)
         except CarrierAccount.DoesNotExist:
@@ -1216,6 +1247,8 @@ class WilayaRateListCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        if not (is_owner_or_admin(request) or has_permission(request, 'shipping_settings_view')):
+            return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
         store = _get_store(request)
         if not store:
             return Response({'detail': 'Accès refusé.'}, status=403)
@@ -1242,6 +1275,7 @@ class WilayaRateListCreateView(APIView):
                 'show_desk':   request.data.get('show_desk', True),
             },
         )
+        log_audit(request, 'wilaya_rate.updated', target=rate, description=f"Tarif wilaya {name} mis à jour")
         return Response(WilayaRateSerializer(rate).data, status=status.HTTP_201_CREATED)
 
 
@@ -1266,6 +1300,7 @@ class WilayaRateDetailView(APIView):
             if field in request.data:
                 setattr(rate, field, request.data[field])
         rate.save()
+        log_audit(request, 'wilaya_rate.updated', target=rate, description=f"Tarif wilaya {rate.wilaya_name} modifié")
         return Response(WilayaRateSerializer(rate).data)
 
     def delete(self, request, pk):
@@ -1273,6 +1308,7 @@ class WilayaRateDetailView(APIView):
             return Response({'detail': 'Suppression réservée au propriétaire ou administrateur.'}, status=403)
         rate, err = self._get(request, pk)
         if err: return err
+        log_audit(request, 'wilaya_rate.deleted', target=rate, description=f"Tarif wilaya {rate.wilaya_name} supprimé")
         rate.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -1313,6 +1349,7 @@ class WilayaRateSyncView(APIView):
                 },
             )
             updated += 1
+        log_audit(request, 'wilaya_rate.synced', description=f"Grille tarifaire synchronisée depuis {account.get_carrier_display()} — {updated} mise(s) à jour, {failed} échec(s)", metadata={'updated': updated, 'failed': failed})
         return Response({'updated': updated, 'failed': failed})
 
 
@@ -1320,6 +1357,8 @@ class CommuneRateListCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        if not (is_owner_or_admin(request) or has_permission(request, 'shipping_settings_view')):
+            return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
         store = _get_store(request)
         if not store:
             return Response({'detail': 'Accès refusé.'}, status=403)
@@ -1346,6 +1385,7 @@ class CommuneRateListCreateView(APIView):
                 'desk_price': request.data.get('desk_price'),
             },
         )
+        log_audit(request, 'commune_rate.updated', target=rate, description=f"Tarif commune {commune_name} mis à jour")
         return Response(CommuneRateSerializer(rate).data, status=status.HTTP_201_CREATED)
 
 
@@ -1370,6 +1410,7 @@ class CommuneRateDetailView(APIView):
             if field in request.data:
                 setattr(rate, field, request.data[field])
         rate.save()
+        log_audit(request, 'commune_rate.updated', target=rate, description=f"Tarif commune {rate.commune_name} modifié")
         return Response(CommuneRateSerializer(rate).data)
 
     def delete(self, request, pk):
@@ -1377,6 +1418,7 @@ class CommuneRateDetailView(APIView):
             return Response({'detail': 'Suppression réservée au propriétaire ou administrateur.'}, status=403)
         rate, err = self._get(request, pk)
         if err: return err
+        log_audit(request, 'commune_rate.deleted', target=rate, description=f"Tarif commune {rate.commune_name} supprimé")
         rate.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -1420,6 +1462,7 @@ class CommuneRateSyncView(APIView):
                 },
             )
             updated += 1
+        log_audit(request, 'commune_rate.synced', description=f"Grille tarifaire par commune synchronisée (wilaya {wid}) — {updated} mise(s) à jour", metadata={'wilaya_id': wid, 'updated': updated})
         return Response({'updated': updated})
 
 
@@ -1431,6 +1474,12 @@ class DispatchRuleListCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        # Endpoint partagé par les 3 pages Dispatch (?match_type=product|wilaya
+        # filtre côté frontend) — accès si l'une des 3 permissions est accordée.
+        if not (is_owner_or_admin(request) or any(
+            has_permission(request, k) for k in ('dispatch_confirmateur_view', 'dispatch_carrier_view', 'dispatch_wilaya_view')
+        )):
+            return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
         store = _get_store(request)
         if not store:
             return Response({'detail': 'Accès refusé.'}, status=403)
@@ -1448,7 +1497,8 @@ class DispatchRuleListCreateView(APIView):
             return Response({'detail': 'Accès refusé.'}, status=403)
         s = DispatchRuleSerializer(data=request.data)
         s.is_valid(raise_exception=True)
-        s.save(store=store)
+        rule = s.save(store=store)
+        log_audit(request, 'dispatch_rule.created', target=rule, description=f"Règle de dispatch créée ({rule.match_type} — {rule.match_value})")
         return Response(s.data, status=status.HTTP_201_CREATED)
 
 
@@ -1472,6 +1522,7 @@ class DispatchRuleDetailView(APIView):
         s = DispatchRuleSerializer(rule, data=request.data, partial=True)
         s.is_valid(raise_exception=True)
         s.save()
+        log_audit(request, 'dispatch_rule.updated', target=rule, description=f"Règle de dispatch modifiée ({rule.match_type} — {rule.match_value})")
         return Response(s.data)
 
     def delete(self, request, pk):
@@ -1479,6 +1530,7 @@ class DispatchRuleDetailView(APIView):
             return Response({'detail': 'Réservé au propriétaire ou administrateur.'}, status=403)
         rule, err = self._get(request, pk)
         if err: return err
+        log_audit(request, 'dispatch_rule.deleted', target=rule, description=f"Règle de dispatch supprimée ({rule.match_type} — {rule.match_value})")
         rule.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -1534,6 +1586,8 @@ class OrderStatsView(APIView):
         store = _get_store(request)
         if not store:
             return Response({'detail': 'Accès refusé.'}, status=403)
+        if not (is_owner_or_admin(request) or has_permission(request, 'orders_view')):
+            return Response({'detail': 'Accès refusé.'}, status=403)
         result = {'total': store.orders.count()}
         for code, label in STATUS_CHOICES:
             result[code] = {'label': label, 'count': store.orders.filter(status=code).count()}
@@ -1552,6 +1606,13 @@ class ClientListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        # Aucune restriction avant ce garde-fou (2026-08) — n'importe quel
+        # membre authentifié (confirmateur, dropshipper) pouvait lister TOUS
+        # les clients de la boutique (téléphones, statut de risque), pas
+        # seulement ceux liés à son propre travail. `clients_view` existait
+        # déjà dans le catalogue de permissions mais n'était jamais vérifiée.
+        if not (is_owner_or_admin(request) or has_permission(request, 'clients_view') or has_permission(request, 'clients_risk_view')):
+            return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
         store = _get_store(request)
         if not store:
             return Response({'detail': 'Accès refusé.'}, status=403)
@@ -1626,6 +1687,11 @@ class CustomerRiskToggleView(APIView):
         risk.manual_risk = not risk.manual_risk
         risk.note = request.data.get('note', risk.note)
         risk.save(update_fields=['manual_risk', 'note', 'updated_at'])
+        log_audit(
+            request, 'customer_risk.toggled', target=risk,
+            description=f"Client {phone} marqué {'à risque' if risk.manual_risk else 'plus à risque'} manuellement",
+            metadata={'phone': phone, 'manual_risk': risk.manual_risk, 'note': risk.note},
+        )
         return Response({'phone': phone, 'manual_risk': risk.manual_risk})
 
 
@@ -1633,6 +1699,8 @@ class BlacklistListCreateView(APIView):
     permission_classes = [IsAuthenticated, IsOwnerOrAdminForWrites]
 
     def get(self, request):
+        if not (is_owner_or_admin(request) or has_permission(request, 'blacklist_view')):
+            return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
         store = _get_store(request)
         if not store:
             return Response({'detail': 'Accès refusé.'}, status=403)
@@ -1658,7 +1726,8 @@ class BlacklistListCreateView(APIView):
             return Response({'detail': 'Accès refusé.'}, status=403)
         s = BlacklistedPhoneSerializer(data=request.data)
         s.is_valid(raise_exception=True)
-        s.save(store=store)
+        entry = s.save(store=store)
+        log_audit(request, 'blacklist.added', target=entry, description=f"Numéro {entry.phone} ajouté à la liste noire")
         return Response(s.data, status=status.HTTP_201_CREATED)
 
 
@@ -1680,11 +1749,13 @@ class BlacklistDetailView(APIView):
         s = BlacklistedPhoneSerializer(entry, data=request.data, partial=True)
         s.is_valid(raise_exception=True)
         s.save()
+        log_audit(request, 'blacklist.updated', target=entry, description=f"Entrée liste noire {entry.phone} modifiée")
         return Response(s.data)
 
     def delete(self, request, pk):
         entry, err = self._get(request, pk)
         if err: return err
+        log_audit(request, 'blacklist.removed', target=entry, description=f"Numéro {entry.phone} retiré de la liste noire")
         entry.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -1692,9 +1763,15 @@ class BlacklistDetailView(APIView):
 # ─── Réclamations ──────────────────────────────────────────────────────────────
 
 class ComplaintListView(APIView):
+    """Figé (2026-08) — remplacé par /api/inbox/conversations/ (inbox_view),
+    conservé tel quel le temps de la transition. Gardé strictement owner/admin
+    pour ne pas laisser un second point d'accès moins restreint que le
+    système qui l'a remplacé."""
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        if not is_owner_or_admin(request):
+            return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
         store = _get_store(request)
         if not store:
             return Response({'detail': 'Accès refusé.'}, status=403)
@@ -1732,6 +1809,8 @@ class ComplaintDetailView(APIView):
     def _get(self, request, pk):
         store = _get_store(request)
         if not store:
+            return None, Response({'detail': 'Accès refusé.'}, status=403)
+        if not is_owner_or_admin(request):
             return None, Response({'detail': 'Accès refusé.'}, status=403)
         try:
             return store.complaints.select_related('order').prefetch_related('messages__author').get(pk=pk), None
@@ -1773,6 +1852,7 @@ class ComplaintAssignmentView(APIView):
             complaint=complaint,
             defaults={'confirmateur': confirmateur, 'assigned_by': request.user},
         )
+        log_audit(request, 'conversation.assigned', target=complaint, description=f"Réclamation réassignée à {confirmateur.first_name} {confirmateur.last_name}")
         return Response(ComplaintSerializer(complaint, context={'request': request}).data)
 
 
@@ -1795,6 +1875,8 @@ class ComplaintStatusView(APIView):
     def post(self, request, pk):
         store = _get_store(request)
         if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        if not is_owner_or_admin(request):
             return Response({'detail': 'Accès refusé.'}, status=403)
         try:
             complaint = store.complaints.get(pk=pk)
@@ -1910,6 +1992,8 @@ class ExchangeListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        if not (is_owner_or_admin(request) or has_permission(request, 'exchanges_view')):
+            return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
         store = _get_store(request)
         if not store:
             return Response({'detail': 'Accès refusé.'}, status=403)
@@ -1948,6 +2032,8 @@ class ExchangeDetailView(APIView):
         store = _get_store(request)
         if not store:
             return Response({'detail': 'Accès refusé.'}, status=403)
+        if not (is_owner_or_admin(request) or has_permission(request, 'exchanges_view')):
+            return Response({'detail': 'Accès refusé.'}, status=403)
         try:
             exchange = store.exchange_requests.select_related('order_item__order', 'replacement_option').get(pk=pk)
         except ExchangeRequest.DoesNotExist:
@@ -1969,6 +2055,8 @@ class ExchangeStatusView(APIView):
         store = _get_store(request)
         if not store:
             return Response({'detail': 'Accès refusé.'}, status=403)
+        if not is_owner_or_admin(request):
+            return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
         try:
             exchange = store.exchange_requests.select_for_update().select_related('order_item', 'replacement_option').get(pk=pk)
         except ExchangeRequest.DoesNotExist:
@@ -2002,6 +2090,11 @@ class ExchangeStatusView(APIView):
                 reason='exchange_issue', note=note,
             )
 
+        log_audit(
+            request, 'exchange.status_changed', target=exchange,
+            description=f"Échange #{exchange.id} {'approuvé' if new_status == 'approved' else 'rejeté'}" + (f" — note : {exchange.vendor_note}" if exchange.vendor_note else ""),
+            metadata={'status': new_status, 'note': exchange.vendor_note},
+        )
         return Response(ExchangeRequestSerializer(exchange).data)
 
 
@@ -2112,6 +2205,57 @@ class PublicOrderItemsView(APIView):
 _PROCESSED_STATUSES_FOR_CHOICES = ['no_answer_1', 'no_answer_2', 'no_answer_3', 'confirmed', 'shipped', 'delivered', 'returned', 'cancelled']
 
 
+class ConfirmateurMyStatsView(APIView):
+    """Tableau de bord spécial confirmateur (2026-08) — contrairement à
+    ConfirmationRateView (owner/admin ou stats_view, données de toute la
+    boutique), cette vue n'expose QUE les commandes assignées au confirmateur
+    connecté : aucune permission spéciale requise, un confirmateur voit
+    toujours son propre travail. Remplace l'ancien atterrissage sur le
+    tableau de bord analytique (bloqué par stats_view, masqué par défaut pour
+    ce rôle) qui produisait une page pleine d'erreurs 403."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            membership = request.user.team_membership
+        except Exception:
+            membership = None
+        if not membership or membership.role != 'confirmateur':
+            return Response({'detail': 'Réservé aux confirmateurs.'}, status=403)
+
+        qs = Order.objects.filter(assignment__confirmateur=membership)
+        today = date.today()
+
+        counts = qs.aggregate(
+            pending=Count(Case(When(status='pending', then=1), output_field=IntegerField())),
+            no_answer_1=Count(Case(When(status='no_answer_1', then=1), output_field=IntegerField())),
+            no_answer_2=Count(Case(When(status='no_answer_2', then=1), output_field=IntegerField())),
+            no_answer_3=Count(Case(When(status='no_answer_3', then=1), output_field=IntegerField())),
+            confirmed_today=Count(Case(When(status__in=['confirmed', 'shipped', 'delivered'],
+                                             updated_at__date=today, then=1), output_field=IntegerField())),
+        )
+        total_active = qs.filter(status__in=['pending'] + NO_ANSWER_STATUSES).count()
+
+        urgent_qs = (
+            qs.filter(status__in=['pending'] + NO_ANSWER_STATUSES)
+            .order_by('created_at')[:15]
+        )
+        urgent = [{
+            'id': o.id, 'first_name': o.first_name, 'last_name': o.last_name, 'phone': o.phone,
+            'wilaya': o.wilaya, 'status': o.status, 'total': str(o.total), 'created_at': o.created_at,
+        } for o in urgent_qs]
+
+        return Response({
+            'pending':          counts['pending'] or 0,
+            'no_answer_1':      counts['no_answer_1'] or 0,
+            'no_answer_2':      counts['no_answer_2'] or 0,
+            'no_answer_3':      counts['no_answer_3'] or 0,
+            'confirmed_today':  counts['confirmed_today'] or 0,
+            'total_active':     total_active,
+            'urgent':           urgent,
+        })
+
+
 class ConfirmationRateView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -2120,8 +2264,25 @@ class ConfirmationRateView(APIView):
     PROCESSED_STATUS_CHOICES = [c for c in STATUS_CHOICES if c[0] in _PROCESSED_STATUSES_FOR_CHOICES]
 
     def get(self, request):
-        if not (is_owner_or_admin(request) or has_permission(request, 'stats_view')):
-            return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
+        # Vue réutilisée par 3 pages distinctes (onglet Confirmation du
+        # tableau de bord, "Taux de confirmation" sous Commandes, "Statistique
+        # par confirmateur" sous Statistiques) — accès si l'une des 3
+        # permissions est accordée.
+        confirmateur_self = None
+        granted = is_owner_or_admin(request) or any(
+            has_permission(request, k) for k in ('dashboard_view', 'confirmation_rate_view', 'stats_confirmateurs_view')
+        )
+        if not granted:
+            try:
+                membership = request.user.team_membership
+            except Exception:
+                membership = None
+            if not (membership and membership.role == 'confirmateur'):
+                return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
+            # Un confirmateur voit le même onglet Confirmation, mais TOUJOURS
+            # restreint à son propre travail — jamais les autres confirmateurs
+            # ni les commandes non assignées de la boutique.
+            confirmateur_self = membership
         store = _get_store(request)
         if not store:
             return Response({'detail': 'Accès refusé.'}, status=403)
@@ -2146,6 +2307,8 @@ class ConfirmationRateView(APIView):
             date_to   = today
 
         qs = store.orders.filter(created_at__date__gte=date_from, created_at__date__lte=date_to)
+        if confirmateur_self:
+            qs = qs.filter(assignment__confirmateur=confirmateur_self)
 
         # Stats globales
         totals = qs.aggregate(
@@ -2163,10 +2326,15 @@ class ConfirmationRateView(APIView):
         # Stats par confirmateur via OrderAssignment — détail par issue (pas
         # seulement processed/confirmed) pour identifier où un confirmateur perd
         # des commandes (non-réponse vs annulation/retour).
-        assignments = (
+        assignments_qs = (
             store.orders
             .filter(created_at__date__gte=date_from, created_at__date__lte=date_to)
             .filter(assignment__isnull=False)
+        )
+        if confirmateur_self:
+            assignments_qs = assignments_qs.filter(assignment__confirmateur=confirmateur_self)
+        assignments = (
+            assignments_qs
             .values('assignment__confirmateur__id',
                     'assignment__confirmateur__first_name',
                     'assignment__confirmateur__last_name')
@@ -2226,8 +2394,11 @@ class ConfirmationRateView(APIView):
         # façon onglet "Confirmed" de RiseCart. Basé sur `created_at`, pas de
         # notion de "dernière relance" pour l'instant.
         late_cutoff = timezone.now() - timedelta(hours=24)
+        late_orders_qs = store.orders.filter(status='pending', created_at__lt=late_cutoff)
+        if confirmateur_self:
+            late_orders_qs = late_orders_qs.filter(assignment__confirmateur=confirmateur_self)
         late_orders = (
-            store.orders.filter(status='pending', created_at__lt=late_cutoff)
+            late_orders_qs
             .select_related('assignment__confirmateur')
             .order_by('created_at')[:200]
         )
@@ -2793,6 +2964,7 @@ class OrderAssignmentView(APIView):
             order=order,
             defaults={'confirmateur': confirmateur, 'assigned_by': request.user},
         )
+        log_audit(request, 'order.assigned', target=order, description=f"Commande réassignée à {confirmateur.first_name} {confirmateur.last_name}")
         return Response(OrderAssignmentSerializer(assignment).data)
 
 
@@ -2854,6 +3026,11 @@ class CallAttemptListView(APIView):
             failure_reason_id = request.data.get('failure_reason'),
             note           = request.data.get('note', ''),
         )
+        log_audit(
+            request, 'call_attempt.created', target=order,
+            description=f"Tentative d'appel #{attempt.attempt_number} enregistrée — {call_status}" + (f" — note : {attempt.note}" if attempt.note else ""),
+            metadata={'status': call_status, 'note': attempt.note},
+        )
         return Response(CallAttemptSerializer(attempt).data, status=status.HTTP_201_CREATED)
 
 
@@ -2868,6 +3045,7 @@ class CallAttemptDetailView(APIView):
             attempt = CallAttempt.objects.get(pk=cid, order__store=store, order_id=pk)
         except CallAttempt.DoesNotExist:
             return Response({'detail': 'Tentative introuvable.'}, status=404)
+        log_audit(request, 'call_attempt.deleted', target=attempt, description=f"Tentative d'appel #{attempt.attempt_number} supprimée (commande #{pk})")
         attempt.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -2894,7 +3072,8 @@ class FailureReasonListView(APIView):
             return Response({'detail': 'Accès refusé.'}, status=403)
         s = FailureReasonSerializer(data=request.data)
         s.is_valid(raise_exception=True)
-        s.save(store=store)
+        reason = s.save(store=store)
+        log_audit(request, 'failure_reason.created', target=reason, description=f"Motif d'échec créé : {reason.label}")
         return Response(s.data, status=status.HTTP_201_CREATED)
 
 
@@ -3019,6 +3198,7 @@ class FailureReasonDetailView(APIView):
         s = FailureReasonSerializer(reason, data=request.data, partial=True)
         s.is_valid(raise_exception=True)
         s.save()
+        log_audit(request, 'failure_reason.updated', target=reason, description=f"Motif d'échec modifié : {reason.label}")
         return Response(s.data)
 
     def delete(self, request, pk):
@@ -3026,6 +3206,7 @@ class FailureReasonDetailView(APIView):
             return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
         reason, err = self._get(request, pk)
         if err: return err
+        log_audit(request, 'failure_reason.deleted', target=reason, description=f"Motif d'échec supprimé : {reason.label}")
         reason.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -3088,6 +3269,8 @@ class AbandonedCartListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        if not is_owner_or_admin(request):
+            return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
         store = _get_store(request)
         if not store:
             return Response({'detail': 'Accès refusé.'}, status=403)
@@ -3136,6 +3319,7 @@ class AbandonedCartRemindView(APIView):
         cart.reminder_sent = True
         cart.reminder_sent_at = timezone.now()
         cart.save(update_fields=['reminder_sent', 'reminder_sent_at'])
+        log_audit(request, 'abandoned_cart.reminded', target=cart, description=f"Relance panier abandonné envoyée ({channel})", metadata={'channel': channel})
         return Response(AbandonedCartSerializer(cart).data)
 
 
@@ -3187,6 +3371,8 @@ class CarrierTrackingListView(APIView):
     def get(self, request):
         store = _get_store(request)
         if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        if not (is_owner_or_admin(request) or has_permission(request, 'failure_reasons_view')):
             return Response({'detail': 'Accès refusé.'}, status=403)
 
         qs = store.orders.filter(status__in=('confirmed', 'shipped')).exclude(carrier_tracking_number='')
@@ -3242,7 +3428,7 @@ class ShipmentListView(APIView):
 
     def get(self, request):
         store = _get_store(request)
-        if not store or not is_owner_or_admin(request):
+        if not store or not (is_owner_or_admin(request) or has_permission(request, 'shipments_view')):
             return Response({'detail': 'Accès refusé.'}, status=403)
 
         qs = store.orders.prefetch_related('items').filter(status__in=SHIPMENT_STATUSES)
@@ -3347,7 +3533,7 @@ class LabelsListView(APIView):
 
     def get(self, request):
         store = _get_store(request)
-        if not store or not is_owner_or_admin(request):
+        if not store or not (is_owner_or_admin(request) or has_permission(request, 'labels_view')):
             return Response({'detail': 'Accès refusé.'}, status=403)
 
         state = request.query_params.get('state', 'pending')
@@ -3404,6 +3590,7 @@ class LabelMarkPrintedView(APIView):
 
         order.label_printed_at = timezone.now()
         order.save(update_fields=['label_printed_at'])
+        log_audit(request, 'order.label_printed', target=order, description=f"Étiquette commande #{order.id} marquée imprimée")
         return Response(OrderSerializer(order).data)
 
 
@@ -3439,6 +3626,8 @@ class LabelsPrintAllView(APIView):
         if not len(writer.pages):
             return Response({'detail': 'Aucune étiquette récupérée.', 'errors': errors}, status=502)
 
+        log_audit(request, 'order.label_printed', description=f"{len(writer.pages)} étiquette(s) fusionnée(s) et téléchargée(s) (Print All)", metadata={'order_ids': ids, 'errors': errors})
+
         buf = BytesIO()
         writer.write(buf)
         response = HttpResponse(buf.getvalue(), content_type='application/pdf')
@@ -3458,7 +3647,7 @@ class PreparedOrdersListView(APIView):
 
     def get(self, request):
         store = _get_store(request)
-        if not store or not is_owner_or_admin(request):
+        if not store or not (is_owner_or_admin(request) or has_permission(request, 'prepared_orders_view')):
             return Response({'detail': 'Accès refusé.'}, status=403)
 
         state = request.query_params.get('state', 'pending')
@@ -3502,6 +3691,7 @@ class PreparedOrdersMarkView(APIView):
             return Response({'detail': 'Accès refusé.'}, status=403)
         ids = request.data.get('ids') or []
         updated = store.orders.filter(pk__in=ids, prepared_at__isnull=True).update(prepared_at=timezone.now())
+        log_audit(request, 'order.prepared', description=f"{updated} commande(s) marquée(s) préparée(s)", metadata={'order_ids': ids, 'updated': updated})
         return Response({'updated': updated})
 
 
@@ -3518,6 +3708,8 @@ class PredictiveReturnsListView(APIView):
     def get(self, request):
         store = _get_store(request)
         if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        if not (is_owner_or_admin(request) or has_permission(request, 'predictive_returns_view')):
             return Response({'detail': 'Accès refusé.'}, status=403)
 
         settings_obj = getattr(store, 'settings', None)
@@ -3579,6 +3771,8 @@ class ReturnValidationListView(APIView):
     def get(self, request):
         store = _get_store(request)
         if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        if not (is_owner_or_admin(request) or has_permission(request, 'return_validation_view')):
             return Response({'detail': 'Accès refusé.'}, status=403)
 
         qs = store.orders.filter(status='returned').exclude(carrier_tracking_number='')
@@ -3643,6 +3837,7 @@ class ReturnValidateView(APIView):
             update_fields.append('restocked_at')
 
         order.save(update_fields=update_fields)
+        log_audit(request, 'order.return_validated', target=order, description=f"Retour commande #{order.id} confirmé" + (" — remis en stock" if restock else " — non remis en stock"), metadata={'restock': bool(restock)})
         return Response(OrderDetailSerializer(order).data)
 
 
@@ -3686,6 +3881,7 @@ class OrderRetryShipmentView(APIView):
         order.carrier_status = result.status
         order.carrier_shipment_created_at = timezone.now()
         order.save(update_fields=['carrier', 'carrier_tracking_number', 'carrier_status', 'carrier_shipment_created_at'])
+        log_audit(request, 'order.shipment_retried', target=order, description=f"Expédition relancée pour la commande #{order.id} via {account.get_carrier_display()}")
         return Response(OrderSerializer(order).data)
 
 
@@ -3716,6 +3912,7 @@ class OrderSyncTrackingView(APIView):
         except Exception:
             return Response({'detail': "Impossible de récupérer le statut auprès du transporteur."}, status=502)
 
+        log_audit(request, 'order.tracking_synced', target=order, description=f"Suivi transporteur synchronisé manuellement — statut : {order.carrier_status}")
         return Response(OrderDetailSerializer(order).data)
 
 

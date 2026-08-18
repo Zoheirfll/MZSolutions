@@ -16,11 +16,13 @@ class UserSerializer(serializers.ModelSerializer):
     team_role      = serializers.SerializerMethodField()
     team_member_id = serializers.SerializerMethodField()
     permissions    = serializers.SerializerMethodField()
+    is_online      = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = ['id', 'email', 'first_name', 'last_name', 'phone', 'avatar',
-                  'store_slug', 'store_name', 'team_role', 'team_member_id', 'permissions', 'is_email_verified']
+                  'store_slug', 'store_name', 'team_role', 'team_member_id', 'permissions',
+                  'is_email_verified', 'is_online']
 
     def get_store_slug(self, obj):
         try:
@@ -51,6 +53,12 @@ class UserSerializer(serializers.ModelSerializer):
     def get_team_member_id(self, obj):
         try:
             return obj.team_membership.id
+        except Exception:
+            return None
+
+    def get_is_online(self, obj):
+        try:
+            return obj.team_membership.is_online
         except Exception:
             return None
 

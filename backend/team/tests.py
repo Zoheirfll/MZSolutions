@@ -76,13 +76,13 @@ class InvitePermissionsTests(TestCase):
             'role': 'confirmateur', 'first_name': 'C', 'last_name': 'F', 'email': 'withperm@test.com',
             'permissions': {
                 'orders_view': True,     # matches default -> no override stored
-                'finances_view': True,   # differs from default -> override stored
+                'costs_view': True,   # differs from default -> override stored
             },
         }, format='json')
         self.assertEqual(resp.status_code, 201)
         member = TeamMember.objects.get(email='withperm@test.com')
         overrides = {o.permission: o.enabled for o in member.permission_overrides.all()}
-        self.assertEqual(overrides, {'finances_view': True})
+        self.assertEqual(overrides, {'costs_view': True})
 
     def test_new_member_effective_permissions_include_custom_override(self):
         client = auth_client(self.owner)
@@ -149,14 +149,14 @@ class RolePermissionsMatrixTests(TestCase):
     def test_toggle_permission_persists_and_takes_effect(self):
         client = auth_client(self.owner)
         resp = client.post('/api/team/permissions/', {
-            'role': 'confirmateur', 'permission': 'finances_view', 'enabled': True,
+            'role': 'confirmateur', 'permission': 'costs_view', 'enabled': True,
         }, format='json')
         self.assertEqual(resp.status_code, 200)
-        self.assertTrue(RolePermission.objects.filter(store=self.store, role='confirmateur', permission='finances_view', enabled=True).exists())
+        self.assertTrue(RolePermission.objects.filter(store=self.store, role='confirmateur', permission='costs_view', enabled=True).exists())
 
         conf_client = auth_client(self.conf_user)
         me = conf_client.get('/api/auth/me/')
-        self.assertTrue(me.data['permissions']['finances_view'])
+        self.assertTrue(me.data['permissions']['costs_view'])
 
     def test_toggle_rejects_unknown_permission(self):
         client = auth_client(self.owner)
@@ -230,19 +230,19 @@ class EffectivePermissionsCascadeTests(TestCase):
 
     def test_defaults_to_role_default_with_no_overrides(self):
         perms = get_effective_permissions(self.store, 'confirmateur', member=self.conf)
-        self.assertFalse(perms['finances_view'])
+        self.assertFalse(perms['costs_view'])
         self.assertTrue(perms['orders_view'])
 
     def test_role_override_applies_when_no_member_override(self):
-        RolePermission.objects.create(store=self.store, role='confirmateur', permission='finances_view', enabled=True)
+        RolePermission.objects.create(store=self.store, role='confirmateur', permission='costs_view', enabled=True)
         perms = get_effective_permissions(self.store, 'confirmateur', member=self.conf)
-        self.assertTrue(perms['finances_view'])
+        self.assertTrue(perms['costs_view'])
 
     def test_member_override_wins_over_role_override(self):
-        RolePermission.objects.create(store=self.store, role='confirmateur', permission='finances_view', enabled=True)
-        TeamMemberPermission.objects.create(member=self.conf, permission='finances_view', enabled=False)
+        RolePermission.objects.create(store=self.store, role='confirmateur', permission='costs_view', enabled=True)
+        TeamMemberPermission.objects.create(member=self.conf, permission='costs_view', enabled=False)
         perms = get_effective_permissions(self.store, 'confirmateur', member=self.conf)
-        self.assertFalse(perms['finances_view'])
+        self.assertFalse(perms['costs_view'])
 
     def test_member_override_isolated_from_other_members_same_role(self):
         _, other_conf = make_team_member(self.store, 'confirmateur')
@@ -254,11 +254,55 @@ class EffectivePermissionsCascadeTests(TestCase):
 
     def test_no_member_arg_behaves_like_role_only(self):
         perms = get_effective_permissions(self.store, 'confirmateur')
-        self.assertFalse(perms['finances_view'])
+        self.assertFalse(perms['costs_view'])
 
     def test_member_override_reflected_in_auth_me(self):
         from .models import TeamMemberPermission
-        TeamMemberPermission.objects.create(member=self.conf, permission='finances_view', enabled=True)
+        TeamMemberPermission.objects.create(member=self.conf, permission='costs_view', enabled=True)
         client = auth_client(self.conf_user)
         resp = client.get('/api/auth/me/')
-        self.assertTrue(resp.data['permissions']['finances_view'])
+        self.assertTrue(resp.data['permissions']['costs_view'])
+
+
+class OnlineStatusTests(TestCase):
+    def setUp(self):
+        self.owner, self.store = make_owner()
+        self.conf_user, self.conf = make_team_member(self.store, 'confirmateur')
+
+    def test_confirmateur_can_toggle_own_status(self):
+        client = auth_client(self.conf_user)
+        resp = client.post('/api/team/online-status/', {'online': True}, format='json')
+        self.assertEqual(resp.status_code, 200)
+        self.conf.refresh_from_db()
+        self.assertTrue(self.conf.is_online)
+        self.assertIsNotNone(self.conf.last_seen_at)
+
+        resp = client.post('/api/team/online-status/', {'online': False}, format='json')
+        self.assertEqual(resp.status_code, 200)
+        self.conf.refresh_from_db()
+        self.assertFalse(self.conf.is_online)
+
+    def test_heartbeat_without_online_key_only_updates_last_seen(self):
+        self.conf.is_online = True
+        self.conf.save(update_fields=['is_online'])
+        client = auth_client(self.conf_user)
+        resp = client.post('/api/team/online-status/', {}, format='json')
+        self.assertEqual(resp.status_code, 200)
+        self.conf.refresh_from_db()
+        self.assertTrue(self.conf.is_online)
+        self.assertIsNotNone(self.conf.last_seen_at)
+
+    def test_owner_without_team_membership_rejected(self):
+        client = auth_client(self.owner)
+        resp = client.post('/api/team/online-status/', {'online': True}, format='json')
+        self.assertEqual(resp.status_code, 400)
+
+    def test_stale_heartbeat_treated_as_offline(self):
+        from datetime import timedelta
+        from django.utils import timezone
+        from team.models import online_confirmateurs_queryset
+        self.conf.is_online = True
+        self.conf.last_seen_at = timezone.now() - timedelta(minutes=10)
+        self.conf.save(update_fields=['is_online', 'last_seen_at'])
+        self.assertFalse(self.conf.is_currently_online)
+        self.assertNotIn(self.conf, list(online_confirmateurs_queryset(self.store)))

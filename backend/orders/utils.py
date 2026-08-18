@@ -141,17 +141,10 @@ def dispatch_carrier_for_order(order, default_account):
 
 
 def assign_order_round_robin(order):
-    from team.models import TeamMember
+    from team.models import online_confirmateurs_queryset
     from .models import OrderAssignment
 
-    confirmateurs = list(
-        TeamMember.objects.filter(
-            store=order.store,
-            role='confirmateur',
-            is_active=True,
-            user__isnull=False,
-        ).order_by('id')
-    )
+    confirmateurs = list(online_confirmateurs_queryset(order.store).order_by('id'))
 
     if not confirmateurs:
         return None
@@ -187,17 +180,10 @@ def assign_complaint_round_robin(complaint):
     """Même logique round-robin que assign_order_round_robin, mais avec son
     propre curseur (ComplaintAssignment) — un confirmateur très sollicité sur
     les commandes ne doit pas être systématiquement écarté des réclamations."""
-    from team.models import TeamMember
+    from team.models import online_confirmateurs_queryset
     from .models import ComplaintAssignment
 
-    confirmateurs = list(
-        TeamMember.objects.filter(
-            store=complaint.store,
-            role='confirmateur',
-            is_active=True,
-            user__isnull=False,
-        ).order_by('id')
-    )
+    confirmateurs = list(online_confirmateurs_queryset(complaint.store).order_by('id'))
 
     if not confirmateurs:
         return None

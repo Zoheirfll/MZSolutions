@@ -5,6 +5,7 @@ import Toast from '../components/Toast'
 import api from '../api/axios'
 import { theme } from '../theme'
 import { WILAYAS } from '../data/wilayas'
+import { useAuth } from '../context/AuthContext'
 
 const TABS = [
   { key: 'admin',        label: 'Administrateurs' },
@@ -293,7 +294,16 @@ function MembersTable({ members, onToggle, onManagePermissions, onReactivate, on
               <td className="py-3 pr-4">
                 <div className="flex items-center gap-1.5 flex-wrap">
                   {m.is_active ? (
-                    <span className={theme.badge.success}>Actif</span>
+                    <>
+                      <span className={theme.badge.success}>Actif</span>
+                      {m.role === 'confirmateur' && (
+                        m.is_currently_online ? (
+                          <span className={theme.badge.success} title="Reçoit des commandes automatiquement">En ligne</span>
+                        ) : (
+                          <span className="text-xs px-2 py-0.5 rounded-full ring-1 ring-inset ring-white/10 text-app-muted">Hors ligne</span>
+                        )
+                      )}
+                    </>
                   ) : m.is_activated ? (
                     <span className={theme.badge.danger}>Désactivé</span>
                   ) : (
@@ -350,7 +360,25 @@ function MembersTable({ members, onToggle, onManagePermissions, onReactivate, on
   )
 }
 
+// La sidebar masque déjà ce lien pour qui n'a pas team_view, mais ça ne
+// bloque personne qui tape l'URL directement — l'API elle-même est
+// désormais gatée server-side (TeamListView.get), ce garde n'est qu'un
+// meilleur affichage que la page silencieusement vide qu'on obtiendrait
+// sinon (voir aussi Dashboard.jsx pour le même pattern : jamais de hook
+// après un retour conditionnel).
 export default function TeamPage() {
+  const { user } = useAuth()
+  if (!user?.permissions?.team_view && user?.team_role) {
+    return (
+      <DashboardLayout title="Équipe">
+        <p className="text-sm" style={{ color: theme.dark.muted }}>Accès réservé au propriétaire, à l'administrateur, ou à un membre avec la permission "Voir la gestion d'équipe".</p>
+      </DashboardLayout>
+    )
+  }
+  return <TeamPageContent />
+}
+
+function TeamPageContent() {
   const [activeTab, setActiveTab] = useState('admin')
   const [members, setMembers]     = useState([])
   const [showModal, setShowModal] = useState(false)

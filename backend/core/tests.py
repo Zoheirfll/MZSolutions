@@ -39,15 +39,15 @@ class PermissionHelpersTests(TestCase):
         self.assertTrue(all(perms.values()))
 
     def test_confirmateur_default_permissions_restricted(self):
-        self.assertFalse(has_permission(_req(self.conf_user), 'finances_view'))
+        self.assertFalse(has_permission(_req(self.conf_user), 'costs_view'))
         self.assertFalse(has_permission(_req(self.conf_user), 'products_view'))
         self.assertTrue(has_permission(_req(self.conf_user), 'orders_view'))
 
     def test_dropshipper_default_permissions(self):
         self.assertTrue(has_permission(_req(self.drop_user), 'products_view'))
-        self.assertFalse(has_permission(_req(self.drop_user), 'finances_view'))
+        self.assertFalse(has_permission(_req(self.drop_user), 'costs_view'))
 
     def test_role_permission_override_changes_effective_value(self):
         from team.models import RolePermission
-        RolePermission.objects.create(store=self.store, role='confirmateur', permission='finances_view', enabled=True)
-        self.assertTrue(has_permission(_req(self.conf_user), 'finances_view'))
+        RolePermission.objects.create(store=self.store, role='confirmateur', permission='costs_view', enabled=True)
+        self.assertTrue(has_permission(_req(self.conf_user), 'costs_view'))

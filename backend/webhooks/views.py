@@ -6,6 +6,7 @@ from rest_framework.views import APIView
 from core.permissions import is_owner_or_admin, has_permission
 from .models import WebhookEndpoint, WebhookLog, IncomingWebhookKey, WEBHOOK_EVENT_CHOICES
 from .serializers import WebhookEndpointSerializer, WebhookLogSerializer, IncomingWebhookKeySerializer
+from audit.utils import log_audit
 
 
 def _get_store(request):
@@ -47,7 +48,8 @@ class WebhookEndpointListCreateView(APIView):
             return Response({'detail': 'Accès refusé.'}, status=403)
         serializer = WebhookEndpointSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        serializer.save(store=store)
+        endpoint = serializer.save(store=store)
+        log_audit(request, 'webhook_endpoint.created', target=endpoint, description=f"Endpoint webhook créé : {endpoint.name}")
         return Response(serializer.data, status=201)
 
 
@@ -73,11 +75,13 @@ class WebhookEndpointDetailView(APIView):
         if request.data.get('is_active') and endpoint.consecutive_failures:
             endpoint.consecutive_failures = 0
             endpoint.save(update_fields=['consecutive_failures'])
+        log_audit(request, 'webhook_endpoint.updated', target=endpoint, description=f"Endpoint webhook modifié : {endpoint.name}")
         return Response(WebhookEndpointSerializer(endpoint).data)
 
     def delete(self, request, pk):
         endpoint, err = self._get(request, pk)
         if err: return err
+        log_audit(request, 'webhook_endpoint.deleted', target=endpoint, description=f"Endpoint webhook supprimé : {endpoint.name}")
         endpoint.delete()
         return Response(status=204)
 
@@ -122,6 +126,7 @@ class IncomingWebhookKeyView(APIView):
         key.key = secrets.token_urlsafe(32)
         key.is_active = True
         key.save(update_fields=['key', 'is_active'])
+        log_audit(request, 'webhook_incoming_key.rotated', store=store, description="Clé de webhook entrant régénérée")
         return Response(IncomingWebhookKeySerializer(key).data)
 
 

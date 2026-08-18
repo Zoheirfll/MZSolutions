@@ -135,7 +135,7 @@ class MeViewTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.data['store_slug'], store.slug)
         self.assertIsNone(resp.data['team_role'])
-        self.assertTrue(resp.data['permissions']['finances_view'])  # owner = tout
+        self.assertTrue(resp.data['permissions']['costs_view'])  # owner = tout
 
 
 class LogoutTests(TestCase):

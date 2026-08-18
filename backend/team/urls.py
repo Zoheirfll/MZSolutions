@@ -1,7 +1,7 @@
 from django.urls import path
 from .views import (
     InviteView, TeamListView, TeamMemberDetailView, AcceptInvitationView,
-    RolePermissionsView, TeamMemberPermissionsView,
+    RolePermissionsView, TeamMemberPermissionsView, OnlineStatusView,
     TeamMemberReactivateView, TeamMemberResendInviteView,
 )
 
@@ -14,4 +14,5 @@ urlpatterns = [
     path('members/<int:pk>/resend-invite/',    TeamMemberResendInviteView.as_view()),
     path('accept-invitation/',                 AcceptInvitationView.as_view()),
     path('permissions/',                       RolePermissionsView.as_view()),
+    path('online-status/',                     OnlineStatusView.as_view()),
 ]

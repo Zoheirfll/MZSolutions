@@ -5,17 +5,18 @@ from accounts.models import User
 
 
 class TeamMemberSerializer(serializers.ModelSerializer):
-    invite_expired = serializers.ReadOnlyField()
-    is_activated   = serializers.SerializerMethodField()
+    invite_expired      = serializers.ReadOnlyField()
+    is_activated        = serializers.SerializerMethodField()
+    is_currently_online = serializers.ReadOnlyField()
 
     class Meta:
         model = TeamMember
         fields = [
             'id', 'role', 'first_name', 'last_name', 'email', 'phone',
             'is_active', 'invited_at', 'activated_at', 'invite_expired', 'is_activated',
-            'wilaya', 'commune', 'address',
+            'wilaya', 'commune', 'address', 'is_online', 'last_seen_at', 'is_currently_online',
         ]
-        read_only_fields = ['id', 'invited_at', 'activated_at', 'is_active']
+        read_only_fields = ['id', 'invited_at', 'activated_at', 'is_active', 'is_online', 'last_seen_at']
 
     def get_is_activated(self, obj):
         return obj.user_id is not None

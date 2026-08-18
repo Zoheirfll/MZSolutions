@@ -9,23 +9,35 @@ from .serializers import (StoreSerializer, SubscriptionQuotaSerializer, StoreSet
                            StorePageSerializer, MediaFolderSerializer, MediaFileSerializer, PixelConfigSerializer,
                            SubscriptionPlanSerializer)
 from core.permissions import IsOwnerOrAdminForWrites, is_owner_or_admin, has_permission
+from audit.utils import log_audit
 
 
 class MyStoreView(APIView):
     permission_classes = [IsAuthenticated, IsOwnerOrAdminForWrites]
 
     def get(self, request):
-        try:
-            store = request.user.store
-        except Store.DoesNotExist:
+        # `request.user.store` (au lieu du `_get_store_from_request` standard
+        # utilisé partout ailleurs dans ce fichier) ne fonctionnait QUE pour
+        # l'owner — un admin légitime recevait un 404 accidentel, pas un vrai
+        # contrôle d'accès. Corrigé (2026-08) en même temps que la fermeture
+        # de l'accès confirmateur/dropshipper, désormais explicite (403).
+        if not (is_owner_or_admin(request) or has_permission(request, 'store_view')):
+            return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
+        store = _get_store_from_request(request)
+        if not store:
             return Response({'detail': 'Aucune boutique associée.'}, status=status.HTTP_404_NOT_FOUND)
         return Response(StoreSerializer(store, context={'request': request}).data)
 
     def put(self, request):
-        store = request.user.store
+        if not is_owner_or_admin(request):
+            return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
+        store = _get_store_from_request(request)
+        if not store:
+            return Response({'detail': 'Aucune boutique associée.'}, status=status.HTTP_404_NOT_FOUND)
         serializer = StoreSerializer(store, data=request.data, partial=True, context={'request': request})
         serializer.is_valid(raise_exception=True)
         serializer.save()
+        log_audit(request, 'store.updated', store=store, description="Boutique modifiée (Ma boutique)", metadata={'changed_fields': list(request.data.keys())})
         return Response(serializer.data)
 
 
@@ -33,8 +45,13 @@ class QuotaView(APIView):
     permission_classes = [IsAuthenticated, IsOwnerOrAdminForWrites]
 
     def get(self, request):
+        if not (is_owner_or_admin(request) or has_permission(request, 'subscription_view')):
+            return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
+        store = _get_store_from_request(request)
+        if not store:
+            return Response({'detail': 'Quota introuvable.'}, status=status.HTTP_404_NOT_FOUND)
         try:
-            quota = request.user.store.quota
+            quota = store.quota
         except Exception:
             return Response({'detail': 'Quota introuvable.'}, status=status.HTTP_404_NOT_FOUND)
         return Response(SubscriptionQuotaSerializer(quota).data)
@@ -43,16 +60,20 @@ class QuotaView(APIView):
 class StoreSettingsView(APIView):
     permission_classes = [IsAuthenticated, IsOwnerOrAdminForWrites]
 
-    def _settings(self, request):
-        try:
-            store = request.user.store
-        except Exception:
+    def _settings(self, request, allow_view_permission=False):
+        allowed = is_owner_or_admin(request) or (allow_view_permission and has_permission(request, 'store_view'))
+        if not allowed:
+            return None, Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
+        store = _get_store_from_request(request)
+        if not store:
             return None, Response({'detail': 'Aucune boutique.'}, status=403)
         settings, _ = StoreSettings.objects.get_or_create(store=store)
         return settings, None
 
     def get(self, request):
-        s, err = self._settings(request)
+        # Écriture reste strict owner/admin (self._settings par défaut) —
+        # seule la lecture s'ouvre à store_view (page "Ma boutique" > Thème/Menu).
+        s, err = self._settings(request, allow_view_permission=True)
         if err: return err
         return Response(StoreSettingsSerializer(s).data)
 
@@ -62,6 +83,7 @@ class StoreSettingsView(APIView):
         ser = StoreSettingsSerializer(s, data=request.data, partial=True)
         ser.is_valid(raise_exception=True)
         ser.save()
+        log_audit(request, 'store_settings.updated', store=s.store, description="Paramètres généraux modifiés", metadata={'changed_fields': list(request.data.keys())})
         return Response(ser.data)
 
 
@@ -82,6 +104,8 @@ class StorePageListCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        if not (is_owner_or_admin(request) or has_permission(request, 'store_view')):
+            return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
         store = _get_store_from_request(request)
         if not store:
             return Response({'detail': 'Accès refusé.'}, status=403)
@@ -89,12 +113,15 @@ class StorePageListCreateView(APIView):
         return Response(StorePageSerializer(pages, many=True).data)
 
     def post(self, request):
+        if not is_owner_or_admin(request):
+            return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
         store = _get_store_from_request(request)
         if not store:
             return Response({'detail': 'Accès refusé.'}, status=403)
         ser = StorePageSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
-        ser.save(store=store)
+        page = ser.save(store=store)
+        log_audit(request, 'store_page.created', target=page, description=f"Page créée : {page.title}")
         return Response(ser.data, status=201)
 
 
@@ -111,23 +138,31 @@ class StorePageDetailView(APIView):
             return None, Response({'detail': 'Page introuvable.'}, status=404)
 
     def get(self, request, pk):
+        if not (is_owner_or_admin(request) or has_permission(request, 'store_view')):
+            return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
         page, err = self._get(request, pk)
         if err: return err
         return Response(StorePageSerializer(page).data)
 
     def put(self, request, pk):
+        if not is_owner_or_admin(request):
+            return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
         page, err = self._get(request, pk)
         if err: return err
         ser = StorePageSerializer(page, data=request.data, partial=True)
         ser.is_valid(raise_exception=True)
         ser.save()
+        log_audit(request, 'store_page.updated', target=page, description=f"Page modifiée : {page.title}")
         return Response(ser.data)
 
     def delete(self, request, pk):
+        if not is_owner_or_admin(request):
+            return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
         page, err = self._get(request, pk)
         if err: return err
         slug = page.slug
         store = page.store
+        log_audit(request, 'store_page.deleted', target=page, description=f"Page supprimée : {page.title}")
         page.delete()
 
         # Nettoyage auto du menu — un lien vers cette page devenait un lien
@@ -166,12 +201,16 @@ class MediaFolderListCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        if not (is_owner_or_admin(request) or has_permission(request, 'store_view')):
+            return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
         store = _get_store_from_request(request)
         if not store:
             return Response({'detail': 'Accès refusé.'}, status=403)
         return Response(MediaFolderSerializer(store.media_folders.all(), many=True).data)
 
     def post(self, request):
+        if not is_owner_or_admin(request):
+            return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
         store = _get_store_from_request(request)
         if not store:
             return Response({'detail': 'Accès refusé.'}, status=403)
@@ -185,6 +224,8 @@ class MediaFolderDeleteView(APIView):
     permission_classes = [IsAuthenticated]
 
     def delete(self, request, pk):
+        if not is_owner_or_admin(request):
+            return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
         store = _get_store_from_request(request)
         if not store:
             return Response({'detail': 'Accès refusé.'}, status=403)
@@ -200,6 +241,8 @@ class MediaFileListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        if not (is_owner_or_admin(request) or has_permission(request, 'store_view')):
+            return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
         store = _get_store_from_request(request)
         if not store:
             return Response({'detail': 'Accès refusé.'}, status=403)
@@ -219,6 +262,8 @@ class MediaFileUploadView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
+        if not is_owner_or_admin(request):
+            return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
         store = _get_store_from_request(request)
         if not store:
             return Response({'detail': 'Accès refusé.'}, status=403)
@@ -259,6 +304,8 @@ class MediaFileDeleteView(APIView):
     permission_classes = [IsAuthenticated]
 
     def delete(self, request, pk):
+        if not is_owner_or_admin(request):
+            return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
         store = _get_store_from_request(request)
         if not store:
             return Response({'detail': 'Accès refusé.'}, status=403)
@@ -274,6 +321,8 @@ class MediaFileDeleteView(APIView):
         """Déplace un fichier vers un autre dossier (ou la racine si
         `folder` absent/null) — jusqu'ici le dossier n'était réglable qu'à
         l'upload, aucun moyen de réorganiser après coup."""
+        if not is_owner_or_admin(request):
+            return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
         store = _get_store_from_request(request)
         if not store:
             return Response({'detail': 'Accès refusé.'}, status=403)
@@ -297,6 +346,8 @@ class MediaFileBulkDeleteView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
+        if not is_owner_or_admin(request):
+            return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
         store = _get_store_from_request(request)
         if not store:
             return Response({'detail': 'Accès refusé.'}, status=403)
@@ -315,6 +366,8 @@ class MediaStorageSummaryView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        if not (is_owner_or_admin(request) or has_permission(request, 'store_view')):
+            return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
         store = _get_store_from_request(request)
         if not store:
             return Response({'detail': 'Accès refusé.'}, status=403)
@@ -350,7 +403,8 @@ class PixelConfigListCreateView(APIView):
             return Response({'detail': f"pixel_type invalide. Valeurs : {list(dict(PIXEL_TYPE_CHOICES))}"}, status=400)
         serializer = PixelConfigSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        serializer.save(store=store)
+        pixel = serializer.save(store=store)
+        log_audit(request, 'pixel.created', target=pixel, description=f"Pixel {pixel.get_pixel_type_display()} ajouté")
         return Response(serializer.data, status=201)
 
 
@@ -374,11 +428,13 @@ class PixelConfigDetailView(APIView):
         serializer = PixelConfigSerializer(pixel, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
+        log_audit(request, 'pixel.updated', target=pixel, description=f"Pixel {pixel.get_pixel_type_display()} modifié")
         return Response(serializer.data)
 
     def delete(self, request, pk):
         pixel, err = self._get(request, pk)
         if err: return err
+        log_audit(request, 'pixel.deleted', target=pixel, description=f"Pixel {pixel.get_pixel_type_display()} supprimé")
         pixel.delete()
         return Response(status=204)
 
@@ -423,4 +479,5 @@ class SubscribeView(APIView):
         except chargily.ChargilyError as e:
             return Response({'detail': f"Erreur Chargily : {e}"}, status=502)
 
+        log_audit(request, 'subscription.checkout_started', store=store, description=f"Checkout d'abonnement démarré — palier {plan.name} ({billing_cycle})", metadata={'plan': plan.name, 'billing_cycle': billing_cycle, 'checkout_id': checkout_id})
         return Response({'payment_url': payment_link, 'checkout_id': checkout_id})
