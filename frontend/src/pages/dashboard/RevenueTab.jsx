@@ -5,6 +5,7 @@ import StatCard from '../../components/StatCard'
 import { Spinner, money } from '../orders/stats/statsShared'
 import api from '../../api/axios'
 import { theme } from '../../theme'
+import AISummaryCard from '../../components/AISummaryCard'
 
 const CARDS = [
   { key: 'profit',            label: 'Bénéfices',            color: 'violet', icon: Wallet },
@@ -37,6 +38,7 @@ export default function RevenueTab({ queryString }) {
 
   return (
     <div className="space-y-6">
+      <AISummaryCard tab="revenue" queryString={queryString} />
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         {CARDS.map(c => (
           <StatCard key={c.key} label={c.label} color={c.color} icon={c.icon} value={money(data[c.key])} />

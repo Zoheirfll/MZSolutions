@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { Spinner } from '../orders/stats/statsShared'
 import api from '../../api/axios'
 import { theme } from '../../theme'
+import AISummaryCard from '../../components/AISummaryCard'
 
 const COLUMNS = [
   { key: 'orders',    label: 'Commandes' },
@@ -65,6 +66,7 @@ export default function KpiTab({ queryString }) {
 
   return (
     <div className="space-y-6">
+      <AISummaryCard tab="kpi" queryString={queryString} />
       <div>
         <p className="text-sm font-semibold text-app-primary mb-3">Top 5 des sources en termes de commandes</p>
         <KpiTable rows={data.top_sources} nameKey="source" />

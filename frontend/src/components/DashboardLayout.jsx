@@ -586,6 +586,9 @@ export default function DashboardLayout({ children, title, subtitle }) {
               {can('marketing_view') && (
                 <li>{mainLink('/dashboard/marketing', ICONS.marketing, 'Marketing')}</li>
               )}
+              {can('ai_assistant_view') && (
+                <li>{mainLink('/dashboard/assistant-ia', ICONS.marketing, 'Assistant IA')}</li>
+              )}
               {can('webhooks_view') && (
                 <li>{mainLink('/dashboard/webhooks', ICONS.webhooks, 'Webhooks')}</li>
               )}

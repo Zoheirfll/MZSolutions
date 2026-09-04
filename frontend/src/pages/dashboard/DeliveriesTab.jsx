@@ -6,6 +6,7 @@ import AlgeriaMap from '../../components/AlgeriaMap'
 import { Spinner } from '../orders/stats/statsShared'
 import api from '../../api/axios'
 import { theme } from '../../theme'
+import AISummaryCard from '../../components/AISummaryCard'
 
 const SERIES = [
   { key: 'total',     label: 'Toutes',     color: '#60a5fa' },
@@ -55,6 +56,7 @@ export default function DeliveriesTab({ queryString, onFilterWilaya }) {
 
   return (
     <div className="space-y-6">
+      <AISummaryCard tab="deliveries" queryString={queryString} />
       {/* Entonnoir */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
         <StatCard label="Commandes réelles" sub={`sur ${funnel.total} total`} color="violet" ring={100}

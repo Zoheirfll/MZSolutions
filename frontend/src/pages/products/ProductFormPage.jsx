@@ -6,6 +6,7 @@ import RichEditor from '../../components/RichEditor'
 import api from '../../api/axios'
 import { theme } from '../../theme'
 import { useAuth } from '../../context/AuthContext'
+import { generateProduct } from '../../api/aiApi'
 
 const SECTIONS = ['Détails du produit', 'Description', 'Images', 'Variantes', 'SEO', 'Autres']
 
@@ -558,6 +559,8 @@ export default function ProductFormPage() {
   const [section, setSection]       = useState(SECTIONS[0])
   const sectionIndex = SECTIONS.indexOf(section)
   const [form, setForm]             = useState(EMPTY)
+  const [aiGenerating, setAiGenerating] = useState(false)
+  const [aiError, setAiError] = useState('')
   const [categories, setCategories] = useState([])
   const [suppliers, setSuppliers]   = useState([])
   const [images, setImages]         = useState([])
@@ -664,6 +667,29 @@ export default function ProductFormPage() {
           stock: opt.stock, sku: opt.sku, allow_out_of_stock: opt.allow_out_of_stock, is_active: opt.is_active,
         })
       }
+    }
+  }
+
+  const handleAiGenerate = async () => {
+    if (!form.name?.trim()) {
+      setAiError('Renseignez le nom du produit avant de générer.')
+      return
+    }
+    setAiGenerating(true)
+    setAiError('')
+    try {
+      const data = await generateProduct({ name: form.name, keywords: form.meta_keywords })
+      setForm(f => ({
+        ...f,
+        description: data.description,
+        meta_title: data.meta_title,
+        meta_description: data.meta_description,
+        meta_keywords: data.meta_keywords,
+      }))
+    } catch (e) {
+      setAiError(e?.response?.data?.detail || 'Assistant IA indisponible')
+    } finally {
+      setAiGenerating(false)
     }
   }
 
@@ -971,7 +997,14 @@ export default function ProductFormPage() {
             {/* ── Description ── */}
             {section === 'Description' && (
               <div className="rounded-xl border p-6" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-                <label className="block text-xs text-app-muted-light mb-2">Description du produit</label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-xs text-app-muted-light">Description du produit</label>
+                  <button type="button" onClick={handleAiGenerate} disabled={aiGenerating}
+                    className={theme.btn.outline + ' text-xs py-1 px-2 disabled:opacity-50'}>
+                    {aiGenerating ? 'Génération…' : "✨ Générer avec l'IA"}
+                  </button>
+                </div>
+                {aiError && <p className="text-xs text-red-400 mb-2">{aiError}</p>}
                 <RichEditor
                   value={form.description}
                   onChange={html => setForm(f => ({ ...f, description: html }))}

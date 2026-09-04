@@ -84,6 +84,7 @@ import ProfitabilityPage from './pages/finance/ProfitabilityPage'
 import PaymentReadyPage from './pages/finance/PaymentReadyPage'
 import PaymentCollectedPage from './pages/finance/PaymentCollectedPage'
 import PaymentsExcelUploadPage from './pages/finance/PaymentsExcelUploadPage'
+import AIAssistantPage from './pages/ai/AIAssistantPage'
 
 // `perm` gate applied on top of authentication — sans ça, seule la sidebar masquait un lien,
 // n'importe quel membre authentifié pouvait accéder à n'importe quelle page en tapant l'URL.
@@ -189,6 +190,7 @@ function App() {
           <Route path="/dashboard/canaux-vente"               element={<PD perm="channels_view"><SalesChannelsPage /></PD>} />
           <Route path="/dashboard/marketing"                  element={<PD perm="marketing_view"><MarketingPixelsPage /></PD>} />
           <Route path="/dashboard/webhooks"                   element={<PD perm="webhooks_view"><WebhooksPage /></PD>} />
+          <Route path="/dashboard/assistant-ia"                element={<PD perm="ai_assistant_view"><AIAssistantPage /></PD>} />
           <Route path="/dashboard/expeditions/etiquettes"     element={<PD perm="labels_view"><LabelsPage /></PD>} />
           <Route path="/dashboard/expeditions/preparees"      element={<PD perm="prepared_orders_view"><PreparedOrdersPage /></PD>} />
           <Route path="/dashboard/expeditions/retour-predictif" element={<PD perm="predictive_returns_view"><PredictiveReturnsPage /></PD>} />

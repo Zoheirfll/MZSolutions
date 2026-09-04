@@ -4,6 +4,7 @@ import DashboardLayout from '../../components/DashboardLayout'
 import Select from '../../components/Select'
 import api from '../../api/axios'
 import { theme } from '../../theme'
+import { suggestReply } from '../../api/aiApi'
 
 const STATUS_OPTIONS = [
   { value: 'open',        label: 'Ouverte' },
@@ -55,6 +56,7 @@ export default function InboxPage() {
   const [attachment, setAttachment] = useState(null)
   const [confirmateurs, setConfirmateurs] = useState([])
   const [assigning, setAssigning] = useState(false)
+  const [aiSuggesting, setAiSuggesting] = useState(false)
 
   const inputCls = 'w-full px-3.5 py-2.5 rounded-lg border text-sm text-app-primary bg-transparent outline-none focus:border-violet-500 transition [color-scheme:dark]'
   const bdrStyle = { borderColor: theme.dark.border, background: theme.dark.sidebar }
@@ -123,6 +125,19 @@ export default function InboxPage() {
       setAttachment(null)
       fetchList()
     } catch {} finally { setSavingMessage(false) }
+  }
+
+  const handleAiSuggest = async () => {
+    if (!id) return
+    setAiSuggesting(true)
+    try {
+      const data = await suggestReply(id)
+      setNewMessage(data.suggestion)
+    } catch {
+      // best-effort — pas de blocage de l'UI si l'IA est indisponible
+    } finally {
+      setAiSuggesting(false)
+    }
   }
 
   const reassign = async (confirmateurId) => {
@@ -216,6 +231,10 @@ export default function InboxPage() {
               </div>
 
               <div className="p-3 border-t space-y-2" style={{ borderColor: theme.dark.border }}>
+                <button type="button" onClick={handleAiSuggest} disabled={aiSuggesting}
+                  className={theme.btn.outline + ' text-xs py-1 px-2 disabled:opacity-50'}>
+                  {aiSuggesting ? 'Suggestion…' : '✨ Suggérer une réponse'}
+                </button>
                 <textarea value={newMessage} onChange={e => setNewMessage(e.target.value)} rows={2} className={`${inputCls} resize-none`} style={bdrStyle} placeholder="Répondre au client…" />
                 <div className="flex items-center justify-between">
                   <label className="inline-flex items-center gap-1.5 text-xs cursor-pointer transition hover:text-app-primary" style={{ color: theme.dark.muted }}>
