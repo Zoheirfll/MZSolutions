@@ -148,6 +148,7 @@ PERMISSION_CATALOG = [
     ('team_view',                  "Équipe"),
     ('audit_view',                 "Journal d'audit"),
     ('subscription_view',          'Abonnement'),
+    ('ai_assistant_view',          'Assistant IA'),
 ]
 
 # Regroupement des permissions par catégorie/sous-catégorie — purement
@@ -218,6 +219,7 @@ PERMISSION_CATEGORIES = {
     'webhooks_view':                ('Intégrations', 'Webhooks'),
     'audit_view':                   ('Administration', "Journal d'audit"),
     'subscription_view':            ('Administration', 'Abonnement'),
+    'ai_assistant_view':            ('Administration', 'Assistant IA'),
 }
 
 ROLES_WITH_PERMISSIONS = ['admin', 'confirmateur', 'dropshipper']
@@ -267,7 +269,7 @@ DEFAULT_PERMISSIONS = {
         'stats_failures_view': False, 'stats_stock_sales_view': False, 'stats_products_view': False,
         'stats_confirmateurs_view': False, 'stats_wilayas_view': False, 'stats_sources_view': False,
         'channels_view': False, 'marketing_view': False, 'webhooks_view': False,
-        'audit_view': False, 'subscription_view': False,
+        'audit_view': False, 'subscription_view': False, 'ai_assistant_view': False,
     },
     'dropshipper': {
         'dashboard_view': False, 'inbox_view': True,
@@ -295,7 +297,7 @@ DEFAULT_PERMISSIONS = {
         'stats_failures_view': False, 'stats_stock_sales_view': False, 'stats_products_view': False,
         'stats_confirmateurs_view': False, 'stats_wilayas_view': False, 'stats_sources_view': False,
         'channels_view': False, 'marketing_view': False, 'webhooks_view': False,
-        'audit_view': False, 'subscription_view': False,
+        'audit_view': False, 'subscription_view': False, 'ai_assistant_view': False,
     },
 }
 
