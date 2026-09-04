@@ -91,8 +91,6 @@ function VerifyEmailStep({ email, onVerified }) {
     setError(''); setLoading(true)
     try {
       const { data } = await api.post('/auth/verify-email/', { email, code })
-      localStorage.setItem('access', data.access)
-      localStorage.setItem('refresh', data.refresh)
       onVerified(data.user)
     } catch (err) {
       setError(err.response?.data?.detail || 'Code incorrect.')
@@ -170,7 +168,6 @@ function GoogleStoreStep({ googleToken, userInfo, onDone }) {
       const { data } = await api.post('/auth/google/register/', {
         access_token: googleToken, store_name: storeName, store_slug: storeSlug,
       })
-      localStorage.setItem('access', data.access); localStorage.setItem('refresh', data.refresh)
       onDone(data.user)
     } catch (err) {
       setError(err.response?.data?.detail || 'Erreur lors de la création du compte.')
@@ -273,7 +270,6 @@ export default function Auth() {
         })
         const userInfo = await userInfoRes.json()
         const { data } = await api.post('/auth/google/login/', { access_token: tokenResp.access_token })
-        localStorage.setItem('access', data.access); localStorage.setItem('refresh', data.refresh)
         setUser(data.user); navigate(landingPathFor(data.user))
       } catch (err) {
         if (err.response?.status === 404) {

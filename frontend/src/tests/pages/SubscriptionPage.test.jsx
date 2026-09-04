@@ -17,7 +17,10 @@ const PLANS = [
   { id: 1, name: 'Starter', price_monthly: 1500, price_yearly: 15000, orders_limit: 300, features: ['300 commandes'] },
   { id: 2, name: 'Pro', price_monthly: 4500, price_yearly: 45000, orders_limit: 1000, features: ['1000 commandes'] },
 ]
-const QUOTA_TRIAL = { plan: null, orders_remaining: 40, orders_limit: 50, trial_ends_at: '2026-08-01T00:00:00Z' }
+const QUOTA_TRIAL = {
+  plan: null, orders_remaining: 40, orders_limit: 50, trial_ends_at: '2026-08-01T00:00:00Z',
+  is_trial_active: true, is_subscription_active: false,
+}
 
 function renderPage() {
   return render(

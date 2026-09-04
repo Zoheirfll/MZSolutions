@@ -769,19 +769,21 @@ class OrderDetailView(APIView):
             items_by_id = {i.id: i for i in order.items.all()}
 
             def restock(item):
-                target = item.variant_option or item.product
+                target = item.variant_sub_option or item.variant_option or item.product
                 if target:
                     record_stock_movement(
                         store, item.product, item.variant_option, item.quantity,
                         reason='order_sale', note=f"Modification commande #{order.id}",
+                        variant_sub_option=item.variant_sub_option,
                     )
 
-            def deduct(product, variant_option, qty):
-                target = variant_option or product
+            def deduct(product, variant_option, qty, variant_sub_option=None):
+                target = variant_sub_option or variant_option or product
                 if target:
                     record_stock_movement(
                         store, product, variant_option, -qty,
                         reason='order_sale', note=f"Modification commande #{order.id}",
+                        variant_sub_option=variant_sub_option,
                     )
 
             for entry in items_payload:
@@ -797,20 +799,23 @@ class OrderDetailView(APIView):
                 new_qty = entry.get('quantity')
                 qty = int(new_qty) if new_qty is not None and int(new_qty) >= 1 else (item.quantity if item else 1)
 
-                # `product`/`variant_option` fournis = le confirmateur/client a changé
-                # d'article ou de variante (taille/couleur) — jamais fait confiance
-                # au prix client, toujours résolu côté serveur comme à la création.
+                # `product`/`variant_option`/`variant_sub_option` fournis = le
+                # confirmateur/client a changé d'article ou de variante (taille/
+                # couleur/pointure) — jamais fait confiance au prix client,
+                # toujours résolu côté serveur comme à la création.
                 new_product_id = entry.get('product')
                 new_variant_id = entry.get('variant_option')
+                new_sub_option_id = entry.get('variant_sub_option')
                 product_changed = item and new_product_id and (
                     new_product_id != item.product_id or new_variant_id != item.variant_option_id
+                    or new_sub_option_id != item.variant_sub_option_id
                 )
 
                 if item and not product_changed:
                     # Simple ajustement de quantité sur le même article.
                     delta = qty - item.quantity
                     if delta != 0:
-                        deduct(item.product, item.variant_option, delta)
+                        deduct(item.product, item.variant_option, delta, item.variant_sub_option)
                     item.quantity = qty
                     item.save(update_fields=['quantity'])
                     continue
@@ -821,7 +826,7 @@ class OrderDetailView(APIView):
                 price = _authoritative_item_price(store, entry, quantity=qty)
                 if price is None:
                     continue
-                from products.models import VariantOption
+                from products.models import VariantOption, VariantSubOption
                 product = store.products.filter(pk=new_product_id or (item.product_id if item else None)).first()
                 if not product:
                     continue
@@ -830,12 +835,23 @@ class OrderDetailView(APIView):
                     variant_option = VariantOption.objects.filter(pk=new_variant_id, variant__product=product).first()
                     if not variant_option:
                         continue
-                product_name = f"{product.name} — {variant_option.value}" if variant_option else product.name
+                variant_sub_option = None
+                if new_sub_option_id:
+                    variant_sub_option = VariantSubOption.objects.filter(pk=new_sub_option_id, option=variant_option).first()
+                    if not variant_sub_option:
+                        continue
+                if variant_sub_option:
+                    product_name = f"{product.name} — {variant_option.value} — {variant_sub_option.value}"
+                elif variant_option:
+                    product_name = f"{product.name} — {variant_option.value}"
+                else:
+                    product_name = product.name
 
                 if item:
                     restock(item)
                     item.product = product
                     item.variant_option = variant_option
+                    item.variant_sub_option = variant_sub_option
                     item.product_name = product_name
                     item.price = price
                     item.quantity = qty
@@ -843,9 +859,10 @@ class OrderDetailView(APIView):
                 else:
                     OrderItem.objects.create(
                         order=order, product=product, variant_option=variant_option,
+                        variant_sub_option=variant_sub_option,
                         product_name=product_name, price=price, quantity=qty,
                     )
-                deduct(product, variant_option, qty)
+                deduct(product, variant_option, qty, variant_sub_option)
 
             # Invalide le cache `prefetch_related('items', ...)` posé par
             # `_get()` — les articles ajoutés/supprimés ci-dessus existent

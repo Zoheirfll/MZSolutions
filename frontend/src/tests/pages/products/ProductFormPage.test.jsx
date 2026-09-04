@@ -104,7 +104,10 @@ describe('ProductFormPage', () => {
     await user.type(priceInput, '2000')
     await user.click(screen.getByRole('button', { name: 'Enregistrer le produit' }))
 
-    expect(await screen.findByText('Ce nom existe déjà.')).toBeInTheDocument()
+    // Affiché à la fois dans le bandeau récapitulatif d'erreurs et sous le
+    // champ Nom lui-même (deux <p> distincts) — voir ProductFormPage.jsx.
+    expect(await screen.findByText('La sauvegarde a échoué :')).toBeInTheDocument()
+    expect(screen.getAllByText('Ce nom existe déjà.').length).toBe(2)
     expect(mockNavigate).not.toHaveBeenCalled()
   })
 
@@ -188,7 +191,7 @@ describe('ProductFormPage', () => {
     expect(await screen.findByDisplayValue('Couleur')).toBeInTheDocument()
 
     api.post.mockResolvedValueOnce({ data: { id: 55, value: 'Nouvelle option', stock: 0, sku: '', is_active: true } })
-    await user.click(screen.getByText("+ Ajouter une sous-option"))
+    await user.click(screen.getByText("+ Ajouter une option"))
 
     await waitFor(() => expect(api.post).toHaveBeenCalledWith(
       '/products/7/variants/1/options/',

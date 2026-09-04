@@ -29,10 +29,16 @@ describe('DashboardLayout — sidebar gated by permissions', () => {
     api.get.mockResolvedValue({ data: { count: 0 } })
   })
 
-  it('owner (no team_role, no permissions object) sees full sections via fallback rules', async () => {
-    renderLayout({ email: 'owner@test.com', team_role: null, permissions: { store_view: true } })
+  it('owner (no team_role, all permissions true from the server) sees full sections via fallback rules', async () => {
+    // Le backend renvoie TOUJOURS toutes les permissions à `true` pour un
+    // owner (pas de team_membership, accès total non configurable) — `can()`
+    // côté frontend reste une simple lecture de `user.permissions`, sans
+    // logique de repli propre à l'owner (core/permissions.py::get_effective_permissions).
+    renderLayout({ email: 'owner@test.com', team_role: null, permissions: { store_view: true, dashboard_view: true, subscription_view: true } })
     await waitFor(() => expect(screen.getByText('Tableau de bord')).toBeInTheDocument())
-    // Permissions par rôle / Abonnement are shown when !teamRole regardless of `can()`
+    // Permissions par rôle is shown when !teamRole regardless of `can()` ;
+    // Abonnement now requires the dedicated `subscription_view` permission
+    // (audit_view/subscription_view added — no longer a bare !teamRole check).
     expect(screen.getByText('Permissions par rôle')).toBeInTheDocument()
     expect(screen.getByText('Abonnement')).toBeInTheDocument()
   })
@@ -42,20 +48,24 @@ describe('DashboardLayout — sidebar gated by permissions', () => {
     await waitFor(() => expect(screen.getByText('Tableau de bord')).toBeInTheDocument())
     expect(screen.queryByText('Produits & Catégories')).not.toBeInTheDocument()
     expect(screen.queryByText('Clients')).not.toBeInTheDocument()
-    expect(screen.queryByText('Réclamations')).not.toBeInTheDocument()
+    expect(screen.queryByText('Boîte de réception')).not.toBeInTheDocument()
     expect(screen.queryByText('Permissions par rôle')).not.toBeInTheDocument()
     expect(screen.queryByText('Abonnement')).not.toBeInTheDocument()
   })
 
   it('confirmateur granted extra permissions sees the matching sections', async () => {
+    // `complaints_view` a été retiré du catalogue (mort — les réclamations
+    // legacy sont verrouillées owner/admin strict, remplacées par la Boîte
+    // de réception unifiée gatée par `inbox_view`, voir CLAUDE.md "Audit de
+    // cohérence de la matrice de permissions").
     renderLayout({
       email: 'c@test.com',
       team_role: 'confirmateur',
-      permissions: { products_view: true, clients_view: true, complaints_view: true },
+      permissions: { products_view: true, clients_view: true, inbox_view: true },
     })
     await waitFor(() => expect(screen.getByText('Produits & Catégories')).toBeInTheDocument())
     expect(screen.getByText('Clients')).toBeInTheDocument()
-    expect(screen.getByText('Réclamations')).toBeInTheDocument()
+    expect(screen.getByText('Boîte de réception')).toBeInTheDocument()
   })
 
   it('dropshipper role shows dropshipper-specific links instead of the generic Dropshipping section', async () => {

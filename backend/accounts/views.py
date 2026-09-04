@@ -20,6 +20,7 @@ from rest_framework.views import APIView
 
 from .models import User, EmailVerificationCode, LoginHistory
 from .serializers import RegisterSerializer, LoginSerializer, UserSerializer, get_tokens
+from .cookie_auth import set_auth_cookies, clear_auth_cookies
 from stores.models import Store, SubscriptionQuota
 
 token_generator = PasswordResetTokenGenerator()
@@ -95,10 +96,10 @@ class VerifyEmailView(APIView):
         user.save(update_fields=['is_active', 'is_email_verified'])
         vc.delete()
 
-        return Response({
-            'user': UserSerializer(user).data,
-            **get_tokens(user),
-        })
+        tokens = get_tokens(user)
+        response = Response({'user': UserSerializer(user).data})
+        set_auth_cookies(response, tokens['access'], tokens['refresh'])
+        return response
 
 
 class ResendVerificationView(APIView):
@@ -156,10 +157,10 @@ class LoginView(APIView):
 
         user = serializer.validated_data['user']
         _log_login_event(user, request, 'login')
-        return Response({
-            'user': UserSerializer(user).data,
-            **get_tokens(user),
-        })
+        tokens = get_tokens(user)
+        response = Response({'user': UserSerializer(user).data})
+        set_auth_cookies(response, tokens['access'], tokens['refresh'])
+        return response
 
 
 class MeView(APIView):
@@ -222,13 +223,42 @@ class LogoutView(APIView):
         from rest_framework_simplejwt.tokens import RefreshToken
         from rest_framework_simplejwt.exceptions import TokenError
         _log_login_event(request.user, request, 'logout')
-        refresh = request.data.get('refresh')
+        refresh = request.data.get('refresh') or request.COOKIES.get(settings.AUTH_COOKIE_REFRESH)
         if refresh:
             try:
                 RefreshToken(refresh).blacklist()
             except TokenError:
                 pass
-        return Response(status=205)
+        response = Response(status=205)
+        clear_auth_cookies(response)
+        return response
+
+
+class CookieTokenRefreshView(APIView):
+    """Remplace `TokenRefreshView` de simplejwt (`/api/token/refresh/`) — lit
+    le refresh token depuis le cookie httpOnly en priorité (navigateur),
+    retombe sur le corps de la requête sinon (clients API/tests). Pose les
+    nouveaux cookies sur la réponse, ne renvoie plus jamais les tokens en JSON."""
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        from rest_framework_simplejwt.serializers import TokenRefreshSerializer
+        from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
+
+        refresh = request.data.get('refresh') or request.COOKIES.get(settings.AUTH_COOKIE_REFRESH)
+        if not refresh:
+            return Response({'detail': 'Refresh token manquant.'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        serializer = TokenRefreshSerializer(data={'refresh': refresh})
+        try:
+            serializer.is_valid(raise_exception=True)
+        except (TokenError, InvalidToken) as e:
+            return Response({'detail': str(e)}, status=status.HTTP_401_UNAUTHORIZED)
+
+        validated = serializer.validated_data
+        response = Response(status=status.HTTP_200_OK)
+        set_auth_cookies(response, access=validated['access'], refresh=validated.get('refresh'))
+        return response
 
 
 # ── Password reset ──────────────────────────────────────────────────────────
@@ -345,10 +375,10 @@ class GoogleRegisterView(APIView):
         store = Store.objects.create(owner=user, name=store_name, slug=store_slug)
         SubscriptionQuota.objects.create(store=store)
 
-        return Response({
-            'user': UserSerializer(user).data,
-            **get_tokens(user),
-        }, status=status.HTTP_201_CREATED)
+        tokens = get_tokens(user)
+        response = Response({'user': UserSerializer(user).data}, status=status.HTTP_201_CREATED)
+        set_auth_cookies(response, tokens['access'], tokens['refresh'])
+        return response
 
 
 class GoogleLoginView(APIView):
@@ -377,7 +407,7 @@ class GoogleLoginView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        return Response({
-            'user': UserSerializer(user).data,
-            **get_tokens(user),
-        })
+        tokens = get_tokens(user)
+        response = Response({'user': UserSerializer(user).data})
+        set_auth_cookies(response, tokens['access'], tokens['refresh'])
+        return response

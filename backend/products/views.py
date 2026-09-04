@@ -1268,6 +1268,7 @@ class PublicProductListView(APIView):
 
             results.append({
                 'id':              p.id,
+                'slug':            p.slug,
                 'name':            p.name,
                 'price':           str(display_price),
                 'original_price':  str(original_price) if original_price is not None else None,
@@ -1317,7 +1318,7 @@ class PublicCatalogFeedView(APIView):
     <g:id>{p.id}</g:id>
     <title>{escape(p.name)}</title>
     <description>{escape(p.description or p.name)}</description>
-    <link>{store_link}/products/{p.id}</link>
+    <link>{store_link}/products/{p.slug}</link>
     <g:image_link>{escape(image_url)}</g:image_link>
     <g:availability>{availability}</g:availability>
     <g:price>{price} DZD</g:price>
@@ -1353,8 +1354,8 @@ class PublicSitemapView(APIView):
 
         store_link = f"{settings.FRONTEND_URL}/store/{store.slug}"
         urls = [store_link, f"{store_link}/products"]
-        for p in store.products.filter(is_active=True).values_list('id', flat=True):
-            urls.append(f"{store_link}/products/{p}")
+        for p_slug in store.products.filter(is_active=True).values_list('slug', flat=True):
+            urls.append(f"{store_link}/products/{p_slug}")
         for page_slug in store.pages.filter(is_published=True).values_list('slug', flat=True):
             urls.append(f"{store_link}/pages/{page_slug}")
 
@@ -1372,10 +1373,13 @@ class PublicProductDetailView(APIView):
         store = _get_public_store(slug)
         if not store:
             return Response({'detail': 'Boutique introuvable.'}, status=404)
+        # `pk` accepte soit l'ID numérique (ancienne URL, jamais cassée — liens
+        # déjà partagés/indexés Meta/Google) soit le slug lisible (nouvelle URL).
+        products_qs = store.products.prefetch_related(
+            'images', 'categories', 'variants__options__sub_options', 'reviews'
+        ).filter(is_active=True)
         try:
-            product = store.products.prefetch_related(
-                'images', 'categories', 'variants__options__sub_options', 'reviews'
-            ).get(pk=pk, is_active=True)
+            product = products_qs.get(pk=int(pk)) if str(pk).isdigit() else products_qs.get(slug=pk)
         except Product.DoesNotExist:
             return Response({'detail': 'Produit introuvable.'}, status=404)
 
@@ -1434,6 +1438,7 @@ class PublicProductDetailView(APIView):
 
         return Response({
             'id':              product.id,
+            'slug':            product.slug,
             'name':            product.name,
             'description':     product.description,
             'meta_title':      product.meta_title,

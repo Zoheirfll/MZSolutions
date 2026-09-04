@@ -3,8 +3,10 @@ import { render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import Dashboard from '../../pages/Dashboard'
 
+let mockUser = { first_name: 'Ali', store_slug: 'ma-boutique', team_role: null, permissions: {} }
+
 vi.mock('../../context/AuthContext', () => ({
-  useAuth: () => ({ user: { first_name: 'Ali', store_slug: 'ma-boutique', team_role: null, permissions: {} }, logout: vi.fn() }),
+  useAuth: () => ({ user: mockUser, logout: vi.fn() }),
 }))
 
 vi.mock('../../api/axios', () => ({
@@ -20,13 +22,31 @@ function renderPage() {
   )
 }
 
+const deliveriesPayload = {
+  funnel: { total: 20, real: 18, confirmed: 10, confirmed_pct: 55, shipped: 8, shipped_pct: 80 },
+  secondary: {
+    in_transit: { count: 3, pct: 15 },
+    delivered: { count: 8, pct: 40 },
+    returned: { count: 2, pct: 10 },
+    cancelled: { count: 1, pct: 5 },
+  },
+  timeseries: [{ date: '2026-07-01', total: 3, real: 3, confirmed: 2, shipped: 1, delivered: 1, returned: 0 }],
+  by_wilaya: [{ wilaya: 'Alger', orders_count: 10 }],
+  by_source: [
+    { source: 'Boutique en ligne', total: 9, real: 8, confirmed_pct: 60, delivered_pct: 40, returned: 1, cancelled: 0 },
+  ],
+  by_status: [{ status: 'pending', label: 'En attente', count: 4 }],
+  deltas: { total: 5 },
+}
+
 describe('Dashboard', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockUser = { first_name: 'Ali', store_slug: 'ma-boutique', team_role: null, permissions: {} }
     api.get.mockResolvedValue({ data: { count: 0 } })
   })
 
-  it('renders the quota banner and stats once loaded', async () => {
+  it('renders the quota banner and the Livraisons tab (default) once loaded', async () => {
     api.get.mockImplementation((url) => {
       if (url === '/stores/me/quota/') {
         return Promise.resolve({ data: {
@@ -35,25 +55,8 @@ describe('Dashboard', () => {
           is_trial_active: true,
         } })
       }
-      if (url === '/orders/stats/') {
-        return Promise.resolve({ data: { total: 12, confirmed: { count: 5 }, pending: { count: 2 } } })
-      }
-      if (url.startsWith('/orders/stats/global/')) {
-        return Promise.resolve({ data: { confirmation_rate: 62.5, revenue: 15000, delivered_count: 8, total_orders: 20, returned_count: 2 } })
-      }
-      if (url.startsWith('/orders/stats/orders/')) {
-        return Promise.resolve({ data: { daily: [{ date: '2026-07-01', count: 3 }] } })
-      }
-      if (url.startsWith('/orders/stats/wilayas/')) {
-        return Promise.resolve({ data: { results: [
-          { wilaya: 'Alger', orders_count: 10, confirmed_count: 6, revenue: 8000 },
-          { wilaya: 'Oran', orders_count: 4, confirmed_count: 2, revenue: 3000 },
-        ] } })
-      }
-      if (url.startsWith('/orders/stats/sources/')) {
-        return Promise.resolve({ data: { results: [
-          { source: 'Boutique en ligne', orders_count: 9, confirmed_count: 5, revenue: 7000 },
-        ] } })
+      if (url.startsWith('/orders/stats/dashboard/deliveries/')) {
+        return Promise.resolve({ data: deliveriesPayload })
       }
       return Promise.resolve({ data: { count: 0 } })
     })
@@ -64,47 +67,54 @@ describe('Dashboard', () => {
     expect(await screen.findByText('Commandes restantes')).toBeInTheDocument()
     expect(screen.getByText('40')).toBeInTheDocument()
     expect(screen.getByText('Essai actif')).toBeInTheDocument()
-    expect(screen.getByText('Commandes réelles')).toBeInTheDocument()
-    expect(await screen.findByText('Taux de confirmation')).toBeInTheDocument()
-    expect(screen.getByText('63%')).toBeInTheDocument()
-    expect(screen.getByText('8 livrées')).toBeInTheDocument()
-    expect(screen.queryByText("Chiffre d'affaires")).not.toBeInTheDocument()
-    expect(await screen.findByText('Taux de retour')).toBeInTheDocument()
-    expect(screen.getByText('2 retours')).toBeInTheDocument()
-    expect(await screen.findByText('Commandes par wilaya — 30 derniers jours')).toBeInTheDocument()
-    expect(screen.getByText('Alger')).toBeInTheDocument()
-    expect(await screen.findByText('Par source de vente — 30 derniers jours')).toBeInTheDocument()
+
+    // Onglets du tableau de bord
+    expect(screen.getByText('Livraisons')).toBeInTheDocument()
+    expect(screen.getByText('Revenus')).toBeInTheDocument()
+    expect(screen.getByText('Confirmation')).toBeInTheDocument()
+    expect(screen.getByText('KPI')).toBeInTheDocument()
+
+    // Contenu de l'onglet Livraisons (par défaut)
+    expect(await screen.findByText('Commandes réelles')).toBeInTheDocument()
+    expect(screen.getByText('sur 20 total')).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: 'Carte des commandes par wilaya' })).toBeInTheDocument()
     expect(screen.getByText('Boutique en ligne')).toBeInTheDocument()
   })
 
-  it('shows an error banner without crashing when the core stats endpoint fails', async () => {
+  it('shows the deliveries error fallback without crashing when the dashboard endpoint fails', async () => {
     api.get.mockImplementation((url) => {
       if (url === '/stores/me/quota/') return Promise.reject(new Error('fail'))
-      if (url === '/orders/stats/') return Promise.reject(new Error('fail'))
+      if (url.startsWith('/orders/stats/dashboard/deliveries/')) return Promise.reject(new Error('fail'))
       return Promise.resolve({ data: { count: 0 } })
     })
     renderPage()
 
     expect(await screen.findByText(/Bonjour,/)).toBeInTheDocument()
-    expect(await screen.findByText(/Impossible de charger certaines statistiques/)).toBeInTheDocument()
     await waitFor(() => expect(screen.queryByText('Commandes restantes')).not.toBeInTheDocument())
-    // Stats default to 0 without crashing
-    expect(screen.getByText('Commandes réelles')).toBeInTheDocument()
+    expect(await screen.findByText('Impossible de charger les statistiques.')).toBeInTheDocument()
   })
 
-  it('hides the confirmation-rate/revenue KPIs for a role without stats_view permission (403)', async () => {
+  it('shows the confirmateur-specific dashboard (not the owner analytics tabs) when stats_view is not granted', async () => {
+    mockUser = { first_name: 'Sami', store_slug: 'ma-boutique', team_role: 'confirmateur', permissions: { stats_view: false } }
     api.get.mockImplementation((url) => {
-      if (url === '/orders/stats/') return Promise.resolve({ data: { total: 3 } })
-      if (url.startsWith('/orders/stats/global/')) return Promise.reject({ response: { status: 403 } })
-      if (url.startsWith('/orders/stats/orders/')) return Promise.reject({ response: { status: 403 } })
-      if (url === '/orders/?per_page=200') return Promise.resolve({ data: { results: [] } })
+      if (url === '/orders/stats/my-summary/') {
+        return Promise.resolve({ data: {
+          pending: 2, no_answer_1: 1, no_answer_2: 0, no_answer_3: 0,
+          confirmed_today: 3, total_active: 5, urgent: [],
+        } })
+      }
+      if (url.startsWith('/orders/stats/dashboard/deliveries/')) {
+        return Promise.resolve({ data: deliveriesPayload })
+      }
       return Promise.resolve({ data: { count: 0 } })
     })
     renderPage()
 
-    expect(await screen.findByText('Commandes réelles')).toBeInTheDocument()
-    expect(screen.queryByText('Taux de confirmation')).not.toBeInTheDocument()
-    // Falls back to computing the chart from the confirmateur/dropshipper's own visible orders
-    await waitFor(() => expect(api.get).toHaveBeenCalledWith('/orders/?per_page=200'))
+    expect(await screen.findByText(/Bonjour,/)).toBeInTheDocument()
+    expect(screen.getAllByText('Sami').length).toBeGreaterThan(0)
+    expect(await screen.findByText('À traiter (nouvelles)')).toBeInTheDocument()
+    // Le confirmateur n'a pas l'onglet "Revenus" (réservé owner/admin/stats_view)
+    expect(screen.queryByText('Revenus')).not.toBeInTheDocument()
+    expect(screen.queryByText('Commandes restantes')).not.toBeInTheDocument()
   })
 })

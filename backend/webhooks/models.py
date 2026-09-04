@@ -1,6 +1,7 @@
 import secrets
 from django.db import models
 from stores.models import Store
+from core.fields import EncryptedTextField
 
 WEBHOOK_EVENT_CHOICES = [
     ('order.created',    'Nouvelle commande'),
@@ -33,7 +34,7 @@ class WebhookEndpoint(models.Model):
     name        = models.CharField(max_length=100, blank=True)
     url         = models.URLField(max_length=500)
     events      = models.JSONField(default=list, help_text="Liste de clés WEBHOOK_EVENT_CHOICES — vide = tous les événements")
-    secret      = models.CharField(max_length=64, blank=True)
+    secret      = EncryptedTextField(blank=True)
     is_active   = models.BooleanField(default=True)
     consecutive_failures = models.PositiveIntegerField(default=0)
     last_triggered_at     = models.DateTimeField(null=True, blank=True)

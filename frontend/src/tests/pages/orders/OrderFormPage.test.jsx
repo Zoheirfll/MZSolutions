@@ -62,6 +62,9 @@ describe('OrderFormPage', () => {
       if (url.startsWith('/products/?search=')) {
         return Promise.resolve({ data: { results: [{ id: 1, name: 'T-shirt', price: 1500, variants: [] }] } })
       }
+      // Le vendeur n'a pas de grille tarifaire pour cette wilaya — le backend
+      // répond 404, la page retombe silencieusement sur rateInfo=null.
+      if (url.startsWith('/stores/me/shipping-rate/')) return Promise.reject(new Error('404'))
       return Promise.resolve({ data: { count: 0 } })
     })
     api.post.mockResolvedValueOnce({ data: { id: 42 } })
@@ -93,6 +96,7 @@ describe('OrderFormPage', () => {
       if (url.startsWith('/products/?search=')) {
         return Promise.resolve({ data: { results: [{ id: 1, name: 'T-shirt', price: 1500, variants: [] }] } })
       }
+      if (url.startsWith('/stores/me/shipping-rate/')) return Promise.reject(new Error('404'))
       return Promise.resolve({ data: { count: 0 } })
     })
     api.post.mockRejectedValueOnce({ response: { data: { phone: 'Numéro invalide.' } } })

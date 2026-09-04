@@ -55,7 +55,10 @@ describe('OrderDetailPage', () => {
     renderPage()
     expect(screen.getByText('Chargement…')).toBeInTheDocument()
     expect(await screen.findByText('Ali B')).toBeInTheDocument()
-    expect(screen.getByText('T-shirt')).toBeInTheDocument()
+    // localItems est peuplé par un effet séparé keyed sur `order` (voir
+    // OrderDetailPage.jsx) — un battement après le premier rendu, donc
+    // findByText (qui repolle) plutôt que getByText.
+    expect(await screen.findByText('T-shirt')).toBeInTheDocument()
     expect(screen.getByText('0555000000')).toBeInTheDocument()
   })
 

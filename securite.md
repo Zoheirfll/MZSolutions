@@ -8,6 +8,7 @@
 
 **Statut : aucune faille trouvée.**
 
+
 Périmètre déjà largement mitigé par l'Epic 8.6 (audit de sécurité précédent). Points vérifiés :
 
 | Vecteur | Constat |

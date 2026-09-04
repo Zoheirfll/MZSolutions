@@ -31,14 +31,18 @@ const DETAIL = {
   id: 7, first_name: 'Sara', last_name: 'K',
   total_earned: 10000, total_paid: 4000, balance: 6000,
   entries: [{ id: 1, order_id: 42, product_name: 'T-shirt', amount: 500, created_at: '2026-01-01T00:00:00Z' }],
+  entries_count: 1,
   payments: [],
+  payments_count: 0,
 }
 const PRODUCTS = [{ id: 1, product: 5, product_name: 'T-shirt', product_price: 1500 }]
 const COMMISSIONS = []
 
 function mockGet() {
   api.get.mockImplementation((url) => {
-    if (url === '/dropshipping/dropshippers/7/') return Promise.resolve({ data: DETAIL })
+    // Le détail est désormais paginé (?entries_page=&payments_page=) — plus
+    // une égalité stricte sur l'URL.
+    if (url.startsWith('/dropshipping/dropshippers/7/?')) return Promise.resolve({ data: DETAIL })
     if (url.startsWith('/dropshipping/products/')) return Promise.resolve({ data: PRODUCTS })
     if (url.startsWith('/dropshipping/commissions/')) return Promise.resolve({ data: COMMISSIONS })
     return Promise.resolve({ data: {} })
@@ -71,17 +75,15 @@ describe('DropshipperDetailPage', () => {
     await waitFor(() => expect(api.post).toHaveBeenCalledWith('/dropshipping/dropshippers/7/pay/', { note: '' }))
   })
 
-  it('shows an alert when the payment fails', async () => {
+  it('shows a toast when the payment fails', async () => {
     const user = userEvent.setup()
     mockGet()
     api.post.mockRejectedValueOnce({ response: { data: { detail: 'Erreur paiement.' } } })
-    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {})
     renderPage()
 
     await screen.findAllByText('6 000 DZD')
     await user.click(screen.getByRole('button', { name: /Marquer.*comme payé/ }))
 
-    await waitFor(() => expect(alertSpy).toHaveBeenCalledWith('Erreur paiement.'))
-    alertSpy.mockRestore()
+    expect(await screen.findByText('Erreur paiement.')).toBeInTheDocument()
   })
 })

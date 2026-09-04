@@ -1,5 +1,6 @@
 from django.db import models
 from stores.models import Store
+from core.fields import EncryptedTextField
 
 CHANNEL_CHOICES = [
     ('shopify',       'Shopify'),
@@ -28,8 +29,8 @@ class ChannelConnection(models.Model):
     channel        = models.CharField(max_length=20, choices=CHANNEL_CHOICES)
     shop_url       = models.CharField(max_length=200, blank=True, help_text="Ex: monshop.myshopify.com, ou URL du Google Sheet")
     api_key        = models.CharField(max_length=200, blank=True)
-    api_secret     = models.CharField(max_length=200, blank=True)
-    access_token   = models.CharField(max_length=255, blank=True, help_text="Token OAuth obtenu après autorisation par le marchand (Shopify) — jamais renvoyé en clair au frontend")
+    api_secret     = EncryptedTextField(blank=True)
+    access_token   = EncryptedTextField(blank=True, help_text="Token OAuth obtenu après autorisation par le marchand (Shopify) — jamais renvoyé en clair au frontend")
     scope           = models.CharField(max_length=500, blank=True)
     is_active      = models.BooleanField(default=True)
     connected_at   = models.DateTimeField(auto_now_add=True)

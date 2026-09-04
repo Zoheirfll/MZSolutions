@@ -22,6 +22,11 @@ const IS_NGROK = typeof window !== 'undefined' && /ngrok/.test(window.location.h
 
 const api = axios.create({
   baseURL: `${API_BASE}/api`,
+  // Cookies httpOnly (mz_access/mz_refresh, voir accounts/cookie_auth.py) —
+  // remplace le Bearer token lu depuis localStorage (Epic 8.6 TBD : un script
+  // XSS ne peut plus voler le token, seul le navigateur peut l'envoyer).
+  // Nécessaire même en same-origin pour que le navigateur attache les cookies.
+  withCredentials: true,
   // Contourne la page d'avertissement ngrok (sinon ngrok intercepte la
   // requête AVANT le serveur et renvoie une page HTML sans en-têtes CORS —
   // ce qui ressemble à tort à une erreur CORS classique). Envoyé uniquement
@@ -31,32 +36,22 @@ const api = axios.create({
   headers: IS_NGROK ? { 'ngrok-skip-browser-warning': 'true' } : {},
 })
 
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('access')
-  if (token) config.headers.Authorization = `Bearer ${token}`
-  return config
-})
-
 api.interceptors.response.use(
   (res) => res,
   async (error) => {
     const original = error.config
-    if (error.response?.status === 401 && !original._retry) {
+    if (error.response?.status === 401 && !original._retry && !original.url?.includes('/token/refresh/')) {
       original._retry = true
-      const refresh = localStorage.getItem('refresh')
-      if (refresh) {
-        try {
-          const { data } = await axios.post(`${API_BASE}/api/token/refresh/`, { refresh }, {
-            headers: IS_NGROK ? { 'ngrok-skip-browser-warning': 'true' } : {},
-          })
-          localStorage.setItem('access', data.access)
-          original.headers.Authorization = `Bearer ${data.access}`
-          return api(original)
-        } catch {
-          localStorage.removeItem('access')
-          localStorage.removeItem('refresh')
-          window.location.href = '/auth'
-        }
+      try {
+        // Le refresh token voyage lui aussi dans son propre cookie httpOnly —
+        // rien à lire/écrire côté JS, le navigateur l'envoie automatiquement.
+        await axios.post(`${API_BASE}/api/token/refresh/`, {}, {
+          withCredentials: true,
+          headers: IS_NGROK ? { 'ngrok-skip-browser-warning': 'true' } : {},
+        })
+        return api(original)
+      } catch {
+        window.location.href = '/auth'
       }
     }
     return Promise.reject(error)

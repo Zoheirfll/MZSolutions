@@ -22,3 +22,6 @@ Thumbs.db
 
 # Outils locaux
 graphify-out/
+
+# Logs des tâches planifiées (machine-spécifique)
+backend/scheduled_tasks/logs/

@@ -25,6 +25,18 @@ const mockCart = {
 }
 vi.mock('../../../context/CartContext', () => ({
   useCart: () => mockCart,
+  // Reproduit la vraie logique (prix × quantité, avec offre par palier si
+  // applicable) — CheckoutPage l'importe directement depuis ce module.
+  itemLineTotal: (item) => {
+    const unit = Number(item.price) || 0
+    const qty = item.quantity
+    if (item.offer_enabled && item.offer_quantity && item.offer_price != null && qty >= item.offer_quantity) {
+      const fullBlocks = Math.floor(qty / item.offer_quantity)
+      const remainder = qty % item.offer_quantity
+      return fullBlocks * Number(item.offer_price) + remainder * unit
+    }
+    return unit * qty
+  },
 }))
 
 vi.mock('../../../api/publicApi', () => ({

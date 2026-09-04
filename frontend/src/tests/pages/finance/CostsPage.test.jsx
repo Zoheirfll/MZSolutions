@@ -54,7 +54,7 @@ describe('CostsPage', () => {
     await user.type(start, '2026-07-01')
     await user.type(end, '2026-07-31')
 
-    await user.click(screen.getByRole('button', { name: 'Enregistrer' }))
+    await user.click(screen.getByRole('button', { name: 'Ajouter' }))
 
     await waitFor(() => expect(api.post).toHaveBeenCalledWith('/finance/costs/', expect.objectContaining({
       label: 'Loyer', amount: '5000', period_start: '2026-07-01', period_end: '2026-07-31',
@@ -74,7 +74,7 @@ describe('CostsPage', () => {
     await user.type(start, '2026-07-01')
     await user.type(end, '2026-07-31')
     await user.type(screen.getByPlaceholderText('0'), '5000')
-    await user.click(screen.getByRole('button', { name: 'Enregistrer' }))
+    await user.click(screen.getByRole('button', { name: 'Ajouter' }))
 
     expect(await screen.findByText('Ce champ est requis.')).toBeInTheDocument()
   })

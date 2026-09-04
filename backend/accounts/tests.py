@@ -58,7 +58,9 @@ class VerifyEmailTests(TestCase):
     def test_correct_code_activates_user_and_returns_tokens(self):
         resp = self.client.post('/api/auth/verify-email/', {'email': 'v@test.com', 'code': '123456'}, format='json')
         self.assertEqual(resp.status_code, 200)
-        self.assertIn('access', resp.data)
+        self.assertNotIn('access', resp.data)  # jamais dans le corps JSON depuis la migration cookies httpOnly
+        self.assertIn('mz_access', resp.cookies)
+        self.assertTrue(resp.cookies['mz_access']['httponly'])
         self.user.refresh_from_db()
         self.assertTrue(self.user.is_active)
         self.assertTrue(self.user.is_email_verified)
@@ -89,8 +91,12 @@ class LoginTests(TestCase):
     def test_correct_credentials_return_tokens(self):
         resp = self.client.post('/api/auth/login/', {'email': 'login@test.com', 'password': 'CorrectPass123'}, format='json')
         self.assertEqual(resp.status_code, 200)
-        self.assertIn('access', resp.data)
-        self.assertIn('refresh', resp.data)
+        self.assertNotIn('access', resp.data)
+        self.assertNotIn('refresh', resp.data)
+        self.assertIn('mz_access', resp.cookies)
+        self.assertIn('mz_refresh', resp.cookies)
+        self.assertTrue(resp.cookies['mz_access']['httponly'])
+        self.assertTrue(resp.cookies['mz_refresh']['httponly'])
 
     def test_wrong_password_rejected(self):
         resp = self.client.post('/api/auth/login/', {'email': 'login@test.com', 'password': 'wrong'}, format='json')
@@ -230,7 +236,8 @@ class GoogleAuthTests(TestCase):
         mock_get.return_value = MagicMock(ok=True, json=lambda: {'sub': 'x', 'email': 'googleuser@test.com'})
         resp = self.client.post('/api/auth/google/login/', {'access_token': 'fake'}, format='json')
         self.assertEqual(resp.status_code, 200)
-        self.assertIn('access', resp.data)
+        self.assertNotIn('access', resp.data)
+        self.assertIn('mz_access', resp.cookies)
 
     @patch('accounts.views.http_requests.get')
     def test_invalid_google_token_rejected(self, mock_get):

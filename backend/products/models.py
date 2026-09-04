@@ -60,6 +60,7 @@ class SupplierPayment(models.Model):
 class Product(models.Model):
     store              = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='products')
     name               = models.CharField(max_length=200)
+    slug               = models.SlugField(max_length=220, blank=True, help_text="Généré automatiquement depuis le nom — utilisé dans l'URL publique, l'ancienne URL par ID reste valide")
     description        = models.TextField(blank=True)
     price              = models.DecimalField(max_digits=10, decimal_places=2)
     compare_price      = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
@@ -146,8 +147,31 @@ class Product(models.Model):
                 fields=['store', 'sku'],
                 condition=models.Q(sku__gt=''),
                 name='unique_sku_per_store'
-            )
+            ),
+            models.UniqueConstraint(
+                fields=['store', 'slug'],
+                condition=models.Q(slug__gt=''),
+                name='unique_product_slug_per_store'
+            ),
         ]
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            from django.utils.text import slugify
+            base = slugify(self.name) or 'produit'
+            slug = base
+            suffix = 2
+            qs = Product.objects.filter(store_id=self.store_id, slug=slug)
+            if self.pk:
+                qs = qs.exclude(pk=self.pk)
+            while qs.exists():
+                slug = f"{base}-{suffix}"
+                suffix += 1
+                qs = Product.objects.filter(store_id=self.store_id, slug=slug)
+                if self.pk:
+                    qs = qs.exclude(pk=self.pk)
+            self.slug = slug
+        super().save(*args, **kwargs)
 
     @property
     def total_stock(self):

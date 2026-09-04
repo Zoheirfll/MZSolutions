@@ -189,7 +189,7 @@ class ProductSerializer(serializers.ModelSerializer):
     class Meta:
         model  = Product
         fields = [
-            'id', 'name', 'description', 'price', 'compare_price', 'cost_price',
+            'id', 'slug', 'name', 'description', 'price', 'compare_price', 'cost_price',
             'stock', 'total_stock', 'sku', 'weight',
             'categories', 'category_names', 'supplier', 'supplier_name',
             'free_shipping', 'allow_out_of_stock', 'drop_shipping',
@@ -204,7 +204,7 @@ class ProductSerializer(serializers.ModelSerializer):
             'active_promotion', 'meta_title', 'meta_description',
             'meta_keywords', 'meta_robots', 'og_image', 'og_image_url', 'twitter_image', 'twitter_image_url',
         ]
-        read_only_fields = ['id', 'created_at']
+        read_only_fields = ['id', 'slug', 'created_at']
 
     og_image_url = serializers.SerializerMethodField()
     twitter_image_url = serializers.SerializerMethodField()

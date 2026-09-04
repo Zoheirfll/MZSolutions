@@ -3,7 +3,7 @@ from django.urls import path, include, re_path
 from django.conf import settings
 from django.conf.urls.static import static
 from django.http import FileResponse, HttpResponse
-from rest_framework_simplejwt.views import TokenRefreshView
+from accounts.views import CookieTokenRefreshView
 import os
 
 def serve_react(request, path=''):
@@ -50,7 +50,7 @@ urlpatterns = [
     path('api/webhooks/', include('webhooks.urls')),
     path('api/audit/',    include('audit.urls')),
     path('api/ai/',       include('ai_assistant.urls')),
-    path('api/token/refresh/', TokenRefreshView.as_view(), name='token-refresh'),
+    path('api/token/refresh/', CookieTokenRefreshView.as_view(), name='token-refresh'),
     path('api/public/reviews/', __import__('products.views', fromlist=['PublicReviewView']).PublicReviewView.as_view()),
     path('api/public/orders/',  __import__('orders.views',   fromlist=['PublicOrderView']).PublicOrderView.as_view()),
     path('api/public/complaints/', __import__('inbox.views', fromlist=['PublicComplaintCreateView']).PublicComplaintCreateView.as_view()),

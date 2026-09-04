@@ -3,6 +3,7 @@ from django.conf import settings
 from django.utils import timezone
 from datetime import timedelta
 from core.validators import validate_image_extension, validate_image_size
+from core.fields import EncryptedTextField
 
 
 class Store(models.Model):
@@ -144,12 +145,12 @@ class PixelConfig(models.Model):
     # Facebook/TikTok — Conversions/Events API (envoi serveur, en plus du
     # script client déjà injecté par lib/pixels.js) : plus fiable que le seul
     # tracking navigateur (bloqueurs de pub, Safari ITP...).
-    access_token        = models.CharField(max_length=500, blank=True, help_text="Jeton d'accès Conversions API (Facebook) / Events API (TikTok) — envoi d'évènements serveur, en plus du script client")
+    access_token        = EncryptedTextField(blank=True, help_text="Jeton d'accès Conversions API (Facebook) / Events API (TikTok) — envoi d'évènements serveur, en plus du script client")
     domain_verification = models.CharField(max_length=200, blank=True, help_text="Balise meta de vérification de domaine Facebook Business (facebook-domain-verification)")
     # Google Analytics 4
     ga_view_id               = models.CharField(max_length=100, blank=True, help_text="Identifiant de propriété/vue GA4")
-    ga_service_account_json  = models.TextField(blank=True, help_text="JSON du compte de service Google (API Analytics Admin/Data, lecture de rapports) — non utilisé pour l'instant, stocké pour une future intégration")
-    ga_api_secret             = models.CharField(max_length=200, blank=True, help_text="Secret API du Measurement Protocol GA4 (Admin GA4 → Flux de données → Measurement Protocol) — utilisé pour l'envoi réel de l'évènement purchase")
+    ga_service_account_json  = EncryptedTextField(blank=True, help_text="JSON du compte de service Google (API Analytics Admin/Data, lecture de rapports) — non utilisé pour l'instant, stocké pour une future intégration")
+    ga_api_secret             = EncryptedTextField(blank=True, help_text="Secret API du Measurement Protocol GA4 (Admin GA4 → Flux de données → Measurement Protocol) — utilisé pour l'envoi réel de l'évènement purchase")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

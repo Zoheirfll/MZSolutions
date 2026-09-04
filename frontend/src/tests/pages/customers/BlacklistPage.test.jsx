@@ -33,7 +33,7 @@ describe('BlacklistPage', () => {
   })
 
   it('renders the blocked numbers list once loaded', async () => {
-    api.get.mockResolvedValue({ data: [ENTRY] })
+    api.get.mockResolvedValue({ data: { results: [ENTRY], count: 1 } })
     renderPage()
     expect(await screen.findByText('0555000000')).toBeInTheDocument()
     expect(screen.getByText('Client problématique')).toBeInTheDocument()
@@ -42,7 +42,7 @@ describe('BlacklistPage', () => {
 
   it('opens modal and blocks a new phone number', async () => {
     const user = userEvent.setup()
-    api.get.mockResolvedValue({ data: [] })
+    api.get.mockResolvedValue({ data: { results: [], count: 0 } })
     api.post.mockResolvedValueOnce({})
     renderPage()
 
@@ -59,7 +59,7 @@ describe('BlacklistPage', () => {
 
   it('shows a server-side field error when blocking fails', async () => {
     const user = userEvent.setup()
-    api.get.mockResolvedValue({ data: [] })
+    api.get.mockResolvedValue({ data: { results: [], count: 0 } })
     api.post.mockRejectedValueOnce({ response: { data: { phone: 'Numéro déjà bloqué.' } } })
     renderPage()
 

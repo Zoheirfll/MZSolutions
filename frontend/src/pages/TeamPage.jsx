@@ -205,6 +205,18 @@ function MemberPermissionsModal({ member, onClose }) {
     }
   }
 
+  const resetToRoleDefault = async (key) => {
+    setSaving(key)
+    try {
+      await api.delete(`/team/members/${member.id}/permissions/?permission=${key}`)
+      fetchCatalog()
+    } catch (err) {
+      setToast({ type: 'error', message: err.response?.data?.detail || 'Erreur lors de la réinitialisation.' })
+    } finally {
+      setSaving(null)
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
       <div className="w-full max-w-lg rounded-xl border p-6 max-h-[90vh] overflow-y-auto" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
@@ -238,13 +250,26 @@ function MemberPermissionsModal({ member, onClose }) {
                     </span>
                   )}
                 </button>
-                <button
-                  onClick={() => toggle(key, enabled)}
-                  disabled={saving === key}
-                  className={`w-9 h-5 rounded-full transition-colors duration-150 relative cursor-pointer disabled:opacity-60 shrink-0 ${enabled ? 'bg-violet-600' : 'bg-violet-500/15'}`}
-                >
-                  <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-150 ${enabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
-                </button>
+                <div className="flex items-center gap-2 shrink-0">
+                  {is_custom && (
+                    <button
+                      type="button"
+                      onClick={() => resetToRoleDefault(key)}
+                      disabled={saving === key}
+                      title="Réinitialiser au défaut du rôle"
+                      className="text-xs text-app-muted hover:text-app-primary transition disabled:opacity-60"
+                    >
+                      Réinitialiser
+                    </button>
+                  )}
+                  <button
+                    onClick={() => toggle(key, enabled)}
+                    disabled={saving === key}
+                    className={`w-9 h-5 rounded-full transition-colors duration-150 relative cursor-pointer disabled:opacity-60 shrink-0 ${enabled ? 'bg-violet-600' : 'bg-violet-500/15'}`}
+                  >
+                    <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-150 ${enabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                  </button>
+                </div>
               </div>
             ))}
           </div>

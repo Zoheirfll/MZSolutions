@@ -28,7 +28,7 @@ const RISKY_CLIENT = {
 
 function mockGet() {
   api.get.mockImplementation((url) => {
-    if (url.startsWith('/orders/clients/')) return Promise.resolve({ data: { results: [RISKY_CLIENT] } })
+    if (url.startsWith('/orders/clients/')) return Promise.resolve({ data: { results: [RISKY_CLIENT], count: 1 } })
     if (url === '/stores/me/settings/') return Promise.resolve({ data: { risk_threshold_orders: 3, risk_period_days: 90 } })
     return Promise.resolve({ data: {} })
   })

@@ -47,7 +47,7 @@ describe('StockSalesStatsPage', () => {
     renderPage()
     expect(screen.getByText('Chargement…')).toBeInTheDocument()
 
-    expect(await screen.findByText('15 unités vendues sur la période.')).toBeInTheDocument()
+    expect(await screen.findByText('15 unités vendues sur la période (page courante).')).toBeInTheDocument()
     expect(screen.getByText('T-shirt')).toBeInTheDocument()
     expect(screen.getByText('Pantalon')).toBeInTheDocument()
   })
@@ -75,7 +75,7 @@ describe('StockSalesStatsPage', () => {
     })
     renderPage()
 
-    expect(await screen.findByText('0 unités vendues sur la période.')).toBeInTheDocument()
+    expect(await screen.findByText('0 unités vendues sur la période (page courante).')).toBeInTheDocument()
     expect(screen.getByText('Aucune vente sur cette période.')).toBeInTheDocument()
   })
 

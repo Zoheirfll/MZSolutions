@@ -35,8 +35,8 @@ describe('MarketingPixelsPage', () => {
     renderPage()
     expect(screen.getByText('Chargement…')).toBeInTheDocument()
 
-    expect(await screen.findByText('1234567890')).toBeInTheDocument()
-    expect(screen.getByText('Compte principal')).toBeInTheDocument()
+    expect(await screen.findByDisplayValue('1234567890')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('Compte principal')).toBeInTheDocument()
   })
 
   it('adds a new pixel via the modal', async () => {
@@ -51,7 +51,8 @@ describe('MarketingPixelsPage', () => {
     await user.click(screen.getByRole('button', { name: 'Ajouter' }))
 
     await waitFor(() => expect(api.post).toHaveBeenCalledWith('/stores/me/pixels/', {
-      pixel_type: 'facebook', pixel_id: '999888777', label: '',
+      pixel_type: 'facebook', label: '', access_token: '', pixel_id: '999888777',
+      domain_verification: '', is_active: true,
     }))
   })
 

@@ -92,7 +92,7 @@ AUTH_USER_MODEL = 'accounts.User'
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'accounts.cookie_auth.CookieJWTAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
@@ -138,6 +138,20 @@ SIMPLE_JWT = {
     'BLACKLIST_AFTER_ROTATION': True,
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
+
+# Migration JWT → cookies httpOnly (TBD Epic 8.6, voir accounts/cookie_auth.py)
+# — les tokens ne transitent plus par localStorage, donc plus lisibles par du
+# JavaScript (même un XSS futur ne pourrait pas les voler). `SameSite=Lax` est
+# la défense CSRF retenue : le frontend appelle toujours l'API en same-origin
+# (proxy Vite `/api` en dev, même domaine `mzsol.online` derrière Caddy en
+# prod — voir Caddyfile), et un cookie Lax n'est de toute façon jamais envoyé
+# sur une requête POST/PUT/DELETE déclenchée depuis un site tiers — décision
+# volontaire de ne pas ajouter un jeton CSRF à double soumission par-dessus
+# (complexité supplémentaire pour un gain marginal vu ce contexte same-origin).
+AUTH_COOKIE_ACCESS = 'mz_access'
+AUTH_COOKIE_REFRESH = 'mz_refresh'
+AUTH_COOKIE_SAMESITE = 'Lax'
+AUTH_COOKIE_SECURE = not DEBUG
 
 # Sécurité — point 11 : ce bloc n'était pas conditionné par DEBUG, donc actif
 # aussi en production. *.ngrok-free.dev/*.ngrok.io sont des domaines de tunnel

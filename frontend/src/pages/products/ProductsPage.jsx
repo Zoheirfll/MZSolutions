@@ -287,7 +287,7 @@ export default function ProductsPage() {
                 <td className="px-4 py-3">
                   {user?.store_slug ? (
                     <a
-                      href={`/store/${user.store_slug}/products/${p.id}`}
+                      href={`/store/${user.store_slug}/products/${p.slug || p.id}`}
                       target="_blank" rel="noreferrer"
                       onClick={e => e.stopPropagation()}
                       className="p-1.5 rounded text-app-muted-light hover:text-violet-300 transition inline-flex"

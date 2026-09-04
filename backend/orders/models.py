@@ -5,6 +5,7 @@ from django.conf import settings
 from stores.models import Store
 from products.models import Product, VariantOption, VariantSubOption
 from core.validators import validate_image_extension, validate_image_size
+from core.fields import EncryptedTextField
 
 
 def complaint_attachment_path(instance, filename):
@@ -114,8 +115,8 @@ class CarrierAccount(models.Model):
     name              = models.CharField(max_length=100, blank=True)
     departure_wilaya  = models.CharField(max_length=100, blank=True)
     api_id            = models.CharField(max_length=100, blank=True)
-    api_token         = models.CharField(max_length=200, blank=True)
-    webhook_secret    = models.CharField(max_length=200, blank=True)
+    api_token         = EncryptedTextField(blank=True)
+    webhook_secret    = EncryptedTextField(blank=True)
     is_active         = models.BooleanField(default=True)
     is_default        = models.BooleanField(default=False)
     created_at        = models.DateTimeField(auto_now_add=True)

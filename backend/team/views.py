@@ -370,3 +370,25 @@ class TeamMemberPermissionsView(APIView):
             metadata={'permission': permission, 'enabled': enabled},
         )
         return Response({'permissions': get_effective_permissions(store, member.role, member=member)})
+
+    def delete(self, request, pk):
+        """Retire l'override individuel d'une permission précise (`?permission=xxx`)
+        — le membre retombe sur la valeur du rôle (RolePermission ou défaut),
+        et suivra désormais ses changements futurs. Pas d'effet si aucun
+        override n'existait (idempotent)."""
+        member, err = self._get_member(request, pk)
+        if err:
+            return err
+        store = _get_store(request)
+        permission = request.query_params.get('permission')
+        if permission not in dict(PERMISSION_CATALOG):
+            return Response({'detail': 'Permission inconnue.'}, status=400)
+
+        deleted, _ = TeamMemberPermission.objects.filter(member=member, permission=permission).delete()
+        if deleted:
+            log_audit(
+                request, 'team.member_permission_changed', target=member,
+                description=f"Permission « {permission} » réinitialisée au défaut du rôle pour {member.first_name} {member.last_name}",
+                metadata={'permission': permission, 'reset': True},
+            )
+        return Response({'permissions': get_effective_permissions(store, member.role, member=member)})

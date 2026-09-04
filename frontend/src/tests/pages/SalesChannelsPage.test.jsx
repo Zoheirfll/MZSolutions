@@ -36,7 +36,7 @@ describe('SalesChannelsPage', () => {
   it('shows a loading spinner then renders the connected channel and sync log', async () => {
     api.get.mockImplementation((url) => {
       if (url === '/channels/connections/') return Promise.resolve({ data: CONNECTIONS })
-      if (url === '/channels/logs/') return Promise.resolve({ data: LOGS })
+      if (url.startsWith('/channels/logs/')) return Promise.resolve({ data: LOGS })
       return Promise.resolve({ data: [] })
     })
     renderPage()
@@ -50,7 +50,7 @@ describe('SalesChannelsPage', () => {
     const user = userEvent.setup()
     api.get.mockImplementation((url) => {
       if (url === '/channels/connections/') return Promise.resolve({ data: CONNECTIONS })
-      if (url === '/channels/logs/') return Promise.resolve({ data: LOGS })
+      if (url.startsWith('/channels/logs/')) return Promise.resolve({ data: LOGS })
       return Promise.resolve({ data: [] })
     })
     api.post.mockResolvedValueOnce({})

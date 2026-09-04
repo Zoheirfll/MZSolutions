@@ -15,7 +15,7 @@ import api from '../../api/axios'
 
 const MATRIX_DATA = {
   roles: ['admin', 'confirmateur', 'dropshipper'],
-  catalog: [{ key: 'orders_view', label: 'Voir les commandes' }],
+  catalog: [{ key: 'orders_view', label: 'Voir les commandes', category: 'Permissions de test', subcategory: 'Général' }],
   matrix: {
     admin: { orders_view: true },
     confirmateur: { orders_view: false },
@@ -31,18 +31,29 @@ function renderPage() {
   )
 }
 
+// Le catalogue est désormais rendu dans un accordéon replié par catégorie
+// (`CategoryAccordion`, pages/PermissionsPage.jsx) — il faut d'abord déplier
+// la catégorie avant que le libellé de la permission ne soit visible.
+async function expandCategory(user, categoryName = 'Permissions de test') {
+  await screen.findByText(categoryName)
+  await user.click(screen.getByRole('button', { name: new RegExp(categoryName) }))
+}
+
 describe('PermissionsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     api.get.mockResolvedValue({ data: { count: 0 } })
   })
 
-  it('renders the permission matrix once loaded', async () => {
+  it('renders the permission matrix once loaded, category expandable', async () => {
+    const user = userEvent.setup()
     api.get.mockImplementation((url) => {
       if (url === '/team/permissions/') return Promise.resolve({ data: MATRIX_DATA })
       return Promise.resolve({ data: { count: 0 } })
     })
     renderPage()
+
+    await expandCategory(user)
     expect(await screen.findByText('Voir les commandes')).toBeInTheDocument()
     expect(screen.getByText('Confirmateur')).toBeInTheDocument()
   })
@@ -56,6 +67,7 @@ describe('PermissionsPage', () => {
     api.post.mockResolvedValueOnce({})
     renderPage()
 
+    await expandCategory(user)
     await screen.findByText('Voir les commandes')
     const toggles = screen.getAllByRole('button', { name: /Désactivé — cliquer pour activer/ })
     await user.click(toggles[0])
@@ -72,16 +84,15 @@ describe('PermissionsPage', () => {
       return Promise.resolve({ data: { count: 0 } })
     })
     api.post.mockRejectedValueOnce({ response: { data: { detail: 'Erreur serveur.' } } })
-    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {})
     renderPage()
 
+    await expandCategory(user)
     await screen.findByText('Voir les commandes')
     const toggles = screen.getAllByRole('button', { name: /Désactivé — cliquer pour activer/ })
     await user.click(toggles[0])
 
-    await waitFor(() => expect(alertSpy).toHaveBeenCalledWith('Erreur serveur.'))
+    expect(await screen.findByText('Erreur serveur.')).toBeInTheDocument()
     await waitFor(() => expect(screen.getAllByRole('button', { name: /Désactivé — cliquer pour activer/ }).length).toBe(2))
-    alertSpy.mockRestore()
   })
 
   it('switches to a member and shows their individual permissions with a custom badge', async () => {
@@ -94,18 +105,19 @@ describe('PermissionsPage', () => {
       if (url === '/team/members/') return Promise.resolve({ data: MEMBERS })
       if (url === '/team/members/7/permissions/') return Promise.resolve({
         data: { catalog: [
-          { key: 'orders_view', label: 'Voir les commandes', enabled: false, is_custom: true },
+          { key: 'orders_view', label: 'Voir les commandes', category: 'Permissions de test', subcategory: 'Général', enabled: false, is_custom: true },
         ] },
       })
       return Promise.resolve({ data: { count: 0 } })
     })
     renderPage()
 
-    await screen.findByText('Voir les commandes')
     await user.click(screen.getByRole('button', { name: /Tous les rôles/ }))
     await user.click(screen.getByText('Sara Z (Confirmateur)'))
 
-    expect(await screen.findByText('Personnalisé')).toBeInTheDocument()
+    await expandCategory(user)
+    expect(await screen.findByText('Voir les commandes')).toBeInTheDocument()
+    expect(screen.getByText('Personnalisé')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Désactivé — cliquer pour activer/ })).toBeInTheDocument()
   })
 
@@ -119,7 +131,7 @@ describe('PermissionsPage', () => {
       if (url === '/team/members/') return Promise.resolve({ data: MEMBERS })
       if (url === '/team/members/7/permissions/') return Promise.resolve({
         data: { catalog: [
-          { key: 'orders_view', label: 'Voir les commandes', enabled: false, is_custom: false },
+          { key: 'orders_view', label: 'Voir les commandes', category: 'Permissions de test', subcategory: 'Général', enabled: false, is_custom: false },
         ] },
       })
       return Promise.resolve({ data: { count: 0 } })
@@ -127,10 +139,10 @@ describe('PermissionsPage', () => {
     api.post.mockResolvedValueOnce({ data: { permissions: { orders_view: true } } })
     renderPage()
 
-    await screen.findByText('Voir les commandes')
     await user.click(screen.getByRole('button', { name: /Tous les rôles/ }))
     await user.click(screen.getByText('Sara Z (Confirmateur)'))
 
+    await expandCategory(user)
     await screen.findByText('Voir les commandes')
     await user.click(screen.getByRole('button', { name: /Désactivé — cliquer pour activer/ }))
 

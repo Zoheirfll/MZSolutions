@@ -8,45 +8,33 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const token = localStorage.getItem('access')
-    if (token) {
-      api.get('/auth/me/')
-        .then(({ data }) => setUser(data))
-        .catch(() => {
-          localStorage.removeItem('access')
-          localStorage.removeItem('refresh')
-        })
-        .finally(() => setLoading(false))
-    } else {
-      setLoading(false)
-    }
+    // Le token JWT vit dans un cookie httpOnly (migration sécurité — plus de
+    // localStorage, illisible par du JS) : impossible de savoir côté client
+    // s'il existe sans interroger le serveur. `/auth/me/` sert cette double
+    // fonction (session active ? + données utilisateur), le cookie est
+    // automatiquement envoyé par le navigateur (même origine, voir axios.js).
+    api.get('/auth/me/')
+      .then(({ data }) => setUser(data))
+      .catch(() => {})
+      .finally(() => setLoading(false))
   }, [])
 
   const login = async (email, password) => {
     const { data } = await api.post('/auth/login/', { email, password })
-    localStorage.setItem('access', data.access)
-    localStorage.setItem('refresh', data.refresh)
     setUser(data.user)
     return data
   }
 
   const register = async (payload) => {
     const { data } = await api.post('/auth/register/', payload)
-    localStorage.setItem('access', data.access)
-    localStorage.setItem('refresh', data.refresh)
-    setUser(data.user)
     return data
   }
 
   const logout = () => {
-    // Blackliste le refresh token côté serveur (Epic 8.6) — best-effort, ne
-    // doit jamais empêcher la déconnexion locale même si l'appel échoue.
-    const refresh = localStorage.getItem('refresh')
-    if (refresh) {
-      api.post('/auth/logout/', { refresh }).catch(() => {})
-    }
-    localStorage.removeItem('access')
-    localStorage.removeItem('refresh')
+    // Blackliste le refresh token côté serveur (Epic 8.6) et efface les
+    // cookies — best-effort, ne doit jamais empêcher la déconnexion locale
+    // même si l'appel échoue.
+    api.post('/auth/logout/').catch(() => {})
     setUser(null)
   }
 

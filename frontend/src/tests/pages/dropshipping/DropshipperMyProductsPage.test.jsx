@@ -21,7 +21,7 @@ function renderPage() {
   )
 }
 
-const PRODUCT = { id: 5, name: 'T-shirt', price: 1500 }
+const PRODUCT = { id: 5, name: 'T-shirt', price: 1500, drop_shipping: true }
 const SELECTED = { id: 1, product: 5 }
 
 function mockGet({ selected = [] } = {}) {

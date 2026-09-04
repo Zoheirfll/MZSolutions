@@ -54,7 +54,7 @@ const inputStyle = { background: 'var(--sf-card-bg)', border: '1px solid var(--s
 
 function ProductCard({ product, slug }) {
   return (
-    <Link to={`/store/${slug}/products/${product.id}`}
+    <Link to={`/store/${slug}/products/${product.slug || product.id}`}
       className="group rounded-2xl overflow-hidden border transition-all duration-300 hover:-translate-y-0.5 block"
       style={{ background: 'var(--sf-card-bg)', borderColor: 'color-mix(in srgb, var(--sf-primary) 15%, transparent)' }}
       onMouseEnter={e => { e.currentTarget.style.borderColor = 'color-mix(in srgb, var(--sf-primary) 40%, transparent)' }}
