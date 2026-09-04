@@ -30,7 +30,7 @@ services:
       DB_HOST: db
       DB_PORT: 5432
       OLLAMA_BASE_URL: http://ollama:11434
-      OLLAMA_MODEL: llama3.1:8b
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.1:8b}
     volumes:
       - media:/app/media
       - staticfiles:/app/staticfiles
