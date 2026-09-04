@@ -14,6 +14,12 @@ services:
       timeout: 5s
       retries: 10
 
+  ollama:
+    image: ollama/ollama
+    restart: unless-stopped
+    volumes:
+      - ollama_data:/root/.ollama
+
   backend:
     build:
       context: ./backend
@@ -23,12 +29,16 @@ services:
     environment:
       DB_HOST: db
       DB_PORT: 5432
+      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_MODEL: llama3.1:8b
     volumes:
       - media:/app/media
       - staticfiles:/app/staticfiles
     depends_on:
       db:
         condition: service_healthy
+      ollama:
+        condition: service_started
 
   frontend:
     build:
@@ -65,3 +75,4 @@ volumes:
   frontend_dist:
   caddy_data:
   caddy_config:
+  ollama_data:
