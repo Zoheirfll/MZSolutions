@@ -1093,3 +1093,72 @@ class OrderSerializerRiskFieldsTest(TestCase):
         resp = self.client_.get('/api/orders/clients/')
         row = next(r for r in resp.data['results'] if r['phone'] == '0555000032')
         self.assertEqual(row['max_risk_score'], 80)
+
+
+class SalesForecastTest(TestCase):
+    def setUp(self):
+        self.owner, self.store = make_owner()
+
+    def _create_orders_on(self, day, count, total_each=Decimal('2000')):
+        from django.utils import timezone
+        for _ in range(count):
+            o = Order.objects.create(store=self.store, first_name='X', phone='0555000000',
+                                      wilaya='Alger', status='confirmed', total=total_each)
+            o.created_at = timezone.make_aware(timezone.datetime.combine(day, timezone.datetime.min.time()))
+            o.save(update_fields=['created_at'])
+
+    def test_insufficient_history_returns_none(self):
+        from orders.sales_forecast import compute_sales_forecast
+        today = date.today()
+        self._create_orders_on(today - timedelta(days=1), 2)
+        result = compute_sales_forecast(self.store, horizon_days=7)
+        self.assertIsNone(result)
+
+    def test_forecast_has_one_point_per_horizon_day(self):
+        from orders.sales_forecast import compute_sales_forecast
+        today = date.today()
+        for i in range(1, 29):
+            self._create_orders_on(today - timedelta(days=i), 2)
+        result = compute_sales_forecast(self.store, horizon_days=7)
+        self.assertIsNotNone(result)
+        self.assertEqual(len(result['points']), 7)
+
+    def test_same_weekday_history_used(self):
+        """4 lundis à 10 commandes, tout le reste à 2 — la prévision du
+        prochain lundi doit se rapprocher de 10, pas de la moyenne globale (2)."""
+        from orders.sales_forecast import compute_sales_forecast
+        today = date.today()
+        last_monday = today - timedelta(days=(today.weekday() - 0) % 7 or 7)
+        for i in range(4):
+            self._create_orders_on(last_monday - timedelta(weeks=i), 10)
+        for i in range(1, 29):
+            d = today - timedelta(days=i)
+            if d.weekday() != 0:
+                self._create_orders_on(d, 2)
+        result = compute_sales_forecast(self.store, horizon_days=14)
+        next_monday_str = None
+        for i in range(1, 15):
+            d = today + timedelta(days=i)
+            if d.weekday() == 0:
+                next_monday_str = d.isoformat()
+                break
+        monday_point = next(p for p in result['points'] if p['date'] == next_monday_str)
+        self.assertGreater(monday_point['predicted_orders'], 5)
+
+    def test_uncertainty_range_never_negative(self):
+        from orders.sales_forecast import compute_sales_forecast
+        today = date.today()
+        for i in range(1, 29):
+            self._create_orders_on(today - timedelta(days=i), 1)
+        result = compute_sales_forecast(self.store, horizon_days=7)
+        for p in result['points']:
+            self.assertGreaterEqual(p['orders_low'], 0)
+            self.assertGreaterEqual(p['revenue_low'], 0)
+
+    def test_revenue_forecast_present(self):
+        from orders.sales_forecast import compute_sales_forecast
+        today = date.today()
+        for i in range(1, 29):
+            self._create_orders_on(today - timedelta(days=i), 3, total_each=Decimal('5000'))
+        result = compute_sales_forecast(self.store, horizon_days=7)
+        self.assertGreater(result['points'][0]['predicted_revenue'], 0)
