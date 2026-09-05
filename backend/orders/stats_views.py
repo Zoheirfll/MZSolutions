@@ -889,3 +889,28 @@ class DashboardKpiView(StatsPermissionMixin, APIView):
             'top_sources': top5(source_stats, 'source'),
             'top_wilayas': [{**row, 'wilaya_id': wilaya_code(row['wilaya'])} for row in top5(wilaya_stats, 'wilaya')],
         })
+
+
+from .sales_forecast import compute_sales_forecast
+
+
+class SalesForecastView(StatsPermissionMixin, APIView):
+    """Prévision de ventes — calcul 100% déterministe (sales_forecast.py),
+    aucun appel IA. Horizon ajustable, clampé entre 7 et 60 jours."""
+    permission_key = 'stats_forecast_view'
+
+    def get(self, request):
+        if (err := self.check_access(request)): return err
+        store, err = self.get_store_or_error(request)
+        if err: return err
+
+        try:
+            horizon_days = int(request.query_params.get('horizon_days', 7))
+        except (TypeError, ValueError):
+            horizon_days = 7
+        horizon_days = max(7, min(60, horizon_days))
+
+        result = compute_sales_forecast(store, horizon_days)
+        if result is None:
+            return Response({'detail': "Historique insuffisant pour une prévision fiable (14 jours minimum)."}, status=400)
+        return Response(result)

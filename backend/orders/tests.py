@@ -1162,3 +1162,48 @@ class SalesForecastTest(TestCase):
             self._create_orders_on(today - timedelta(days=i), 3, total_each=Decimal('5000'))
         result = compute_sales_forecast(self.store, horizon_days=7)
         self.assertGreater(result['points'][0]['predicted_revenue'], 0)
+
+
+class SalesForecastViewTest(TestCase):
+    def setUp(self):
+        self.owner, self.store = make_owner()
+        self.client_ = auth_client(self.owner)
+
+    def _seed_history(self, days=20, count_per_day=2):
+        from django.utils import timezone
+        today = date.today()
+        for i in range(1, days + 1):
+            for _ in range(count_per_day):
+                o = Order.objects.create(store=self.store, first_name='X', phone='0555000000',
+                                          wilaya='Alger', status='confirmed', total=Decimal('2000'))
+                o.created_at = timezone.make_aware(timezone.datetime.combine(today - timedelta(days=i), timezone.datetime.min.time()))
+                o.save(update_fields=['created_at'])
+
+    def test_insufficient_history_400(self):
+        resp = self.client_.get('/api/orders/stats/forecast/?horizon_days=7')
+        self.assertEqual(resp.status_code, 400)
+
+    def test_forecast_response_shape(self):
+        self._seed_history()
+        resp = self.client_.get('/api/orders/stats/forecast/?horizon_days=7')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(resp.data['points']), 7)
+        self.assertIn('predicted_orders', resp.data['points'][0])
+
+    def test_horizon_clamped_to_max_60(self):
+        self._seed_history()
+        resp = self.client_.get('/api/orders/stats/forecast/?horizon_days=9999')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(resp.data['points']), 60)
+
+    def test_horizon_clamped_to_min_7(self):
+        self._seed_history()
+        resp = self.client_.get('/api/orders/stats/forecast/?horizon_days=1')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(resp.data['points']), 7)
+
+    def test_confirmateur_without_permission_forbidden(self):
+        member_user, member = make_team_member(self.store, role='confirmateur')
+        client_ = auth_client(member_user)
+        resp = client_.get('/api/orders/stats/forecast/?horizon_days=7')
+        self.assertEqual(resp.status_code, 403)

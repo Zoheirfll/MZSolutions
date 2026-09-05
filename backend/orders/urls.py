@@ -18,7 +18,7 @@ from .views import (
 )
 from .stats_views import (
     OrdersStatsDetailView, ReturnsStatsView, FailureStatsView, StockSalesStatsView,
-    ProductsStatsView, WilayaStatsView, SourceStatsView, GlobalStatsView,
+    ProductsStatsView, WilayaStatsView, SourceStatsView, GlobalStatsView, SalesForecastView,
     DashboardDeliveriesView, DashboardRevenueView, DashboardKpiView,
 )
 
@@ -58,6 +58,7 @@ urlpatterns = [
     path('stats/products/',                       ProductsStatsView.as_view()),
     path('stats/wilayas/',                        WilayaStatsView.as_view()),
     path('stats/sources/',                        SourceStatsView.as_view()),
+    path('stats/forecast/',                       SalesForecastView.as_view()),
     path('stats/global/',                         GlobalStatsView.as_view()),
     path('stats/dashboard/deliveries/',           DashboardDeliveriesView.as_view()),
     path('stats/dashboard/revenue/',              DashboardRevenueView.as_view()),
