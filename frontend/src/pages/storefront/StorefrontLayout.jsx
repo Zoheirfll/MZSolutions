@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams, useNavigate, useLocation } from 'react-router-dom'
 import publicApi from '../../api/publicApi'
+import StorefrontChatWidget from '../../components/StorefrontChatWidget'
 import { useCart } from '../../context/CartContext'
 import { injectTheme, cleanupTheme } from '../../storefront-themes'
 import { loadPixelScripts, trackEvent } from '../../lib/pixels'
@@ -195,6 +196,8 @@ export default function StorefrontLayout({ children, storeOverride }) {
           </div>
         </div>
       </footer>
+
+      {store && <StorefrontChatWidget slug={slug} />}
     </div>
   )
 }
