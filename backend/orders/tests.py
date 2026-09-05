@@ -941,3 +941,62 @@ class PublicExchangeCreateViewTests(TestCase):
             'order_item_id': self.item.id, 'replacement_option_id': self.opt42.id, 'reason': 'x',
         }, content_type='application/json')
         self.assertEqual(resp.status_code, 201)
+
+
+class RiskScoringTest(TestCase):
+    def setUp(self):
+        self.owner, self.store = make_owner()
+
+    def test_no_history_low_score(self):
+        from orders.risk_scoring import compute_risk_score
+        score, signals = compute_risk_score(self.store, '0555000001', 'Alger', 'Alger Centre', 3000)
+        self.assertEqual(signals, [])
+        self.assertEqual(score, 0)
+
+    def test_cancel_return_rate_signal(self):
+        from orders.risk_scoring import compute_risk_score
+        for _ in range(3):
+            Order.objects.create(store=self.store, first_name='X', phone='0555000002',
+                                  wilaya='Alger', status='cancelled', total=2000)
+        score, signals = compute_risk_score(self.store, '0555000002', 'Alger', 'Alger Centre', 3000)
+        self.assertIn('cancel_return_rate', signals)
+        self.assertGreaterEqual(score, 40)
+
+    def test_unusual_frequency_signal(self):
+        from orders.risk_scoring import compute_risk_score
+        for _ in range(3):
+            Order.objects.create(store=self.store, first_name='X', phone='0555000003',
+                                  wilaya='Alger', status='pending', total=2000)
+        score, signals = compute_risk_score(self.store, '0555000003', 'Alger', 'Alger Centre', 3000)
+        self.assertIn('unusual_frequency', signals)
+
+    def test_unusual_amount_signal_vs_customer_history(self):
+        from orders.risk_scoring import compute_risk_score
+        Order.objects.create(store=self.store, first_name='X', phone='0555000004',
+                              wilaya='Alger', status='delivered', total=2000)
+        score, signals = compute_risk_score(self.store, '0555000004', 'Alger', 'Alger Centre', 10000)
+        self.assertIn('unusual_amount', signals)
+
+    def test_unusual_amount_signal_vs_store_average_for_new_customer(self):
+        from orders.risk_scoring import compute_risk_score
+        for _ in range(3):
+            Order.objects.create(store=self.store, first_name='X', phone='0555999999',
+                                  wilaya='Alger', status='delivered', total=2000)
+        score, signals = compute_risk_score(self.store, '0555000005', 'Alger', 'Alger Centre', 50000)
+        self.assertIn('unusual_amount', signals)
+
+    def test_location_mismatch_signal(self):
+        from orders.risk_scoring import compute_risk_score
+        Order.objects.create(store=self.store, first_name='X', phone='0555000006',
+                              wilaya='Oran', status='delivered', total=2000)
+        score, signals = compute_risk_score(self.store, '0555000006', 'Alger', 'Alger Centre', 3000)
+        self.assertIn('location_mismatch', signals)
+
+    def test_score_capped_at_100(self):
+        from orders.risk_scoring import compute_risk_score
+        for _ in range(5):
+            Order.objects.create(store=self.store, first_name='X', phone='0555000007',
+                                  wilaya='Oran', status='cancelled', total=2000)
+        score, signals = compute_risk_score(self.store, '0555000007', 'Alger', 'Alger Centre', 100000)
+        self.assertLessEqual(score, 100)
+        self.assertEqual(len(signals), 4)
