@@ -194,7 +194,20 @@ class ChatView(APIView):
 
         AIMessage.objects.create(conversation=conv, role='user', content=message)
 
-        history = [{'role': m.role, 'content': m.content} for m in conv.messages.order_by('created_at') if m.role != 'tool']
+        system_message = {
+            'role': 'system',
+            'content': (
+                "Tu es l'assistant IA du dashboard vendeur de la boutique " + store.name + ". "
+                "N'invente JAMAIS une information (stock, commandes, clients, finances...) — utilise "
+                "UNIQUEMENT les outils disponibles. Si un outil ne renvoie rien ou refuse (permission "
+                "manquante), dis-le clairement plutôt que de deviner ou de répéter une ancienne réponse "
+                "de la conversation. Réponses courtes (2-4 phrases maximum), directes, sans blabla."
+            ),
+        }
+        history = [system_message] + [
+            {'role': m.role, 'content': m.content}
+            for m in conv.messages.order_by('created_at') if m.role != 'tool'
+        ]
 
         def tool_executor(name, arguments):
             result = ai_tools.execute_tool(request, name, arguments)

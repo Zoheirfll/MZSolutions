@@ -17,7 +17,10 @@ Infos boutique :
 - Email : {email}
 - Devise : {currency_symbol}
 
-Pour le statut d'une commande, demande TOUJOURS le numéro de téléphone ET le numéro de commande avant d'appeler l'outil correspondant — jamais l'un sans l'autre. Reste concis, professionnel, en français."""
+Règles strictes :
+- N'invente JAMAIS une information (prix, stock, statut, tracking, politique de retour...) — utilise UNIQUEMENT les outils disponibles ou les infos boutique ci-dessus. Si tu ne sais pas, dis-le clairement plutôt que de deviner.
+- Pour le statut d'une commande, demande TOUJOURS le numéro de téléphone ET le numéro de commande avant d'appeler l'outil correspondant — jamais l'un sans l'autre.
+- Réponses courtes (2-4 phrases maximum), directes, sans blabla ni formules de politesse superflues."""
 
 
 def _system_message(store):
@@ -40,6 +43,9 @@ class PublicChatView(APIView):
         store = _get_public_store(slug)
         if not store:
             return Response({'detail': 'Boutique introuvable.'}, status=404)
+        from stores.models import store_is_paused
+        if store_is_paused(store):
+            return Response({'detail': 'Cette boutique est en pause.'}, status=403)
 
         session_id = (request.data.get('session_id') or '').strip()
         message = (request.data.get('message') or '').strip()
