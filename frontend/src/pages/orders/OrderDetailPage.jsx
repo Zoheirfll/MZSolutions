@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import DashboardLayout from '../../components/DashboardLayout'
 import StatusBadge from '../../components/StatusBadge'
 import RiskScoreBadge from '../../components/RiskScoreBadge'
+import HelpTooltip from '../../components/HelpTooltip'
 import Select from '../../components/Select'
 import DeskMapPreview from '../../components/DeskMapPreview'
 import api from '../../api/axios'
@@ -472,7 +473,7 @@ export default function OrderDetailPage() {
   const inputCls = 'w-full px-3.5 py-2.5 rounded-xl border text-sm text-app-primary bg-transparent outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 transition [color-scheme:dark]'
   const bdrStyle = { borderColor: theme.dark.border }
 
-  const handleGenerateExplanation = async () => {
+  const handleGenerateExplanation = useCallback(async () => {
     setLoadingExplanation(true)
     try {
       const { data } = await api.post(`/orders/${id}/risk-explanation/`)
@@ -482,7 +483,20 @@ export default function OrderDetailPage() {
     } finally {
       setLoadingExplanation(false)
     }
-  }
+  }, [id])
+
+  // Génère l'explication IA automatiquement dès qu'un score existe sans
+  // explication déjà en cache — le confirmateur n'a plus à cliquer, et le
+  // cache côté serveur (Order.risk_explanation) garantit qu'un seul appel
+  // IA est fait par commande, jamais répété aux visites suivantes.
+  const autoExplainRequestedRef = useRef(null)
+  useEffect(() => {
+    if (!order || order.risk_score === null || order.risk_score === undefined) return
+    if (order.risk_explanation) return
+    if (autoExplainRequestedRef.current === order.id) return
+    autoExplainRequestedRef.current = order.id
+    handleGenerateExplanation()
+  }, [order, handleGenerateExplanation])
 
   if (loading) return (
     <DashboardLayout title="Commande">
@@ -514,7 +528,17 @@ export default function OrderDetailPage() {
       {order.risk_score !== null && order.risk_score !== undefined && (
         <div className="rounded-xl border p-4 mb-5" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-app-primary">Score de risque</span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-sm font-medium text-app-primary">Score de risque</span>
+              <HelpTooltip title="COMMENT CE SCORE EST CALCULÉ">
+                {"Score de 0 à 100, calculé automatiquement à la création de la commande — jamais par l'IA (qui pourrait inventer un chiffre différent à chaque fois), toujours par une règle fixe et vérifiable :\n\n"}
+                {"• Taux d'annulation/retour élevé — 40 pts\n"}
+                {"• Fréquence de commande anormale (≥3 commandes du même téléphone en 24h) — 20 pts\n"}
+                {"• Montant inhabituel (≥3× la moyenne habituelle) — 20 pts\n"}
+                {"• Localisation incohérente avec l'historique du client — 20 pts\n\n"}
+                {"Faible < 34, Moyen 34-66, Élevé ≥ 67. Ce score ne bloque jamais une commande automatiquement — c'est un signalement, à vous de décider."}
+              </HelpTooltip>
+            </div>
             <RiskScoreBadge score={order.risk_score} />
           </div>
           {order.risk_signals?.length > 0 && (
@@ -523,11 +547,16 @@ export default function OrderDetailPage() {
             </ul>
           )}
           {order.risk_explanation ? (
-            <p className="text-xs text-app-muted-light">{order.risk_explanation}</p>
+            <div className="flex items-start gap-1.5">
+              <p className="text-xs text-app-muted-light flex-1">{order.risk_explanation}</p>
+              <HelpTooltip title="D'OÙ VIENT CE TEXTE">
+                {"Résumé généré par l'IA à partir UNIQUEMENT du score et des signaux ci-dessus — jamais d'autres informations sur le client. Généré une seule fois par commande et mis en cache, il ne change plus ensuite."}
+              </HelpTooltip>
+            </div>
           ) : (
             <button type="button" onClick={handleGenerateExplanation} disabled={loadingExplanation}
               className={theme.btn.outline + ' text-xs disabled:opacity-50'}>
-              {loadingExplanation ? 'Génération…' : 'Générer une explication'}
+              {loadingExplanation ? 'Génération…' : 'Réessayer de générer une explication'}
             </button>
           )}
         </div>
