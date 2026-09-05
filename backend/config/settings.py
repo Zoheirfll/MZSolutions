@@ -127,6 +127,7 @@ REST_FRAMEWORK = {
         'review':           '10/min',
         'invitation':       '20/min',
         'abandoned_cart':   '20/min',
+        'public_chat':      '10/min',
         'user':             '2000/hour',
     },
 }

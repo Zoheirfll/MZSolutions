@@ -3,6 +3,7 @@ from .views import (PublicStoreView, PublicCategoryListView, PublicProductListVi
                     PublicProductDetailView, PublicStorePageListView, PublicStorePageView,
                     PublicPromoValidateView, PublicCatalogFeedView, PublicSitemapView)
 from orders.views import PublicOrderItemsView, PublicShippingRateView, PublicDesksView
+from ai_assistant.public_views import PublicChatView, PublicChatHistoryView
 
 urlpatterns = [
     path('',                        PublicStoreView.as_view()),
@@ -17,4 +18,6 @@ urlpatterns = [
     path('desks/',                  PublicDesksView.as_view()),
     path('catalog.xml',             PublicCatalogFeedView.as_view()),
     path('sitemap.xml',             PublicSitemapView.as_view()),
+    path('chat/',                   PublicChatView.as_view()),
+    path('chat/<str:session_id>/',  PublicChatHistoryView.as_view()),
 ]

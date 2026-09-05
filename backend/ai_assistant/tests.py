@@ -370,3 +370,54 @@ class PublicToolsTest(TestCase):
     def test_execute_public_tool_unknown_name(self):
         result = ai_tools.execute_public_tool(self.store, 'nope', {})
         self.assertIn('Outil inconnu', result)
+
+
+class PublicChatViewTest(TestCase):
+    def setUp(self):
+        from rest_framework.test import APIClient
+        self.owner, self.store = make_owner()
+        self.client_ = APIClient()
+
+    def test_unknown_store_404(self):
+        resp = self.client_.post('/api/public/store/inexistante/chat/', {'session_id': 'abc', 'message': 'salut'}, format='json')
+        self.assertEqual(resp.status_code, 404)
+
+    def test_missing_message_400(self):
+        resp = self.client_.post(f'/api/public/store/{self.store.slug}/chat/', {'session_id': 'abc', 'message': ''}, format='json')
+        self.assertEqual(resp.status_code, 400)
+
+    @patch('ai_assistant.public_views.ollama_client.chat')
+    def test_creates_conversation_by_session_id_and_replies(self, mock_chat):
+        mock_chat.return_value = {'role': 'assistant', 'content': 'Bonjour, comment puis-je vous aider ?'}
+        resp = self.client_.post(f'/api/public/store/{self.store.slug}/chat/', {'session_id': 'visitor-1', 'message': 'Bonjour'}, format='json')
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('Bonjour, comment puis-je vous aider', resp.data['reply'])
+        conv = AIConversation.objects.get(store=self.store, session_id='visitor-1')
+        self.assertIsNone(conv.user)
+        self.assertEqual(conv.messages.filter(role__in=['user', 'assistant']).count(), 2)
+
+    @patch('ai_assistant.public_views.ollama_client.chat')
+    def test_ollama_down_returns_503(self, mock_chat):
+        from ai_assistant.ollama_client import OllamaUnavailableError
+        mock_chat.side_effect = OllamaUnavailableError('down')
+        resp = self.client_.post(f'/api/public/store/{self.store.slug}/chat/', {'session_id': 'visitor-2', 'message': 'salut'}, format='json')
+        self.assertEqual(resp.status_code, 503)
+
+    def test_history_empty_for_unknown_session(self):
+        resp = self.client_.get(f'/api/public/store/{self.store.slug}/chat/never-seen/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['messages'], [])
+
+    @patch('ai_assistant.public_views.ollama_client.chat')
+    def test_history_restores_previous_messages(self, mock_chat):
+        mock_chat.return_value = {'role': 'assistant', 'content': 'Réponse.'}
+        self.client_.post(f'/api/public/store/{self.store.slug}/chat/', {'session_id': 'visitor-3', 'message': 'Question ?'}, format='json')
+        resp = self.client_.get(f'/api/public/store/{self.store.slug}/chat/visitor-3/')
+        self.assertEqual(resp.status_code, 200)
+        roles = [m['role'] for m in resp.data['messages']]
+        self.assertEqual(roles, ['user', 'assistant'])
+
+    def test_conversation_of_one_session_not_visible_to_another(self):
+        AIConversation.objects.create(store=self.store, session_id='visitor-A', title='Secrète')
+        resp = self.client_.get(f'/api/public/store/{self.store.slug}/chat/visitor-B/')
+        self.assertEqual(resp.data['messages'], [])
