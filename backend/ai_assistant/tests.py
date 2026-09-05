@@ -189,6 +189,22 @@ class ToolsTest(TestCase):
         result = ai_tools.execute_tool(req, 'get_low_stock', {})
         self.assertIn('Produit test', result)
 
+    def test_get_low_stock_uses_variant_total_not_product_stock_field(self):
+        """Product.stock reste à 0 pour un produit à variantes (le vrai
+        stock vit sur VariantOption) — un produit avec 7 en stock réparti
+        sur ses variantes ne doit jamais apparaître comme "0 en stock"."""
+        from rest_framework.test import APIRequestFactory
+        from products.models import Product, ProductVariant, VariantOption
+        product = Product.objects.create(store=self.store, name='Chaussure', price=5000, stock=0)
+        variant = ProductVariant.objects.create(product=product, name='Pointure')
+        VariantOption.objects.create(variant=variant, value='40', stock=4)
+        VariantOption.objects.create(variant=variant, value='41', stock=3)
+        factory = APIRequestFactory()
+        req = factory.get('/api/ai/chat/')
+        req.user = self.owner
+        result = ai_tools.execute_tool(req, 'get_low_stock', {})
+        self.assertNotIn('Chaussure', result)
+
     def test_confirmateur_without_stock_view_refused(self):
         from rest_framework.test import APIRequestFactory
         member_user, member = make_team_member(self.store, role='confirmateur')

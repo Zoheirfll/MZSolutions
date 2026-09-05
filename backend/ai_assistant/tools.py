@@ -39,7 +39,19 @@ def get_low_stock(request):
         threshold = store.settings.low_stock_threshold
     except Exception:
         threshold = 5
-    products = list(store.products.filter(stock__lte=threshold, is_active=True).values('name', 'stock')[:20])
+    # `Product.stock` reste intentionnellement à 0 pour un produit à
+    # variantes (le vrai stock vit sur VariantOption/VariantSubOption) — un
+    # filtre direct sur ce champ signalerait à tort ces produits comme
+    # épuisés. `total_stock` (propriété du modèle) résout déjà correctement
+    # produit simple vs. variantes vs. sous-variantes, comme LowStockView.
+    products = []
+    qs = store.products.prefetch_related('variants__options__sub_options').filter(is_active=True)
+    for p in qs:
+        stock = p.total_stock
+        if stock <= threshold:
+            products.append({'name': p.name, 'stock': stock})
+        if len(products) >= 20:
+            break
     return _serialize({'threshold': threshold, 'products': products})
 
 
