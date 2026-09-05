@@ -891,15 +891,20 @@ class DashboardKpiView(StatsPermissionMixin, APIView):
         })
 
 
-from .sales_forecast import compute_sales_forecast
-
-
 class SalesForecastView(StatsPermissionMixin, APIView):
     """Prévision de ventes — calcul 100% déterministe (sales_forecast.py),
-    aucun appel IA. Horizon ajustable, clampé entre 7 et 60 jours."""
+    aucun appel IA. Horizon ajustable, clampé entre 7 et 60 jours.
+
+    Import de compute_sales_forecast() différé dans la méthode (pas en tête
+    de module) : sales_forecast.py importe lui-même CONFIRMED_STATUSES
+    depuis ce fichier — un import en tête de module créerait un cycle qui
+    plante selon l'ordre d'import (marche par la route web car urls.py
+    charge ce module en premier, casse sur un import direct de
+    orders.sales_forecast, ex. `manage.py shell`)."""
     permission_key = 'stats_forecast_view'
 
     def get(self, request):
+        from .sales_forecast import compute_sales_forecast
         if (err := self.check_access(request)): return err
         store, err = self.get_store_or_error(request)
         if err: return err
