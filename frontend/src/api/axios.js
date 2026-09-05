@@ -51,7 +51,16 @@ api.interceptors.response.use(
         })
         return api(original)
       } catch {
-        window.location.href = '/auth'
+        // Pas de redirection forcée ici : un 401 est l'état NORMAL d'un
+        // visiteur non connecté (ex. AuthContext sonde /auth/me/ au
+        // chargement de n'importe quelle page, y compris la boutique
+        // publique et /auth lui-même). Rediriger ici en dur causait une
+        // boucle de rechargement infinie pour tout visiteur anonyme :
+        // /auth/me/ → 401 → refresh → 401 → window.location.href='/auth'
+        // → reload → /auth/me/ → 401 → ... (bug réel constaté en prod,
+        // jamais reproduit en dev où on reste connecté). La redirection
+        // vers /auth pour une session réellement expirée est déjà gérée
+        // proprement et sans boucle par PrivateRoute (user=null → <Navigate>).
       }
     }
     return Promise.reject(error)
