@@ -1635,6 +1635,10 @@ Explication en langage naturel générée **à la demande uniquement** (`POST /a
 
 Testé via `manage.py test orders` (92 tests, dont 15 dédiés au score : un par signal isolé, cumul de plusieurs signaux, calcul à la création dashboard et checkout public, cache de l'explication IA, dégradation 503, gating de permission) + suite frontend complète (393 tests, aucune régression).
 
+**Prévision de ventes (2026-09, 4ème et dernier chantier)** — contrairement aux 3 précédents, **aucun appel IA** : le calcul est 100% déterministe (`orders/sales_forecast.py::compute_sales_forecast()`), moyenne mobile pondérée **par jour de la semaine** (un lundi se compare aux lundis précédents) ajustée par la tendance récente, avec fourchette basse/haute systématique (jamais un chiffre présenté comme une certitude). Horizon ajustable par le vendeur (curseur 7-60 jours, clampé côté serveur) — décision explicite après une demande de "prédiction parfaite" : aucune méthode n'est parfaite, la réponse honnête est un horizon ajustable + une marge d'erreur visible plutôt qu'un faux sentiment de précision. Historique < 14 jours → erreur explicite plutôt qu'une prévision peu fiable affichée comme fiable. Page `pages/orders/stats/SalesForecastPage.jsx`, permission dédiée `stats_forecast_view` (même convention que les 9 autres pages de stats).
+
+Testé via `manage.py test orders team` (134 tests, dont 10 dédiés à la prévision : moyenne pondérée vérifiée sur données connues, tendance par jour de semaine, fourchette jamais négative, historique insuffisant, clamp d'horizon, gating de permission) + suite frontend complète (399 tests, aucune régression).
+
 ---
 
 ## Risques Identifiés
