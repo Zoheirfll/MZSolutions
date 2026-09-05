@@ -1027,3 +1027,39 @@ class OrderCreationRiskScoreTest(TestCase):
         self.assertEqual(resp.status_code, 201)
         order = Order.objects.get(pk=resp.json()['id'])
         self.assertIsNotNone(order.risk_score)
+
+
+class OrderRiskExplanationViewTest(TestCase):
+    def setUp(self):
+        self.owner, self.store = make_owner()
+        self.client_ = auth_client(self.owner)
+        self.order = Order.objects.create(
+            store=self.store, first_name='Amine', phone='0555000020', wilaya='Alger',
+            status='pending', total=5000, risk_score=60, risk_signals=['unusual_amount', 'location_mismatch'],
+        )
+
+    @patch('orders.views.ollama_client.generate')
+    def test_generates_and_caches_explanation(self, mock_generate):
+        mock_generate.return_value = "Ce score est élevé car le montant est inhabituel et la wilaya diffère des commandes précédentes."
+        resp = self.client_.post(f'/api/orders/{self.order.id}/risk-explanation/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('montant est inhabituel', resp.data['explanation'])
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.risk_explanation, resp.data['explanation'])
+
+        resp2 = self.client_.post(f'/api/orders/{self.order.id}/risk-explanation/')
+        self.assertEqual(resp2.data['explanation'], resp.data['explanation'])
+        mock_generate.assert_called_once()
+
+    @patch('orders.views.ollama_client.generate')
+    def test_ollama_down_returns_503(self, mock_generate):
+        from ai_assistant.ollama_client import OllamaUnavailableError
+        mock_generate.side_effect = OllamaUnavailableError('down')
+        resp = self.client_.post(f'/api/orders/{self.order.id}/risk-explanation/')
+        self.assertEqual(resp.status_code, 503)
+
+    def test_confirmateur_without_permission_forbidden(self):
+        member_user, member = make_team_member(self.store, role='confirmateur')
+        client_ = auth_client(member_user)
+        resp = client_.post(f'/api/orders/{self.order.id}/risk-explanation/')
+        self.assertEqual(resp.status_code, 403)

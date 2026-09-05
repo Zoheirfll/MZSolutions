@@ -20,6 +20,8 @@ from .models import Order, OrderItem, OrderStatusHistory, STATUS_CHOICES, NO_ANS
 from .serializers import OrderSerializer, OrderDetailSerializer, OrderAssignmentSerializer, FailureReasonSerializer, CallAttemptSerializer, AbandonedCartSerializer, CarrierAccountSerializer, BlacklistedPhoneSerializer, ComplaintSerializer, ComplaintDetailSerializer, ExchangeRequestSerializer, WilayaRateSerializer, CommuneRateSerializer, DispatchRuleSerializer
 from .utils import assign_order_round_robin, assign_complaint_round_robin, send_abandoned_cart_email, dispatch_confirmateur_for_order, dispatch_carrier_for_order
 from .risk_scoring import compute_risk_score
+from ai_assistant import ollama_client
+from ai_assistant.ollama_client import OllamaUnavailableError
 from . import chargily
 from .carriers import get_carrier_client
 from .carriers.ecotrack import TrackingNotFoundError
@@ -3997,3 +3999,45 @@ class YalidineWebhookView(APIView):
                     )
 
         return Response(status=200)
+
+
+RISK_SIGNAL_LABELS = {
+    'cancel_return_rate': "taux d'annulation/retour élevé",
+    'unusual_frequency': "fréquence de commande anormale",
+    'unusual_amount': "montant inhabituel",
+    'location_mismatch': "localisation incohérente avec l'historique",
+}
+
+
+class OrderRiskExplanationView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        if not (is_owner_or_admin(request) or has_permission(request, 'clients_risk_view')):
+            return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
+        store = _get_store(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        try:
+            order = store.orders.get(pk=pk)
+        except Order.DoesNotExist:
+            return Response({'detail': 'Commande introuvable.'}, status=404)
+
+        if order.risk_explanation:
+            return Response({'explanation': order.risk_explanation})
+
+        signals_fr = ', '.join(RISK_SIGNAL_LABELS.get(s, s) for s in order.risk_signals) or 'aucun'
+        prompt = (
+            f"Un client de la boutique {store.name} a un score de risque de {order.risk_score or 0}/100. "
+            f"Signaux déclenchés : {signals_fr}.\n"
+            "Explique en 2-3 phrases, en français, pourquoi ce score est ce qu'il est — base-toi "
+            "UNIQUEMENT sur les signaux fournis, n'invente aucune autre information."
+        )
+        try:
+            explanation = ollama_client.generate(prompt)
+        except OllamaUnavailableError:
+            return Response({'detail': 'Assistant IA indisponible'}, status=503)
+
+        order.risk_explanation = explanation.strip()
+        order.save(update_fields=['risk_explanation'])
+        return Response({'explanation': order.risk_explanation})

@@ -2,6 +2,7 @@ from django.urls import path
 from .views import (
     OrderListCreateView, OrderDetailView,
     OrderStatusView, OrderRejectCancellationView, OrderStatsView, ConfirmationRateView, ConfirmateurMyStatsView,
+    OrderRiskExplanationView,
     OrderAssignmentView,
     CallAttemptListView, CallAttemptDetailView,
     FailureReasonListView, FailureReasonDetailView, FailureReasonAttemptsView, FailureHistoryListView,
@@ -70,6 +71,7 @@ urlpatterns = [
     path('<int:pk>/retry-shipment/',              OrderRetryShipmentView.as_view()),
     path('<int:pk>/sync-tracking/',               OrderSyncTrackingView.as_view()),
     path('<int:pk>/status/',                      OrderStatusView.as_view()),
+    path('<int:pk>/risk-explanation/',            OrderRiskExplanationView.as_view()),
     path('<int:pk>/reject-cancellation/',          OrderRejectCancellationView.as_view()),
     path('<int:pk>/assignment/',                  OrderAssignmentView.as_view()),
     path('<int:pk>/assign-carrier/',              OrderAssignCarrierView.as_view()),
