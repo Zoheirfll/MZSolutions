@@ -89,6 +89,30 @@ class SubscriptionQuota(models.Model):
         return f"Quota {self.store.name}"
 
 
+def quota_block_reason(quota):
+    """Source unique du motif de blocage commande — réutilisée par la création
+    de commande (orders.views) et par le statut de pause de la boutique
+    publique/assistant IA (voir Store.is_paused)."""
+    if quota is None:
+        return None
+    if quota.orders_used >= quota.orders_limit:
+        return 'Quota de commandes atteint.'
+    if not quota.is_trial_active and not quota.is_subscription_active:
+        return "Période d'essai expirée — un abonnement actif est requis pour continuer."
+    return None
+
+
+def store_is_paused(store):
+    """True si la boutique ne peut plus accepter de commandes (quota atteint ou
+    essai expiré sans abonnement actif) — pilote le bandeau "Boutique en pause"
+    de la boutique publique et coupe l'assistant IA storefront (US 2026-09)."""
+    try:
+        quota = store.quota
+    except SubscriptionQuota.DoesNotExist:
+        return False
+    return quota_block_reason(quota) is not None
+
+
 THEME_CHOICES = [('violet', 'Violet'), ('midnight', 'Midnight'), ('sahara', 'Sahara')]
 FONT_CHOICES  = [('inter', 'Inter'), ('poppins', 'Poppins'), ('cairo', 'Cairo')]
 
