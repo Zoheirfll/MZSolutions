@@ -328,3 +328,45 @@ class ChatViewTest(TestCase):
         resp = self.client_.delete(f'/api/ai/conversations/{conv.id}/')
         self.assertEqual(resp.status_code, 404)
         self.assertTrue(AIConversation.objects.filter(pk=conv.id).exists())
+
+
+class PublicToolsTest(TestCase):
+    def setUp(self):
+        self.owner, self.store = make_owner()
+        from products.models import Product
+        Product.objects.create(store=self.store, name='Chaise en bois', price=5000, stock=10, is_active=True)
+        Product.objects.create(store=self.store, name='Table basse', price=15000, stock=0, is_active=True)
+        Product.objects.create(store=self.store, name='Produit désactivé', price=1000, stock=5, is_active=False)
+
+    def test_public_search_products_matches_name(self):
+        result = ai_tools.public_search_products(self.store, 'chaise')
+        self.assertIn('Chaise en bois', result)
+        self.assertNotIn('Table basse', result)
+
+    def test_public_search_products_excludes_inactive(self):
+        result = ai_tools.public_search_products(self.store, 'désactivé')
+        self.assertIn('"products": []', result)
+
+    def test_public_get_order_status_requires_matching_phone_and_id(self):
+        from orders.models import Order
+        order = Order.objects.create(
+            store=self.store, first_name='Amine', phone='0555000000',
+            wilaya='Alger', status='shipped', carrier_tracking_number='TRACK123', total=5000,
+        )
+        result = ai_tools.public_get_order_status(self.store, '0555000000', order.id)
+        self.assertIn('TRACK123', result)
+
+    def test_public_get_order_status_wrong_phone_generic_message(self):
+        from orders.models import Order
+        order = Order.objects.create(
+            store=self.store, first_name='Amine', phone='0555000000',
+            wilaya='Alger', status='shipped', total=5000,
+        )
+        result_wrong_phone = ai_tools.public_get_order_status(self.store, '0555999999', order.id)
+        result_wrong_id = ai_tools.public_get_order_status(self.store, '0555000000', order.id + 999)
+        self.assertEqual(result_wrong_phone, result_wrong_id)
+        self.assertIn('aucune commande trouv', result_wrong_phone.lower())
+
+    def test_execute_public_tool_unknown_name(self):
+        result = ai_tools.execute_public_tool(self.store, 'nope', {})
+        self.assertIn('Outil inconnu', result)

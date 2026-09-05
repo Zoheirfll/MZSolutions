@@ -172,3 +172,87 @@ def execute_tool(request, name, arguments):
         return fn(request, **arguments)
     except TypeError:
         return fn(request)
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Tools du chatbot BOUTIQUE PUBLIQUE (canal anonyme, sans authentification)
+# — registre et définitions STRICTEMENT séparés des tools dashboard
+# ci-dessus. Chaque fonction reçoit `store` (déjà résolu par la vue
+# appelante via le slug de l'URL), jamais `request` : ces tools n'ont
+# aucune notion d'utilisateur authentifié ni de permission à vérifier.
+# ─────────────────────────────────────────────────────────────────────────
+
+def public_search_products(store, query=''):
+    qs = store.products.filter(is_active=True)
+    if query:
+        qs = qs.filter(name__icontains=query)
+    results = []
+    for p in qs[:5]:
+        promo = p.active_auto_promotion()
+        entry = {'name': p.name, 'price': float(p.price), 'stock': p.total_stock}
+        if promo:
+            entry['promo_price'] = float(p.price) - float(promo.compute_discount(p.price))
+        results.append(entry)
+    return _serialize({'products': results})
+
+
+def public_get_order_status(store, phone, order_id):
+    generic_not_found = "Aucune commande trouvée avec ces informations."
+    if not phone or not order_id:
+        return generic_not_found
+    try:
+        order = store.orders.get(pk=order_id, phone=phone)
+    except (store.orders.model.DoesNotExist, ValueError, TypeError):
+        return generic_not_found
+    return _serialize({
+        'status': order.get_status_display(),
+        'tracking_number': order.carrier_tracking_number or None,
+        'wilaya': order.wilaya,
+        'commune': order.commune or None,
+        'total': float(order.total),
+    })
+
+
+PUBLIC_TOOL_REGISTRY = {
+    'public_search_products': public_search_products,
+    'public_get_order_status': public_get_order_status,
+}
+
+PUBLIC_TOOL_DEFINITIONS = [
+    {
+        'type': 'function',
+        'function': {
+            'name': 'public_search_products',
+            'description': "Recherche des produits actifs de la boutique par nom (prix, stock disponible, promotion active si applicable).",
+            'parameters': {
+                'type': 'object',
+                'properties': {'query': {'type': 'string', 'description': 'Terme de recherche (nom de produit, optionnel — vide retourne les 5 premiers produits actifs)'}},
+            },
+        },
+    },
+    {
+        'type': 'function',
+        'function': {
+            'name': 'public_get_order_status',
+            'description': "Statut d'une commande — nécessite OBLIGATOIREMENT le numéro de téléphone ET le numéro de commande, jamais l'un sans l'autre.",
+            'parameters': {
+                'type': 'object',
+                'properties': {
+                    'phone': {'type': 'string', 'description': 'Numéro de téléphone utilisé pour la commande'},
+                    'order_id': {'type': 'string', 'description': 'Numéro de commande'},
+                },
+                'required': ['phone', 'order_id'],
+            },
+        },
+    },
+]
+
+
+def execute_public_tool(store, name, arguments):
+    fn = PUBLIC_TOOL_REGISTRY.get(name)
+    if not fn:
+        return f"Outil inconnu : {name}"
+    try:
+        return fn(store, **arguments)
+    except TypeError:
+        return fn(store)
