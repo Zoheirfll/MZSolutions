@@ -3,6 +3,7 @@ import DashboardLayout from '../../components/DashboardLayout'
 import Select from '../../components/Select'
 import ClientOrdersModal from '../../components/ClientOrdersModal'
 import BlockPhoneModal from '../../components/BlockPhoneModal'
+import RiskScoreBadge from '../../components/RiskScoreBadge'
 import api from '../../api/axios'
 import { theme } from '../../theme'
 
@@ -156,15 +157,16 @@ export default function AtRiskCustomersPage() {
               <th className="px-4 py-3 font-medium">TÉLÉPHONE</th>
               <th className="px-4 py-3 font-medium">COMMANDES</th>
               <th className="px-4 py-3 font-medium">ANNULÉES/RETOURNÉES</th>
+              <th className="px-4 py-3 font-medium">SCORE AVANCÉ</th>
               <th className="px-4 py-3 font-medium">ORIGINE</th>
               <th className="px-4 py-3 font-medium">ACTIONS</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={6}><Spinner /></td></tr>
+              <tr><td colSpan={7}><Spinner /></td></tr>
             ) : data.results.length === 0 ? (
-              <tr><td colSpan={6}>
+              <tr><td colSpan={7}>
                 <EmptyState icon={<AlertIcon />} title="Aucun client à risque" subtitle="Personne ne dépasse le seuil configuré pour l'instant." />
               </td></tr>
             ) : data.results.map(c => (
@@ -175,6 +177,7 @@ export default function AtRiskCustomersPage() {
                 <td className="px-4 py-3">
                   <span className={theme.badge.danger}>{c.risky_count}</span>
                 </td>
+                <td className="px-4 py-3"><RiskScoreBadge score={c.max_risk_score} /></td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className={c.manual_risk ? theme.badge.warning : theme.badge.neutral}>

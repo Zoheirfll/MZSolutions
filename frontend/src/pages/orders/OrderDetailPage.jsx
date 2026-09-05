@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef, Fragment } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import DashboardLayout from '../../components/DashboardLayout'
 import StatusBadge from '../../components/StatusBadge'
+import RiskScoreBadge from '../../components/RiskScoreBadge'
 import Select from '../../components/Select'
 import DeskMapPreview from '../../components/DeskMapPreview'
 import api from '../../api/axios'
@@ -9,6 +10,13 @@ import { theme } from '../../theme'
 import { useAuth } from '../../context/AuthContext'
 import { WILAYAS, getWilayaIdByName } from '../../data/wilayas'
 import { getCommunesForWilaya } from '../../data/communes'
+
+const RISK_SIGNAL_LABELS_FR = {
+  cancel_return_rate: "Taux d'annulation/retour élevé",
+  unusual_frequency: 'Fréquence de commande anormale',
+  unusual_amount: 'Montant inhabituel',
+  location_mismatch: "Localisation incohérente avec l'historique",
+}
 
 const DELIVERY_TYPE_LABELS = {
   store:     'Vendu depuis le magasin',
@@ -133,6 +141,7 @@ export default function OrderDetailPage() {
   const canEditOrder = !!user?.permissions?.orders_manage
 
   const [order,         setOrder]         = useState(null)
+  const [loadingExplanation, setLoadingExplanation] = useState(false)
   const [loading,       setLoading]       = useState(true)
   const [confirmateurs, setConfirmateurs] = useState([])
   const [carrierAccounts, setCarrierAccounts] = useState([])
@@ -463,6 +472,18 @@ export default function OrderDetailPage() {
   const inputCls = 'w-full px-3.5 py-2.5 rounded-xl border text-sm text-app-primary bg-transparent outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 transition [color-scheme:dark]'
   const bdrStyle = { borderColor: theme.dark.border }
 
+  const handleGenerateExplanation = async () => {
+    setLoadingExplanation(true)
+    try {
+      const { data } = await api.post(`/orders/${id}/risk-explanation/`)
+      setOrder(prev => ({ ...prev, risk_explanation: data.explanation }))
+    } catch {
+      // best-effort — le score/les signaux restent visibles même si l'IA échoue
+    } finally {
+      setLoadingExplanation(false)
+    }
+  }
+
   if (loading) return (
     <DashboardLayout title="Commande">
       <div className="flex items-center justify-center gap-2 text-app-muted py-24">
@@ -489,6 +510,28 @@ export default function OrderDetailPage() {
         </button>
         <StatusBadge status={order.status} label={order.status_label} />
       </div>
+
+      {order.risk_score !== null && order.risk_score !== undefined && (
+        <div className="rounded-xl border p-4 mb-5" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium text-app-primary">Score de risque</span>
+            <RiskScoreBadge score={order.risk_score} />
+          </div>
+          {order.risk_signals?.length > 0 && (
+            <ul className="text-xs text-app-muted-light list-disc pl-4 mb-2">
+              {order.risk_signals.map(s => <li key={s}>{RISK_SIGNAL_LABELS_FR[s] || s}</li>)}
+            </ul>
+          )}
+          {order.risk_explanation ? (
+            <p className="text-xs text-app-muted-light">{order.risk_explanation}</p>
+          ) : (
+            <button type="button" onClick={handleGenerateExplanation} disabled={loadingExplanation}
+              className={theme.btn.outline + ' text-xs disabled:opacity-50'}>
+              {loadingExplanation ? 'Génération…' : 'Générer une explication'}
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="flex flex-col lg:flex-row gap-5 items-start">
 

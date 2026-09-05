@@ -6,6 +6,7 @@ import autoTable from 'jspdf-autotable'
 import DashboardLayout from '../../components/DashboardLayout'
 import StatusBadge from '../../components/StatusBadge'
 import TrackingBadge from '../../components/TrackingBadge'
+import RiskScoreBadge from '../../components/RiskScoreBadge'
 import Select from '../../components/Select'
 import api from '../../api/axios'
 import { theme } from '../../theme'
@@ -252,6 +253,7 @@ const ALL_COLUMNS = [
   { key: 'total',        label: 'PRIX TOTAL' },
   { key: 'status',       label: 'STATUT' },
   { key: 'tracking',     label: 'SUIVI' },
+  { key: 'risk',         label: 'RISQUE' },
   { key: 'commune',      label: 'COMMUNE' },
   { key: 'note',         label: 'NOTE' },
   { key: 'date',         label: 'DATE' },
@@ -888,6 +890,11 @@ export default function OrdersPage() {
                 {visibleCols.has('tracking') && (
                   <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                     <TrackingBadge trackingNumber={o.carrier_tracking_number} carrierLabel={o.carrier_label} />
+                  </td>
+                )}
+                {visibleCols.has('risk') && (
+                  <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                    <RiskScoreBadge score={o.risk_score} />
                   </td>
                 )}
                 {visibleCols.has('commune') && <td className="px-4 py-3 text-app-muted-light">{o.commune || '—'}</td>}
