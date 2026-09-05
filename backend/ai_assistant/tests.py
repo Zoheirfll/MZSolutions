@@ -24,6 +24,18 @@ class AIAssistantModelsTest(TestCase):
         self.assertEqual(conv.messages.count(), 1)
         self.assertEqual(msg.role, 'user')
 
+    def test_conversation_requires_user_xor_session(self):
+        from django.db import IntegrityError, transaction
+        owner, store = make_owner()
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                AIConversation.objects.create(store=store)
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                AIConversation.objects.create(store=store, user=owner, session_id='abc123')
+        conv = AIConversation.objects.create(store=store, session_id='abc123')
+        self.assertIsNone(conv.user)
+
 
 @override_settings(AI_PROVIDER='ollama')
 class OllamaClientTest(TestCase):
