@@ -298,6 +298,14 @@ export default function DashboardLayout({ children, title, subtitle }) {
   const usedPct  = quota && quota.orders_limit ? Math.round((quota.orders_used / quota.orders_limit) * 100) : 0
   const showQuotaAlert = quota && !quota.plan && (usedPct >= 80 || (daysLeft !== null && daysLeft <= 3))
 
+  // Blocage total du dashboard si l'essai/abonnement est expiré (2026-09) —
+  // `user.store_is_paused` vient de /api/auth/me/, calculé serveur (stores.models.store_is_paused),
+  // donc disponible pour TOUS les rôles (pas seulement owner/admin, contrairement à /stores/me/quota/).
+  // La page Abonnement reste seule exemptée pour que le propriétaire puisse effectivement payer.
+  const isBillingPage = location.pathname.startsWith('/dashboard/abonnement')
+  const isOwnerOrAdmin = !teamRole || teamRole === 'admin'
+  const showExpiredGate = !!user?.store_is_paused && !isBillingPage
+
   const handleLogout = () => { logout(); navigate('/auth') }
   const initials = `${user?.first_name?.[0] ?? ''}${user?.last_name?.[0] ?? ''}`.toUpperCase()
 
@@ -696,7 +704,7 @@ export default function DashboardLayout({ children, title, subtitle }) {
               )}
               {(can('stats_global_view') || can('stats_orders_view') || can('stats_returns_view') || can('stats_failures_view') ||
                 can('stats_stock_sales_view') || can('stats_products_view') || can('stats_confirmateurs_view') ||
-                can('stats_wilayas_view') || can('stats_sources_view')) && (
+                can('stats_wilayas_view') || can('stats_sources_view') || can('stats_forecast_view')) && (
                 <li>
                   <button
                     onClick={() => setExpanded(e => ({ ...e, stats: !e.stats }))}
@@ -720,6 +728,7 @@ export default function DashboardLayout({ children, title, subtitle }) {
                       {can('stats_confirmateurs_view') && <li>{link('/dashboard/stats/confirmateurs', 'Statistique par confirmateur')}</li>}
                       {can('stats_wilayas_view') && <li>{link('/dashboard/stats/wilayas', 'Statistiques par wilaya')}</li>}
                       {can('stats_sources_view') && <li>{link('/dashboard/stats/sources', 'Statistiques des sources')}</li>}
+                      {can('stats_forecast_view') && <li>{link('/dashboard/stats/previsions', 'Prévision de ventes')}</li>}
                     </ul>
                   )}
                 </li>
@@ -949,7 +958,7 @@ export default function DashboardLayout({ children, title, subtitle }) {
             </div>
           </div>
         </header>
-        {showQuotaAlert && can('subscription_view') && (
+        {showQuotaAlert && can('subscription_view') && !showExpiredGate && (
           <div className="flex items-center justify-between gap-3 px-5 sm:px-8 py-2.5 text-sm shrink-0 bg-red-500/10 border-b border-red-500/25">
             <span className="text-red-400">
               {usedPct >= 80 && daysLeft !== null && daysLeft <= 3
@@ -964,7 +973,41 @@ export default function DashboardLayout({ children, title, subtitle }) {
             </button>
           </div>
         )}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden p-5 sm:p-8">{children}</main>
+        <main className="relative flex-1 overflow-y-auto overflow-x-hidden p-5 sm:p-8">
+          {showExpiredGate ? (
+            <div className="absolute inset-0 z-20 flex items-center justify-center p-6" style={{ background: theme.dark.app }}>
+              <div className="max-w-md w-full text-center rounded-2xl p-8" style={{ background: theme.dark.card, border: `1px solid ${theme.dark.border}` }}>
+                <div className="mx-auto mb-5 w-14 h-14 rounded-full flex items-center justify-center" style={{ background: 'rgba(239,68,68,0.12)' }}>
+                  <svg className="w-7 h-7 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M12 9v3.75m0 3.75h.008M10.29 3.86 1.82 18a1.5 1.5 0 0 0 1.29 2.25h17.78a1.5 1.5 0 0 0 1.29-2.25L13.71 3.86a1.5 1.5 0 0 0-2.42 0Z" />
+                  </svg>
+                </div>
+                <h2 className="text-lg font-semibold text-app-primary mb-2">Abonnement expiré</h2>
+                <p className="text-sm mb-1" style={{ color: theme.dark.muted }}>
+                  {isOwnerOrAdmin
+                    ? "Votre période d'essai ou votre abonnement est terminé. Renouvelez pour continuer à utiliser MZSolutions — vos données sont conservées, en sécurité."
+                    : "L'abonnement de cette boutique est expiré. Contactez le propriétaire pour le renouveler."}
+                </p>
+                {quota && (
+                  <p className="text-xs mb-6" style={{ color: theme.dark.muted }}>
+                    {quota.plan ? `Plan ${quota.plan.name} — période terminée` : `Essai gratuit terminé (${quota.orders_used}/${quota.orders_limit} commandes utilisées)`}
+                  </p>
+                )}
+                {!quota && <div className="mb-6" />}
+                {isOwnerOrAdmin && (
+                  <button onClick={() => navigate('/dashboard/abonnement')}
+                    className="w-full py-2.5 rounded-lg text-sm font-semibold text-white transition cursor-pointer"
+                    style={{ background: theme.dark.primary || '#7c3aed' }}>
+                    Renouveler mon abonnement
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : null}
+          <div aria-hidden={showExpiredGate} className={showExpiredGate ? 'pointer-events-none select-none blur-sm opacity-40' : ''}>
+            {children}
+          </div>
+        </main>
       </div>
     </div>
   )
