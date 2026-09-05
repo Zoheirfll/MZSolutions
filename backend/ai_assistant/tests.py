@@ -248,6 +248,42 @@ class ToolsTest(TestCase):
         self.assertIn("n'avez pas la permission", result)
 
 
+class ChatLoopTest(TestCase):
+    @patch('ai_assistant.chat_loop.ollama_client.chat')
+    def test_returns_final_content_without_tool_call(self, mock_chat):
+        from ai_assistant.chat_loop import run_chat_loop
+        mock_chat.return_value = {'role': 'assistant', 'content': 'Bonjour !'}
+        history = [{'role': 'user', 'content': 'Salut'}]
+        result = run_chat_loop(history, tool_definitions=[], tool_executor=lambda n, a: '')
+        self.assertEqual(result, 'Bonjour !')
+
+    @patch('ai_assistant.chat_loop.ollama_client.chat')
+    def test_executes_tool_then_returns_final_content(self, mock_chat):
+        from ai_assistant.chat_loop import run_chat_loop
+        mock_chat.side_effect = [
+            {'role': 'assistant', 'content': '', 'tool_calls': [
+                {'id': 'call1', 'function': {'name': 'ping', 'arguments': {}}}
+            ]},
+            {'role': 'assistant', 'content': 'Pong.'},
+        ]
+        executed = []
+        def executor(name, arguments):
+            executed.append((name, arguments))
+            return 'ok'
+        history = [{'role': 'user', 'content': 'ping ?'}]
+        result = run_chat_loop(history, tool_definitions=[{'type': 'function'}], tool_executor=executor)
+        self.assertEqual(result, 'Pong.')
+        self.assertEqual(executed, [('ping', {})])
+
+    @patch('ai_assistant.chat_loop.ollama_client.chat')
+    def test_propagates_unavailable_error(self, mock_chat):
+        from ai_assistant.chat_loop import run_chat_loop
+        from ai_assistant.ollama_client import OllamaUnavailableError
+        mock_chat.side_effect = OllamaUnavailableError('down')
+        with self.assertRaises(OllamaUnavailableError):
+            run_chat_loop([{'role': 'user', 'content': 'x'}], tool_definitions=[], tool_executor=lambda n, a: '')
+
+
 class ChatViewTest(TestCase):
     def setUp(self):
         self.owner, self.store = make_owner()

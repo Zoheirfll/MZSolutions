@@ -11,6 +11,7 @@ from orders.stats_views import DashboardDeliveriesView, DashboardRevenueView, Da
 
 from . import ollama_client
 from . import tools as ai_tools
+from .chat_loop import run_chat_loop
 from .ollama_client import OllamaUnavailableError
 from .models import AIConversation, AIMessage
 from .serializers import AIConversationSerializer, AIConversationDetailSerializer
@@ -169,9 +170,6 @@ class ConversationDetailView(APIView):
         return Response(status=204)
 
 
-MAX_TOOL_ROUNDS = 3
-
-
 class ChatView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -198,29 +196,16 @@ class ChatView(APIView):
 
         history = [{'role': m.role, 'content': m.content} for m in conv.messages.order_by('created_at') if m.role != 'tool']
 
-        assistant_msg = {'content': ''}
+        def tool_executor(name, arguments):
+            result = ai_tools.execute_tool(request, name, arguments)
+            AIMessage.objects.create(conversation=conv, role='tool', content=f'{name}: {result}')
+            return result
+
         try:
-            for _ in range(MAX_TOOL_ROUNDS):
-                assistant_msg = ollama_client.chat(history, tools=ai_tools.TOOL_DEFINITIONS)
-                tool_calls = assistant_msg.get('tool_calls') or []
-                if not tool_calls:
-                    break
-                # `tool_calls` réinjecté tel quel dans l'historique : Groq (API
-                # stricte compatible OpenAI) rejette un message role='tool' qui ne
-                # référence pas un `tool_call_id` connu du tour précédent — Ollama
-                # est plus permissif mais accepte le même format sans broncher.
-                history.append({'role': 'assistant', 'content': assistant_msg.get('content', ''), 'tool_calls': tool_calls})
-                for call in tool_calls:
-                    fn = call.get('function', {})
-                    name = fn.get('name')
-                    arguments = fn.get('arguments') or {}
-                    result = ai_tools.execute_tool(request, name, arguments)
-                    AIMessage.objects.create(conversation=conv, role='tool', content=f'{name}: {result}')
-                    history.append({'role': 'tool', 'tool_call_id': call.get('id', ''), 'content': result})
+            final_content = run_chat_loop(history, ai_tools.TOOL_DEFINITIONS, tool_executor)
         except OllamaUnavailableError:
             return Response({'detail': 'Assistant IA indisponible'}, status=503)
 
-        final_content = assistant_msg.get('content', '')
         AIMessage.objects.create(conversation=conv, role='assistant', content=final_content)
         conv.save(update_fields=['updated_at'])
 
