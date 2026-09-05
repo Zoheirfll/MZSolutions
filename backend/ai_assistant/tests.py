@@ -205,6 +205,27 @@ class ToolsTest(TestCase):
         result = ai_tools.execute_tool(req, 'get_low_stock', {})
         self.assertNotIn('Chaussure', result)
 
+    def test_get_inventory_uses_variant_total(self):
+        from rest_framework.test import APIRequestFactory
+        from products.models import Product, ProductVariant, VariantOption
+        product = Product.objects.create(store=self.store, name='Chaussure', price=5000, stock=0)
+        variant = ProductVariant.objects.create(product=product, name='Pointure')
+        VariantOption.objects.create(variant=variant, value='40', stock=4)
+        VariantOption.objects.create(variant=variant, value='41', stock=3)
+        factory = APIRequestFactory()
+        req = factory.get('/api/ai/chat/')
+        req.user = self.owner
+        result = ai_tools.execute_tool(req, 'get_inventory', {})
+        self.assertIn('"stock": 7', result)
+
+    def test_get_inventory_search_filter(self):
+        from rest_framework.test import APIRequestFactory
+        factory = APIRequestFactory()
+        req = factory.get('/api/ai/chat/')
+        req.user = self.owner
+        result = ai_tools.execute_tool(req, 'get_inventory', {'search': 'inexistant'})
+        self.assertIn('"count": 0', result)
+
     def test_confirmateur_without_stock_view_refused(self):
         from rest_framework.test import APIRequestFactory
         member_user, member = make_team_member(self.store, role='confirmateur')
@@ -246,3 +267,16 @@ class ChatViewTest(TestCase):
         resp = self.client_.get('/api/ai/conversations/')
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(len(resp.data), 1)
+
+    def test_delete_conversation(self):
+        conv = AIConversation.objects.create(store=self.store, user=self.owner, title='À supprimer')
+        resp = self.client_.delete(f'/api/ai/conversations/{conv.id}/')
+        self.assertEqual(resp.status_code, 204)
+        self.assertFalse(AIConversation.objects.filter(pk=conv.id).exists())
+
+    def test_delete_conversation_of_another_user_404(self):
+        other_owner, other_store = make_owner()
+        conv = AIConversation.objects.create(store=other_store, user=other_owner, title='Pas la mienne')
+        resp = self.client_.delete(f'/api/ai/conversations/{conv.id}/')
+        self.assertEqual(resp.status_code, 404)
+        self.assertTrue(AIConversation.objects.filter(pk=conv.id).exists())

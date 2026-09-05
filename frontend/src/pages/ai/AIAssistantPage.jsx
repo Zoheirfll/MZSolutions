@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Plus, Send, Sparkles, User, MessageSquare } from 'lucide-react'
+import { Plus, Send, Sparkles, User, MessageSquare, Trash2 } from 'lucide-react'
 import DashboardLayout from '../../components/DashboardLayout'
+import ConfirmDialog from '../../components/ConfirmDialog'
 import { theme } from '../../theme'
 import { renderMarkdown } from '../../lib/markdown'
-import { listConversations, getConversation, sendChatMessage } from '../../api/aiApi'
+import { listConversations, getConversation, sendChatMessage, deleteConversation } from '../../api/aiApi'
 
 const SUGGESTIONS = [
   'Quel est mon stock bas ?',
@@ -53,6 +54,7 @@ export default function AIAssistantPage() {
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
+  const [confirmDelete, setConfirmDelete] = useState(null)
   const bottomRef = useRef(null)
   const textareaRef = useRef(null)
 
@@ -107,6 +109,23 @@ export default function AIAssistantPage() {
 
   const newConversation = () => { setActiveId(null); setMessages([]); setError('') }
 
+  const handleDelete = (e, id) => {
+    e.stopPropagation()
+    setConfirmDelete({
+      message: 'Supprimer cette conversation ?',
+      onConfirm: async () => {
+        setConfirmDelete(null)
+        try {
+          await deleteConversation(id)
+          setConversations(list => list.filter(c => c.id !== id))
+          if (activeId === id) newConversation()
+        } catch {
+          // best-effort — pas de blocage de l'UI si la suppression échoue
+        }
+      },
+    })
+  }
+
   const visibleMessages = messages.filter(m => m.role !== 'tool')
 
   return (
@@ -125,13 +144,19 @@ export default function AIAssistantPage() {
               <p className="text-xs text-app-muted px-3 py-4 text-center">Aucune conversation pour l'instant.</p>
             )}
             {conversations.map(c => (
-              <button key={c.id} type="button" onClick={() => setActiveId(c.id)}
-                className={`w-full text-left px-3 py-2.5 text-sm truncate flex items-center gap-2 border-l-2 transition ${
-                  activeId === c.id ? 'bg-app-card-alt border-violet-600 text-app-primary' : 'border-transparent text-app-muted-light hover:bg-app-card-alt'
-                }`}>
-                <MessageSquare size={13} className="shrink-0" />
-                <span className="truncate">{c.title || `Conversation #${c.id}`}</span>
-              </button>
+              <div key={c.id} className="group relative">
+                <button type="button" onClick={() => setActiveId(c.id)}
+                  className={`w-full text-left pl-3 pr-8 py-2.5 text-sm truncate flex items-center gap-2 border-l-2 transition ${
+                    activeId === c.id ? 'bg-app-card-alt border-violet-600 text-app-primary' : 'border-transparent text-app-muted-light hover:bg-app-card-alt'
+                  }`}>
+                  <MessageSquare size={13} className="shrink-0" />
+                  <span className="truncate">{c.title || `Conversation #${c.id}`}</span>
+                </button>
+                <button type="button" onClick={e => handleDelete(e, c.id)} aria-label="Supprimer la conversation"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 text-app-muted hover:text-red-400 transition p-1">
+                  <Trash2 size={13} />
+                </button>
+              </div>
             ))}
           </div>
         </div>
@@ -179,6 +204,7 @@ export default function AIAssistantPage() {
           </div>
         </div>
       </div>
+      <ConfirmDialog open={confirmDelete} onCancel={() => setConfirmDelete(null)} />
     </DashboardLayout>
   )
 }

@@ -157,6 +157,17 @@ class ConversationDetailView(APIView):
             return Response({'detail': 'Conversation introuvable.'}, status=404)
         return Response(AIConversationDetailSerializer(conv).data)
 
+    def delete(self, request, pk):
+        if (err := _check_access(request)):
+            return err
+        store = get_store(request)
+        try:
+            conv = AIConversation.objects.get(pk=pk, store=store, user=request.user)
+        except AIConversation.DoesNotExist:
+            return Response({'detail': 'Conversation introuvable.'}, status=404)
+        conv.delete()
+        return Response(status=204)
+
 
 MAX_TOOL_ROUNDS = 3
 

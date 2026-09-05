@@ -7,10 +7,11 @@ vi.mock('../../../api/axios', () => ({
   default: {
     get: vi.fn((url) => {
       if (/\/ai\/conversations\/\d+\/?$/.test(url)) return Promise.resolve({ data: { id: 1, title: '', messages: [] } })
-      if (url.includes('/ai/conversations/')) return Promise.resolve({ data: [] })
+      if (url.includes('/ai/conversations/')) return Promise.resolve({ data: [{ id: 1, title: 'Ancienne conversation' }] })
       return Promise.resolve({ data: { count: 0 } })
     }),
     post: vi.fn(() => Promise.resolve({ data: { conversation_id: 1, reply: 'Bonjour, je suis votre assistant.' } })),
+    delete: vi.fn(() => Promise.resolve({})),
   },
 }))
 vi.mock('../../../context/AuthContext', () => ({
@@ -45,5 +46,27 @@ describe('AIAssistantPage', () => {
     fireEvent.change(input, { target: { value: 'stock ?' } })
     fireEvent.click(screen.getByRole('button', { name: /envoyer/i }))
     await waitFor(() => expect(document.querySelector('.ai-prose strong')).toHaveTextContent('3 produits'))
+  })
+
+  it('affiche une modale de confirmation stylée (pas de window.confirm natif) et supprime au clic', async () => {
+    const axios = (await import('../../../api/axios')).default
+    render(<MemoryRouter><AIAssistantPage /></MemoryRouter>)
+    await screen.findByText('Ancienne conversation')
+    fireEvent.click(screen.getByLabelText('Supprimer la conversation'))
+    expect(await screen.findByText('Supprimer cette conversation ?')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Supprimer' }))
+    await waitFor(() => expect(axios.delete).toHaveBeenCalledWith('/ai/conversations/1/'))
+    await waitFor(() => expect(screen.queryByText('Ancienne conversation')).not.toBeInTheDocument())
+  })
+
+  it('ne supprime rien si on annule dans la modale', async () => {
+    const axios = (await import('../../../api/axios')).default
+    render(<MemoryRouter><AIAssistantPage /></MemoryRouter>)
+    await screen.findByText('Ancienne conversation')
+    fireEvent.click(screen.getByLabelText('Supprimer la conversation'))
+    fireEvent.click(await screen.findByRole('button', { name: 'Annuler' }))
+    expect(axios.delete).not.toHaveBeenCalled()
+    expect(screen.getByText('Ancienne conversation')).toBeInTheDocument()
+    expect(screen.queryByText('Supprimer cette conversation ?')).not.toBeInTheDocument()
   })
 })

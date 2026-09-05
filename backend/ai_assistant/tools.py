@@ -55,6 +55,22 @@ def get_low_stock(request):
     return _serialize({'threshold': threshold, 'products': products})
 
 
+def get_inventory(request, search=None):
+    """Inventaire complet (pas seulement le stock bas) — mêmes permission et
+    résolution de stock (total_stock) que get_low_stock, gate 'stock_view'
+    comme InventoryListView (products/views.py)."""
+    if not (is_owner_or_admin(request) or has_permission(request, 'stock_view')):
+        return _forbidden()
+    store = get_store(request)
+    if not store:
+        return _forbidden()
+    qs = store.products.prefetch_related('variants__options__sub_options').filter(is_active=True)
+    if search:
+        qs = qs.filter(name__icontains=search)
+    products = [{'name': p.name, 'stock': p.total_stock} for p in qs[:30]]
+    return _serialize({'count': qs.count(), 'products': products})
+
+
 def get_at_risk_clients(request):
     if not (is_owner_or_admin(request) or has_permission(request, 'clients_risk_view')):
         return _forbidden()
@@ -87,6 +103,7 @@ def get_profitability_summary(request, period_start=None, period_end=None):
 TOOL_REGISTRY = {
     'get_orders_summary': get_orders_summary,
     'get_low_stock': get_low_stock,
+    'get_inventory': get_inventory,
     'get_at_risk_clients': get_at_risk_clients,
     'get_profitability_summary': get_profitability_summary,
 }
@@ -109,6 +126,17 @@ TOOL_DEFINITIONS = [
             'name': 'get_low_stock',
             'description': "Liste des produits en stock bas (sous le seuil d'alerte de la boutique).",
             'parameters': {'type': 'object', 'properties': {}},
+        },
+    },
+    {
+        'type': 'function',
+        'function': {
+            'name': 'get_inventory',
+            'description': "Inventaire complet de la boutique (tous les produits actifs et leur stock actuel), pas seulement ceux en stock bas. Utiliser quand on demande le stock total/complet, ou le stock d'un produit précis (via `search`).",
+            'parameters': {
+                'type': 'object',
+                'properties': {'search': {'type': 'string', 'description': 'Filtre par nom de produit (optionnel)'}},
+            },
         },
     },
     {

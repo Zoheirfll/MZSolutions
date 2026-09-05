@@ -23,3 +23,7 @@ export function getConversation(id) {
 export function sendChatMessage({ conversationId, message }) {
   return api.post('/ai/chat/', { conversation_id: conversationId, message }).then(r => r.data)
 }
+
+export function deleteConversation(id) {
+  return api.delete(`/ai/conversations/${id}/`)
+}
