@@ -241,9 +241,15 @@ CHARGILY_MODE       = config('CHARGILY_MODE', default='test')
 CHARGILY_API_BASE   = config('CHARGILY_API_BASE', default='https://pay.chargily.net/api/v2')
 BACKEND_URL         = config('BACKEND_URL', default='http://localhost:8000')
 
-# Assistant IA (Ollama local, 2026-09) — jamais figés en dur, voir ai_assistant/ollama_client.py
+# Assistant IA (2026-09) — jamais figés en dur, voir ai_assistant/ollama_client.py
+# AI_PROVIDER='ollama' (local, défaut) ou 'groq' (cloud, quota gratuit —
+# solution transitoire tant que le serveur de prod n'a pas assez de RAM
+# pour Ollama, voir CLAUDE.md section Assistant IA).
+AI_PROVIDER = config('AI_PROVIDER', default='ollama')
 OLLAMA_BASE_URL = config('OLLAMA_BASE_URL', default='http://localhost:11434')
 OLLAMA_MODEL = config('OLLAMA_MODEL', default='llama3.1:8b')
+GROQ_API_KEY = config('GROQ_API_KEY', default='')
+GROQ_MODEL = config('GROQ_MODEL', default='openai/gpt-oss-20b')
 
 # Shopify (app publique OAuth — un client se connecte avec sa propre boutique)
 SHOPIFY_CLIENT_ID     = config('SHOPIFY_CLIENT_ID', default='')

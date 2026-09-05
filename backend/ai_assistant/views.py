@@ -194,14 +194,18 @@ class ChatView(APIView):
                 tool_calls = assistant_msg.get('tool_calls') or []
                 if not tool_calls:
                     break
-                history.append({'role': 'assistant', 'content': assistant_msg.get('content', '')})
+                # `tool_calls` réinjecté tel quel dans l'historique : Groq (API
+                # stricte compatible OpenAI) rejette un message role='tool' qui ne
+                # référence pas un `tool_call_id` connu du tour précédent — Ollama
+                # est plus permissif mais accepte le même format sans broncher.
+                history.append({'role': 'assistant', 'content': assistant_msg.get('content', ''), 'tool_calls': tool_calls})
                 for call in tool_calls:
                     fn = call.get('function', {})
                     name = fn.get('name')
                     arguments = fn.get('arguments') or {}
                     result = ai_tools.execute_tool(request, name, arguments)
                     AIMessage.objects.create(conversation=conv, role='tool', content=f'{name}: {result}')
-                    history.append({'role': 'tool', 'content': result})
+                    history.append({'role': 'tool', 'tool_call_id': call.get('id', ''), 'content': result})
         except OllamaUnavailableError:
             return Response({'detail': 'Assistant IA indisponible'}, status=503)
 

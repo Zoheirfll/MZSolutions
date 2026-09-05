@@ -1,7 +1,7 @@
 import json
 from unittest.mock import patch, MagicMock
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
 
 from core.test_utils import make_owner, make_team_member, auth_client
 from team.models import PERMISSION_CATALOG, DEFAULT_PERMISSIONS
@@ -25,6 +25,7 @@ class AIAssistantModelsTest(TestCase):
         self.assertEqual(msg.role, 'user')
 
 
+@override_settings(AI_PROVIDER='ollama')
 class OllamaClientTest(TestCase):
     @patch('ai_assistant.ollama_client.requests.post')
     def test_generate_returns_text(self, mock_post):
@@ -52,6 +53,53 @@ class OllamaClientTest(TestCase):
     def test_timeout_raises_unavailable(self, mock_post):
         import requests
         mock_post.side_effect = requests.exceptions.Timeout('too slow')
+        with self.assertRaises(ollama_client.OllamaUnavailableError):
+            ollama_client.chat([{'role': 'user', 'content': 'x'}])
+
+
+class GroqClientTest(TestCase):
+    """AI_PROVIDER='groq' — même contrat public (chat()/generate()/
+    OllamaUnavailableError) que le chemin Ollama, endpoint et payload
+    différents (API compatible OpenAI)."""
+
+    @override_settings(AI_PROVIDER='groq', GROQ_API_KEY='test-key', GROQ_MODEL='llama-3.1-8b-instant')
+    @patch('ai_assistant.ollama_client.requests.post')
+    def test_generate_returns_text(self, mock_post):
+        mock_post.return_value = MagicMock(
+            status_code=200,
+            json=lambda: {'choices': [{'message': {'content': 'Bonjour le monde'}}]},
+        )
+        result = ollama_client.generate('Dis bonjour')
+        self.assertEqual(result, 'Bonjour le monde')
+        called_url = mock_post.call_args[0][0]
+        self.assertEqual(called_url, ollama_client.GROQ_API_URL)
+        self.assertEqual(mock_post.call_args.kwargs['headers']['Authorization'], 'Bearer test-key')
+
+    @override_settings(AI_PROVIDER='groq', GROQ_API_KEY='test-key', GROQ_MODEL='llama-3.1-8b-instant')
+    @patch('ai_assistant.ollama_client.requests.post')
+    def test_chat_normalizes_tool_call_arguments_from_json_string(self, mock_post):
+        mock_post.return_value = MagicMock(
+            status_code=200,
+            json=lambda: {'choices': [{'message': {
+                'role': 'assistant', 'content': '',
+                'tool_calls': [{'function': {'name': 'get_low_stock', 'arguments': '{}'}}],
+            }}]},
+        )
+        result = ollama_client.chat([{'role': 'user', 'content': 'stock ?'}], tools=[{'type': 'function'}])
+        self.assertEqual(result['tool_calls'][0]['function']['arguments'], {})
+
+    @override_settings(AI_PROVIDER='groq', GROQ_API_KEY='test-key')
+    @patch('ai_assistant.ollama_client.requests.post')
+    def test_error_status_raises_unavailable(self, mock_post):
+        mock_post.return_value = MagicMock(status_code=401, text='invalid api key')
+        with self.assertRaises(ollama_client.OllamaUnavailableError):
+            ollama_client.generate('test')
+
+    @override_settings(AI_PROVIDER='groq', GROQ_API_KEY='test-key')
+    @patch('ai_assistant.ollama_client.requests.post')
+    def test_connection_error_raises_unavailable(self, mock_post):
+        import requests
+        mock_post.side_effect = requests.exceptions.ConnectionError('refused')
         with self.assertRaises(ollama_client.OllamaUnavailableError):
             ollama_client.chat([{'role': 'user', 'content': 'x'}])
 
