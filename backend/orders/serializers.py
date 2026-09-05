@@ -188,6 +188,7 @@ class OrderSerializer(serializers.ModelSerializer):
             'stop_desk', 'station_code', 'tracking_substatus', 'tracking_substatus_label',
             'label_generated_at', 'label_printed_at', 'prepared_at', 'return_validated_at', 'restocked_at',
             'cancellation_note', 'order_display_number',
+            'risk_score', 'risk_signals',
         ]
 
     def get_order_display_number(self, obj):
@@ -252,7 +253,7 @@ class OrderDetailSerializer(OrderSerializer):
 
     class Meta(OrderSerializer.Meta):
         fields = OrderSerializer.Meta.fields + [
-            'items', 'history', 'assignment', 'call_attempts', 'address', 'updated_at',
+            'items', 'history', 'assignment', 'call_attempts', 'address', 'updated_at', 'risk_explanation',
         ]
 
 

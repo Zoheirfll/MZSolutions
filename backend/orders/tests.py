@@ -1063,3 +1063,33 @@ class OrderRiskExplanationViewTest(TestCase):
         client_ = auth_client(member_user)
         resp = client_.post(f'/api/orders/{self.order.id}/risk-explanation/')
         self.assertEqual(resp.status_code, 403)
+
+
+class OrderSerializerRiskFieldsTest(TestCase):
+    def setUp(self):
+        self.owner, self.store = make_owner()
+        self.client_ = auth_client(self.owner)
+
+    def test_order_list_exposes_risk_score(self):
+        Order.objects.create(store=self.store, first_name='X', phone='0555000030',
+                              wilaya='Alger', status='pending', total=2000,
+                              risk_score=75, risk_signals=['unusual_amount'])
+        resp = self.client_.get('/api/orders/')
+        self.assertEqual(resp.data['results'][0]['risk_score'], 75)
+        self.assertEqual(resp.data['results'][0]['risk_signals'], ['unusual_amount'])
+
+    def test_order_detail_exposes_risk_explanation(self):
+        order = Order.objects.create(store=self.store, first_name='X', phone='0555000031',
+                                      wilaya='Alger', status='pending', total=2000,
+                                      risk_score=50, risk_explanation='Explication test.')
+        resp = self.client_.get(f'/api/orders/{order.id}/')
+        self.assertEqual(resp.data['risk_explanation'], 'Explication test.')
+
+    def test_client_list_exposes_max_risk_score(self):
+        Order.objects.create(store=self.store, first_name='X', phone='0555000032',
+                              wilaya='Alger', status='pending', total=2000, risk_score=30)
+        Order.objects.create(store=self.store, first_name='X', phone='0555000032',
+                              wilaya='Alger', status='pending', total=2000, risk_score=80)
+        resp = self.client_.get('/api/orders/clients/')
+        row = next(r for r in resp.data['results'] if r['phone'] == '0555000032')
+        self.assertEqual(row['max_risk_score'], 80)

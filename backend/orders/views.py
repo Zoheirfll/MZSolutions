@@ -1653,6 +1653,7 @@ class ClientListView(APIView):
             orders_count=Count('id'),
             risky_count=Count('id', filter=Q(status__in=RISK_STATUSES, created_at__gte=cutoff)),
             created_at=Min('created_at'),
+            max_risk_score=Max('risk_score'),
         ).order_by('-created_at')
 
         manual_risk_phones = set(
@@ -1676,6 +1677,7 @@ class ClientListView(APIView):
                 'commune':        row['commune'],
                 'orders_count':   row['orders_count'],
                 'risky_count':    row['risky_count'],
+                'max_risk_score': row['max_risk_score'],
                 'is_risky':       is_risky,
                 'manual_risk':    row['phone'] in manual_risk_phones,
                 'is_blacklisted': row['phone'] in blacklisted_phones,
