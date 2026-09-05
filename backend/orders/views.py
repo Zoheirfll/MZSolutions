@@ -19,6 +19,7 @@ from django.utils.dateparse import parse_datetime
 from .models import Order, OrderItem, OrderStatusHistory, STATUS_CHOICES, NO_ANSWER_STATUSES, OrderAssignment, FailureReason, CallAttempt, CALL_STATUS_CHOICES, PaymentWebhookLog, AbandonedCart, CarrierAccount, CARRIER_CHOICES, CustomerRisk, BlacklistedPhone, Complaint, ComplaintMessage, ComplaintAssignment, COMPLAINT_STATUS_CHOICES, ExchangeRequest, EXCHANGE_STATUS_CHOICES, WilayaRate, CommuneRate, DispatchRule
 from .serializers import OrderSerializer, OrderDetailSerializer, OrderAssignmentSerializer, FailureReasonSerializer, CallAttemptSerializer, AbandonedCartSerializer, CarrierAccountSerializer, BlacklistedPhoneSerializer, ComplaintSerializer, ComplaintDetailSerializer, ExchangeRequestSerializer, WilayaRateSerializer, CommuneRateSerializer, DispatchRuleSerializer
 from .utils import assign_order_round_robin, assign_complaint_round_robin, send_abandoned_cart_email, dispatch_confirmateur_for_order, dispatch_carrier_for_order
+from .risk_scoring import compute_risk_score
 from . import chargily
 from .carriers import get_carrier_client
 from .carriers.ecotrack import TrackingNotFoundError
@@ -28,6 +29,7 @@ from core.permissions import IsOwnerOrAdminForWrites, is_owner_or_admin, has_per
 from core.validators import validate_uploaded_file
 from core.pagination import parse_pagination
 from django.core.exceptions import ValidationError as DjangoValidationError
+from stores.models import quota_block_reason as _quota_block_reason
 
 
 def _get_store(request):
@@ -39,18 +41,6 @@ def _get_store(request):
         return request.user.team_membership.store
     except Exception:
         return None
-
-
-def _quota_block_reason(quota):
-    """Refuse la création de commande si le quota de commandes est atteint
-    OU si l'essai gratuit est expiré sans abonnement payant actif — jusqu'ici
-    seul le compteur de commandes bloquait, l'expiration de l'essai
-    (badge "Expiré" du tableau de bord) n'avait aucun effet réel côté serveur."""
-    if quota.orders_used >= quota.orders_limit:
-        return 'Quota de commandes atteint.'
-    if not quota.is_trial_active and not quota.is_subscription_active:
-        return "Période d'essai expirée — un abonnement actif est requis pour continuer."
-    return None
 
 
 def _authoritative_item_price(store, item, quantity=1):
@@ -677,6 +667,10 @@ class OrderListCreateView(APIView):
             )
 
         order.recalculate()
+
+        score, signals = compute_risk_score(store, order.phone, order.wilaya, order.commune, order.total)
+        order.risk_score, order.risk_signals = score, signals
+        order.save(update_fields=['risk_score', 'risk_signals'])
 
         if promo:
             promo.uses_count += 1
@@ -2722,6 +2716,11 @@ class PublicOrderView(APIView):
             )
 
         order.recalculate()
+
+        score, signals = compute_risk_score(store, order.phone, order.wilaya, order.commune, order.total)
+        order.risk_score, order.risk_signals = score, signals
+        order.save(update_fields=['risk_score', 'risk_signals'])
+
         OrderStatusHistory.objects.create(order=order, status='pending')
         dispatch_confirmateur_for_order(order)
         _deduct_stock_for_order_on_creation(store, order)

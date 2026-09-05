@@ -1000,3 +1000,30 @@ class RiskScoringTest(TestCase):
         score, signals = compute_risk_score(self.store, '0555000007', 'Alger', 'Alger Centre', 100000)
         self.assertLessEqual(score, 100)
         self.assertEqual(len(signals), 4)
+
+
+class OrderCreationRiskScoreTest(TestCase):
+    def setUp(self):
+        self.owner, self.store = make_owner()
+        self.product = Product.objects.create(store=self.store, name='Produit', price=Decimal('2000'), stock=10)
+
+    def test_dashboard_order_creation_computes_risk_score(self):
+        client = auth_client(self.owner)
+        resp = client.post('/api/orders/', {
+            'first_name': 'Amine', 'phone': '0555000010', 'wilaya': 'Alger',
+            'items': [{'product': self.product.id, 'price': 1, 'quantity': 1}],
+        }, format='json')
+        self.assertEqual(resp.status_code, 201)
+        order = Order.objects.get(pk=resp.data['id'])
+        self.assertIsNotNone(order.risk_score)
+        self.assertIsInstance(order.risk_signals, list)
+
+    def test_public_order_creation_computes_risk_score(self):
+        anon = PublicClient()
+        resp = anon.post('/api/public/orders/', {
+            'store_slug': self.store.slug, 'first_name': 'Amine', 'phone': '0555000011', 'wilaya': 'Alger',
+            'items': [{'product': self.product.id, 'price': 1, 'quantity': 1, 'product_name': 'x'}],
+        }, content_type='application/json')
+        self.assertEqual(resp.status_code, 201)
+        order = Order.objects.get(pk=resp.json()['id'])
+        self.assertIsNotNone(order.risk_score)
