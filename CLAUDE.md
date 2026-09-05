@@ -1629,6 +1629,12 @@ Tools **strictement séparés** des tools dashboard (`PUBLIC_TOOL_REGISTRY`/`PUB
 
 Testé via `manage.py test ai_assistant` (43 tests : dégradation propre sur panne simulée pour les deux fournisseurs, gating de permission sur chaque endpoint et chaque tool, tool calling multi-tours, anti-énumération du statut de commande, isolation entre sessions publiques) + suite `products` (71 tests avec `ai_assistant`, aucune régression) + vérification en conditions réelles avec une vraie clé Groq (recherche produit et statut de commande, cycle complet chat + appel d'outil + réponse finale) + suite frontend complète (389 tests, aucune régression).
 
+**Détection de risque avancée (2026-09, 3ème chantier)** — score 0-100 calculé par du code Python **déterministe** (`orders/risk_scoring.py::compute_risk_score()`, aucun appel IA) sur 4 signaux pondérés : taux annulation/retour (réutilise `StoreSettings.risk_threshold_orders`/`risk_period_days`), fréquence anormale (≥3 commandes/24h), montant inhabituel (≥3× la moyenne du client ou de la boutique), localisation incohérente avec l'historique du téléphone. Stocké sur `Order.risk_score`/`risk_signals` à la création (dashboard et checkout public, juste après `order.recalculate()`) — **jamais de blocage automatique**, signalement uniquement, `CustomerRisk`/`BlacklistedPhone` restent inchangés et séparés.
+
+Explication en langage naturel générée **à la demande uniquement** (`POST /api/orders/<id>/risk-explanation/`, owner/admin ou `clients_risk_view`), mise en cache sur `Order.risk_explanation` (jamais régénérée). Prompt limité au score+signaux déjà calculés — jamais l'historique brut du client, même garde-fou anti-invention que les 2 chantiers précédents. Affiché via `components/RiskScoreBadge.jsx` (3 bandes de couleur) sur `OrdersPage.jsx`, `OrderDetailPage.jsx`, et le score maximal par client sur `AtRiskCustomersPage.jsx`.
+
+Testé via `manage.py test orders` (92 tests, dont 15 dédiés au score : un par signal isolé, cumul de plusieurs signaux, calcul à la création dashboard et checkout public, cache de l'explication IA, dégradation 503, gating de permission) + suite frontend complète (393 tests, aucune régression).
+
 ---
 
 ## Risques Identifiés
