@@ -919,3 +919,28 @@ class SalesForecastView(StatsPermissionMixin, APIView):
         if result is None:
             return Response({'detail': "Historique insuffisant pour une prévision fiable (14 jours minimum)."}, status=400)
         return Response(result)
+
+
+class ReturnsForecastView(StatsPermissionMixin, APIView):
+    """Prévision de taux de retour — calcul 100% déterministe
+    (returns_forecast.py), aucun appel IA. Horizon ajustable, clampé entre
+    7 et 60 jours. returns_forecast.py n'importe rien de ce module, donc pas
+    besoin de l'import différé utilisé pour compute_sales_forecast()."""
+    permission_key = 'stats_returns_forecast_view'
+
+    def get(self, request):
+        from .returns_forecast import compute_returns_forecast
+        if (err := self.check_access(request)): return err
+        store, err = self.get_store_or_error(request)
+        if err: return err
+
+        try:
+            horizon_days = int(request.query_params.get('horizon_days', 7))
+        except (TypeError, ValueError):
+            horizon_days = 7
+        horizon_days = max(7, min(60, horizon_days))
+
+        result = compute_returns_forecast(store, horizon_days)
+        if result is None:
+            return Response({'detail': "Historique insuffisant pour une prévision fiable (30 jours minimum)."}, status=400)
+        return Response(result)
