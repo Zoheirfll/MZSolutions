@@ -16,9 +16,17 @@ import api from '../../api/axios'
 const LOW_STOCK = { threshold: 5, count: 2, results: [] }
 const INVENTORY = {
   results: [
-    { product_name: 'T-shirt', variant_name: 'Couleur', option_value: 'Rouge', sku: 'TS-R', stock: 3 },
+    { product_name: 'T-shirt', variant_name: 'Couleur', option_value: 'Rouge', sku: 'TS-R', stock: 3, sales_rate_14d: 0.5, days_until_stockout: 6 },
   ],
   count: 1, page: 1, per_page: 20,
+}
+const INVENTORY_FORECAST = {
+  results: [
+    { product_id: 1, product_name: 'Produit Zero', variant_name: null, option_value: null, sku: '', stock: 0, sales_rate_14d: 0.5, days_until_stockout: 0 },
+    { product_id: 2, product_name: 'Produit Urgent', variant_name: null, option_value: null, sku: '', stock: 5, sales_rate_14d: 2, days_until_stockout: 2.5 },
+    { product_id: 3, product_name: 'Produit Stable', variant_name: null, option_value: null, sku: '', stock: 20, sales_rate_14d: 0, days_until_stockout: null },
+  ],
+  count: 3, page: 1, per_page: 20,
 }
 
 function mockGet() {
@@ -71,5 +79,40 @@ describe('StockPage', () => {
     renderPage()
 
     expect(await screen.findByText('Aucun produit trouvé.')).toBeInTheDocument()
+  })
+
+  it('shows the "Épuisé" badge for a stock already at 0', async () => {
+    api.get.mockImplementation((url) => {
+      if (url.startsWith('/products/low-stock/')) return Promise.resolve({ data: LOW_STOCK })
+      if (url.startsWith('/products/inventory/')) return Promise.resolve({ data: INVENTORY_FORECAST })
+      return Promise.resolve({ data: {} })
+    })
+    renderPage()
+
+    expect(await screen.findByText('Épuisé')).toBeInTheDocument()
+  })
+
+  it('shows the estimated number of days for a normal forecast', async () => {
+    api.get.mockImplementation((url) => {
+      if (url.startsWith('/products/low-stock/')) return Promise.resolve({ data: LOW_STOCK })
+      if (url.startsWith('/products/inventory/')) return Promise.resolve({ data: INVENTORY_FORECAST })
+      return Promise.resolve({ data: {} })
+    })
+    renderPage()
+
+    expect(await screen.findByText(/2\.5/)).toBeInTheDocument()
+  })
+
+  it('shows a dash when no forecast is possible', async () => {
+    api.get.mockImplementation((url) => {
+      if (url.startsWith('/products/low-stock/')) return Promise.resolve({ data: LOW_STOCK })
+      if (url.startsWith('/products/inventory/')) return Promise.resolve({ data: INVENTORY_FORECAST })
+      return Promise.resolve({ data: {} })
+    })
+    renderPage()
+
+    await screen.findByText('Produit Stable')
+    const dashes = screen.getAllByText('—')
+    expect(dashes.length).toBeGreaterThan(0)
   })
 })

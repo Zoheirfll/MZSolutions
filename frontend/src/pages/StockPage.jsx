@@ -284,6 +284,7 @@ export default function StockPage() {
               <th className="px-4 py-3 font-medium">OPTION</th>
               <th className="px-4 py-3 font-medium">SKU</th>
               <th className="px-4 py-3 font-medium">STOCK</th>
+              <th className="px-4 py-3 font-medium">RUPTURE ESTIMÉE</th>
               <th className="px-4 py-3 font-medium">ACTIONS</th>
             </tr>
           </thead>
@@ -297,11 +298,12 @@ export default function StockPage() {
                   <td className="px-4 py-3"><div className={theme.skeleton + ' h-4 w-16'} /></td>
                   <td className="px-4 py-3"><div className={theme.skeleton + ' h-4 w-20'} /></td>
                   <td className="px-4 py-3"><div className={theme.skeleton + ' h-4 w-20'} /></td>
+                  <td className="px-4 py-3"><div className={theme.skeleton + ' h-4 w-20'} /></td>
                 </tr>
               ))
             ) : inventory.results.length === 0 ? (
               <tr>
-                <td colSpan={6}>
+                <td colSpan={7}>
                   <div className="flex flex-col items-center justify-center text-center py-12 px-6 text-app-muted">
                     <p className="text-sm">Aucun produit trouvé.</p>
                   </div>
@@ -319,6 +321,17 @@ export default function StockPage() {
                   <span className={item.stock === 0 ? theme.badge.danger : item.stock <= (inventory.threshold ?? lowStock.threshold) ? theme.badge.warning : theme.badge.success}>
                     {item.stock}
                   </span>
+                </td>
+                <td className="px-4 py-3">
+                  {item.days_until_stockout === 0 ? (
+                    <span className={theme.badge.danger}>Épuisé</span>
+                  ) : item.days_until_stockout === null || item.days_until_stockout === undefined ? (
+                    <span className={theme.badge.neutral}>—</span>
+                  ) : (
+                    <span className={item.days_until_stockout < 7 ? theme.badge.danger : item.days_until_stockout < 14 ? theme.badge.warning : theme.badge.success}>
+                      ~{item.days_until_stockout} jour{item.days_until_stockout >= 2 ? 's' : ''}
+                    </span>
+                  )}
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-1">
