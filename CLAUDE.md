@@ -143,7 +143,7 @@ Définitions figées :
 api/axios.js                    — instance Axios + intercepteurs Bearer + refresh auto
 context/AuthContext.jsx         — état auth global (user, login, logout, register)
 theme.js                        — couleurs et classes Tailwind centralisées
-components/DashboardLayout.jsx  — layout dashboard (sidebar, topbar, badge stock)
+components/DashboardLayout.jsx  — layout dashboard (sidebar, topbar, badge stock). Sidebar organisée en catégories statiques (2026-09) : Accès rapide (Tableau de bord, Boîte de réception) / VENTES / LOGISTIQUE / ANALYSE / IA (Assistant IA, Prévision de ventes — regroupe toutes les fonctionnalités IA du dashboard, présentes et à venir) / INTÉGRATIONS / PARAMÈTRES — remplace l'ancienne section unique "E-COMMERCE" fourre-tout. Toute nouvelle fonctionnalité IA doit rejoindre la catégorie IA plutôt qu'être ajoutée ailleurs
 components/PrivateRoute.jsx     — protection des routes
 components/Select.jsx           — dropdown custom (remplace TOUT <select> natif, voir note ci-dessous)
 components/StatCard.jsx         — carte KPI réutilisable (theme.stat.*, icône lucide-react)
