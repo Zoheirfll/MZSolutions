@@ -396,12 +396,18 @@ export default function DashboardLayout({ children, title, subtitle }) {
         {/* Nav */}
         <nav className="flex-1 px-3.5 py-5 space-y-6">
 
-          {/* E-COMMERCE */}
+          {/* ACCÈS RAPIDE */}
           <div>
-            <p className="text-[10px] font-semibold px-2 mb-2 tracking-widest" style={{ color: theme.dark.muted }}>E-COMMERCE</p>
             <ul className="space-y-0.5">
               {(can('dashboard_view') || teamRole === 'confirmateur') && <li>{mainLink('/dashboard', ICONS.dashboard, 'Tableau de bord', true)}</li>}
               {can('inbox_view') && <li>{mainLink('/dashboard/boite-reception', ICONS.inbox, 'Boîte de réception', false, inboxUnreadCount)}</li>}
+            </ul>
+          </div>
+
+          {/* VENTES */}
+          <div>
+            <p className="text-[10px] font-semibold px-2 mb-2 tracking-widest" style={{ color: theme.dark.muted }}>VENTES</p>
+            <ul className="space-y-0.5">
 
               {/* Commandes — expandable */}
               <li>
@@ -588,153 +594,196 @@ export default function DashboardLayout({ children, title, subtitle }) {
               {teamRole !== 'dropshipper' && can('dropshipping_view') && (
                 <li>{mainLink('/dashboard/dropshipping', ICONS.dropshipping, 'Dropshipping')}</li>
               )}
-              {can('channels_view') && (
-                <li>{mainLink('/dashboard/canaux-vente', ICONS.channels, 'Canaux de vente')}</li>
-              )}
-              {can('marketing_view') && (
-                <li>{mainLink('/dashboard/marketing', ICONS.marketing, 'Marketing')}</li>
-              )}
-              {can('ai_assistant_view') && (
-                <li>{mainLink('/dashboard/assistant-ia', ICONS.marketing, 'Assistant IA')}</li>
-              )}
-              {can('webhooks_view') && (
-                <li>{mainLink('/dashboard/webhooks', ICONS.webhooks, 'Webhooks')}</li>
-              )}
               {teamRole === 'dropshipper' && (
                 <>
                   <li>{mainLink('/dashboard/mes-produits', ICONS.dropshipping, 'Mes produits')}</li>
                   <li>{mainLink('/dashboard/mes-commissions', ICONS.subscription, 'Mes commissions')}</li>
                 </>
               )}
-              {(can('profitability_view') || can('costs_view')) && (
-                <li>
-                  <button
-                    onClick={() => setExpanded(e => ({ ...e, finances: !e.finances }))}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
-                      location.pathname.startsWith('/dashboard/finances') ? 'bg-violet-500/10 text-app-primary font-medium' : 'text-app-muted-light hover:text-app-primary hover:bg-violet-500/5'
-                    }`}
-                  >
-                    <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.stats}</span>Finances</span>
-                    <svg className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${expanded.finances ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </button>
-                  {expanded.finances && (
-                    <ul className="mt-0.5 ml-5 space-y-0.5 border-l pl-3" style={{ borderColor: theme.dark.border }}>
-                      {can('profitability_view') && <li>{link('/dashboard/finances/rentabilite', 'Rentabilité')}</li>}
-                      {can('costs_view') && <li>{link('/dashboard/finances/couts', 'Coûts')}</li>}
-                    </ul>
-                  )}
-                </li>
-              )}
-              {(can('payments_ready_view') || can('payments_collected_view') || can('payments_import_view')) && (
-                <li>
-                  <button
-                    onClick={() => setExpanded(e => ({ ...e, paiements: !e.paiements }))}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
-                      location.pathname.startsWith('/dashboard/paiements') ? 'bg-violet-500/10 text-app-primary font-medium' : 'text-app-muted-light hover:text-app-primary hover:bg-violet-500/5'
-                    }`}
-                  >
-                    <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.subscription}</span>Paiements</span>
-                    <svg className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${expanded.paiements ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </button>
-                  {expanded.paiements && (
-                    <ul className="mt-0.5 ml-5 space-y-0.5 border-l pl-3" style={{ borderColor: theme.dark.border }}>
-                      {can('payments_ready_view') && <li>{link('/dashboard/paiements/pret', 'Paiement prêt')}</li>}
-                      {can('payments_collected_view') && <li>{link('/dashboard/paiements/recupere', 'Paiement récupéré')}</li>}
-                      {can('payments_import_view') && <li>{link('/dashboard/paiements/import-excel', 'Importer un fichier Excel')}</li>}
-                    </ul>
-                  )}
-                </li>
-              )}
-              {(can('shipments_view') || can('labels_view') || can('prepared_orders_view') || can('predictive_returns_view') || can('return_validation_view')) && (
-                <li>
-                  <button
-                    onClick={() => setExpanded(e => ({ ...e, expeditions: !e.expeditions }))}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
-                      location.pathname.startsWith('/dashboard/expeditions') ? 'bg-white/6 text-app-primary font-medium' : 'text-gray-400 hover:text-app-primary hover:bg-white/5'
-                    }`}
-                  >
-                    <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.shipping}</span>Expéditions & Retours</span>
-                    <svg className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${expanded.expeditions ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </button>
-                  {expanded.expeditions && (
-                    <ul className="mt-0.5 ml-5 space-y-0.5 border-l pl-3" style={{ borderColor: theme.dark.border }}>
-                      {can('shipments_view') && <li>{link('/dashboard/expeditions', 'Expéditions', true)}</li>}
-                      {can('labels_view') && <li>{link('/dashboard/expeditions/etiquettes', 'Étiquettes')}</li>}
-                      {can('prepared_orders_view') && <li>{link('/dashboard/expeditions/preparees', 'Commandes préparées')}</li>}
-                      {can('predictive_returns_view') && <li>{link('/dashboard/expeditions/retour-predictif', 'Retour prédictif')}</li>}
-                      {can('return_validation_view') && <li>{link('/dashboard/expeditions/retours', 'Validation des retours')}</li>}
-                    </ul>
-                  )}
-                </li>
-              )}
-              {(can('stock_view') || can('stock_movements_view') || can('stock_return_view')) && (
-                <li>
-                  <button
-                    onClick={() => setExpanded(e => ({ ...e, stock: !e.stock }))}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
-                      location.pathname.startsWith('/dashboard/stock') ? 'bg-white/6 text-app-primary font-medium' : 'text-gray-400 hover:text-app-primary hover:bg-white/5'
-                    }`}
-                  >
-                    <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.stock}</span>Stock & Inventaire</span>
-                    <span className="flex items-center gap-1.5 shrink-0">
-                      {lowStockCount > 0 && (
-                        <span className="w-5 h-5 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center font-bold">
-                          {lowStockCount > 9 ? '9+' : lowStockCount}
-                        </span>
-                      )}
-                      <svg className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${expanded.stock ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </span>
-                  </button>
-                  {expanded.stock && (
-                    <ul className="mt-0.5 ml-5 space-y-0.5 border-l pl-3" style={{ borderColor: theme.dark.border }}>
-                      {can('stock_view') && <li>{link('/dashboard/stock', 'Stock & Inventaire', true)}</li>}
-                      {can('stock_movements_view') && <li>{link('/dashboard/stock/mouvements', 'Mouvement des stocks')}</li>}
-                      {can('stock_return_view') && <li>{link('/dashboard/stock/retour-vendeur', 'Retour au vendeur')}</li>}
-                    </ul>
-                  )}
-                </li>
-              )}
-              {(can('stats_global_view') || can('stats_orders_view') || can('stats_returns_view') || can('stats_failures_view') ||
-                can('stats_stock_sales_view') || can('stats_products_view') || can('stats_confirmateurs_view') ||
-                can('stats_wilayas_view') || can('stats_sources_view') || can('stats_forecast_view')) && (
-                <li>
-                  <button
-                    onClick={() => setExpanded(e => ({ ...e, stats: !e.stats }))}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
-                      location.pathname.startsWith('/dashboard/stats') ? 'bg-violet-500/10 text-app-primary font-medium' : 'text-app-muted-light hover:text-app-primary hover:bg-violet-500/5'
-                    }`}
-                  >
-                    <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.stats}</span>Statistiques</span>
-                    <svg className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${expanded.stats ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </button>
-                  {expanded.stats && (
-                    <ul className="mt-0.5 ml-5 space-y-0.5 border-l pl-3" style={{ borderColor: theme.dark.border }}>
-                      {can('stats_global_view') && <li>{link('/dashboard/stats', 'Statistiques globales', true)}</li>}
-                      {can('stats_orders_view') && <li>{link('/dashboard/stats/commandes', 'Statistiques commandes')}</li>}
-                      {can('stats_returns_view') && <li>{link('/dashboard/stats/retours', 'Statistique retours')}</li>}
-                      {can('stats_failures_view') && <li>{link('/dashboard/stats/echecs', 'Statistique des échecs')}</li>}
-                      {can('stats_stock_sales_view') && <li>{link('/dashboard/stats/vente-stock', 'Statistique vente de stock')}</li>}
-                      {can('stats_products_view') && <li>{link('/dashboard/stats/produits', 'Statistiques des produits')}</li>}
-                      {can('stats_confirmateurs_view') && <li>{link('/dashboard/stats/confirmateurs', 'Statistique par confirmateur')}</li>}
-                      {can('stats_wilayas_view') && <li>{link('/dashboard/stats/wilayas', 'Statistiques par wilaya')}</li>}
-                      {can('stats_sources_view') && <li>{link('/dashboard/stats/sources', 'Statistiques des sources')}</li>}
-                      {can('stats_forecast_view') && <li>{link('/dashboard/stats/previsions', 'Prévision de ventes')}</li>}
-                    </ul>
-                  )}
-                </li>
-              )}
             </ul>
           </div>
+
+          {/* LOGISTIQUE */}
+          {(can('shipments_view') || can('labels_view') || can('prepared_orders_view') || can('predictive_returns_view') || can('return_validation_view') ||
+            can('stock_view') || can('stock_movements_view') || can('stock_return_view')) && (
+            <div>
+              <p className="text-[10px] font-semibold px-2 mb-2 tracking-widest" style={{ color: theme.dark.muted }}>LOGISTIQUE</p>
+              <ul className="space-y-0.5">
+                {(can('shipments_view') || can('labels_view') || can('prepared_orders_view') || can('predictive_returns_view') || can('return_validation_view')) && (
+                  <li>
+                    <button
+                      onClick={() => setExpanded(e => ({ ...e, expeditions: !e.expeditions }))}
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
+                        location.pathname.startsWith('/dashboard/expeditions') ? 'bg-white/6 text-app-primary font-medium' : 'text-gray-400 hover:text-app-primary hover:bg-white/5'
+                      }`}
+                    >
+                      <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.shipping}</span>Expéditions & Retours</span>
+                      <svg className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${expanded.expeditions ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                    {expanded.expeditions && (
+                      <ul className="mt-0.5 ml-5 space-y-0.5 border-l pl-3" style={{ borderColor: theme.dark.border }}>
+                        {can('shipments_view') && <li>{link('/dashboard/expeditions', 'Expéditions', true)}</li>}
+                        {can('labels_view') && <li>{link('/dashboard/expeditions/etiquettes', 'Étiquettes')}</li>}
+                        {can('prepared_orders_view') && <li>{link('/dashboard/expeditions/preparees', 'Commandes préparées')}</li>}
+                        {can('predictive_returns_view') && <li>{link('/dashboard/expeditions/retour-predictif', 'Retour prédictif')}</li>}
+                        {can('return_validation_view') && <li>{link('/dashboard/expeditions/retours', 'Validation des retours')}</li>}
+                      </ul>
+                    )}
+                  </li>
+                )}
+                {(can('stock_view') || can('stock_movements_view') || can('stock_return_view')) && (
+                  <li>
+                    <button
+                      onClick={() => setExpanded(e => ({ ...e, stock: !e.stock }))}
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
+                        location.pathname.startsWith('/dashboard/stock') ? 'bg-white/6 text-app-primary font-medium' : 'text-gray-400 hover:text-app-primary hover:bg-white/5'
+                      }`}
+                    >
+                      <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.stock}</span>Stock & Inventaire</span>
+                      <span className="flex items-center gap-1.5 shrink-0">
+                        {lowStockCount > 0 && (
+                          <span className="w-5 h-5 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center font-bold">
+                            {lowStockCount > 9 ? '9+' : lowStockCount}
+                          </span>
+                        )}
+                        <svg className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${expanded.stock ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </span>
+                    </button>
+                    {expanded.stock && (
+                      <ul className="mt-0.5 ml-5 space-y-0.5 border-l pl-3" style={{ borderColor: theme.dark.border }}>
+                        {can('stock_view') && <li>{link('/dashboard/stock', 'Stock & Inventaire', true)}</li>}
+                        {can('stock_movements_view') && <li>{link('/dashboard/stock/mouvements', 'Mouvement des stocks')}</li>}
+                        {can('stock_return_view') && <li>{link('/dashboard/stock/retour-vendeur', 'Retour au vendeur')}</li>}
+                      </ul>
+                    )}
+                  </li>
+                )}
+              </ul>
+            </div>
+          )}
+
+          {/* ANALYSE */}
+          {(can('stats_global_view') || can('stats_orders_view') || can('stats_returns_view') || can('stats_failures_view') ||
+            can('stats_stock_sales_view') || can('stats_products_view') || can('stats_confirmateurs_view') ||
+            can('stats_wilayas_view') || can('stats_sources_view') ||
+            can('profitability_view') || can('costs_view') ||
+            can('payments_ready_view') || can('payments_collected_view') || can('payments_import_view')) && (
+            <div>
+              <p className="text-[10px] font-semibold px-2 mb-2 tracking-widest" style={{ color: theme.dark.muted }}>ANALYSE</p>
+              <ul className="space-y-0.5">
+                {(can('stats_global_view') || can('stats_orders_view') || can('stats_returns_view') || can('stats_failures_view') ||
+                  can('stats_stock_sales_view') || can('stats_products_view') || can('stats_confirmateurs_view') ||
+                  can('stats_wilayas_view') || can('stats_sources_view')) && (
+                  <li>
+                    <button
+                      onClick={() => setExpanded(e => ({ ...e, stats: !e.stats }))}
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
+                        location.pathname.startsWith('/dashboard/stats') ? 'bg-violet-500/10 text-app-primary font-medium' : 'text-app-muted-light hover:text-app-primary hover:bg-violet-500/5'
+                      }`}
+                    >
+                      <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.stats}</span>Statistiques</span>
+                      <svg className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${expanded.stats ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                    {expanded.stats && (
+                      <ul className="mt-0.5 ml-5 space-y-0.5 border-l pl-3" style={{ borderColor: theme.dark.border }}>
+                        {can('stats_global_view') && <li>{link('/dashboard/stats', 'Statistiques globales', true)}</li>}
+                        {can('stats_orders_view') && <li>{link('/dashboard/stats/commandes', 'Statistiques commandes')}</li>}
+                        {can('stats_returns_view') && <li>{link('/dashboard/stats/retours', 'Statistique retours')}</li>}
+                        {can('stats_failures_view') && <li>{link('/dashboard/stats/echecs', 'Statistique des échecs')}</li>}
+                        {can('stats_stock_sales_view') && <li>{link('/dashboard/stats/vente-stock', 'Statistique vente de stock')}</li>}
+                        {can('stats_products_view') && <li>{link('/dashboard/stats/produits', 'Statistiques des produits')}</li>}
+                        {can('stats_confirmateurs_view') && <li>{link('/dashboard/stats/confirmateurs', 'Statistique par confirmateur')}</li>}
+                        {can('stats_wilayas_view') && <li>{link('/dashboard/stats/wilayas', 'Statistiques par wilaya')}</li>}
+                        {can('stats_sources_view') && <li>{link('/dashboard/stats/sources', 'Statistiques des sources')}</li>}
+                      </ul>
+                    )}
+                  </li>
+                )}
+                {(can('profitability_view') || can('costs_view')) && (
+                  <li>
+                    <button
+                      onClick={() => setExpanded(e => ({ ...e, finances: !e.finances }))}
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
+                        location.pathname.startsWith('/dashboard/finances') ? 'bg-violet-500/10 text-app-primary font-medium' : 'text-app-muted-light hover:text-app-primary hover:bg-violet-500/5'
+                      }`}
+                    >
+                      <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.stats}</span>Finances</span>
+                      <svg className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${expanded.finances ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                    {expanded.finances && (
+                      <ul className="mt-0.5 ml-5 space-y-0.5 border-l pl-3" style={{ borderColor: theme.dark.border }}>
+                        {can('profitability_view') && <li>{link('/dashboard/finances/rentabilite', 'Rentabilité')}</li>}
+                        {can('costs_view') && <li>{link('/dashboard/finances/couts', 'Coûts')}</li>}
+                      </ul>
+                    )}
+                  </li>
+                )}
+                {(can('payments_ready_view') || can('payments_collected_view') || can('payments_import_view')) && (
+                  <li>
+                    <button
+                      onClick={() => setExpanded(e => ({ ...e, paiements: !e.paiements }))}
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
+                        location.pathname.startsWith('/dashboard/paiements') ? 'bg-violet-500/10 text-app-primary font-medium' : 'text-app-muted-light hover:text-app-primary hover:bg-violet-500/5'
+                      }`}
+                    >
+                      <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.subscription}</span>Paiements</span>
+                      <svg className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${expanded.paiements ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                    {expanded.paiements && (
+                      <ul className="mt-0.5 ml-5 space-y-0.5 border-l pl-3" style={{ borderColor: theme.dark.border }}>
+                        {can('payments_ready_view') && <li>{link('/dashboard/paiements/pret', 'Paiement prêt')}</li>}
+                        {can('payments_collected_view') && <li>{link('/dashboard/paiements/recupere', 'Paiement récupéré')}</li>}
+                        {can('payments_import_view') && <li>{link('/dashboard/paiements/import-excel', 'Importer un fichier Excel')}</li>}
+                      </ul>
+                    )}
+                  </li>
+                )}
+              </ul>
+            </div>
+          )}
+
+          {/* IA — regroupe toutes les fonctionnalités IA du dashboard, présentes et à venir */}
+          {(can('ai_assistant_view') || can('stats_forecast_view')) && (
+            <div>
+              <p className="text-[10px] font-semibold px-2 mb-2 tracking-widest" style={{ color: theme.dark.muted }}>IA</p>
+              <ul className="space-y-0.5">
+                {can('ai_assistant_view') && (
+                  <li>{mainLink('/dashboard/assistant-ia', ICONS.marketing, 'Assistant IA')}</li>
+                )}
+                {can('stats_forecast_view') && (
+                  <li>{mainLink('/dashboard/stats/previsions', ICONS.stats, 'Prévision de ventes')}</li>
+                )}
+              </ul>
+            </div>
+          )}
+
+          {/* INTÉGRATIONS */}
+          {(can('channels_view') || can('marketing_view') || can('webhooks_view')) && (
+            <div>
+              <p className="text-[10px] font-semibold px-2 mb-2 tracking-widest" style={{ color: theme.dark.muted }}>INTÉGRATIONS</p>
+              <ul className="space-y-0.5">
+                {can('channels_view') && (
+                  <li>{mainLink('/dashboard/canaux-vente', ICONS.channels, 'Canaux de vente')}</li>
+                )}
+                {can('marketing_view') && (
+                  <li>{mainLink('/dashboard/marketing', ICONS.marketing, 'Marketing')}</li>
+                )}
+                {can('webhooks_view') && (
+                  <li>{mainLink('/dashboard/webhooks', ICONS.webhooks, 'Webhooks')}</li>
+                )}
+              </ul>
+            </div>
+          )}
 
           {/* PARAMÈTRES */}
           {(can('store_view') || can('store_theme_view') || can('store_pages_view') || can('store_menu_view') || can('store_files_view') ||
