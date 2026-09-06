@@ -1215,6 +1215,7 @@ class PublicStoreView(APIView):
             menu_items = []
         pages = list(store.pages.filter(is_published=True).values('id', 'title', 'slug', 'page_type', 'order'))
         pixels = list(store.pixels.filter(is_active=True).values('pixel_type', 'pixel_id'))
+        from stores.models import store_is_paused
         return Response({
             'name':        store.name,
             'slug':        store.slug,
@@ -1228,6 +1229,7 @@ class PublicStoreView(APIView):
             'menu_items':  menu_items,
             'pages':       pages,
             'pixels':      pixels,
+            'is_paused':   store_is_paused(store),
         })
 
 

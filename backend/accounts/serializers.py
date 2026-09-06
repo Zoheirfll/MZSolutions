@@ -17,12 +17,13 @@ class UserSerializer(serializers.ModelSerializer):
     team_member_id = serializers.SerializerMethodField()
     permissions    = serializers.SerializerMethodField()
     is_online      = serializers.SerializerMethodField()
+    store_is_paused = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = ['id', 'email', 'first_name', 'last_name', 'phone', 'avatar',
                   'store_slug', 'store_name', 'team_role', 'team_member_id', 'permissions',
-                  'is_email_verified', 'is_online']
+                  'is_email_verified', 'is_online', 'store_is_paused']
 
     def get_store_slug(self, obj):
         try:
@@ -43,6 +44,17 @@ class UserSerializer(serializers.ModelSerializer):
             return obj.team_membership.store.name
         except Exception:
             return None
+
+    def get_store_is_paused(self, obj):
+        from stores.models import store_is_paused
+        try:
+            return store_is_paused(obj.store)
+        except Store.DoesNotExist:
+            pass
+        try:
+            return store_is_paused(obj.team_membership.store)
+        except Exception:
+            return False
 
     def get_team_role(self, obj):
         try:

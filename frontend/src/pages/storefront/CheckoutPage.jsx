@@ -80,9 +80,13 @@ const panelCls = 'rounded-2xl p-5'
 const panelStyle = { background: 'var(--sf-card-bg)', border: '1px solid var(--sf-header-border)' }
 
 function radioLabelStyle(active) {
+  // `--sf-primary-light` est un fond clair même sur les thèmes sombres (teinte
+  // pastel de la couleur primaire) — y appliquer `--sf-text` (quasi blanc sur
+  // un thème sombre) rendait le texte illisible une fois l'option sélectionnée.
+  // On force donc une couleur de texte sombre garantie lisible sur ce fond clair.
   return active
-    ? { border: '1px solid var(--sf-primary)', background: 'var(--sf-primary-light)' }
-    : { border: '1px solid var(--sf-header-border)' }
+    ? { border: '1px solid var(--sf-primary)', background: 'var(--sf-primary-light)', color: 'var(--sf-primary-dark)' }
+    : { border: '1px solid var(--sf-header-border)', color: 'var(--sf-text)' }
 }
 
 export default function CheckoutPage() {
@@ -97,6 +101,7 @@ export default function CheckoutPage() {
   const [saving,        setSaving]        = useState(false)
   const [error,         setError]         = useState('')
   const [confirmedId,   setConfirmedId]   = useState(null)
+  const [storePaused,   setStorePaused]   = useState(false)
   const [promoCode,     setPromoCode]     = useState('')
   const [appliedPromo,  setAppliedPromo]  = useState(null)
   const [promoError,    setPromoError]    = useState('')
@@ -195,8 +200,16 @@ export default function CheckoutPage() {
     return () => clearTimeout(abandonedTimerRef.current)
   }, [client.phone, client.email, client.first_name, client.wilaya, cartItems.length])
 
+  useEffect(() => {
+    publicApi.get(`/store/${slug}/`).then(({ data }) => setStorePaused(!!data.is_paused)).catch(() => {})
+  }, [slug])
+
   const handleSubmit = async e => {
     e.preventDefault()
+    if (storePaused) {
+      setError('Cette boutique est en pause et ne peut pas accepter de commande pour le moment.')
+      return
+    }
     if (shippingOption === 'stopdesk' && desks.length > 0 && !stationCode) {
       setError('Choisissez un bureau de retrait.')
       return
@@ -387,11 +400,11 @@ export default function CheckoutPage() {
               <div className="space-y-3">
                 <label className="flex items-center gap-3 cursor-pointer rounded-xl p-3.5 transition" style={radioLabelStyle(paymentMethod === 'cod')}>
                   <input type="radio" name="payment_method" checked={paymentMethod === 'cod'} onChange={() => setPaymentMethod('cod')} className="accent-violet-600 w-4 h-4" />
-                  <span className="text-sm" style={{ color: 'var(--sf-text)' }}>Paiement à la livraison</span>
+                  <span className="text-sm" style={{ color: 'inherit' }}>Paiement à la livraison</span>
                 </label>
                 <label className="flex items-center gap-3 cursor-pointer rounded-xl p-3.5 transition" style={radioLabelStyle(paymentMethod === 'chargily')}>
                   <input type="radio" name="payment_method" checked={paymentMethod === 'chargily'} onChange={() => setPaymentMethod('chargily')} className="accent-violet-600 w-4 h-4" />
-                  <span className="text-sm" style={{ color: 'var(--sf-text)' }}>Paiement en ligne (Chargily)</span>
+                  <span className="text-sm" style={{ color: 'inherit' }}>Paiement en ligne (Chargily)</span>
                 </label>
               </div>
             </div>
@@ -430,18 +443,18 @@ export default function CheckoutPage() {
               {shippingRate && shippingRate.tarif_stopdesk != null && (
                 <div className="mb-4 space-y-2">
                   <label className="flex items-center justify-between gap-3 cursor-pointer rounded-xl p-3 transition" style={radioLabelStyle(shippingOption === 'domicile')}>
-                    <span className="flex items-center gap-2.5 text-sm" style={{ color: 'var(--sf-text)' }}>
+                    <span className="flex items-center gap-2.5 text-sm" style={{ color: 'inherit' }}>
                       <input type="radio" name="shipping_option" checked={shippingOption === 'domicile'} onChange={() => setShippingOption('domicile')} className="accent-violet-600 w-4 h-4" />
                       Livraison à domicile
                     </span>
-                    <span className="text-sm font-medium" style={{ color: 'var(--sf-text)' }}>{Number(shippingRate.tarif).toLocaleString('fr-DZ')} DZD</span>
+                    <span className="text-sm font-medium" style={{ color: 'inherit' }}>{Number(shippingRate.tarif).toLocaleString('fr-DZ')} DZD</span>
                   </label>
                   <label className="flex items-center justify-between gap-3 cursor-pointer rounded-xl p-3 transition" style={radioLabelStyle(shippingOption === 'stopdesk')}>
-                    <span className="flex items-center gap-2.5 text-sm" style={{ color: 'var(--sf-text)' }}>
+                    <span className="flex items-center gap-2.5 text-sm" style={{ color: 'inherit' }}>
                       <input type="radio" name="shipping_option" checked={shippingOption === 'stopdesk'} onChange={() => setShippingOption('stopdesk')} className="accent-violet-600 w-4 h-4" />
                       Retrait en point relais
                     </span>
-                    <span className="text-sm font-medium" style={{ color: 'var(--sf-text)' }}>{Number(shippingRate.tarif_stopdesk).toLocaleString('fr-DZ')} DZD</span>
+                    <span className="text-sm font-medium" style={{ color: 'inherit' }}>{Number(shippingRate.tarif_stopdesk).toLocaleString('fr-DZ')} DZD</span>
                   </label>
                 </div>
               )}
@@ -491,9 +504,15 @@ export default function CheckoutPage() {
 
               {error && <p className="text-sm mb-2" style={{ color: '#f87171' }}>{error}</p>}
 
+              {storePaused && (
+                <p className="text-sm mb-2" style={{ color: '#fbbf24' }}>
+                  Cette boutique est en pause — les commandes sont temporairement indisponibles.
+                </p>
+              )}
+
               <button
                 type="submit"
-                disabled={saving}
+                disabled={saving || storePaused}
                 className="w-full mt-1 py-3 rounded-lg text-sm font-semibold text-white transition disabled:opacity-60"
                 style={{ background: 'var(--sf-primary)' }}
               >

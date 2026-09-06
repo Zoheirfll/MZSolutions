@@ -1,3 +1,4 @@
+from django.db import IntegrityError
 from django.db.models import Count
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
@@ -120,7 +121,10 @@ class StorePageListCreateView(APIView):
             return Response({'detail': 'Accès refusé.'}, status=403)
         ser = StorePageSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
-        page = ser.save(store=store)
+        try:
+            page = ser.save(store=store)
+        except IntegrityError:
+            return Response({'slug': ["Une page avec cette URL (slug) existe déjà."]}, status=400)
         log_audit(request, 'store_page.created', target=page, description=f"Page créée : {page.title}")
         return Response(ser.data, status=201)
 
@@ -151,7 +155,10 @@ class StorePageDetailView(APIView):
         if err: return err
         ser = StorePageSerializer(page, data=request.data, partial=True)
         ser.is_valid(raise_exception=True)
-        ser.save()
+        try:
+            ser.save()
+        except IntegrityError:
+            return Response({'slug': ["Une page avec cette URL (slug) existe déjà."]}, status=400)
         log_audit(request, 'store_page.updated', target=page, description=f"Page modifiée : {page.title}")
         return Response(ser.data)
 
@@ -216,7 +223,10 @@ class MediaFolderListCreateView(APIView):
             return Response({'detail': 'Accès refusé.'}, status=403)
         ser = MediaFolderSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
-        ser.save(store=store)
+        try:
+            ser.save(store=store)
+        except IntegrityError:
+            return Response({'name': ["Un dossier avec ce nom existe déjà."]}, status=400)
         return Response(ser.data, status=201)
 
 

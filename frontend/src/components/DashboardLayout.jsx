@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import api from '../api/axios'
 import Logo from './Logo'
 import { theme } from '../theme'
 import { useTheme } from '../hooks/useTheme'
+
+let sidebarScrollTop = 0
 
 function playNewOrderChime() {
   try {
@@ -211,6 +213,21 @@ export default function DashboardLayout({ children, title, subtitle }) {
   const [pendingOrdersCount, setPendingOrdersCount] = useState(0)
   const [newOrderPulse, setNewOrderPulse] = useState(false)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
+  const sidebarRef = useRef(null)
+
+  // useLayoutEffect (pas useEffect) : restaure le scroll AVANT que le
+  // navigateur peigne l'écran — DashboardLayout est remonté à chaque
+  // changement de page (chaque page l'enveloppe elle-même), donc sans ça la
+  // sidebar s'affiche brièvement en haut avant de sauter à sa position,
+  // un flash très visible sur les liens en bas de liste (ex. Assistant IA).
+  useLayoutEffect(() => {
+    const el = sidebarRef.current
+    if (!el) return
+    el.scrollTop = sidebarScrollTop
+    const onScroll = () => { sidebarScrollTop = el.scrollTop }
+    el.addEventListener('scroll', onScroll)
+    return () => el.removeEventListener('scroll', onScroll)
+  }, [])
   const [quota, setQuota] = useState(null)
   const [notifyNewOrders, setNotifyNewOrders] = useState(true) // StoreSettings.notify_new_orders — optimiste jusqu'au fetch
   const pendingOrdersRef = useRef(null) // null = pas encore chargé (évite un faux positif au premier fetch)
@@ -369,6 +386,7 @@ export default function DashboardLayout({ children, title, subtitle }) {
 
       {/* ── Sidebar ── */}
       <aside
+        ref={sidebarRef}
         className={`w-72 sm:w-64 shrink-0 flex flex-col border-r overflow-y-auto fixed lg:static inset-y-0 left-0 z-40
           transition-transform duration-300 ease-in-out
           ${mobileNavOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}

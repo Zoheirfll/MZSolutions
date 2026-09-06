@@ -69,7 +69,7 @@ function SortableItem({ item, onUpdate, onRemove, pages, slug }) {
   return (
     <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }} className="space-y-2">
       <div className="flex items-center gap-3 px-3 py-3 rounded-xl border transition-colors"
-        style2={{ borderColor: isDragging ? '#7c3aed' : theme.dark.border, background: theme.dark.card }}>
+        style={{ borderColor: isDragging ? '#7c3aed' : theme.dark.border, background: theme.dark.card }}>
 
         {/* Grip */}
         <button {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing text-app-muted hover:text-app-muted-light shrink-0" type="button">

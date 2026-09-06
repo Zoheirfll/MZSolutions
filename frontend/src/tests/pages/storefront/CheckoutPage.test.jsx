@@ -40,7 +40,7 @@ vi.mock('../../../context/CartContext', () => ({
 }))
 
 vi.mock('../../../api/publicApi', () => ({
-  default: { post: vi.fn() },
+  default: { post: vi.fn(), get: vi.fn() },
 }))
 import publicApi from '../../../api/publicApi'
 
@@ -58,6 +58,10 @@ describe('CheckoutPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     publicApi.post.mockReset()
+    publicApi.get.mockReset()
+    // Le composant vérifie systématiquement au montage si la boutique est en
+    // pause (`GET /store/:slug/`) — non pausée par défaut dans les tests.
+    publicApi.get.mockResolvedValue({ data: { is_paused: false } })
     mockCart.getItems.mockReturnValue([CART_ITEM])
     mockCart.getSubtotal.mockReturnValue(3000)
   })

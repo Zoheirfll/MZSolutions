@@ -174,6 +174,12 @@ export default function StorefrontLayout({ children, storeOverride }) {
         </div>
       </header>
 
+      {store?.is_paused && (
+        <div className="w-full text-center py-2.5 px-4 text-sm font-medium" style={{ background: '#78350f', color: '#fef3c7' }}>
+          Cette boutique est temporairement en pause — les commandes ne sont pas acceptées pour le moment.
+        </div>
+      )}
+
       <main className="flex-1">{children}</main>
 
       {/* Footer */}
@@ -197,7 +203,7 @@ export default function StorefrontLayout({ children, storeOverride }) {
         </div>
       </footer>
 
-      {store && <StorefrontChatWidget slug={slug} />}
+      {store && !store.is_paused && <StorefrontChatWidget slug={slug} />}
     </div>
   )
 }
