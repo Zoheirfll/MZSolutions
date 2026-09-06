@@ -1643,6 +1643,12 @@ Testé via `manage.py test orders team` (134 tests, dont 10 dédiés à la prév
 
 Testé via `manage.py test products` (36 tests, dont 8 dédiés : calcul pur sur les 4 cas, granularité produit vs. option de variante isolée, fenêtre de 14 jours respectée) + suite frontend complète (402 tests, aucune régression).
 
+**Prévision de taux de retour (2026-09, dernier sous-chantier de l'analyse prédictive)** — aucun appel IA, calcul déterministe (`orders/returns_forecast.py::compute_returns_forecast()`), même principe de moyenne mobile pondérée par jour de semaine que la prévision de ventes, adapté à un taux : les occurrences sont sommées avant de diviser (pas de moyenne de taux quotidiens bruités, qui serait faussée par un jour à faible volume). `MIN_HISTORY_DAYS = 30` (plus long que la prévision de ventes — un retour prend du temps à se matérialiser après la création de la commande, un historique court sous-estimerait le taux des jours récents). Taux toujours clampé [0, 100]. Page `pages/orders/stats/ReturnsForecastPage.jsx` (même format que la prévision de ventes : curseur d'horizon 7-60 jours, graphique, tableau), permission dédiée `stats_returns_forecast_view`, rejoint le menu IA de la sidebar (pas Statistiques) à côté de "Prévision de ventes".
+
+Testé via `manage.py test orders team` (142 tests, dont 8 dédiés à la prévision de retour : taux pondéré vérifié sur données connues — somme avant division, jamais moyenne de taux bruités —, clamp [0,100], historique insuffisant, clamp d'horizon, gating de permission) + suite frontend complète (406 tests, aucune régression).
+
+Les 3 volets de l'analyse prédictive (prévision de ventes, prévision de rupture de stock, prévision de taux de retour) sont désormais tous en production.
+
 ---
 
 ## Risques Identifiés
