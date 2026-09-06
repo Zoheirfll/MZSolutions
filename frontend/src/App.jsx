@@ -81,6 +81,7 @@ import ProductsStatsPage from './pages/orders/stats/ProductsStatsPage'
 import WilayaStatsPage from './pages/orders/stats/WilayaStatsPage'
 import SourceStatsPage from './pages/orders/stats/SourceStatsPage'
 import SalesForecastPage from './pages/orders/stats/SalesForecastPage'
+import ReturnsForecastPage from './pages/orders/stats/ReturnsForecastPage'
 import ProfitabilityPage from './pages/finance/ProfitabilityPage'
 import PaymentReadyPage from './pages/finance/PaymentReadyPage'
 import PaymentCollectedPage from './pages/finance/PaymentCollectedPage'
@@ -206,6 +207,7 @@ function App() {
           <Route path="/dashboard/stats/wilayas"             element={<PD perm="stats_wilayas_view"><WilayaStatsPage /></PD>} />
           <Route path="/dashboard/stats/sources"             element={<PD perm="stats_sources_view"><SourceStatsPage /></PD>} />
           <Route path="/dashboard/stats/previsions"          element={<PD perm="stats_forecast_view"><SalesForecastPage /></PD>} />
+          <Route path="/dashboard/stats/previsions-retours"   element={<PD perm="stats_returns_forecast_view"><ReturnsForecastPage /></PD>} />
           <Route path="/dashboard/equipe"                    element={<PD perm="team_view"><TeamPage /></PD>} />
           <Route path="/dashboard/equipe/permissions"        element={<PD perm="ownerAdmin"><PermissionsPage /></PD>} />
           <Route path="/dashboard/audit"                     element={<PD perm="audit_view"><AuditPage /></PD>} />
