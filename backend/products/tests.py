@@ -281,3 +281,74 @@ class PromotionApiTests(TestCase):
             'discount_type': 'percentage', 'discount_value': '5',
         }, format='json')
         self.assertEqual(resp.status_code, 400)
+
+
+class StockForecastTest(TestCase):
+    def test_already_out_of_stock_returns_zero(self):
+        from products.stock_forecast import days_until_stockout
+        self.assertEqual(days_until_stockout(current_stock=0, units_sold_14d=20), 0)
+
+    def test_no_recent_sales_returns_none(self):
+        from products.stock_forecast import days_until_stockout
+        self.assertIsNone(days_until_stockout(current_stock=10, units_sold_14d=0))
+
+    def test_normal_case_computes_days(self):
+        from products.stock_forecast import days_until_stockout
+        # 14 unités vendues en 14 jours = 1/jour ; stock de 10 → 10 jours
+        result = days_until_stockout(current_stock=10, units_sold_14d=14)
+        self.assertAlmostEqual(result, 10.0, places=1)
+
+    def test_high_sales_rate_gives_few_days(self):
+        from products.stock_forecast import days_until_stockout
+        # 140 unités vendues en 14 jours = 10/jour ; stock de 5 → 0.5 jour
+        result = days_until_stockout(current_stock=5, units_sold_14d=140)
+        self.assertAlmostEqual(result, 0.5, places=1)
+
+
+class InventoryListViewStockForecastTest(TestCase):
+    def setUp(self):
+        self.owner, self.store = make_owner()
+        self.client_ = auth_client(self.owner)
+
+    def _sell(self, product, variant_option, qty, days_ago=1):
+        from django.utils import timezone
+        from products.models import StockMovement
+        m = StockMovement.objects.create(
+            store=self.store, product=product, variant_option=variant_option,
+            quantity=-qty, reason='order_sale',
+        )
+        m.created_at = timezone.now() - timezone.timedelta(days=days_ago)
+        m.save(update_fields=['created_at'])
+
+    def test_simple_product_gets_forecast_fields(self):
+        p = Product.objects.create(store=self.store, name='Sans variante', price=Decimal('1000'), stock=10, is_active=True)
+        self._sell(p, None, qty=14, days_ago=2)
+        resp = self.client_.get('/api/products/inventory/')
+        row = next(r for r in resp.data['results'] if r['product_id'] == p.id)
+        self.assertAlmostEqual(row['days_until_stockout'], 10.0, places=1)
+
+    def test_variant_option_sales_isolated_from_sibling_variant(self):
+        p = Product.objects.create(store=self.store, name='Avec variantes', price=Decimal('1000'), is_active=True)
+        variant = ProductVariant.objects.create(product=p, name='Couleur')
+        opt_a = VariantOption.objects.create(variant=variant, value='Rouge', stock=10)
+        opt_b = VariantOption.objects.create(variant=variant, value='Bleu', stock=10)
+        self._sell(p, opt_a, qty=14, days_ago=2)  # seule l'option A a des ventes
+        resp = self.client_.get('/api/products/inventory/')
+        row_a = next(r for r in resp.data['results'] if r['variant_option_id'] == opt_a.id)
+        row_b = next(r for r in resp.data['results'] if r['variant_option_id'] == opt_b.id)
+        self.assertAlmostEqual(row_a['days_until_stockout'], 10.0, places=1)
+        self.assertIsNone(row_b['days_until_stockout'])
+
+    def test_out_of_stock_shows_zero(self):
+        p = Product.objects.create(store=self.store, name='Épuisé', price=Decimal('1000'), stock=0, is_active=True)
+        self._sell(p, None, qty=5, days_ago=1)
+        resp = self.client_.get('/api/products/inventory/')
+        row = next(r for r in resp.data['results'] if r['product_id'] == p.id)
+        self.assertEqual(row['days_until_stockout'], 0)
+
+    def test_sale_older_than_14_days_excluded(self):
+        p = Product.objects.create(store=self.store, name='Vente ancienne', price=Decimal('1000'), stock=10, is_active=True)
+        self._sell(p, None, qty=14, days_ago=20)
+        resp = self.client_.get('/api/products/inventory/')
+        row = next(r for r in resp.data['results'] if r['product_id'] == p.id)
+        self.assertIsNone(row['days_until_stockout'])
