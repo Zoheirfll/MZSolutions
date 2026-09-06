@@ -548,6 +548,26 @@ class InventoryListView(APIView):
             threshold = 5
         stock_filter = request.query_params.get('stock_filter')  # 'low' | 'out'
 
+        from datetime import timedelta
+        from django.db.models import Sum
+        from django.utils import timezone
+        from .stock_forecast import STOCKOUT_WINDOW_DAYS, days_until_stockout
+
+        since = timezone.now() - timedelta(days=STOCKOUT_WINDOW_DAYS)
+        sales_rows = (StockMovement.objects
+                      .filter(store=store, reason='order_sale', created_at__gte=since)
+                      .values('product_id', 'variant_option_id')
+                      .annotate(sold=Sum('quantity')))
+        sales_by_key = {(r['product_id'], r['variant_option_id']): abs(r['sold'] or 0) for r in sales_rows}
+
+        def _forecast_fields(product_id, variant_option_id, stock):
+            units_sold = sales_by_key.get((product_id, variant_option_id), 0)
+            days = days_until_stockout(stock, units_sold)
+            return {
+                'sales_rate_14d':      round(units_sold / STOCKOUT_WINDOW_DAYS, 2),
+                'days_until_stockout': round(days, 1) if days not in (None, 0) else days,
+            }
+
         results = []
         for p in products:
             variants = list(p.variants.all())
@@ -563,6 +583,7 @@ class InventoryListView(APIView):
                             'option_value':      opt.value,
                             'sku':               opt.sku,
                             'stock':             opt.stock,
+                            **_forecast_fields(p.id, opt.id, opt.stock),
                         })
             else:
                 # Pas de variantes, ou des variantes sans aucune option — le stock
@@ -575,6 +596,7 @@ class InventoryListView(APIView):
                     'option_value':      None,
                     'sku':               p.sku,
                     'stock':             p.stock,
+                    **_forecast_fields(p.id, None, p.stock),
                 })
 
         if stock_filter == 'out':
