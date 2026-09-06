@@ -1639,6 +1639,10 @@ Testé via `manage.py test orders` (92 tests, dont 15 dédiés au score : un par
 
 Testé via `manage.py test orders team` (134 tests, dont 10 dédiés à la prévision : moyenne pondérée vérifiée sur données connues, tendance par jour de semaine, fourchette jamais négative, historique insuffisant, clamp d'horizon, gating de permission) + suite frontend complète (399 tests, aucune régression).
 
+**Prévision de rupture de stock (2026-09, sous-chantier de l'analyse prédictive)** — aucun appel IA, calcul déterministe (`products/stock_forecast.py::days_until_stockout()`) à partir du rythme de vente réel des 14 derniers jours (`products.StockMovement`, `reason='order_sale'`). `0` si déjà épuisé, `null` si aucune vente récente (pas d'estimation inventée), sinon un nombre de jours. Extension de `GET /api/products/inventory/` existant (pas de nouvel endpoint, agrégation groupée en une seule requête pour toute la page) — colonne "RUPTURE ESTIMÉE" sur `StockPage.jsx` (rouge < 7 jours, orange < 14, vert ≥ 14, "—" si aucune estimation).
+
+Testé via `manage.py test products` (36 tests, dont 8 dédiés : calcul pur sur les 4 cas, granularité produit vs. option de variante isolée, fenêtre de 14 jours respectée) + suite frontend complète (402 tests, aucune régression).
+
 ---
 
 ## Risques Identifiés
