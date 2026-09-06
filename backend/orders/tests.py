@@ -1207,3 +1207,116 @@ class SalesForecastViewTest(TestCase):
         client_ = auth_client(member_user)
         resp = client_.get('/api/orders/stats/forecast/?horizon_days=7')
         self.assertEqual(resp.status_code, 403)
+
+
+class ReturnsForecastTest(TestCase):
+    def setUp(self):
+        self.owner, self.store = make_owner()
+
+    def _make_order(self, days_ago, status='delivered'):
+        from django.utils import timezone
+        from orders.models import Order
+        o = Order.objects.create(
+            store=self.store, first_name='C', last_name='L', phone='0555000000',
+            wilaya='Alger', commune='Alger Centre', address='Adr', status=status,
+            subtotal=1000, shipping_cost=0, total=1000,
+        )
+        o.created_at = timezone.now() - timezone.timedelta(days=days_ago)
+        o.save(update_fields=['created_at'])
+        return o
+
+    def test_insufficient_history_returns_none(self):
+        from orders.returns_forecast import compute_returns_forecast
+        for d in range(5):
+            self._make_order(days_ago=d)
+        self.assertIsNone(compute_returns_forecast(self.store, horizon_days=7))
+
+    def test_no_orders_returns_none(self):
+        from orders.returns_forecast import compute_returns_forecast
+        self.assertIsNone(compute_returns_forecast(self.store, horizon_days=7))
+
+    def test_weighted_rate_sums_before_dividing(self):
+        from orders.returns_forecast import compute_returns_forecast
+        from django.utils import timezone
+        today = timezone.now().date()
+        target_weekday = (today + timezone.timedelta(days=1)).weekday()
+        created = 0
+        d = 0
+        while created < 40:
+            day = today - timezone.timedelta(days=d)
+            if day.weekday() == target_weekday:
+                for _ in range(9):
+                    self._make_order(days_ago=d, status='delivered')
+                self._make_order(days_ago=d, status='returned')
+                created += 10
+            d += 1
+        # Pousse l'historique au-delà de MIN_HISTORY_DAYS=30 (les occurrences
+        # du jour de semaine ciblé seules ne suffisent pas forcément) — assez
+        # loin dans le passé pour ne pas entrer dans les fenêtres de 14/28
+        # jours utilisées pour la tendance, donc sans influencer le taux calculé.
+        self._make_order(days_ago=45, status='delivered')
+        result = compute_returns_forecast(self.store, horizon_days=7)
+        self.assertIsNotNone(result)
+        point = result['points'][0]
+        self.assertAlmostEqual(point['predicted_rate'], 10.0, delta=2.0)
+
+    def test_rate_clamped_between_0_and_100(self):
+        from orders.returns_forecast import compute_returns_forecast
+        for d in range(35):
+            self._make_order(days_ago=d, status='returned')
+        result = compute_returns_forecast(self.store, horizon_days=7)
+        self.assertIsNotNone(result)
+        for p in result['points']:
+            self.assertGreaterEqual(p['predicted_rate'], 0)
+            self.assertLessEqual(p['predicted_rate'], 100)
+            self.assertGreaterEqual(p['rate_low'], 0)
+            self.assertLessEqual(p['rate_high'], 100)
+
+
+class ReturnsForecastViewTest(TestCase):
+    def setUp(self):
+        self.owner, self.store = make_owner()
+        self.client_ = auth_client(self.owner)
+
+    def _make_order(self, days_ago, status='delivered'):
+        from django.utils import timezone
+        from orders.models import Order
+        o = Order.objects.create(
+            store=self.store, first_name='C', last_name='L', phone='0555000001',
+            wilaya='Alger', commune='Alger Centre', address='Adr', status=status,
+            subtotal=1000, shipping_cost=0, total=1000,
+        )
+        o.created_at = timezone.now() - timezone.timedelta(days=days_ago)
+        o.save(update_fields=['created_at'])
+        return o
+
+    def test_insufficient_history_returns_400(self):
+        for d in range(5):
+            self._make_order(days_ago=d)
+        resp = self.client_.get('/api/orders/stats/returns-forecast/')
+        self.assertEqual(resp.status_code, 400)
+
+    def test_horizon_clamped(self):
+        for d in range(35):
+            self._make_order(days_ago=d, status='delivered')
+        resp = self.client_.get('/api/orders/stats/returns-forecast/?horizon_days=9999')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(resp.data['points']), 60)
+
+    def test_confirmateur_without_permission_forbidden(self):
+        for d in range(35):
+            self._make_order(days_ago=d, status='delivered')
+        conf_user, _ = make_team_member(self.store, 'confirmateur')
+        client = auth_client(conf_user)
+        resp = client.get('/api/orders/stats/returns-forecast/')
+        self.assertEqual(resp.status_code, 403)
+
+    def test_confirmateur_with_permission_allowed(self):
+        from team.models import RolePermission
+        for d in range(35):
+            self._make_order(days_ago=d, status='delivered')
+        conf_user, _ = make_team_member(self.store, 'confirmateur')
+        RolePermission.objects.create(store=self.store, role='confirmateur', permission='stats_returns_forecast_view', enabled=True)
+        client = auth_client(conf_user)
+        resp = client.get('/api/orders/stats/returns-forecast/')
+        self.assertEqual(resp.status_code, 200)
