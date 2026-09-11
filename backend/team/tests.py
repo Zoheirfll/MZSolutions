@@ -306,3 +306,124 @@ class OnlineStatusTests(TestCase):
         self.conf.save(update_fields=['is_online', 'last_seen_at'])
         self.assertFalse(self.conf.is_currently_online)
         self.assertNotIn(self.conf, list(online_confirmateurs_queryset(self.store)))
+
+
+class ConfirmateurMonitoringEngineTest(TestCase):
+    def setUp(self):
+        self.owner, self.store = make_owner()
+        _, self.conf = make_team_member(self.store, 'confirmateur')
+
+    def _make_order(self, status, days_ago=1, assign=True):
+        from django.utils import timezone
+        from orders.models import Order, OrderAssignment
+        o = Order.objects.create(
+            store=self.store, first_name='C', last_name='L', phone='0555000000',
+            wilaya='Alger', commune='Alger Centre', address='Adr', status=status,
+            subtotal=1000, shipping_cost=0, total=1000,
+        )
+        o.created_at = timezone.now() - timezone.timedelta(days=days_ago)
+        o.save(update_fields=['created_at'])
+        if assign:
+            OrderAssignment.objects.create(order=o, confirmateur=self.conf)
+        return o
+
+    def test_confirmation_rate_uses_processed_denominator(self):
+        from team.monitoring import compute_confirmateur_detail
+        self._make_order('confirmed')
+        self._make_order('confirmed')
+        self._make_order('cancelled')
+        self._make_order('pending')  # non traitée, exclue du dénominateur
+        detail = compute_confirmateur_detail(self.store, self.conf)
+        self.assertAlmostEqual(detail['confirmation_rate'], 66.7, delta=0.5)
+
+    def test_score_none_without_processed_orders(self):
+        from team.monitoring import compute_confirmateur_detail
+        detail = compute_confirmateur_detail(self.store, self.conf)
+        self.assertIsNone(detail['score'])
+
+    def test_late_ratio_computed_on_pending_only(self):
+        from django.utils import timezone
+        from team.monitoring import compute_confirmateur_detail
+        late = self._make_order('pending')
+        late.created_at = timezone.now() - timezone.timedelta(hours=48)
+        late.save(update_fields=['created_at'])
+        recent = self._make_order('pending')
+        recent.created_at = timezone.now() - timezone.timedelta(hours=1)
+        recent.save(update_fields=['created_at'])
+        self._make_order('confirmed')
+        detail = compute_confirmateur_detail(self.store, self.conf)
+        self.assertAlmostEqual(detail['late_ratio'], 0.5, delta=0.01)
+
+    def test_call_failure_rate(self):
+        from orders.models import CallAttempt, FailureReason
+        from team.monitoring import compute_confirmateur_detail
+        o = self._make_order('confirmed')
+        reason = FailureReason.objects.create(store=self.store, label='Injoignable')
+        CallAttempt.objects.create(order=o, agent=self.conf, status='no_answer', failure_reason=reason)
+        CallAttempt.objects.create(order=o, agent=self.conf, status='answered')
+        detail = compute_confirmateur_detail(self.store, self.conf)
+        self.assertAlmostEqual(detail['call_failure_rate'], 0.5, delta=0.01)
+
+    def test_cancellation_return_rate(self):
+        from team.monitoring import compute_confirmateur_detail
+        self._make_order('confirmed')
+        self._make_order('cancelled')
+        self._make_order('returned')
+        self._make_order('delivered')
+        detail = compute_confirmateur_detail(self.store, self.conf)
+        self.assertAlmostEqual(detail['cancellation_return_rate'], 50.0, delta=0.5)
+
+    def test_flag_inactive_online_without_recent_audit_log(self):
+        from team.monitoring import compute_confirmateur_detail
+        self.conf.is_online = True
+        self.conf.last_seen_at = None
+        self.conf.save(update_fields=['is_online'])
+        self._make_order('confirmed')
+        detail = compute_confirmateur_detail(self.store, self.conf)
+        self.assertIn('inactive_online', detail['flags'])
+
+    def test_flag_high_late_ratio(self):
+        from django.utils import timezone
+        from team.monitoring import compute_confirmateur_detail
+        for _ in range(3):
+            late = self._make_order('pending')
+            late.created_at = timezone.now() - timezone.timedelta(hours=48)
+            late.save(update_fields=['created_at'])
+        detail = compute_confirmateur_detail(self.store, self.conf)
+        self.assertIn('high_late_ratio', detail['flags'])
+
+    def test_flag_high_cancellation_requires_minimum_five_orders(self):
+        from team.monitoring import compute_confirmateur_detail
+        self._make_order('cancelled')
+        self._make_order('cancelled')
+        detail = compute_confirmateur_detail(self.store, self.conf)
+        self.assertNotIn('high_cancellation', detail['flags'])
+
+    def test_flag_high_cancellation_triggers_above_team_average(self):
+        from team.monitoring import compute_confirmateur_detail
+        _, conf2 = make_team_member(self.store, 'confirmateur', email='conf2@test.com')
+        from orders.models import Order, OrderAssignment
+        for _ in range(5):
+            o = Order.objects.create(store=self.store, first_name='C', last_name='L', phone='0555000001',
+                                      wilaya='Alger', commune='Alger Centre', address='Adr', status='confirmed',
+                                      subtotal=1000, shipping_cost=0, total=1000)
+            OrderAssignment.objects.create(order=o, confirmateur=conf2)
+        for _ in range(5):
+            self._make_order('cancelled')
+        detail = compute_confirmateur_detail(self.store, self.conf)
+        self.assertIn('high_cancellation', detail['flags'])
+
+    def test_flag_low_throughput_requires_at_least_two_confirmateurs(self):
+        from team.monitoring import compute_confirmateur_detail
+        self._make_order('confirmed')
+        detail = compute_confirmateur_detail(self.store, self.conf)
+        self.assertNotIn('low_throughput', detail['flags'])
+
+    def test_compute_team_overview_lists_all_confirmateurs(self):
+        from team.monitoring import compute_team_overview
+        _, conf2 = make_team_member(self.store, 'confirmateur', email='conf2@test.com')
+        self._make_order('confirmed')
+        overview = compute_team_overview(self.store)
+        member_ids = [r['member_id'] for r in overview]
+        self.assertIn(self.conf.id, member_ids)
+        self.assertIn(conf2.id, member_ids)
