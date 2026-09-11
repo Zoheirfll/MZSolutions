@@ -4,17 +4,22 @@ from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from django.db import transaction
+from django.utils import timezone
+
 from core.permissions import is_owner_or_admin, has_permission, get_store
 from inbox.models import Conversation
 from inbox.views import _get_store as _inbox_get_store, _can_view_inbox
 from orders.stats_views import DashboardDeliveriesView, DashboardRevenueView, DashboardKpiView
+from audit.models import AuditLog
 
 from . import ollama_client
 from . import tools as ai_tools
+from . import write_tools as ai_write_tools
 from .chat_loop import run_chat_loop
 from .ollama_client import OllamaUnavailableError
-from .models import AIConversation, AIMessage
-from .serializers import AIConversationSerializer, AIConversationDetailSerializer
+from .models import AIConversation, AIMessage, AIPendingAction, AIProductDraft
+from .serializers import AIConversationSerializer, AIConversationDetailSerializer, AIPendingActionSerializer
 
 
 def _check_access(request):
@@ -201,7 +206,11 @@ class ChatView(APIView):
                 "N'invente JAMAIS une information (stock, commandes, clients, finances...) — utilise "
                 "UNIQUEMENT les outils disponibles. Si un outil ne renvoie rien ou refuse (permission "
                 "manquante), dis-le clairement plutôt que de deviner ou de répéter une ancienne réponse "
-                "de la conversation. Réponses courtes (2-4 phrases maximum), directes, sans blabla."
+                "de la conversation. Réponses courtes (2-4 phrases maximum), directes, sans blabla. "
+                "Si tu proposes une modification (produit, stock, prix, statut de commande), appelle "
+                "l'outil de proposition correspondant UNE SEULE FOIS et arrête-toi — ne suppose jamais "
+                "que la proposition a été acceptée, et n'enchaîne jamais une deuxième proposition dans "
+                "la même réponse."
             ),
         }
         history = [system_message] + [
@@ -209,17 +218,133 @@ class ChatView(APIView):
             for m in conv.messages.order_by('created_at') if m.role != 'tool'
         ]
 
+        tool_definitions = list(ai_tools.TOOL_DEFINITIONS)
+        write_tool_names = set()
+        if is_owner_or_admin(request):
+            tool_definitions = tool_definitions + ai_write_tools.WRITE_TOOL_DEFINITIONS
+            write_tool_names = set(ai_write_tools.WRITE_TOOL_REGISTRY.keys())
+
         def tool_executor(name, arguments):
-            result = ai_tools.execute_tool(request, name, arguments)
+            if name in ai_write_tools.WRITE_TOOL_REGISTRY:
+                result = ai_write_tools.execute_write_tool(request, conv, name, arguments)
+            else:
+                result = ai_tools.execute_tool(request, name, arguments)
             AIMessage.objects.create(conversation=conv, role='tool', content=f'{name}: {result}')
             return result
 
         try:
-            final_content, _pending_action_id = run_chat_loop(history, ai_tools.TOOL_DEFINITIONS, tool_executor)
+            final_content, pending_action_id = run_chat_loop(history, tool_definitions, tool_executor, write_tool_names=write_tool_names)
         except OllamaUnavailableError:
             return Response({'detail': 'Assistant IA indisponible'}, status=503)
 
-        AIMessage.objects.create(conversation=conv, role='assistant', content=final_content)
+        AIMessage.objects.create(conversation=conv, role='assistant', content=final_content, pending_action_id=pending_action_id)
         conv.save(update_fields=['updated_at'])
 
-        return Response({'conversation_id': conv.id, 'reply': final_content})
+        response_data = {'conversation_id': conv.id, 'reply': final_content}
+        if pending_action_id:
+            action = AIPendingAction.objects.get(pk=pending_action_id)
+            response_data['pending_action'] = AIPendingActionSerializer(action).data
+        return Response(response_data)
+
+
+def _execute_pending_action(store, action):
+    """Exécute réellement une AIPendingAction déjà validée (statut/expiration
+    vérifiés par l'appelant) — jamais appelée en dehors d'une transaction
+    atomique. `payload`/`target_ids` sont ceux figés à la proposition,
+    jamais recalculés ici."""
+    if action.tool_name in ('propose_update_product', 'propose_bulk_update_products'):
+        from products.models import Category
+        for item in action.payload:
+            product = store.products.get(pk=item['id'])
+            after = item['after']
+            if 'price' in after:
+                product.price = after['price']
+            if 'stock' in after:
+                product.stock = after['stock']
+            if 'is_active' in after:
+                product.is_active = after['is_active']
+            product.save()
+            if 'categories' in after:
+                cats = Category.objects.filter(store=store, name__in=after['categories'])
+                product.categories.set(cats)
+
+    elif action.tool_name == 'propose_create_product':
+        from products.serializers import ProductSerializer
+        draft = AIProductDraft.objects.get(pk=action.target_ids[0])
+        data = draft.extracted_data
+        serializer = ProductSerializer(data={
+            'name': data['name'], 'price': data['price'], 'description': data.get('description', ''),
+        })
+        serializer.is_valid(raise_exception=True)
+        product = serializer.save(store=store)
+        draft.status = 'created'
+        draft.created_product = product
+        draft.save(update_fields=['status', 'created_product'])
+
+    elif action.tool_name == 'propose_update_order_status':
+        from orders.views import _transition_order_status
+        item = action.payload[0]
+        order = store.orders.get(pk=item['id'])
+        _transition_order_status(store, order, item['after']['status'], changed_by=None, note=item['after'].get('note', "Action confirmée via l'agent IA"))
+
+
+def _log_ai_agent_action(request, store, action, audit_action):
+    try:
+        actor_name = f"{request.user.first_name} {request.user.last_name}".strip() or request.user.email
+        AuditLog.objects.create(
+            store=store, actor=request.user, actor_name=actor_name, actor_role='ai_agent',
+            action=audit_action, target_type='ai_pending_action', target_id=action.id,
+            target_repr=action.summary, description=action.summary, metadata={'payload': action.payload},
+        )
+    except Exception:
+        pass  # best-effort, même philosophie que audit.utils.log_audit
+
+
+class PendingActionConfirmView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        if not is_owner_or_admin(request):
+            return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
+        store = get_store(request)
+        try:
+            action = AIPendingAction.objects.select_related('conversation').get(pk=pk, conversation__store=store)
+        except AIPendingAction.DoesNotExist:
+            return Response({'detail': 'Action introuvable.'}, status=404)
+        if action.status != 'pending':
+            return Response({'detail': f"Cette action a déjà été résolue ({action.status})."}, status=409)
+        if action.is_expired():
+            action.status = 'expired'
+            action.resolved_at = timezone.now()
+            action.save(update_fields=['status', 'resolved_at'])
+            return Response({'detail': "Cette proposition a expiré, redemandez à l'assistant."}, status=409)
+
+        with transaction.atomic():
+            _execute_pending_action(store, action)
+            action.status = 'confirmed'
+            action.resolved_at = timezone.now()
+            action.save(update_fields=['status', 'resolved_at'])
+
+        _log_ai_agent_action(request, store, action, 'ai_agent.action_confirmed')
+        return Response({'status': 'confirmed'})
+
+
+class PendingActionRejectView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        if not is_owner_or_admin(request):
+            return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
+        store = get_store(request)
+        try:
+            action = AIPendingAction.objects.select_related('conversation').get(pk=pk, conversation__store=store)
+        except AIPendingAction.DoesNotExist:
+            return Response({'detail': 'Action introuvable.'}, status=404)
+        if action.status != 'pending':
+            return Response({'detail': f"Cette action a déjà été résolue ({action.status})."}, status=409)
+
+        action.status = 'rejected'
+        action.resolved_at = timezone.now()
+        action.save(update_fields=['status', 'resolved_at'])
+        _log_ai_agent_action(request, store, action, 'ai_agent.action_rejected')
+        return Response({'status': 'rejected'})

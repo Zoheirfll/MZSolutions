@@ -14,6 +14,7 @@ from . import ollama_client
 from . import tools as ai_tools
 from .chat_loop import run_chat_loop
 from .serializers import AIMessageSerializer
+from audit.models import AuditLog
 
 
 class AIAssistantModelsTest(TestCase):
@@ -578,6 +579,153 @@ class ChatLoopWriteToolTest(TestCase):
         self.assertEqual(content, 'Voici votre stock bas.')
         self.assertIsNone(pending_action_id)
         self.assertEqual(mock_chat.call_count, 2)
+
+
+class ChatViewWriteToolIntegrationTest(TestCase):
+    def setUp(self):
+        self.owner, self.store = make_owner()
+        self.product = Product.objects.create(store=self.store, name='T-shirt', price=2000, stock=10)
+        from core.test_utils import clear_throttle_cache
+        clear_throttle_cache()
+
+    @patch('ai_assistant.ollama_client.chat')
+    def test_write_tool_call_returns_pending_action(self, mock_chat):
+        mock_chat.return_value = {
+            'content': '',
+            'tool_calls': [{'id': 'c1', 'function': {
+                'name': 'propose_update_product',
+                'arguments': {'name_or_id': 'T-shirt', 'price': 1800},
+            }}],
+        }
+        client = auth_client(self.owner)
+        resp = client.post('/api/ai/chat/', {'message': 'Baisse le prix du T-shirt à 1800'}, format='json')
+        self.assertEqual(resp.status_code, 200)
+        self.assertIsNotNone(resp.data.get('pending_action'))
+        self.assertEqual(resp.data['pending_action']['status'], 'pending')
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.price, 2000)
+
+    @patch('ai_assistant.ollama_client.chat')
+    def test_write_tools_not_offered_to_confirmateur(self, mock_chat):
+        confirmateur, _ = make_team_member(self.store, 'confirmateur')
+        from team.models import RolePermission
+        RolePermission.objects.create(store=self.store, role='confirmateur', permission='ai_assistant_view', enabled=True)
+        mock_chat.return_value = {'content': 'Réponse simple.', 'tool_calls': []}
+        client = auth_client(confirmateur)
+        resp = client.post('/api/ai/chat/', {'message': 'Baisse le prix'}, format='json')
+        self.assertEqual(resp.status_code, 200)
+        sent_tools = mock_chat.call_args.kwargs.get('tools')
+        tool_names = [t['function']['name'] for t in (sent_tools or [])]
+        self.assertNotIn('propose_update_product', tool_names)
+
+
+class PendingActionConfirmRejectTest(TestCase):
+    def setUp(self):
+        self.owner, self.store = make_owner()
+        self.conv = AIConversation.objects.create(store=self.store, user=self.owner, title='Test')
+        self.product = Product.objects.create(store=self.store, name='T-shirt', price=2000, stock=10)
+        self.action = AIPendingAction.objects.create(
+            conversation=self.conv, tool_name='propose_update_product', summary='Modifier T-shirt',
+            payload=[{'id': self.product.id, 'name': 'T-shirt', 'before': {'price': 2000.0}, 'after': {'price': 1500.0}}],
+            target_ids=[self.product.id], expires_at=timezone.now() + timedelta(minutes=15),
+        )
+
+    def test_confirm_executes_and_journalise(self):
+        client = auth_client(self.owner)
+        resp = client.post(f'/api/ai/pending-actions/{self.action.id}/confirm/')
+        self.assertEqual(resp.status_code, 200)
+        self.product.refresh_from_db()
+        self.assertEqual(float(self.product.price), 1500.0)
+        self.action.refresh_from_db()
+        self.assertEqual(self.action.status, 'confirmed')
+        self.assertIsNotNone(self.action.resolved_at)
+        log = AuditLog.objects.filter(action='ai_agent.action_confirmed').first()
+        self.assertIsNotNone(log)
+        self.assertEqual(log.actor_role, 'ai_agent')
+
+    def test_reject_does_not_execute(self):
+        client = auth_client(self.owner)
+        resp = client.post(f'/api/ai/pending-actions/{self.action.id}/reject/')
+        self.assertEqual(resp.status_code, 200)
+        self.product.refresh_from_db()
+        self.assertEqual(float(self.product.price), 2000.0)
+        self.action.refresh_from_db()
+        self.assertEqual(self.action.status, 'rejected')
+
+    def test_confirm_forbidden_for_confirmateur(self):
+        confirmateur, _ = make_team_member(self.store, 'confirmateur')
+        client = auth_client(confirmateur)
+        resp = client.post(f'/api/ai/pending-actions/{self.action.id}/confirm/')
+        self.assertEqual(resp.status_code, 403)
+        self.action.refresh_from_db()
+        self.assertEqual(self.action.status, 'pending')
+
+    def test_confirm_expired_action_returns_409(self):
+        self.action.expires_at = timezone.now() - timedelta(minutes=1)
+        self.action.save(update_fields=['expires_at'])
+        client = auth_client(self.owner)
+        resp = client.post(f'/api/ai/pending-actions/{self.action.id}/confirm/')
+        self.assertEqual(resp.status_code, 409)
+        self.action.refresh_from_db()
+        self.assertEqual(self.action.status, 'expired')
+        self.product.refresh_from_db()
+        self.assertEqual(float(self.product.price), 2000.0)
+
+    def test_confirm_already_resolved_returns_409(self):
+        self.action.status = 'confirmed'
+        self.action.save(update_fields=['status'])
+        client = auth_client(self.owner)
+        resp = client.post(f'/api/ai/pending-actions/{self.action.id}/confirm/')
+        self.assertEqual(resp.status_code, 409)
+
+    def test_bulk_update_execution(self):
+        p2 = Product.objects.create(store=self.store, name='Pantalon', price=3000, is_active=True)
+        bulk_action = AIPendingAction.objects.create(
+            conversation=self.conv, tool_name='propose_bulk_update_products', summary='Désactiver 2 produits',
+            payload=[
+                {'id': self.product.id, 'name': 'T-shirt', 'before': {'is_active': True}, 'after': {'is_active': False}},
+                {'id': p2.id, 'name': 'Pantalon', 'before': {'is_active': True}, 'after': {'is_active': False}},
+            ],
+            target_ids=[self.product.id, p2.id], expires_at=timezone.now() + timedelta(minutes=15),
+        )
+        client = auth_client(self.owner)
+        resp = client.post(f'/api/ai/pending-actions/{bulk_action.id}/confirm/')
+        self.assertEqual(resp.status_code, 200)
+        self.product.refresh_from_db()
+        p2.refresh_from_db()
+        self.assertFalse(self.product.is_active)
+        self.assertFalse(p2.is_active)
+
+    def test_create_product_execution(self):
+        draft = AIProductDraft.objects.create(store=self.store, source='chat_text', extracted_data={'name': 'Casquette', 'price': 1200.0})
+        action = AIPendingAction.objects.create(
+            conversation=self.conv, tool_name='propose_create_product', summary='Créer Casquette',
+            payload=[{'id': None, 'name': 'Casquette', 'before': None, 'after': {'name': 'Casquette', 'price': 1200.0}}],
+            target_ids=[draft.id], expires_at=timezone.now() + timedelta(minutes=15),
+        )
+        client = auth_client(self.owner)
+        resp = client.post(f'/api/ai/pending-actions/{action.id}/confirm/')
+        self.assertEqual(resp.status_code, 200)
+        draft.refresh_from_db()
+        self.assertEqual(draft.status, 'created')
+        self.assertIsNotNone(draft.created_product)
+        self.assertEqual(draft.created_product.name, 'Casquette')
+
+    def test_order_status_execution(self):
+        order = Order.objects.create(
+            store=self.store, first_name='Ali', last_name='B', phone='0555000000',
+            wilaya='Alger', address='Rue 1', status='pending', subtotal=1000, shipping_cost=0, total=1000,
+        )
+        action = AIPendingAction.objects.create(
+            conversation=self.conv, tool_name='propose_update_order_status', summary='Confirmer commande',
+            payload=[{'id': order.id, 'name': f'Commande #{order.id}', 'before': {'status': 'pending'}, 'after': {'status': 'confirmed', 'note': 'via IA'}}],
+            target_ids=[order.id], expires_at=timezone.now() + timedelta(minutes=15),
+        )
+        client = auth_client(self.owner)
+        resp = client.post(f'/api/ai/pending-actions/{action.id}/confirm/')
+        self.assertEqual(resp.status_code, 200)
+        order.refresh_from_db()
+        self.assertEqual(order.status, 'confirmed')
 
 
 class ProposeUpdateProductTest(TestCase):
