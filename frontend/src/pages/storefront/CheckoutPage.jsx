@@ -7,6 +7,7 @@ import { useCart, itemLineTotal } from '../../context/CartContext'
 import { trackEvent } from '../../lib/pixels'
 import { WILAYAS, getWilayaIdByName } from '../../data/wilayas'
 import { getCommunesForWilaya } from '../../data/communes'
+import ProductCard from '../../components/storefront/ProductCard'
 
 function CheckIcon(props) {
   return (
@@ -112,7 +113,17 @@ export default function CheckoutPage() {
   const [desks,          setDesks]          = useState([])
   const [desksLoading,   setDesksLoading]   = useState(false)
   const [stationCode,    setStationCode]    = useState('')
+  const [cartRecommendations, setCartRecommendations] = useState([])
   const abandonedTimerRef = useRef(null)
+
+  const cartProductIds = cartItems.map(i => i.product).filter(Boolean).join(',')
+
+  useEffect(() => {
+    if (!cartProductIds) { setCartRecommendations([]); return }
+    publicApi.get(`/store/${slug}/cart-recommendations/?product_ids=${cartProductIds}`)
+      .then(({ data }) => setCartRecommendations(data.results || []))
+      .catch(() => {})
+  }, [slug, cartProductIds])
 
   const discountAmount = appliedPromo ? Number(appliedPromo.discount_amount) : 0
   const shippingCost = shippingRate
@@ -334,6 +345,15 @@ export default function CheckoutPage() {
                 ))}
               </div>
             </div>
+
+            {cartRecommendations.length > 0 && (
+              <div className={panelCls} style={panelStyle}>
+                <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--sf-text)' }}>Souvent achetés ensemble</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {cartRecommendations.map(p => <ProductCard key={p.id} product={p} slug={slug} />)}
+                </div>
+              </div>
+            )}
 
             {/* Étape 2 — Infos client */}
             <div className={panelCls} style={panelStyle}>

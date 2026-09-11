@@ -1346,13 +1346,20 @@ class PublicProductRecommendationsView(APIView):
 
 
 class PublicCartRecommendationsView(APIView):
+    """GET plutôt que POST — même convention que PublicShippingRateView dans ce
+    même module, qui accepte déjà `product_ids` en liste séparée par des
+    virgules sur une query string (voir CheckoutPage.jsx, calcul du tarif)."""
     permission_classes = [AllowAny]
 
-    def post(self, request, slug):
+    def get(self, request, slug):
         store = _get_public_store(slug)
         if not store:
             return Response({'detail': 'Boutique introuvable.'}, status=404)
-        product_ids = request.data.get('product_ids') or []
+        raw = request.query_params.get('product_ids', '')
+        try:
+            product_ids = [int(pid) for pid in raw.split(',') if pid]
+        except ValueError:
+            product_ids = []
         if not product_ids:
             return Response({'results': []})
         from .recommendations import cart_recommendations

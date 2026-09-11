@@ -73,6 +73,19 @@ describe('CheckoutPage', () => {
     expect(screen.getByText('Votre panier est vide.')).toBeInTheDocument()
   })
 
+  it('affiche la section "Souvent achetés ensemble" quand des recommandations existent', async () => {
+    publicApi.get.mockImplementation((url) => {
+      if (url.includes('/cart-recommendations/')) {
+        return Promise.resolve({ data: { results: [
+          { id: 42, slug: 'reco', name: 'Produit suggéré', price: '900', image_url: null },
+        ] } })
+      }
+      return Promise.resolve({ data: { is_paused: false } })
+    })
+    renderPage()
+    expect(await screen.findByText('Produit suggéré')).toBeInTheDocument()
+  })
+
   it('applies a promo code and reduces the total', async () => {
     const user = userEvent.setup()
     publicApi.post.mockResolvedValueOnce({ data: { code: 'PROMO10', discount_amount: 300 } })

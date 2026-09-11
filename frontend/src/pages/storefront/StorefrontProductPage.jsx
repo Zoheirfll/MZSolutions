@@ -6,6 +6,7 @@ import { useCart } from '../../context/CartContext'
 import { trackEvent } from '../../lib/pixels'
 import useDocumentMeta from '../../hooks/useDocumentMeta'
 import { sanitizeHtml } from '../../lib/sanitize'
+import ProductCard from '../../components/storefront/ProductCard'
 
 function PackageIcon(props) {
   return (
@@ -173,6 +174,14 @@ export default function StorefrontProductPage() {
   const [added,         setAdded]         = useState(false)
   const [reviewModalOpen, setReviewModalOpen] = useState(false)
   const [reviewSent,      setReviewSent]      = useState(false)
+  const [recommendations, setRecommendations] = useState([])
+
+  useEffect(() => {
+    if (!product?.id) return
+    publicApi.get(`/store/${slug}/products/${product.id}/recommendations/`)
+      .then(({ data }) => setRecommendations(data.results || []))
+      .catch(() => {})
+  }, [slug, product?.id])
 
   useEffect(() => {
     setLoading(true)
@@ -555,6 +564,15 @@ export default function StorefrontProductPage() {
           )}
         </div>
       </div>
+
+      {recommendations.length > 0 && (
+        <div className="max-w-6xl mx-auto px-4 py-10">
+          <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--sf-text)' }}>Vous pourriez aussi aimer</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {recommendations.map(p => <ProductCard key={p.id} product={p} slug={slug} />)}
+          </div>
+        </div>
+      )}
 
       {reviewModalOpen && (
         <ReviewFormModal

@@ -576,19 +576,15 @@ class PublicRecommendationsTest(TestCase):
         self.assertEqual(resp.status_code, 404)
 
     def test_cart_recommendations_returns_similar_fallback(self):
-        import json
         ref = Product.objects.create(store=self.store, name='Ref', price=1000, stock=5, is_active=True)
         ref.categories.add(self.cat)
         similar = Product.objects.create(store=self.store, name='Similar', price=1050, stock=5, is_active=True)
         similar.categories.add(self.cat)
-        resp = self.client.post(f'/api/public/store/{self.store.slug}/cart-recommendations/',
-                                 data=json.dumps({'product_ids': [ref.id]}), content_type='application/json')
+        resp = self.client.get(f'/api/public/store/{self.store.slug}/cart-recommendations/?product_ids={ref.id}')
         self.assertEqual(resp.status_code, 200)
         self.assertIn(similar.id, [r['id'] for r in resp.data['results']])
 
     def test_cart_recommendations_empty_list_returns_empty(self):
-        import json
-        resp = self.client.post(f'/api/public/store/{self.store.slug}/cart-recommendations/',
-                                 data=json.dumps({'product_ids': []}), content_type='application/json')
+        resp = self.client.get(f'/api/public/store/{self.store.slug}/cart-recommendations/?product_ids=')
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.data['results'], [])

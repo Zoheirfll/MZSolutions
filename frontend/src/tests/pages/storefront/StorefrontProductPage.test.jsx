@@ -58,8 +58,15 @@ describe('StorefrontProductPage', () => {
     vi.clearAllMocks()
   })
 
+  function mockProductGet() {
+    publicApi.get.mockImplementation((url) => {
+      if (url.includes('/recommendations/')) return Promise.resolve({ data: { results: [] } })
+      return Promise.resolve({ data: PRODUCT })
+    })
+  }
+
   it('shows product details after loading', async () => {
-    publicApi.get.mockResolvedValueOnce({ data: PRODUCT })
+    mockProductGet()
     renderPage()
 
     expect(await screen.findByRole('heading', { name: 'T-shirt' })).toBeInTheDocument()
@@ -69,7 +76,7 @@ describe('StorefrontProductPage', () => {
 
   it('adds the product to the cart when clicking "Ajouter au panier"', async () => {
     const user = userEvent.setup()
-    publicApi.get.mockResolvedValueOnce({ data: PRODUCT })
+    mockProductGet()
     renderPage()
 
     await screen.findByRole('heading', { name: 'T-shirt' })
@@ -86,5 +93,18 @@ describe('StorefrontProductPage', () => {
     renderPage()
 
     expect(await screen.findByText('Produit introuvable.')).toBeInTheDocument()
+  })
+
+  it('affiche la section "Vous pourriez aussi aimer" avec les produits recommandés', async () => {
+    publicApi.get.mockImplementation((url) => {
+      if (url.includes('/recommendations/')) {
+        return Promise.resolve({ data: { results: [
+          { id: 99, slug: 'reco', name: 'Produit recommandé', price: '500', image_url: null },
+        ] } })
+      }
+      return Promise.resolve({ data: PRODUCT })
+    })
+    renderPage()
+    expect(await screen.findByText('Produit recommandé')).toBeInTheDocument()
   })
 })
