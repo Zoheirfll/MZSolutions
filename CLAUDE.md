@@ -1674,6 +1674,10 @@ Les 3 volets de l'analyse prédictive (prévision de ventes, prévision de ruptu
 
 Testé via `manage.py test products orders team` (199 tests, dont 21 dédiés aux recommandations : co-occurrences pondérées, seuil minimum, repli similarité, exclusion duplicate/fake, score à mettre en avant, croissance en tendance, symétrie des bundles, gating de permission, dégradation IA) + suite frontend complète (412 tests, aucune régression).
 
+**Audit global de la boutique (2026-09, 6ème chantier IA)** — 4 scores de dimension 100% déterministes (`stores/audit.py::compute_store_audit()`, aucun appel IA dans le calcul) : Catalogue (complétude des fiches produit : image/description/prix d'achat/catégorie), Confirmation & logistique (taux de confirmation 30j + commandes en attente >24h), Stock (ruptures/stock bas), Retours & clients à risque (taux de retour 30j, clients auto-détectés jamais traités manuellement, produits vendus à perte). Score global = moyenne des dimensions disponibles (`None` ignoré, jamais pénalisé à tort une boutique neuve sans historique). Résultat sauvegardé (`stores.StoreAudit`, une ligne par boutique, écrasée à chaque recalcul) — à la demande uniquement (bouton "Analyser ma boutique"/"Réanalyser"), aucune tâche planifiée. Synthèse IA (points forts/points faibles/recommandations, texte libre) générée à partir des scores + détails chiffrés uniquement — **les scores sont toujours sauvegardés même si l'IA échoue** (`ai_unavailable: true`, jamais de perte du calcul déterministe pour une panne IA ponctuelle). Page `pages/orders/StoreAuditPage.jsx`, permission `store_audit_view`, sous le menu IA — chaque carte de dimension pointe vers la page dashboard pertinente (Produits/Commandes/Stock/Clients à risque), pas de nouveau filtre profond ajouté aux pages existantes.
+
+Testé via `manage.py test stores products orders team` (235 tests, dont 16 dédiés à l'audit : les 4 scores sur données connues, repli `None` sur données insuffisantes, score global ignorant les dimensions absentes, sauvegarde même en cas d'échec IA, gating de permission) + suite frontend complète (417 tests, aucune régression).
+
 ---
 
 ## Risques Identifiés
