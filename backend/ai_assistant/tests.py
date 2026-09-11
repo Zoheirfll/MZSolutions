@@ -1,13 +1,19 @@
 import json
+from datetime import timedelta
 from unittest.mock import patch, MagicMock
 
 from django.test import TestCase, override_settings
+from django.utils import timezone
 
 from core.test_utils import make_owner, make_team_member, auth_client
 from team.models import PERMISSION_CATALOG, DEFAULT_PERMISSIONS
-from .models import AIConversation, AIMessage
+from products.models import Product, Category
+from orders.models import Order
+from .models import AIConversation, AIMessage, AIPendingAction, AIProductDraft
 from . import ollama_client
 from . import tools as ai_tools
+from .chat_loop import run_chat_loop
+from .serializers import AIMessageSerializer
 
 
 class AIAssistantModelsTest(TestCase):
@@ -369,8 +375,9 @@ class ChatLoopTest(TestCase):
         from ai_assistant.chat_loop import run_chat_loop
         mock_chat.return_value = {'role': 'assistant', 'content': 'Bonjour !'}
         history = [{'role': 'user', 'content': 'Salut'}]
-        result = run_chat_loop(history, tool_definitions=[], tool_executor=lambda n, a: '')
+        result, pending_action_id = run_chat_loop(history, tool_definitions=[], tool_executor=lambda n, a: '')
         self.assertEqual(result, 'Bonjour !')
+        self.assertIsNone(pending_action_id)
 
     @patch('ai_assistant.chat_loop.ollama_client.chat')
     def test_executes_tool_then_returns_final_content(self, mock_chat):
@@ -386,8 +393,9 @@ class ChatLoopTest(TestCase):
             executed.append((name, arguments))
             return 'ok'
         history = [{'role': 'user', 'content': 'ping ?'}]
-        result = run_chat_loop(history, tool_definitions=[{'type': 'function'}], tool_executor=executor)
+        result, pending_action_id = run_chat_loop(history, tool_definitions=[{'type': 'function'}], tool_executor=executor)
         self.assertEqual(result, 'Pong.')
+        self.assertIsNone(pending_action_id)
         self.assertEqual(executed, [('ping', {})])
 
     @patch('ai_assistant.chat_loop.ollama_client.chat')
@@ -536,3 +544,248 @@ class PublicChatViewTest(TestCase):
         AIConversation.objects.create(store=self.store, session_id='visitor-A', title='Secrète')
         resp = self.client_.get(f'/api/public/store/{self.store.slug}/chat/visitor-B/')
         self.assertEqual(resp.data['messages'], [])
+
+
+class ChatLoopWriteToolTest(TestCase):
+    @patch('ai_assistant.ollama_client.chat')
+    def test_stops_immediately_after_write_tool_call(self, mock_chat):
+        mock_chat.return_value = {
+            'content': '',
+            'tool_calls': [{'id': 'call_1', 'function': {'name': 'propose_update_product', 'arguments': {}}}],
+        }
+        history = [{'role': 'user', 'content': 'Baisse le prix de X'}]
+
+        def tool_executor(name, arguments):
+            return json.dumps({'status': 'en_attente_de_confirmation', 'action_id': 42})
+
+        content, pending_action_id = run_chat_loop(
+            history, [], tool_executor, write_tool_names={'propose_update_product'},
+        )
+        self.assertEqual(content, '')
+        self.assertEqual(pending_action_id, 42)
+        self.assertEqual(mock_chat.call_count, 1)  # un seul tour, jamais de 2e appel modèle
+
+    @patch('ai_assistant.ollama_client.chat')
+    def test_read_tool_continues_loop_as_before(self, mock_chat):
+        mock_chat.side_effect = [
+            {'content': '', 'tool_calls': [{'id': 'call_1', 'function': {'name': 'get_low_stock', 'arguments': {}}}]},
+            {'content': 'Voici votre stock bas.', 'tool_calls': []},
+        ]
+        history = [{'role': 'user', 'content': 'Stock bas ?'}]
+        content, pending_action_id = run_chat_loop(
+            history, [], lambda name, args: '{"products": []}', write_tool_names=set(),
+        )
+        self.assertEqual(content, 'Voici votre stock bas.')
+        self.assertIsNone(pending_action_id)
+        self.assertEqual(mock_chat.call_count, 2)
+
+
+class ProposeUpdateProductTest(TestCase):
+    def setUp(self):
+        self.owner, self.store = make_owner()
+        self.conv = AIConversation.objects.create(store=self.store, user=self.owner, title='Test')
+        self.product = Product.objects.create(store=self.store, name='T-shirt noir', price=2000, stock=10)
+
+    def _request(self, user):
+        request = type('R', (), {})()
+        request.user = user
+        return request
+
+    def test_forbidden_for_confirmateur(self):
+        from ai_assistant import write_tools
+        confirmateur, _ = make_team_member(self.store, 'confirmateur')
+        result = write_tools.propose_update_product(self._request(confirmateur), self.conv, 'T-shirt noir', price=1800)
+        self.assertIn('réservée', result.lower())
+        self.assertEqual(AIPendingAction.objects.count(), 0)
+
+    def test_creates_pending_action_with_before_after(self):
+        from ai_assistant import write_tools
+        result = write_tools.propose_update_product(self._request(self.owner), self.conv, 'T-shirt noir', price=1800, stock=5)
+        data = json.loads(result)
+        self.assertEqual(data['status'], 'en_attente_de_confirmation')
+        action = AIPendingAction.objects.get(pk=data['action_id'])
+        self.assertEqual(action.tool_name, 'propose_update_product')
+        self.assertEqual(action.target_ids, [self.product.id])
+        self.assertEqual(action.payload[0]['before']['price'], 2000.0)
+        self.assertEqual(action.payload[0]['after']['price'], 1800.0)
+        self.assertEqual(action.payload[0]['after']['stock'], 5)
+        # rien n'a encore été écrit sur le produit réel
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.price, 2000)
+
+    def test_product_not_found(self):
+        from ai_assistant import write_tools
+        result = write_tools.propose_update_product(self._request(self.owner), self.conv, 'Produit inexistant', price=100)
+        self.assertIn('introuvable', result.lower())
+        self.assertEqual(AIPendingAction.objects.count(), 0)
+
+    def test_no_changes_requested(self):
+        from ai_assistant import write_tools
+        result = write_tools.propose_update_product(self._request(self.owner), self.conv, 'T-shirt noir')
+        self.assertIn('aucun changement', result.lower())
+        self.assertEqual(AIPendingAction.objects.count(), 0)
+
+
+class ProposeBulkUpdateProductsTest(TestCase):
+    def setUp(self):
+        self.owner, self.store = make_owner()
+        self.conv = AIConversation.objects.create(store=self.store, user=self.owner, title='Test')
+        self.cat = Category.objects.create(store=self.store, name='Été')
+        for i in range(3):
+            p = Product.objects.create(store=self.store, name=f'Produit {i}', price=1000, is_active=True)
+            p.categories.add(self.cat)
+
+    def _request(self, user):
+        request = type('R', (), {})()
+        request.user = user
+        return request
+
+    def test_bulk_deactivate_by_category(self):
+        from ai_assistant import write_tools
+        result = write_tools.propose_bulk_update_products(self._request(self.owner), self.conv, category='Été', is_active=False)
+        data = json.loads(result)
+        action = AIPendingAction.objects.get(pk=data['action_id'])
+        self.assertEqual(len(action.target_ids), 3)
+        self.assertTrue(all(item['after']['is_active'] is False for item in action.payload))
+
+    def test_bulk_capped_at_50(self):
+        from ai_assistant import write_tools
+        big_cat = Category.objects.create(store=self.store, name='Grosse categorie')
+        for i in range(51):
+            p = Product.objects.create(store=self.store, name=f'Bulk {i}', price=500, is_active=True)
+            p.categories.add(big_cat)
+        result = write_tools.propose_bulk_update_products(self._request(self.owner), self.conv, category='Grosse categorie', is_active=False)
+        self.assertIn('50', result)
+        self.assertEqual(AIPendingAction.objects.count(), 0)
+
+    def test_no_match_returns_message(self):
+        from ai_assistant import write_tools
+        result = write_tools.propose_bulk_update_products(self._request(self.owner), self.conv, category='Inconnue', is_active=False)
+        self.assertIn('aucun produit', result.lower())
+
+
+class ProposeCreateProductTest(TestCase):
+    def setUp(self):
+        self.owner, self.store = make_owner()
+        self.conv = AIConversation.objects.create(store=self.store, user=self.owner, title='Test')
+
+    def _request(self, user):
+        request = type('R', (), {})()
+        request.user = user
+        return request
+
+    def test_creates_draft_and_pending_action(self):
+        from ai_assistant import write_tools
+        result = write_tools.propose_create_product(self._request(self.owner), self.conv, name='Casquette rouge', price=1500)
+        data = json.loads(result)
+        action = AIPendingAction.objects.get(pk=data['action_id'])
+        self.assertEqual(action.tool_name, 'propose_create_product')
+        draft = AIProductDraft.objects.get(pk=action.target_ids[0])
+        self.assertEqual(draft.source, 'chat_text')
+        self.assertEqual(draft.extracted_data['name'], 'Casquette rouge')
+        self.assertEqual(draft.status, 'pending_review')
+
+    def test_missing_price_rejected(self):
+        from ai_assistant import write_tools
+        result = write_tools.propose_create_product(self._request(self.owner), self.conv, name='X', price=None)
+        self.assertIn('requis', result.lower())
+        self.assertEqual(AIPendingAction.objects.count(), 0)
+
+
+class ProposeUpdateOrderStatusTest(TestCase):
+    def setUp(self):
+        self.owner, self.store = make_owner()
+        self.conv = AIConversation.objects.create(store=self.store, user=self.owner, title='Test')
+        self.order = Order.objects.create(
+            store=self.store, first_name='Ali', last_name='B', phone='0555000000',
+            wilaya='Alger', address='Rue 1', status='pending', subtotal=1000, shipping_cost=0, total=1000,
+        )
+
+    def _request(self, user):
+        request = type('R', (), {})()
+        request.user = user
+        return request
+
+    def test_creates_pending_action(self):
+        from ai_assistant import write_tools
+        result = write_tools.propose_update_order_status(self._request(self.owner), self.conv, order_number=str(self.order.id), new_status='confirmed')
+        data = json.loads(result)
+        action = AIPendingAction.objects.get(pk=data['action_id'])
+        self.assertEqual(action.target_ids, [self.order.id])
+        self.assertEqual(action.payload[0]['after']['status'], 'confirmed')
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, 'pending')  # rien exécuté
+
+    def test_order_not_found(self):
+        from ai_assistant import write_tools
+        result = write_tools.propose_update_order_status(self._request(self.owner), self.conv, order_number='999999', new_status='confirmed')
+        self.assertIn('introuvable', result.lower())
+
+    def test_invalid_status_rejected(self):
+        from ai_assistant import write_tools
+        result = write_tools.propose_update_order_status(self._request(self.owner), self.conv, order_number=str(self.order.id), new_status='statut_bidon')
+        self.assertIn('invalide', result.lower())
+        self.assertEqual(AIPendingAction.objects.count(), 0)
+
+    def test_already_at_target_status(self):
+        from ai_assistant import write_tools
+        result = write_tools.propose_update_order_status(self._request(self.owner), self.conv, order_number=str(self.order.id), new_status='pending')
+        self.assertIn('déjà', result.lower())
+        self.assertEqual(AIPendingAction.objects.count(), 0)
+
+
+class SerializerTest(TestCase):
+    def test_message_serializer_includes_pending_action(self):
+        owner, store = make_owner()
+        conv = AIConversation.objects.create(store=store, user=owner, title='Test')
+        action = AIPendingAction.objects.create(
+            conversation=conv, tool_name='propose_update_product', summary='Test résumé',
+            payload=[{'id': 1}], target_ids=[1], expires_at=timezone.now() + timedelta(minutes=15),
+        )
+        msg = AIMessage.objects.create(conversation=conv, role='assistant', content='', pending_action=action)
+        data = AIMessageSerializer(msg).data
+        self.assertEqual(data['pending_action']['summary'], 'Test résumé')
+        self.assertEqual(data['pending_action']['status'], 'pending')
+
+    def test_message_serializer_pending_action_null_by_default(self):
+        owner, store = make_owner()
+        conv = AIConversation.objects.create(store=store, user=owner, title='Test')
+        msg = AIMessage.objects.create(conversation=conv, role='assistant', content='Bonjour')
+        data = AIMessageSerializer(msg).data
+        self.assertIsNone(data['pending_action'])
+
+
+class AIPendingActionModelTest(TestCase):
+    def test_create_and_expire(self):
+        owner, store = make_owner()
+        conv = AIConversation.objects.create(store=store, user=owner, title='Test')
+        action = AIPendingAction.objects.create(
+            conversation=conv, tool_name='propose_update_product', summary='Test',
+            payload=[{'id': 1, 'name': 'X', 'before': {}, 'after': {}}], target_ids=[1],
+            expires_at=timezone.now() + timedelta(minutes=15),
+        )
+        self.assertEqual(action.status, 'pending')
+        self.assertFalse(action.is_expired())
+        action.expires_at = timezone.now() - timedelta(minutes=1)
+        action.save(update_fields=['expires_at'])
+        self.assertTrue(action.is_expired())
+
+    def test_message_can_reference_pending_action(self):
+        owner, store = make_owner()
+        conv = AIConversation.objects.create(store=store, user=owner, title='Test')
+        action = AIPendingAction.objects.create(
+            conversation=conv, tool_name='propose_update_product', summary='Test',
+            payload=[], target_ids=[], expires_at=timezone.now() + timedelta(minutes=15),
+        )
+        msg = AIMessage.objects.create(conversation=conv, role='assistant', content='', pending_action=action)
+        self.assertEqual(msg.pending_action_id, action.id)
+
+
+class AIProductDraftModelTest(TestCase):
+    def test_create_draft(self):
+        owner, store = make_owner()
+        draft = AIProductDraft.objects.create(
+            store=store, source='photo', extracted_data={'name': 'T-shirt', 'price': 2500},
+        )
+        self.assertEqual(draft.status, 'pending_review')
+        self.assertIsNone(draft.created_product)

@@ -69,7 +69,7 @@ class PublicChatView(APIView):
             return result
 
         try:
-            final_content = run_chat_loop(history, ai_tools.PUBLIC_TOOL_DEFINITIONS, tool_executor)
+            final_content, _pending_action_id = run_chat_loop(history, ai_tools.PUBLIC_TOOL_DEFINITIONS, tool_executor)
         except OllamaUnavailableError:
             return Response({'detail': 'Assistant IA indisponible'}, status=503)
 
