@@ -1670,6 +1670,10 @@ Testé via `manage.py test orders team` (142 tests, dont 8 dédiés à la prévi
 
 Les 3 volets de l'analyse prédictive (prévision de ventes, prévision de rupture de stock, prévision de taux de retour) sont désormais tous en production.
 
+**Recommandations produit (2026-09, 5ème chantier IA)** — moteur déterministe (`products/recommendations.py`, aucun appel IA dans le calcul) : « achetés ensemble » (comptage de co-occurrences sur les commandes réelles, `OrderItem`, seuil minimum 2, exclut `duplicate`/`fake`) avec repli automatique sur la similarité de contenu (même catégorie, prix ±30%) si l'historique d'achat est insuffisant. Exposé côté boutique publique (fiche produit « Vous pourriez aussi aimer », panier/checkout « Souvent achetés ensemble » — `GET /store/<slug>/cart-recommendations/?product_ids=1,2,3`, même convention que `PublicShippingRateView` plutôt qu'un POST, pour rester cohérent avec le reste de `CheckoutPage.jsx`) et côté dashboard vendeur (nouvelle page `pages/orders/RecommendationsPage.jsx`, permission `recommendations_view`, sous le menu IA) : produits à mettre en avant (score marge×stock/vélocité), produits en tendance (croissance du rythme de vente sur 7j vs 7j précédents), associations de vente croisée (bundles). `ProductCard` extrait en composant partagé (`components/storefront/ProductCard.jsx`), réutilisé par `StorefrontProductsPage.jsx`, la fiche produit, et le panier. Explication IA à la demande sur chaque ligne dashboard (« Pourquoi ce produit ? ») — le prompt ne reçoit que les chiffres déjà calculés, jamais l'historique brut, **aucun cache** contrairement à l'explication du score de risque (ces chiffres changent chaque jour).
+
+Testé via `manage.py test products orders team` (199 tests, dont 21 dédiés aux recommandations : co-occurrences pondérées, seuil minimum, repli similarité, exclusion duplicate/fake, score à mettre en avant, croissance en tendance, symétrie des bundles, gating de permission, dégradation IA) + suite frontend complète (412 tests, aucune régression).
+
 ---
 
 ## Risques Identifiés
