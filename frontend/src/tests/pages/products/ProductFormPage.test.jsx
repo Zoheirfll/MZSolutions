@@ -198,4 +198,24 @@ describe('ProductFormPage', () => {
       expect.objectContaining({ value: 'Nouvelle option' }),
     ))
   })
+
+  it('pré-remplit le formulaire depuis un brouillon de scan (location.state.prefill)', async () => {
+    api.get.mockImplementation((url) => {
+      if (url === '/products/categories/?parent=null') return Promise.resolve({ data: { results: [] } })
+      if (url === '/products/suppliers/') return Promise.resolve({ data: [] })
+      return Promise.resolve({ data: { count: 0 } })
+    })
+    render(
+      <MemoryRouter initialEntries={[{
+        pathname: '/dashboard/produits/nouveau',
+        state: { prefill: { name: 'Casquette scannée', price: 1200, description: 'Une casquette' } },
+      }]}>
+        <Routes>
+          <Route path="/dashboard/produits/nouveau" element={<ProductFormPage />} />
+        </Routes>
+      </MemoryRouter>
+    )
+    expect(await screen.findByDisplayValue('Casquette scannée')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('1200')).toBeInTheDocument()
+  })
 })
