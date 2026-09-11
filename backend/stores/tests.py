@@ -218,3 +218,109 @@ class SubscribeTests(TestCase):
         self.assertEqual(resp.status_code, 403)
         self.store.quota.refresh_from_db()
         self.assertIsNone(self.store.quota.plan)
+
+
+class StoreAuditEngineTest(TestCase):
+    def setUp(self):
+        self.owner, self.store = make_owner()
+
+    def test_catalogue_score_no_active_products_returns_none(self):
+        from stores.audit import compute_store_audit
+        result = compute_store_audit(self.store)
+        self.assertIsNone(result['dimensions']['catalogue']['score'])
+
+    def test_catalogue_score_full_completeness_is_100(self):
+        from products.models import Product, Category, ProductImage
+        from stores.audit import compute_store_audit
+        cat = Category.objects.create(store=self.store, name='Cat')
+        p = Product.objects.create(store=self.store, name='Complet', price=1000, cost_price=500,
+                                    description='Une description', stock=5, is_active=True)
+        p.categories.add(cat)
+        ProductImage.objects.create(product=p, image='products/x.jpg')
+        result = compute_store_audit(self.store)
+        self.assertEqual(result['dimensions']['catalogue']['score'], 100)
+
+    def test_catalogue_score_incomplete_product_lowers_score(self):
+        from products.models import Product
+        from stores.audit import compute_store_audit
+        Product.objects.create(store=self.store, name='Incomplet', price=1000, stock=5, is_active=True)
+        result = compute_store_audit(self.store)
+        self.assertEqual(result['dimensions']['catalogue']['score'], 0)
+
+    def test_logistics_score_none_without_recent_orders(self):
+        from stores.audit import compute_store_audit
+        result = compute_store_audit(self.store)
+        self.assertIsNone(result['dimensions']['logistics']['score'])
+
+    def _make_order(self, status, days_ago=1, created_at=None):
+        from django.utils import timezone
+        from orders.models import Order
+        o = Order.objects.create(
+            store=self.store, first_name='C', last_name='L', phone='0555000000',
+            wilaya='Alger', commune='Alger Centre', address='Adr', status=status,
+            subtotal=1000, shipping_cost=0, total=1000,
+        )
+        o.created_at = created_at or (timezone.now() - timezone.timedelta(days=days_ago))
+        o.save(update_fields=['created_at'])
+        return o
+
+    def test_logistics_score_penalizes_late_pending_orders(self):
+        from django.utils import timezone
+        from stores.audit import compute_store_audit
+        self._make_order('confirmed', days_ago=1)
+        self._make_order('confirmed', days_ago=1)
+        self._make_order('pending', created_at=timezone.now() - timezone.timedelta(hours=48))
+        result = compute_store_audit(self.store)
+        # confirmation_rate = 2/3*100 = 66.7, late_ratio = 1/1 = 1 -> score = round(66.7 * 0.5) = 33
+        self.assertEqual(result['dimensions']['logistics']['score'], 33)
+
+    def test_logistics_score_excludes_duplicate_and_fake(self):
+        from stores.audit import compute_store_audit
+        self._make_order('confirmed', days_ago=1)
+        self._make_order('duplicate', days_ago=1)
+        self._make_order('fake', days_ago=1)
+        result = compute_store_audit(self.store)
+        self.assertEqual(result['dimensions']['logistics']['score'], 100)
+
+    def test_stock_score_none_without_active_products(self):
+        from stores.audit import compute_store_audit
+        result = compute_store_audit(self.store)
+        self.assertIsNone(result['dimensions']['stock']['score'])
+
+    def test_stock_score_penalizes_out_of_stock_more_than_low_stock(self):
+        from products.models import Product
+        from stores.audit import compute_store_audit
+        Product.objects.create(store=self.store, name='OK', price=100, stock=50, is_active=True)
+        Product.objects.create(store=self.store, name='Bas', price=100, stock=3, is_active=True)
+        Product.objects.create(store=self.store, name='Rupture', price=100, stock=0, is_active=True)
+        result = compute_store_audit(self.store)
+        # out_of_stock_ratio = 1/3, low_stock_ratio = 1/3 (seuil défaut 5)
+        # score = round(100 - 33.33*0.7 - 33.33*0.3) = round(100 - 33.33) = 67
+        self.assertEqual(result['dimensions']['stock']['score'], 67)
+
+    def test_returns_risk_score_none_without_any_signal(self):
+        from stores.audit import compute_store_audit
+        result = compute_store_audit(self.store)
+        self.assertIsNone(result['dimensions']['returns_risk']['score'])
+
+    def test_returns_risk_score_penalizes_untreated_risk_and_losses(self):
+        from products.models import Product
+        from stores.audit import compute_store_audit
+        self._make_order('cancelled', days_ago=1)
+        self._make_order('cancelled', days_ago=1)
+        self._make_order('cancelled', days_ago=1)  # 3 cancelled même téléphone -> auto-détecté à risque, jamais marqué manuellement
+        Product.objects.create(store=self.store, name='Perte', price=100, cost_price=200, stock=5, is_active=True)
+        result = compute_store_audit(self.store)
+        self.assertLess(result['dimensions']['returns_risk']['score'], 100)
+
+    def test_global_score_ignores_none_dimensions(self):
+        from products.models import Product, Category, ProductImage
+        from stores.audit import compute_store_audit
+        cat = Category.objects.create(store=self.store, name='Cat')
+        p = Product.objects.create(store=self.store, name='Complet', price=1000, cost_price=500,
+                                    description='Une description', stock=5, is_active=True)
+        p.categories.add(cat)
+        ProductImage.objects.create(product=p, image='products/x.jpg')
+        result = compute_store_audit(self.store)
+        self.assertIsNotNone(result['global_score'])
+        self.assertIsNone(result['dimensions']['logistics']['score'])
