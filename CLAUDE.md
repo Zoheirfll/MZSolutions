@@ -1682,6 +1682,12 @@ Testé via `manage.py test stores products orders team` (235 tests, dont 16 déd
 
 Testé via `manage.py test team products orders stores` (258 tests, dont 19 dédiés au suivi confirmateurs : signaux vérifiés sur données connues, chaque drapeau déclenché/non déclenché selon ses seuils et gardes anti-bruit, gating de permission, dégradation IA) + suite frontend complète (426 tests, aucune régression).
 
+**Optimisation des fonctionnalités IA (2026-09)** — recherche côté client sur les 3 pages qui en manquaient (Recommandations produit par nom de produit, Suivi des confirmateurs par nom + filtre drapeaux, Assistant IA par titre de conversation), aucun nouvel appel réseau. Menu IA de la sidebar réorganisé en 3 sous-groupes repliables (Assistant / Prévisions / Analyse, même mécanique que les groupes Statistiques/Expéditions déjà existants) — corrige au passage un bug signalé : les routes `/dashboard/stats/previsions*` déclenchaient à tort l'ouverture du groupe Statistiques (`expanded.stats = pathname.startsWith('/dashboard/stats')`), renommées en `/dashboard/previsions-ventes`/`previsions-retours`, hors du préfixe `/stats`.
+
+Assistant IA élargi à 9 nouveaux outils (`ai_assistant/tools.py`), chacun réutilisant un module/une vue déjà existante (aucune nouvelle requête DB non déjà exposée ailleurs) avec la même formule de permission stricte que son équivalent REST : `get_inventory` étendu (prix, actif/inactif), `get_incomplete_products` (réutilise `stores.audit._catalogue_score`), `get_team_summary`, `get_confirmateur_performance` (réutilise `team.monitoring.compute_confirmateur_detail`), `get_returns_summary` (réutilise `ReturnsStatsView`), `get_pending_exchanges`, `get_open_complaints`, `get_costs_summary`, `get_payments_summary` (réutilise `finance.views._payments_summary`), `get_subscription_status` (owner/admin strict, comme la page Abonnement).
+
+Testé via `manage.py test ai_assistant orders products team stores finance inbox` (335 tests, dont 15 dédiés aux nouveaux outils) + suite frontend complète (430 tests, aucune régression).
+
 ---
 
 ## Risques Identifiés
