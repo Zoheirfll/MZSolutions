@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .models import (Store, SubscriptionQuota, SubscriptionPlan, StoreSettings, StorePage,
-                      MediaFolder, MediaFile, PixelConfig, PIXEL_TYPE_CHOICES)
+                      MediaFolder, MediaFile, PixelConfig, PIXEL_TYPE_CHOICES, StoreAudit)
 
 
 class SubscriptionPlanSerializer(serializers.ModelSerializer):
@@ -128,3 +128,15 @@ class StoreSerializer(serializers.ModelSerializer):
         if qs.exists():
             raise serializers.ValidationError("Cette URL est déjà utilisée par une autre boutique.")
         return normalized
+
+
+class StoreAuditSerializer(serializers.ModelSerializer):
+    ai_unavailable = serializers.SerializerMethodField()
+
+    class Meta:
+        model = StoreAudit
+        fields = ['computed_at', 'global_score', 'catalogue_score', 'logistics_score',
+                  'stock_score', 'returns_risk_score', 'details', 'synthesis', 'ai_unavailable']
+
+    def get_ai_unavailable(self, obj):
+        return not obj.synthesis

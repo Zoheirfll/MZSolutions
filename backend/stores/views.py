@@ -5,12 +5,14 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Store, StoreSettings, StorePage, MediaFolder, MediaFile, PixelConfig, PIXEL_TYPE_CHOICES, SubscriptionPlan
+from .models import Store, StoreSettings, StorePage, MediaFolder, MediaFile, PixelConfig, PIXEL_TYPE_CHOICES, SubscriptionPlan, StoreAudit
 from .serializers import (StoreSerializer, SubscriptionQuotaSerializer, StoreSettingsSerializer,
                            StorePageSerializer, MediaFolderSerializer, MediaFileSerializer, PixelConfigSerializer,
-                           SubscriptionPlanSerializer)
+                           SubscriptionPlanSerializer, StoreAuditSerializer)
 from core.permissions import IsOwnerOrAdminForWrites, is_owner_or_admin, has_permission
 from audit.utils import log_audit
+from ai_assistant import ollama_client
+from ai_assistant.ollama_client import OllamaUnavailableError
 
 
 class MyStoreView(APIView):
@@ -491,3 +493,93 @@ class SubscribeView(APIView):
 
         log_audit(request, 'subscription.checkout_started', store=store, description=f"Checkout d'abonnement démarré — palier {plan.name} ({billing_cycle})", metadata={'plan': plan.name, 'billing_cycle': billing_cycle, 'checkout_id': checkout_id})
         return Response({'payment_url': payment_link, 'checkout_id': checkout_id})
+
+
+class StoreAuditView(APIView):
+    """Audit global de la boutique — les 4 scores (stores/audit.py) sont
+    100% déterministes, jamais calculés par l'IA. La synthèse (points forts/
+    faibles/recommandations) est le SEUL rôle du LLM ici, à partir des
+    chiffres déjà calculés. Les scores sont toujours sauvegardés même si
+    l'appel IA échoue (ai_unavailable=True dans ce cas), jamais de perte du
+    calcul déterministe pour une panne IA ponctuelle."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if not (is_owner_or_admin(request) or has_permission(request, 'store_audit_view')):
+            return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
+        store = _get_store_from_request(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        try:
+            audit = store.audit
+        except StoreAudit.DoesNotExist:
+            return Response({'detail': "Aucun audit n'a encore été calculé."}, status=404)
+        return Response(StoreAuditSerializer(audit).data)
+
+    def post(self, request):
+        if not (is_owner_or_admin(request) or has_permission(request, 'store_audit_view')):
+            return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
+        store = _get_store_from_request(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+
+        from .audit import compute_store_audit
+        result = compute_store_audit(store)
+        dims = result['dimensions']
+
+        prompt_lines = [f"Analyse de la boutique {store.name} :"]
+        if dims['catalogue']['score'] is not None:
+            d = dims['catalogue']['details']
+            prompt_lines.append(
+                f"- Catalogue (score {dims['catalogue']['score']}/100) : {d['pct_with_image']}% des produits actifs "
+                f"ont une image, {d['pct_with_description']}% ont une description, {d['pct_with_cost_price']}% ont "
+                f"un prix d'achat renseigné, {d['pct_with_category']}% ont une catégorie."
+            )
+        if dims['logistics']['score'] is not None:
+            d = dims['logistics']['details']
+            prompt_lines.append(
+                f"- Confirmation & logistique (score {dims['logistics']['score']}/100) : taux de confirmation "
+                f"{d['confirmation_rate']}% sur {d['orders']} commandes (30 derniers jours), "
+                f"{d['late_pending']} commande(s) en attente depuis plus de 24h sur {d['pending_total']}."
+            )
+        if dims['stock']['score'] is not None:
+            d = dims['stock']['details']
+            prompt_lines.append(
+                f"- Stock (score {dims['stock']['score']}/100) : {d['out_of_stock']} produit(s) en rupture, "
+                f"{d['low_stock']} en stock bas, sur {d['active_products']} produits actifs."
+            )
+        if dims['returns_risk']['score'] is not None:
+            d = dims['returns_risk']['details']
+            prompt_lines.append(
+                f"- Retours & clients à risque (score {dims['returns_risk']['score']}/100) : taux de retour "
+                f"{d['return_rate']}%, {d['untreated_at_risk_customers']} client(s) à risque sur "
+                f"{d['at_risk_customers']} jamais traités manuellement, {d['products_at_loss']} produit(s) vendu(s) "
+                "à un prix inférieur à leur coût d'achat."
+            )
+        prompt_lines.append(
+            "Rédige en français, de façon concise (pas plus de 8 phrases au total), une synthèse en 3 blocs : "
+            "Points forts (2-3 phrases), Points faibles (2-3 phrases), Recommandations (2-4 actions concrètes, une "
+            "par point faible significatif). Base-toi UNIQUEMENT sur les chiffres fournis ci-dessus, n'invente rien "
+            "d'autre — si une dimension est absente ci-dessus, ne la mentionne pas."
+        )
+        prompt = '\n'.join(prompt_lines)
+
+        ai_unavailable = False
+        try:
+            synthesis = ollama_client.generate(prompt).strip()
+        except OllamaUnavailableError:
+            synthesis = ''
+            ai_unavailable = True
+
+        audit, _ = StoreAudit.objects.update_or_create(store=store, defaults={
+            'global_score': result['global_score'],
+            'catalogue_score': dims['catalogue']['score'],
+            'logistics_score': dims['logistics']['score'],
+            'stock_score': dims['stock']['score'],
+            'returns_risk_score': dims['returns_risk']['score'],
+            'details': dims,
+            'synthesis': synthesis,
+        })
+        data = StoreAuditSerializer(audit).data
+        data['ai_unavailable'] = ai_unavailable
+        return Response(data)

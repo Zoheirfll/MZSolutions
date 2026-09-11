@@ -324,3 +324,48 @@ class StoreAuditEngineTest(TestCase):
         result = compute_store_audit(self.store)
         self.assertIsNotNone(result['global_score'])
         self.assertIsNone(result['dimensions']['logistics']['score'])
+
+
+class StoreAuditViewsTest(TestCase):
+    def setUp(self):
+        self.owner, self.store = make_owner()
+        self.client_ = auth_client(self.owner)
+
+    def test_get_returns_404_without_prior_audit(self):
+        resp = self.client_.get('/api/stores/me/audit/')
+        self.assertEqual(resp.status_code, 404)
+
+    def test_post_requires_permission(self):
+        conf_user, _ = make_team_member(self.store, 'confirmateur')
+        client = auth_client(conf_user)
+        resp = client.post('/api/stores/me/audit/')
+        self.assertEqual(resp.status_code, 403)
+
+    def test_post_computes_and_saves_even_with_no_data(self):
+        with patch('stores.views.ollama_client.generate', return_value='Synthèse test.'):
+            resp = self.client_.post('/api/stores/me/audit/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertIsNone(resp.data['global_score'])
+        self.assertEqual(resp.data['synthesis'], 'Synthèse test.')
+
+    def test_post_saves_scores_even_if_ai_fails(self):
+        from ai_assistant.ollama_client import OllamaUnavailableError
+        from products.models import Product, Category, ProductImage
+        cat = Category.objects.create(store=self.store, name='Cat')
+        p = Product.objects.create(store=self.store, name='Complet', price=1000, cost_price=500,
+                                    description='Une description', stock=5, is_active=True)
+        p.categories.add(cat)
+        ProductImage.objects.create(product=p, image='products/x.jpg')
+        with patch('stores.views.ollama_client.generate', side_effect=OllamaUnavailableError('down')):
+            resp = self.client_.post('/api/stores/me/audit/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertIsNotNone(resp.data['global_score'])
+        self.assertEqual(resp.data['synthesis'], '')
+        self.assertTrue(resp.data['ai_unavailable'])
+
+    def test_get_returns_saved_audit_after_post(self):
+        with patch('stores.views.ollama_client.generate', return_value='Synthèse test.'):
+            self.client_.post('/api/stores/me/audit/')
+        resp = self.client_.get('/api/stores/me/audit/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['synthesis'], 'Synthèse test.')
