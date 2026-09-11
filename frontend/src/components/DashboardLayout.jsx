@@ -771,7 +771,7 @@ export default function DashboardLayout({ children, title, subtitle }) {
           )}
 
           {/* IA — regroupe toutes les fonctionnalités IA du dashboard, présentes et à venir */}
-          {(can('ai_assistant_view') || can('stats_forecast_view') || can('stats_returns_forecast_view')) && (
+          {(can('ai_assistant_view') || can('stats_forecast_view') || can('stats_returns_forecast_view') || can('recommendations_view')) && (
             <div>
               <p className="text-[10px] font-semibold px-2 mb-2 tracking-widest" style={{ color: theme.dark.muted }}>IA</p>
               <ul className="space-y-0.5">
@@ -783,6 +783,9 @@ export default function DashboardLayout({ children, title, subtitle }) {
                 )}
                 {can('stats_returns_forecast_view') && (
                   <li>{mainLink('/dashboard/stats/previsions-retours', ICONS.stats, 'Prévision de taux de retour')}</li>
+                )}
+                {can('recommendations_view') && (
+                  <li>{mainLink('/dashboard/recommandations', ICONS.stats, 'Recommandations')}</li>
                 )}
               </ul>
             </div>
