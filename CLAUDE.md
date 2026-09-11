@@ -1678,6 +1678,10 @@ Testé via `manage.py test products orders team` (199 tests, dont 21 dédiés au
 
 Testé via `manage.py test stores products orders team` (235 tests, dont 16 dédiés à l'audit : les 4 scores sur données connues, repli `None` sur données insuffisantes, score global ignorant les dimensions absentes, sauvegarde même en cas d'échec IA, gating de permission) + suite frontend complète (417 tests, aucune régression).
 
+**Suivi IA des confirmateurs (2026-09, 7ème chantier IA)** — signaux 100% déterministes (`team/monitoring.py::compute_team_overview()`/`compute_confirmateur_detail()`, aucun appel IA dans le calcul), fenêtre glissante de 30 jours : taux de confirmation (même dénominateur `processed` que `ConfirmationRateView`), part de commandes en retard >24h, taux d'échec d'appel (`CallAttempt.failure_reason`), taux d'annulation/retour. Score de performance = taux de confirmation pénalisé par les retards et les échecs d'appel. 4 drapeaux d'anomalie avec gardes anti-bruit (minimum de commandes/confirmateurs avant de se déclencher) : en ligne mais inactif (`audit.AuditLog`), retards fréquents, taux d'annulation nettement supérieur à la moyenne d'équipe, rythme de traitement très faible. Page `pages/team/ConfirmateurMonitoringPage.jsx`, permission `confirmateur_monitoring_view`, sous le menu IA — tableau vue d'ensemble avec fiche détaillée dépliable par confirmateur. Synthèse IA individuelle et synthèse d'équipe générées à la demande, **aucun cache** (contrairement à l'audit boutique — les moyennes d'équipe évoluent en continu).
+
+Testé via `manage.py test team products orders stores` (258 tests, dont 19 dédiés au suivi confirmateurs : signaux vérifiés sur données connues, chaque drapeau déclenché/non déclenché selon ses seuils et gardes anti-bruit, gating de permission, dégradation IA) + suite frontend complète (426 tests, aucune régression).
+
 ---
 
 ## Risques Identifiés
