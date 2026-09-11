@@ -26,6 +26,8 @@ import BackToSellerPage from './pages/products/BackToSellerPage'
 import ParametresLivraisonPage from './pages/ParametresLivraisonPage'
 import ProductsPage from './pages/products/ProductsPage'
 import ProductFormPage from './pages/products/ProductFormPage'
+import ProductDraftsPage from './pages/products/ProductDraftsPage'
+import ScanProductPage from './pages/ai/ScanProductPage'
 import CategoriesPage from './pages/products/CategoriesPage'
 import SuppliersPage from './pages/products/SuppliersPage'
 import SupplierCreditPage from './pages/products/SupplierCreditPage'
@@ -156,6 +158,8 @@ function App() {
           <Route path="/dashboard/produits"                  element={<PD perm="products_view"><ProductsPage /></PD>} />
           <Route path="/dashboard/produits/nouveau"          element={<PD perm="products_view"><ProductFormPage /></PD>} />
           <Route path="/dashboard/produits/:id/modifier"     element={<PD perm="products_view"><ProductFormPage /></PD>} />
+          <Route path="/dashboard/produits/brouillons-ia"    element={<PD perm="ownerAdmin"><ProductDraftsPage /></PD>} />
+          <Route path="/dashboard/produits/scanner"          element={<PD perm="ownerAdmin"><ScanProductPage /></PD>} />
           <Route path="/dashboard/produits/categories"       element={<PD perm="categories_view"><CategoriesPage /></PD>} />
           <Route path="/dashboard/produits/fournisseurs"              element={<PD perm="suppliers_view"><SuppliersPage /></PD>} />
           <Route path="/dashboard/produits/fournisseurs/credits"    element={<PD perm="supplier_credits_view"><SupplierCreditPage /></PD>} />

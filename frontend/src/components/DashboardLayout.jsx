@@ -780,6 +780,12 @@ export default function DashboardLayout({ children, title, subtitle }) {
                 {can('ai_assistant_view') && (
                   <li>{mainLink('/dashboard/assistant-ia', ICONS.marketing, 'Assistant IA')}</li>
                 )}
+                {isOwnerOrAdmin && (
+                  <li>{link('/dashboard/produits/scanner', 'Scanner un produit')}</li>
+                )}
+                {isOwnerOrAdmin && (
+                  <li>{link('/dashboard/produits/brouillons-ia', 'Brouillons de produits (scan)')}</li>
+                )}
                 {(can('stats_forecast_view') || can('stats_returns_forecast_view')) && (
                   <li>
                     <button
