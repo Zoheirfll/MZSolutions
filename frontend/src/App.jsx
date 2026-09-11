@@ -209,8 +209,8 @@ function App() {
           <Route path="/dashboard/stats/confirmateurs"       element={<PD perm="stats_confirmateurs_view"><ConfirmationRatePage /></PD>} />
           <Route path="/dashboard/stats/wilayas"             element={<PD perm="stats_wilayas_view"><WilayaStatsPage /></PD>} />
           <Route path="/dashboard/stats/sources"             element={<PD perm="stats_sources_view"><SourceStatsPage /></PD>} />
-          <Route path="/dashboard/stats/previsions"          element={<PD perm="stats_forecast_view"><SalesForecastPage /></PD>} />
-          <Route path="/dashboard/stats/previsions-retours"   element={<PD perm="stats_returns_forecast_view"><ReturnsForecastPage /></PD>} />
+          <Route path="/dashboard/previsions-ventes"          element={<PD perm="stats_forecast_view"><SalesForecastPage /></PD>} />
+          <Route path="/dashboard/previsions-retours"         element={<PD perm="stats_returns_forecast_view"><ReturnsForecastPage /></PD>} />
           <Route path="/dashboard/recommandations"            element={<PD perm="recommendations_view"><RecommendationsPage /></PD>} />
           <Route path="/dashboard/audit-boutique"              element={<PD perm="store_audit_view"><StoreAuditPage /></PD>} />
           <Route path="/dashboard/suivi-confirmateurs"         element={<PD perm="confirmateur_monitoring_view"><ConfirmateurMonitoringPage /></PD>} />
