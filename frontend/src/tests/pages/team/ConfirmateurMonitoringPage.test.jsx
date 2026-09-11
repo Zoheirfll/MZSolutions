@@ -68,4 +68,23 @@ describe('ConfirmateurMonitoringPage', () => {
     fireEvent.click(screen.getByRole('button', { name: /Analyser l'équipe/ }))
     await waitFor(() => expect(screen.getByText(/nécessite de l'attention/)).toBeInTheDocument())
   })
+
+  it('filtre par nom via la recherche', async () => {
+    mockGet()
+    render(<MemoryRouter><ConfirmateurMonitoringPage /></MemoryRouter>)
+    await screen.findByText('Sara Confirmatrice')
+    fireEvent.change(screen.getByPlaceholderText(/Rechercher un confirmateur/i), { target: { value: 'Karim' } })
+    expect(screen.queryByText('Sara Confirmatrice')).not.toBeInTheDocument()
+    expect(screen.getByText('Karim Confirmateur')).toBeInTheDocument()
+  })
+
+  it('filtre sur "Avec alerte" uniquement', async () => {
+    mockGet()
+    render(<MemoryRouter><ConfirmateurMonitoringPage /></MemoryRouter>)
+    await screen.findByText('Sara Confirmatrice')
+    fireEvent.click(screen.getByText('Tous'))
+    fireEvent.click(screen.getByText('Avec alerte'))
+    expect(screen.queryByText('Sara Confirmatrice')).not.toBeInTheDocument()
+    expect(screen.getByText('Karim Confirmateur')).toBeInTheDocument()
+  })
 })

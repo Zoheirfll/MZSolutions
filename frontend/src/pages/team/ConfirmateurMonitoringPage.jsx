@@ -1,7 +1,14 @@
 import { useEffect, useState } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
+import Select from '../../components/Select'
 import api from '../../api/axios'
 import { theme } from '../../theme'
+
+const FLAG_FILTER_OPTIONS = [
+  { value: 'all', label: 'Tous' },
+  { value: 'with_flags', label: 'Avec alerte' },
+  { value: 'without_flags', label: 'Sans alerte' },
+]
 
 const FLAG_LABELS = {
   inactive_online: 'En ligne mais inactif',
@@ -85,6 +92,15 @@ export default function ConfirmateurMonitoringPage() {
   const [loading, setLoading] = useState(true)
   const [teamExplanation, setTeamExplanation] = useState(null)
   const [loadingTeamExplain, setLoadingTeamExplain] = useState(false)
+  const [search, setSearch] = useState('')
+  const [flagFilter, setFlagFilter] = useState('all')
+
+  const filteredOverview = overview.filter(row => {
+    if (search && !row.name.toLowerCase().includes(search.trim().toLowerCase())) return false
+    if (flagFilter === 'with_flags' && row.flags.length === 0) return false
+    if (flagFilter === 'without_flags' && row.flags.length > 0) return false
+    return true
+  })
 
   useEffect(() => {
     api.get('/team/monitoring/')
@@ -115,11 +131,24 @@ export default function ConfirmateurMonitoringPage() {
               <p className="text-sm text-app-muted-light">{teamExplanation}</p>
             </div>
           )}
-          {overview.length === 0 ? (
+          <div className="flex gap-3 flex-wrap">
+            <input
+              value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="Rechercher un confirmateur…"
+              className="flex-1 min-w-48 px-3.5 py-2 rounded-lg text-sm text-app-primary border outline-none focus:border-violet-500 transition"
+              style={{ background: theme.dark.card, borderColor: theme.dark.border }}
+            />
+            <div className="w-44">
+              <Select value={flagFilter} onChange={setFlagFilter} options={FLAG_FILTER_OPTIONS} variant="dark"
+                className="w-full px-3.5 py-2 rounded-lg text-sm text-app-primary border"
+                style={{ background: theme.dark.card, borderColor: theme.dark.border }} />
+            </div>
+          </div>
+          {filteredOverview.length === 0 ? (
             <p className="text-sm text-app-muted">Aucun confirmateur actif.</p>
           ) : (
             <div className="space-y-3">
-              {overview.map(row => <ConfirmateurRow key={row.member_id} row={row} />)}
+              {filteredOverview.map(row => <ConfirmateurRow key={row.member_id} row={row} />)}
             </div>
           )}
         </div>
