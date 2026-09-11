@@ -299,6 +299,70 @@ class ExtendedToolsTest(TestCase):
         self.assertIn('introuvable', result.lower())
 
 
+class MoreExtendedToolsTest(TestCase):
+    def setUp(self):
+        self.owner, self.store = make_owner()
+
+    def _req(self, user):
+        from rest_framework.test import APIRequestFactory
+        factory = APIRequestFactory()
+        req = factory.get('/api/ai/chat/')
+        req.user = user
+        return req
+
+    def test_get_returns_summary_requires_permission(self):
+        member_user, _ = make_team_member(self.store, role='confirmateur')
+        result = ai_tools.execute_tool(self._req(member_user), 'get_returns_summary', {})
+        self.assertIn("n'avez pas la permission", result)
+
+    def test_get_returns_summary_returns_rate(self):
+        result = json.loads(ai_tools.execute_tool(self._req(self.owner), 'get_returns_summary', {}))
+        self.assertIn('return_rate', result)
+
+    def test_get_pending_exchanges_lists_open_only(self):
+        from orders.models import Order, OrderItem, ExchangeRequest
+        from products.models import Product, ProductVariant, VariantOption
+        product = Product.objects.create(store=self.store, name='Chaussure', price=1000, is_active=True)
+        variant = ProductVariant.objects.create(product=product, name='Taille')
+        opt_a = VariantOption.objects.create(variant=variant, value='40', stock=5)
+        opt_b = VariantOption.objects.create(variant=variant, value='41', stock=5)
+        order = Order.objects.create(store=self.store, first_name='C', last_name='L', phone='0555000000',
+                                      wilaya='Alger', commune='Alger Centre', address='Adr', status='delivered',
+                                      subtotal=1000, shipping_cost=0, total=1000)
+        item = OrderItem.objects.create(order=order, product=product, variant_option=opt_a, product_name='Chaussure', price=1000, quantity=1)
+        ExchangeRequest.objects.create(store=self.store, order_item=item, replacement_option=opt_b, reason='Trop petit', status='open')
+        result = json.loads(ai_tools.execute_tool(self._req(self.owner), 'get_pending_exchanges', {}))
+        self.assertEqual(result['count'], 1)
+
+    def test_get_open_complaints_counts_open_and_in_progress(self):
+        from inbox.models import Conversation
+        Conversation.objects.create(store=self.store, channel='complaint', status='open', customer_phone='0555000000')
+        Conversation.objects.create(store=self.store, channel='complaint', status='resolved', customer_phone='0555000001')
+        result = json.loads(ai_tools.execute_tool(self._req(self.owner), 'get_open_complaints', {}))
+        self.assertEqual(result['count'], 1)
+
+    def test_get_costs_summary_groups_by_category(self):
+        from datetime import date
+        from finance.models import Cost
+        Cost.objects.create(store=self.store, category='marketing', label='Facebook Ads', amount=5000,
+                             period_start=date(2026, 9, 1), period_end=date(2026, 9, 30))
+        result = json.loads(ai_tools.execute_tool(self._req(self.owner), 'get_costs_summary', {}))
+        self.assertGreater(result['total'], 0)
+
+    def test_get_payments_summary_defaults_to_ready(self):
+        result = json.loads(ai_tools.execute_tool(self._req(self.owner), 'get_payments_summary', {}))
+        self.assertIn('orders_count', result)
+
+    def test_get_subscription_status_owner_only(self):
+        member_user, _ = make_team_member(self.store, role='confirmateur')
+        result = ai_tools.execute_tool(self._req(member_user), 'get_subscription_status', {})
+        self.assertIn("n'avez pas la permission", result)
+
+    def test_get_subscription_status_returns_quota(self):
+        result = json.loads(ai_tools.execute_tool(self._req(self.owner), 'get_subscription_status', {}))
+        self.assertIn('orders_remaining', result)
+
+
 class ChatLoopTest(TestCase):
     @patch('ai_assistant.chat_loop.ollama_client.chat')
     def test_returns_final_content_without_tool_call(self, mock_chat):

@@ -130,6 +130,16 @@ def get_confirmateur_performance(request, name):
     return _serialize(compute_confirmateur_detail(store, member))
 
 
+class _RequestShim:
+    """Fait passer un objet minimal (.user/.query_params) à une vue REST
+    existante sans reconstruire une vraie requête HTTP — réutilisé par tous
+    les outils qui délèguent leur calcul à une vue déjà en place plutôt que
+    de dupliquer sa logique."""
+    def __init__(self, user, query_params):
+        self.user = user
+        self.query_params = query_params
+
+
 def get_profitability_summary(request, period_start=None, period_end=None):
     if not (is_owner_or_admin(request) or has_permission(request, 'profitability_view')):
         return _forbidden()
@@ -137,15 +147,90 @@ def get_profitability_summary(request, period_start=None, period_end=None):
     if not store:
         return _forbidden()
     from finance.views import ProfitabilitySummaryView
-
-    class _Shim:
-        def __init__(self, user, period_start, period_end):
-            self.user = user
-            self.query_params = {'period_start': period_start or '', 'period_end': period_end or ''}
-
     view = ProfitabilitySummaryView()
-    resp = view.get(_Shim(request.user, period_start, period_end))
+    resp = view.get(_RequestShim(request.user, {'period_start': period_start or '', 'period_end': period_end or ''}))
     return _serialize(resp.data if resp.status_code == 200 else {'error': 'indisponible'})
+
+
+def get_returns_summary(request, period='week'):
+    if not (is_owner_or_admin(request) or has_permission(request, 'stats_returns_view')):
+        return _forbidden()
+    store = get_store(request)
+    if not store:
+        return _forbidden()
+    from orders.stats_views import ReturnsStatsView
+    view = ReturnsStatsView()
+    resp = view.get(_RequestShim(request.user, {'period': period}))
+    if resp.status_code != 200:
+        return _serialize({'error': 'indisponible'})
+    return _serialize({'return_rate': resp.data['return_rate'], 'returned_count': resp.data['returned_count'], 'total_orders': resp.data['total_orders']})
+
+
+def get_pending_exchanges(request):
+    if not (is_owner_or_admin(request) or has_permission(request, 'exchanges_view')):
+        return _forbidden()
+    store = get_store(request)
+    if not store:
+        return _forbidden()
+    from orders.models import ExchangeRequest
+    qs = ExchangeRequest.objects.filter(store=store, status='open')
+    items = [{'id': e.id, 'reason': e.reason} for e in qs[:20]]
+    return _serialize({'count': qs.count(), 'exchanges': items})
+
+
+def get_open_complaints(request):
+    if not (is_owner_or_admin(request) or has_permission(request, 'inbox_view')):
+        return _forbidden()
+    store = get_store(request)
+    if not store:
+        return _forbidden()
+    from inbox.models import Conversation
+    qs = Conversation.objects.filter(store=store, status__in=['open', 'in_progress'])
+    return _serialize({'count': qs.count()})
+
+
+def get_costs_summary(request, period_start=None, period_end=None):
+    if not (is_owner_or_admin(request) or has_permission(request, 'costs_view')):
+        return _forbidden()
+    store = get_store(request)
+    if not store:
+        return _forbidden()
+    from finance.models import Cost
+    qs = Cost.objects.filter(store=store)
+    if period_start:
+        qs = qs.filter(period_end__gte=period_start)
+    if period_end:
+        qs = qs.filter(period_start__lte=period_end)
+    from django.db.models import Sum
+    by_category = dict(qs.values_list('category').annotate(s=Sum('amount')).order_by())
+    total = sum(by_category.values()) if by_category else 0
+    return _serialize({'total': float(total), 'by_category': {k: float(v) for k, v in by_category.items()}})
+
+
+def get_payments_summary(request, state='ready'):
+    if state not in ('ready', 'collected'):
+        state = 'ready'
+    if not (is_owner_or_admin(request) or has_permission(request, 'payments_ready_view') or has_permission(request, 'payments_collected_view')):
+        return _forbidden()
+    store = get_store(request)
+    if not store:
+        return _forbidden()
+    from finance.views import _payments_summary
+    return _serialize(_payments_summary(store, None, None, state))
+
+
+def get_subscription_status(request):
+    if not is_owner_or_admin(request):
+        return _forbidden()
+    store = get_store(request)
+    if not store:
+        return _forbidden()
+    quota = store.quota
+    return _serialize({
+        'orders_used': quota.orders_used, 'orders_limit': quota.orders_limit,
+        'orders_remaining': quota.orders_remaining, 'is_trial_active': quota.is_trial_active,
+        'plan': quota.plan.name if quota.plan else None,
+    })
 
 
 TOOL_REGISTRY = {
@@ -157,6 +242,12 @@ TOOL_REGISTRY = {
     'get_incomplete_products': get_incomplete_products,
     'get_team_summary': get_team_summary,
     'get_confirmateur_performance': get_confirmateur_performance,
+    'get_returns_summary': get_returns_summary,
+    'get_pending_exchanges': get_pending_exchanges,
+    'get_open_complaints': get_open_complaints,
+    'get_costs_summary': get_costs_summary,
+    'get_payments_summary': get_payments_summary,
+    'get_subscription_status': get_subscription_status,
 }
 
 TOOL_DEFINITIONS = [
@@ -238,6 +329,60 @@ TOOL_DEFINITIONS = [
                     'period_end': {'type': 'string', 'description': 'YYYY-MM-DD'},
                 },
             },
+        },
+    },
+    {
+        'type': 'function',
+        'function': {
+            'name': 'get_returns_summary',
+            'description': "Taux de retour et nombre de commandes retournées sur une période (day/week/month).",
+            'parameters': {'type': 'object', 'properties': {'period': {'type': 'string', 'description': "'day', 'week' ou 'month'"}}},
+        },
+    },
+    {
+        'type': 'function',
+        'function': {
+            'name': 'get_pending_exchanges',
+            'description': "Demandes d'échange en attente de validation.",
+            'parameters': {'type': 'object', 'properties': {}},
+        },
+    },
+    {
+        'type': 'function',
+        'function': {
+            'name': 'get_open_complaints',
+            'description': "Nombre de réclamations ouvertes ou en cours dans la boîte de réception.",
+            'parameters': {'type': 'object', 'properties': {}},
+        },
+    },
+    {
+        'type': 'function',
+        'function': {
+            'name': 'get_costs_summary',
+            'description': "Coûts opérationnels/marketing enregistrés, ventilés par catégorie, sur une période.",
+            'parameters': {
+                'type': 'object',
+                'properties': {
+                    'period_start': {'type': 'string', 'description': 'YYYY-MM-DD'},
+                    'period_end': {'type': 'string', 'description': 'YYYY-MM-DD'},
+                },
+            },
+        },
+    },
+    {
+        'type': 'function',
+        'function': {
+            'name': 'get_payments_summary',
+            'description': "Indicateurs de paiement COD ('ready' = prêt à recevoir, 'collected' = déjà récupéré).",
+            'parameters': {'type': 'object', 'properties': {'state': {'type': 'string', 'description': "'ready' ou 'collected'"}}},
+        },
+    },
+    {
+        'type': 'function',
+        'function': {
+            'name': 'get_subscription_status',
+            'description': "Quota de commandes restant et palier d'abonnement actuel de la boutique.",
+            'parameters': {'type': 'object', 'properties': {}},
         },
     },
 ]
