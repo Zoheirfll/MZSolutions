@@ -352,3 +352,136 @@ class InventoryListViewStockForecastTest(TestCase):
         resp = self.client_.get('/api/products/inventory/')
         row = next(r for r in resp.data['results'] if r['product_id'] == p.id)
         self.assertIsNone(row['days_until_stockout'])
+
+
+class RecommendationsEngineTest(TestCase):
+    def setUp(self):
+        self.owner, self.store = make_owner()
+        self.cat = Category.objects.create(store=self.store, name='Chaussures')
+
+    def _order_with_items(self, product_ids, status='delivered'):
+        from orders.models import Order, OrderItem
+        order = Order.objects.create(
+            store=self.store, first_name='C', last_name='L', phone='0555000000',
+            wilaya='Alger', commune='Alger Centre', address='Adr', status=status,
+            subtotal=1000, shipping_cost=0, total=1000,
+        )
+        for pid in product_ids:
+            OrderItem.objects.create(order=order, product_id=pid, product_name='X', price=100, quantity=1)
+        return order
+
+    def test_co_purchased_counts_pairs_across_orders(self):
+        from products.recommendations import co_purchased_products
+        p1 = Product.objects.create(store=self.store, name='A', price=100, stock=10, is_active=True)
+        p2 = Product.objects.create(store=self.store, name='B', price=100, stock=10, is_active=True)
+        p3 = Product.objects.create(store=self.store, name='C', price=100, stock=10, is_active=True)
+        self._order_with_items([p1.id, p2.id])
+        self._order_with_items([p1.id, p2.id])
+        self._order_with_items([p1.id, p3.id])
+        result = co_purchased_products(self.store, p1.id, limit=4)
+        result_ids = [p.id for p in result]
+        self.assertEqual(result_ids[0], p2.id)  # 2 co-occurrences > 1 pour p3
+
+    def test_co_purchased_excludes_duplicate_and_fake_orders(self):
+        from products.recommendations import co_purchased_products
+        p1 = Product.objects.create(store=self.store, name='A', price=100, stock=10, is_active=True)
+        p2 = Product.objects.create(store=self.store, name='B', price=100, stock=10, is_active=True)
+        self._order_with_items([p1.id, p2.id], status='duplicate')
+        self._order_with_items([p1.id, p2.id], status='fake')
+        result = co_purchased_products(self.store, p1.id, limit=4)
+        self.assertNotIn(p2.id, [p.id for p in result])
+
+    def test_co_purchased_requires_minimum_two_occurrences(self):
+        from products.recommendations import co_purchased_products
+        p1 = Product.objects.create(store=self.store, name='A', price=100, stock=10, is_active=True)
+        p2 = Product.objects.create(store=self.store, name='B', price=100, stock=10, is_active=True)
+        self._order_with_items([p1.id, p2.id])  # une seule occurrence
+        result = co_purchased_products(self.store, p1.id, limit=4)
+        self.assertNotIn(p2.id, [p.id for p in result])
+
+    def test_similar_products_same_category_and_price_range(self):
+        from products.recommendations import similar_products
+        ref = Product.objects.create(store=self.store, name='Ref', price=1000, stock=5, is_active=True)
+        ref.categories.add(self.cat)
+        close = Product.objects.create(store=self.store, name='Close', price=1100, stock=5, is_active=True)
+        close.categories.add(self.cat)
+        far = Product.objects.create(store=self.store, name='Far', price=5000, stock=5, is_active=True)
+        far.categories.add(self.cat)
+        other_cat = Product.objects.create(store=self.store, name='OtherCat', price=1000, stock=5, is_active=True)
+        result = similar_products(self.store, ref, limit=4)
+        result_ids = [p.id for p in result]
+        self.assertIn(close.id, result_ids)
+        self.assertNotIn(far.id, result_ids)
+        self.assertNotIn(other_cat.id, result_ids)
+
+    def test_recommended_products_for_falls_back_to_similar(self):
+        from products.recommendations import recommended_products_for
+        ref = Product.objects.create(store=self.store, name='Ref', price=1000, stock=5, is_active=True)
+        ref.categories.add(self.cat)
+        similar = Product.objects.create(store=self.store, name='Similar', price=1050, stock=5, is_active=True)
+        similar.categories.add(self.cat)
+        result = recommended_products_for(self.store, ref, limit=4)
+        self.assertIn(similar.id, [p.id for p in result])
+
+    def test_cart_recommendations_aggregates_across_cart_items(self):
+        from products.recommendations import cart_recommendations
+        p1 = Product.objects.create(store=self.store, name='A', price=100, stock=10, is_active=True)
+        p2 = Product.objects.create(store=self.store, name='B', price=100, stock=10, is_active=True)
+        p3 = Product.objects.create(store=self.store, name='C', price=100, stock=10, is_active=True)
+        self._order_with_items([p1.id, p3.id])
+        self._order_with_items([p1.id, p3.id])
+        self._order_with_items([p2.id, p3.id])
+        self._order_with_items([p2.id, p3.id])
+        result = cart_recommendations(self.store, [p1.id, p2.id], limit=4)
+        result_ids = [p.id for p in result]
+        self.assertIn(p3.id, result_ids)
+        self.assertNotIn(p1.id, result_ids)
+        self.assertNotIn(p2.id, result_ids)
+
+    def _sell(self, product, qty, days_ago):
+        from django.utils import timezone
+        from products.models import StockMovement
+        m = StockMovement.objects.create(store=self.store, product=product, quantity=-qty, reason='order_sale')
+        m.created_at = timezone.now() - timezone.timedelta(days=days_ago)
+        m.save(update_fields=['created_at'])
+
+    def test_products_to_promote_favors_high_margin_high_stock_low_velocity(self):
+        from products.recommendations import products_to_promote
+        good = Product.objects.create(store=self.store, name='Good', price=1000, cost_price=200, stock=50, is_active=True)
+        bad = Product.objects.create(store=self.store, name='Bad', price=1000, cost_price=900, stock=2, is_active=True)
+        self._sell(bad, qty=20, days_ago=1)  # forte vélocité récente, pas un candidat
+        result = products_to_promote(self.store, limit=10)
+        result_ids = [r['product'].id for r in result]
+        self.assertIn(good.id, result_ids)
+        good_idx = result_ids.index(good.id)
+        self.assertNotIn(bad.id, result_ids[:good_idx]) if bad.id in result_ids else None
+
+    def test_products_to_promote_excludes_out_of_stock_and_no_cost_price(self):
+        from products.recommendations import products_to_promote
+        Product.objects.create(store=self.store, name='NoCost', price=1000, stock=50, is_active=True)
+        Product.objects.create(store=self.store, name='OutOfStock', price=1000, cost_price=200, stock=0, is_active=True)
+        result = products_to_promote(self.store, limit=10)
+        self.assertEqual(result, [])
+
+    def test_trending_products_only_positive_growth(self):
+        from products.recommendations import trending_products
+        rising = Product.objects.create(store=self.store, name='Rising', price=100, stock=50, is_active=True)
+        falling = Product.objects.create(store=self.store, name='Falling', price=100, stock=50, is_active=True)
+        # rising : rien il y a 8-14j, ventes fortes ces 7 derniers jours
+        self._sell(rising, qty=10, days_ago=2)
+        # falling : ventes fortes il y a 8-14j, rien récemment
+        self._sell(falling, qty=10, days_ago=10)
+        result = trending_products(self.store, limit=10)
+        result_ids = [r['product'].id for r in result]
+        self.assertIn(rising.id, result_ids)
+        self.assertNotIn(falling.id, result_ids)
+
+    def test_bundle_suggestions_symmetric_pair_counted_once(self):
+        from products.recommendations import bundle_suggestions
+        p1 = Product.objects.create(store=self.store, name='A', price=100, stock=10, is_active=True)
+        p2 = Product.objects.create(store=self.store, name='B', price=100, stock=10, is_active=True)
+        self._order_with_items([p1.id, p2.id])
+        self._order_with_items([p2.id, p1.id])  # même paire, ordre inversé dans les items
+        result = bundle_suggestions(self.store, limit=10)
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]['count'], 2)
