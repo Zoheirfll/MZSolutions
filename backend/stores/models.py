@@ -246,3 +246,21 @@ class MediaFile(models.Model):
 
     def __str__(self):
         return f"{self.original_name} — {self.store.name}"
+
+
+class StoreAudit(models.Model):
+    """Dernier audit calculé pour la boutique — une seule ligne, écrasée à
+    chaque recalcul (pas d'historique en v1). Scores 100% déterministes
+    (stores/audit.py), synthesis = texte IA généré à partir de ces scores."""
+    store = models.OneToOneField(Store, on_delete=models.CASCADE, related_name='audit')
+    computed_at = models.DateTimeField(auto_now=True)
+    global_score = models.PositiveSmallIntegerField(null=True)
+    catalogue_score = models.PositiveSmallIntegerField(null=True)
+    logistics_score = models.PositiveSmallIntegerField(null=True)
+    stock_score = models.PositiveSmallIntegerField(null=True)
+    returns_risk_score = models.PositiveSmallIntegerField(null=True)
+    details = models.JSONField(default=dict)
+    synthesis = models.TextField(blank=True)
+
+    def __str__(self):
+        return f"Audit {self.store.name} — {self.global_score}"
