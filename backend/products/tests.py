@@ -485,3 +485,73 @@ class RecommendationsEngineTest(TestCase):
         result = bundle_suggestions(self.store, limit=10)
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0]['count'], 2)
+
+
+class RecommendationsViewsTest(TestCase):
+    def setUp(self):
+        self.owner, self.store = make_owner()
+        self.client_ = auth_client(self.owner)
+
+    def test_promote_requires_permission(self):
+        conf_user, _ = make_team_member(self.store, 'confirmateur')
+        client = auth_client(conf_user)
+        resp = client.get('/api/products/recommendations/promote/')
+        self.assertEqual(resp.status_code, 403)
+
+    def test_promote_returns_serialized_results(self):
+        Product.objects.create(store=self.store, name='Good', price=1000, cost_price=200, stock=50, is_active=True)
+        resp = self.client_.get('/api/products/recommendations/promote/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(resp.data['results']), 1)
+        self.assertIn('score', resp.data['results'][0])
+
+    def test_trending_returns_empty_without_sales(self):
+        resp = self.client_.get('/api/products/recommendations/trending/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['results'], [])
+
+    def test_bundles_returns_empty_without_history(self):
+        resp = self.client_.get('/api/products/recommendations/bundles/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['results'], [])
+
+    def test_explain_promote_calls_ai_and_returns_text(self):
+        from unittest.mock import patch
+        p = Product.objects.create(store=self.store, name='Good', price=1000, cost_price=200, stock=50, is_active=True)
+        with patch('products.views.ollama_client.generate', return_value='Bonne marge, stock élevé.'):
+            resp = self.client_.post(f'/api/products/recommendations/{p.id}/explain/?type=promote')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['explanation'], 'Bonne marge, stock élevé.')
+
+    def test_explain_returns_503_on_ai_failure(self):
+        from unittest.mock import patch
+        from ai_assistant.ollama_client import OllamaUnavailableError
+        p = Product.objects.create(store=self.store, name='Good', price=1000, cost_price=200, stock=50, is_active=True)
+        with patch('products.views.ollama_client.generate', side_effect=OllamaUnavailableError('down')):
+            resp = self.client_.post(f'/api/products/recommendations/{p.id}/explain/?type=promote')
+        self.assertEqual(resp.status_code, 503)
+
+    def test_bundle_explain_calls_ai(self):
+        from unittest.mock import patch
+        pa = Product.objects.create(store=self.store, name='A', price=100, stock=10, is_active=True)
+        pb = Product.objects.create(store=self.store, name='B', price=100, stock=10, is_active=True)
+        from orders.models import Order, OrderItem
+        order = Order.objects.create(
+            store=self.store, first_name='C', last_name='L', phone='0555000000',
+            wilaya='Alger', commune='Alger Centre', address='Adr', status='delivered',
+            subtotal=100, shipping_cost=0, total=100,
+        )
+        OrderItem.objects.create(order=order, product=pa, product_name='A', price=100, quantity=1)
+        OrderItem.objects.create(order=order, product=pb, product_name='B', price=100, quantity=1)
+        order2 = Order.objects.create(
+            store=self.store, first_name='C2', last_name='L2', phone='0555000001',
+            wilaya='Alger', commune='Alger Centre', address='Adr', status='delivered',
+            subtotal=100, shipping_cost=0, total=100,
+        )
+        OrderItem.objects.create(order=order2, product=pa, product_name='A', price=100, quantity=1)
+        OrderItem.objects.create(order=order2, product=pb, product_name='B', price=100, quantity=1)
+        with patch('products.views.ollama_client.generate', return_value='Souvent achetés ensemble.'):
+            resp = self.client_.post('/api/products/recommendations/bundle-explain/',
+                                      {'product_id_a': pa.id, 'product_id_b': pb.id}, format='json')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['explanation'], 'Souvent achetés ensemble.')

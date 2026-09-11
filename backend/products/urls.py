@@ -13,6 +13,8 @@ from .views import (
     AllCreditsView, AllPaymentsView,
     ProductReviewListView, ProductReviewDetailView, PublicReviewView,
     PromotionListCreateView, PromotionDetailView, PromotionValidateView,
+    RecommendationsPromoteView, RecommendationsTrendingView, RecommendationsBundlesView,
+    RecommendationExplainView, RecommendationBundleExplainView,
 )
 
 urlpatterns = [
@@ -69,4 +71,11 @@ urlpatterns = [
     path('promotions/',                                    PromotionListCreateView.as_view()),
     path('promotions/validate/',                           PromotionValidateView.as_view()),
     path('promotions/<int:pk>/',                           PromotionDetailView.as_view()),
+
+    # Recommandations produit
+    path('recommendations/promote/',                      RecommendationsPromoteView.as_view()),
+    path('recommendations/trending/',                      RecommendationsTrendingView.as_view()),
+    path('recommendations/bundles/',                        RecommendationsBundlesView.as_view()),
+    path('recommendations/<int:pk>/explain/',               RecommendationExplainView.as_view()),
+    path('recommendations/bundle-explain/',                  RecommendationBundleExplainView.as_view()),
 ]

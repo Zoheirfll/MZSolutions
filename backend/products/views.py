@@ -18,6 +18,8 @@ from core.permissions import get_store as _get_store, IsOwnerOrAdminForWrites, i
 from core.pagination import parse_pagination
 from .stock import record_stock_movement, log_stock_change_if_needed
 from audit.utils import log_audit
+from ai_assistant import ollama_client
+from ai_assistant.ollama_client import OllamaUnavailableError
 
 
 # ─── Categories ───────────────────────────────────────────────────────────────
@@ -1554,3 +1556,141 @@ class PublicStorePageView(APIView):
             return Response(StorePageSerializer(page).data)
         except Exception:
             return Response({'detail': 'Page introuvable.'}, status=404)
+
+
+class RecommendationsPromoteView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if not (is_owner_or_admin(request) or has_permission(request, 'recommendations_view')):
+            return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
+        store = _get_store(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        from .recommendations import products_to_promote
+        results = products_to_promote(store)
+        return Response({'results': [{
+            'product_id': r['product'].id, 'product_name': r['product'].name,
+            'margin_pct': r['margin_pct'], 'total_stock': r['total_stock'],
+            'sales_rate_14d': r['sales_rate_14d'], 'score': r['score'],
+        } for r in results]})
+
+
+class RecommendationsTrendingView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if not (is_owner_or_admin(request) or has_permission(request, 'recommendations_view')):
+            return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
+        store = _get_store(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        from .recommendations import trending_products
+        results = trending_products(store)
+        return Response({'results': [{
+            'product_id': r['product'].id, 'product_name': r['product'].name,
+            'recent_rate': r['recent_rate'], 'prior_rate': r['prior_rate'], 'growth': r['growth'],
+        } for r in results]})
+
+
+class RecommendationsBundlesView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if not (is_owner_or_admin(request) or has_permission(request, 'recommendations_view')):
+            return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
+        store = _get_store(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        from .recommendations import bundle_suggestions
+        results = bundle_suggestions(store)
+        return Response({'results': [{
+            'product_id_a': r['product_a'].id, 'product_name_a': r['product_a'].name,
+            'product_id_b': r['product_b'].id, 'product_name_b': r['product_b'].name,
+            'count': r['count'],
+        } for r in results]})
+
+
+class RecommendationExplainView(APIView):
+    """Explication IA à la demande pour un produit « à mettre en avant » ou
+    « en tendance » — JAMAIS de cache (contrairement à Order.risk_explanation),
+    ces chiffres changent chaque jour. Le prompt ne reçoit que les chiffres
+    déjà calculés par recommendations.py, jamais l'historique brut."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        if not (is_owner_or_admin(request) or has_permission(request, 'recommendations_view')):
+            return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
+        store = _get_store(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        try:
+            product = store.products.get(pk=pk)
+        except Product.DoesNotExist:
+            return Response({'detail': 'Produit introuvable.'}, status=404)
+
+        kind = request.query_params.get('type')
+        from .recommendations import products_to_promote, trending_products
+        if kind == 'promote':
+            match = next((r for r in products_to_promote(store) if r['product'].id == product.id), None)
+            if not match:
+                return Response({'detail': "Ce produit n'est plus un candidat à mettre en avant."}, status=400)
+            prompt = (
+                f"Le produit « {product.name} » de la boutique {store.name} a une marge de "
+                f"{match['margin_pct'] * 100:.0f}%, un stock disponible de {match['total_stock']} unités, "
+                f"et un rythme de vente de {match['sales_rate_14d']:.1f} unités/jour sur les 14 derniers jours.\n"
+                "Explique en 2-3 phrases, en français, pourquoi ce produit est un bon candidat à mettre en "
+                "avant (promo, mise en avant accueil) — base-toi UNIQUEMENT sur ces chiffres, n'invente rien d'autre."
+            )
+        elif kind == 'trending':
+            match = next((r for r in trending_products(store) if r['product'].id == product.id), None)
+            if not match:
+                return Response({'detail': "Ce produit n'est plus en tendance."}, status=400)
+            prompt = (
+                f"Le produit « {product.name} » de la boutique {store.name} se vendait à "
+                f"{match['prior_rate']:.1f} unités/jour, contre {match['recent_rate']:.1f} unités/jour "
+                f"maintenant (croissance de {match['growth']:.1f} unité/jour).\n"
+                "Explique en 2-3 phrases, en français, pourquoi ce produit est en tendance et qu'il faut "
+                "surveiller son stock — base-toi UNIQUEMENT sur ces chiffres, n'invente rien d'autre."
+            )
+        else:
+            return Response({'detail': "Paramètre 'type' invalide (attendu : promote ou trending)."}, status=400)
+
+        try:
+            explanation = ollama_client.generate(prompt)
+        except OllamaUnavailableError:
+            return Response({'detail': 'Assistant IA indisponible'}, status=503)
+        return Response({'explanation': explanation.strip()})
+
+
+class RecommendationBundleExplainView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        if not (is_owner_or_admin(request) or has_permission(request, 'recommendations_view')):
+            return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
+        store = _get_store(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        try:
+            product_a = store.products.get(pk=request.data.get('product_id_a'))
+            product_b = store.products.get(pk=request.data.get('product_id_b'))
+        except (Product.DoesNotExist, ValueError, TypeError):
+            return Response({'detail': 'Produit introuvable.'}, status=404)
+
+        from .recommendations import bundle_suggestions
+        match = next((r for r in bundle_suggestions(store)
+                      if {r['product_a'].id, r['product_b'].id} == {product_a.id, product_b.id}), None)
+        if not match:
+            return Response({'detail': "Cette paire n'est plus une suggestion de bundle."}, status=400)
+        prompt = (
+            f"Les produits « {product_a.name} » et « {product_b.name} » de la boutique {store.name} ont été "
+            f"achetés ensemble dans {match['count']} commandes.\n"
+            "Explique en 2-3 phrases, en français, pourquoi proposer ces deux produits en offre groupée "
+            "(bundle) — base-toi UNIQUEMENT sur ce chiffre, n'invente rien d'autre."
+        )
+        try:
+            explanation = ollama_client.generate(prompt)
+        except OllamaUnavailableError:
+            return Response({'detail': 'Assistant IA indisponible'}, status=503)
+        return Response({'explanation': explanation.strip()})
