@@ -1247,6 +1247,23 @@ class PublicCategoryListView(APIView):
         return Response(data)
 
 
+def _serialize_public_product_card(request, p):
+    first_image = p.images.order_by('order').first()
+    image_url = request.build_absolute_uri(first_image.image.url) if first_image and first_image.image else None
+    promo = p.active_auto_promotion()
+    display_price = p.price
+    original_price = None
+    if promo:
+        display_price = p.price - promo.compute_discount(p.price)
+        original_price = p.price
+    return {
+        'id': p.id, 'slug': p.slug, 'name': p.name,
+        'price': str(display_price),
+        'original_price': str(original_price) if original_price is not None else None,
+        'image_url': image_url,
+    }
+
+
 class PublicProductListView(APIView):
     permission_classes = [AllowAny]
 
@@ -1310,6 +1327,37 @@ class PublicProductListView(APIView):
             })
 
         return Response({'count': total, 'page': page, 'per_page': per_page, 'results': results})
+
+
+class PublicProductRecommendationsView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, slug, pk):
+        store = _get_public_store(slug)
+        if not store:
+            return Response({'detail': 'Boutique introuvable.'}, status=404)
+        try:
+            product = store.products.filter(is_active=True).get(pk=pk)
+        except Product.DoesNotExist:
+            return Response({'detail': 'Produit introuvable.'}, status=404)
+        from .recommendations import recommended_products_for
+        results = recommended_products_for(store, product)
+        return Response({'results': [_serialize_public_product_card(request, p) for p in results]})
+
+
+class PublicCartRecommendationsView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request, slug):
+        store = _get_public_store(slug)
+        if not store:
+            return Response({'detail': 'Boutique introuvable.'}, status=404)
+        product_ids = request.data.get('product_ids') or []
+        if not product_ids:
+            return Response({'results': []})
+        from .recommendations import cart_recommendations
+        results = cart_recommendations(store, product_ids)
+        return Response({'results': [_serialize_public_product_card(request, p) for p in results]})
 
 
 class PublicCatalogFeedView(APIView):

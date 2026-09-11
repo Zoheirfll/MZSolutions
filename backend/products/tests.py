@@ -555,3 +555,40 @@ class RecommendationsViewsTest(TestCase):
                                       {'product_id_a': pa.id, 'product_id_b': pb.id}, format='json')
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.data['explanation'], 'Souvent achetés ensemble.')
+
+
+class PublicRecommendationsTest(TestCase):
+    def setUp(self):
+        self.owner, self.store = make_owner()
+        self.cat = Category.objects.create(store=self.store, name='Chaussures')
+
+    def test_product_recommendations_returns_similar_products(self):
+        ref = Product.objects.create(store=self.store, name='Ref', price=1000, stock=5, is_active=True)
+        ref.categories.add(self.cat)
+        similar = Product.objects.create(store=self.store, name='Similar', price=1050, stock=5, is_active=True)
+        similar.categories.add(self.cat)
+        resp = self.client.get(f'/api/public/store/{self.store.slug}/products/{ref.id}/recommendations/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn(similar.id, [r['id'] for r in resp.data['results']])
+
+    def test_product_recommendations_404_unknown_product(self):
+        resp = self.client.get(f'/api/public/store/{self.store.slug}/products/999999/recommendations/')
+        self.assertEqual(resp.status_code, 404)
+
+    def test_cart_recommendations_returns_similar_fallback(self):
+        import json
+        ref = Product.objects.create(store=self.store, name='Ref', price=1000, stock=5, is_active=True)
+        ref.categories.add(self.cat)
+        similar = Product.objects.create(store=self.store, name='Similar', price=1050, stock=5, is_active=True)
+        similar.categories.add(self.cat)
+        resp = self.client.post(f'/api/public/store/{self.store.slug}/cart-recommendations/',
+                                 data=json.dumps({'product_ids': [ref.id]}), content_type='application/json')
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn(similar.id, [r['id'] for r in resp.data['results']])
+
+    def test_cart_recommendations_empty_list_returns_empty(self):
+        import json
+        resp = self.client.post(f'/api/public/store/{self.store.slug}/cart-recommendations/',
+                                 data=json.dumps({'product_ids': []}), content_type='application/json')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['results'], [])

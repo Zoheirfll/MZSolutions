@@ -2,6 +2,7 @@
 réseau, aucun appel IA. Voir docs/superpowers/specs/2026-09-11-recommandations-produit-design.md."""
 from collections import Counter
 from datetime import timedelta
+from decimal import Decimal
 from itertools import combinations
 
 from django.db.models import Sum
@@ -46,8 +47,8 @@ def co_purchased_products(store, product_id, limit=4):
 
 def similar_products(store, product, limit=4, exclude_ids=None):
     exclude_ids = set(exclude_ids or []) | {product.id}
-    low = product.price * (1 - PRICE_RANGE_PCT)
-    high = product.price * (1 + PRICE_RANGE_PCT)
+    low = product.price * (Decimal('1') - Decimal(str(PRICE_RANGE_PCT)))
+    high = product.price * (Decimal('1') + Decimal(str(PRICE_RANGE_PCT)))
     category_ids = list(product.categories.values_list('id', flat=True))
     if not category_ids:
         return []
