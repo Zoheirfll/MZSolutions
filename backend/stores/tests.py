@@ -247,6 +247,16 @@ class StoreAuditEngineTest(TestCase):
         result = compute_store_audit(self.store)
         self.assertEqual(result['dimensions']['catalogue']['score'], 0)
 
+    def test_catalogue_details_lists_incomplete_products_by_name(self):
+        from products.models import Product
+        from stores.audit import compute_store_audit
+        p = Product.objects.create(store=self.store, name='Incomplet', price=1000, stock=5, is_active=True)
+        details = compute_store_audit(self.store)['dimensions']['catalogue']['details']
+        self.assertEqual(details['missing_image'], [{'id': p.id, 'name': 'Incomplet'}])
+        self.assertEqual(details['missing_description'], [{'id': p.id, 'name': 'Incomplet'}])
+        self.assertEqual(details['missing_cost_price'], [{'id': p.id, 'name': 'Incomplet'}])
+        self.assertEqual(details['missing_category'], [{'id': p.id, 'name': 'Incomplet'}])
+
     def test_logistics_score_none_without_recent_orders(self):
         from stores.audit import compute_store_audit
         result = compute_store_audit(self.store)
@@ -274,6 +284,15 @@ class StoreAuditEngineTest(TestCase):
         # confirmation_rate = 2/3*100 = 66.7, late_ratio = 1/1 = 1 -> score = round(66.7 * 0.5) = 33
         self.assertEqual(result['dimensions']['logistics']['score'], 33)
 
+    def test_logistics_details_lists_late_orders(self):
+        from django.utils import timezone
+        from stores.audit import compute_store_audit
+        late = self._make_order('pending', created_at=timezone.now() - timezone.timedelta(hours=48))
+        details = compute_store_audit(self.store)['dimensions']['logistics']['details']
+        self.assertEqual(len(details['late_orders']), 1)
+        self.assertEqual(details['late_orders'][0]['id'], late.id)
+        self.assertGreaterEqual(details['late_orders'][0]['hours_late'], 48)
+
     def test_logistics_score_excludes_duplicate_and_fake(self):
         from stores.audit import compute_store_audit
         self._make_order('confirmed', days_ago=1)
@@ -298,6 +317,15 @@ class StoreAuditEngineTest(TestCase):
         # score = round(100 - 33.33*0.7 - 33.33*0.3) = round(100 - 33.33) = 67
         self.assertEqual(result['dimensions']['stock']['score'], 67)
 
+    def test_stock_details_lists_products_by_name(self):
+        from products.models import Product
+        from stores.audit import compute_store_audit
+        Product.objects.create(store=self.store, name='Bas', price=100, stock=3, is_active=True)
+        Product.objects.create(store=self.store, name='Rupture', price=100, stock=0, is_active=True)
+        details = compute_store_audit(self.store)['dimensions']['stock']['details']
+        self.assertEqual([p['name'] for p in details['out_of_stock_products']], ['Rupture'])
+        self.assertEqual([p['name'] for p in details['low_stock_products']], ['Bas'])
+
     def test_returns_risk_score_none_without_any_signal(self):
         from stores.audit import compute_store_audit
         result = compute_store_audit(self.store)
@@ -312,6 +340,17 @@ class StoreAuditEngineTest(TestCase):
         Product.objects.create(store=self.store, name='Perte', price=100, cost_price=200, stock=5, is_active=True)
         result = compute_store_audit(self.store)
         self.assertLess(result['dimensions']['returns_risk']['score'], 100)
+
+    def test_returns_risk_details_lists_untreated_customer_and_loss_product(self):
+        from products.models import Product
+        from stores.audit import compute_store_audit
+        self._make_order('cancelled', days_ago=1)
+        self._make_order('cancelled', days_ago=1)
+        self._make_order('cancelled', days_ago=1)
+        Product.objects.create(store=self.store, name='Perte', price=100, cost_price=200, stock=5, is_active=True)
+        details = compute_store_audit(self.store)['dimensions']['returns_risk']['details']
+        self.assertEqual(details['untreated_customers'], [{'phone': '0555000000', 'risky_count': 3}])
+        self.assertEqual([p['name'] for p in details['at_loss_products']], ['Perte'])
 
     def test_global_score_ignores_none_dimensions(self):
         from products.models import Product, Category, ProductImage
