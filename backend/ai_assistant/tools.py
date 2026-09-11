@@ -67,7 +67,7 @@ def get_inventory(request, search=None):
     qs = store.products.prefetch_related('variants__options__sub_options').filter(is_active=True)
     if search:
         qs = qs.filter(name__icontains=search)
-    products = [{'name': p.name, 'stock': p.total_stock} for p in qs[:30]]
+    products = [{'name': p.name, 'stock': p.total_stock, 'price': float(p.price), 'is_active': p.is_active} for p in qs[:30]]
     return _serialize({'count': qs.count(), 'products': products})
 
 
@@ -80,6 +80,54 @@ def get_at_risk_clients(request):
     from orders.models import CustomerRisk
     risky = list(CustomerRisk.objects.filter(store=store, manual_risk=True).values('phone', 'note')[:20])
     return _serialize({'manually_flagged': risky})
+
+
+def get_incomplete_products(request):
+    """Réutilise le calcul de l'audit boutique (stores/audit.py) — jamais de
+    duplication de la logique de complétude catalogue."""
+    if not (is_owner_or_admin(request) or has_permission(request, 'products_view')):
+        return _forbidden()
+    store = get_store(request)
+    if not store:
+        return _forbidden()
+    from stores.audit import _catalogue_score
+    result = _catalogue_score(store)
+    d = result['details']
+    if not d.get('active_products'):
+        return _serialize({'active_products': 0})
+    return _serialize({
+        'active_products': d['active_products'],
+        'missing_image': [p['name'] for p in d['missing_image'][:15]],
+        'missing_description': [p['name'] for p in d['missing_description'][:15]],
+        'missing_cost_price': [p['name'] for p in d['missing_cost_price'][:15]],
+        'missing_category': [p['name'] for p in d['missing_category'][:15]],
+    })
+
+
+def get_team_summary(request):
+    if not (is_owner_or_admin(request) or has_permission(request, 'team_view')):
+        return _forbidden()
+    store = get_store(request)
+    if not store:
+        return _forbidden()
+    members = store.team_members.filter(is_active=True)
+    return _serialize({'members': [
+        {'name': f"{m.first_name} {m.last_name}".strip(), 'role': m.role, 'online': m.is_currently_online}
+        for m in members
+    ]})
+
+
+def get_confirmateur_performance(request, name):
+    if not (is_owner_or_admin(request) or has_permission(request, 'confirmateur_monitoring_view')):
+        return _forbidden()
+    store = get_store(request)
+    if not store:
+        return _forbidden()
+    member = store.team_members.filter(role='confirmateur', is_active=True, first_name__icontains=name).first()
+    if not member:
+        return f"Confirmateur « {name} » introuvable."
+    from team.monitoring import compute_confirmateur_detail
+    return _serialize(compute_confirmateur_detail(store, member))
 
 
 def get_profitability_summary(request, period_start=None, period_end=None):
@@ -106,6 +154,9 @@ TOOL_REGISTRY = {
     'get_inventory': get_inventory,
     'get_at_risk_clients': get_at_risk_clients,
     'get_profitability_summary': get_profitability_summary,
+    'get_incomplete_products': get_incomplete_products,
+    'get_team_summary': get_team_summary,
+    'get_confirmateur_performance': get_confirmateur_performance,
 }
 
 TOOL_DEFINITIONS = [
@@ -145,6 +196,34 @@ TOOL_DEFINITIONS = [
             'name': 'get_at_risk_clients',
             'description': "Clients marqués manuellement à risque.",
             'parameters': {'type': 'object', 'properties': {}},
+        },
+    },
+    {
+        'type': 'function',
+        'function': {
+            'name': 'get_incomplete_products',
+            'description': "Produits actifs dont la fiche est incomplète (sans image, sans description, sans prix d'achat, ou sans catégorie).",
+            'parameters': {'type': 'object', 'properties': {}},
+        },
+    },
+    {
+        'type': 'function',
+        'function': {
+            'name': 'get_team_summary',
+            'description': "Liste des membres actifs de l'équipe (nom, rôle, en ligne ou non).",
+            'parameters': {'type': 'object', 'properties': {}},
+        },
+    },
+    {
+        'type': 'function',
+        'function': {
+            'name': 'get_confirmateur_performance',
+            'description': "Performance et signaux d'anomalie d'un confirmateur précis, par son prénom.",
+            'parameters': {
+                'type': 'object',
+                'properties': {'name': {'type': 'string', 'description': 'Prénom du confirmateur'}},
+                'required': ['name'],
+            },
         },
     },
     {

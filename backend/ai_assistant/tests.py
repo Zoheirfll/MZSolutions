@@ -248,6 +248,57 @@ class ToolsTest(TestCase):
         self.assertIn("n'avez pas la permission", result)
 
 
+class ExtendedToolsTest(TestCase):
+    def setUp(self):
+        self.owner, self.store = make_owner()
+
+    def _req(self, user):
+        from rest_framework.test import APIRequestFactory
+        factory = APIRequestFactory()
+        req = factory.get('/api/ai/chat/')
+        req.user = user
+        return req
+
+    def test_get_inventory_includes_price_and_active_status(self):
+        from products.models import Product
+        Product.objects.create(store=self.store, name='Complet', price=1000, stock=5, is_active=True)
+        result = json.loads(ai_tools.execute_tool(self._req(self.owner), 'get_inventory', {}))
+        row = result['products'][0]
+        self.assertEqual(row['price'], 1000.0)
+        self.assertTrue(row['is_active'])
+
+    def test_get_incomplete_products_requires_permission(self):
+        member_user, _ = make_team_member(self.store, role='confirmateur')
+        result = ai_tools.execute_tool(self._req(member_user), 'get_incomplete_products', {})
+        self.assertIn("n'avez pas la permission", result)
+
+    def test_get_incomplete_products_lists_missing_fields(self):
+        from products.models import Product
+        Product.objects.create(store=self.store, name='Incomplet', price=1000, stock=5, is_active=True)
+        result = json.loads(ai_tools.execute_tool(self._req(self.owner), 'get_incomplete_products', {}))
+        self.assertEqual(result['active_products'], 1)
+        self.assertIn('Incomplet', result['missing_image'])
+
+    def test_get_team_summary_requires_permission(self):
+        member_user, _ = make_team_member(self.store, role='confirmateur')
+        result = ai_tools.execute_tool(self._req(member_user), 'get_team_summary', {})
+        self.assertIn("n'avez pas la permission", result)
+
+    def test_get_team_summary_lists_active_members(self):
+        make_team_member(self.store, role='confirmateur')
+        result = json.loads(ai_tools.execute_tool(self._req(self.owner), 'get_team_summary', {}))
+        self.assertEqual(len(result['members']), 1)
+
+    def test_get_confirmateur_performance_by_name(self):
+        member_user, member = make_team_member(self.store, role='confirmateur')
+        result = json.loads(ai_tools.execute_tool(self._req(self.owner), 'get_confirmateur_performance', {'name': member.first_name}))
+        self.assertEqual(result['member_id'], member.id)
+
+    def test_get_confirmateur_performance_unknown_name(self):
+        result = ai_tools.execute_tool(self._req(self.owner), 'get_confirmateur_performance', {'name': 'Inconnu'})
+        self.assertIn('introuvable', result.lower())
+
+
 class ChatLoopTest(TestCase):
     @patch('ai_assistant.chat_loop.ollama_client.chat')
     def test_returns_final_content_without_tool_call(self, mock_chat):
