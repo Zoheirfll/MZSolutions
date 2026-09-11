@@ -4,6 +4,7 @@ from .views import (
     GenerateProductView, SuggestReplyView, DashboardSummaryView,
     ConversationListView, ConversationDetailView, ChatView,
     PendingActionConfirmView, PendingActionRejectView,
+    ScanProductView, ProductDraftListView, ProductDraftCreateView, ProductDraftDiscardView,
 )
 
 urlpatterns = [
@@ -15,4 +16,8 @@ urlpatterns = [
     path('chat/', ChatView.as_view()),
     path('pending-actions/<int:pk>/confirm/', PendingActionConfirmView.as_view()),
     path('pending-actions/<int:pk>/reject/', PendingActionRejectView.as_view()),
+    path('scan/', ScanProductView.as_view()),
+    path('product-drafts/', ProductDraftListView.as_view()),
+    path('product-drafts/<int:pk>/create/', ProductDraftCreateView.as_view()),
+    path('product-drafts/<int:pk>/discard/', ProductDraftDiscardView.as_view()),
 ]

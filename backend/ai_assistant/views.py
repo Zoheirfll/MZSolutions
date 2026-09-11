@@ -16,10 +16,14 @@ from audit.models import AuditLog
 from . import ollama_client
 from . import tools as ai_tools
 from . import write_tools as ai_write_tools
+from . import vision_client
 from .chat_loop import run_chat_loop
 from .ollama_client import OllamaUnavailableError
 from .models import AIConversation, AIMessage, AIPendingAction, AIProductDraft
-from .serializers import AIConversationSerializer, AIConversationDetailSerializer, AIPendingActionSerializer
+from .serializers import (
+    AIConversationSerializer, AIConversationDetailSerializer,
+    AIPendingActionSerializer, AIProductDraftSerializer,
+)
 
 
 def _check_access(request):
@@ -245,6 +249,109 @@ class ChatView(APIView):
             action = AIPendingAction.objects.get(pk=pending_action_id)
             response_data['pending_action'] = AIPendingActionSerializer(action).data
         return Response(response_data)
+
+
+class ScanProductView(APIView):
+    permission_classes = [IsAuthenticated]
+    throttle_scope = 'ai_scan'
+
+    def post(self, request):
+        if not is_owner_or_admin(request):
+            return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
+        store = get_store(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+
+        image_file = request.FILES.get('image')
+        if not image_file:
+            return Response({'detail': 'Une image est requise.'}, status=400)
+
+        from core.validators import validate_uploaded_file
+        from django.core.exceptions import ValidationError as DjangoValidationError
+        try:
+            validate_uploaded_file(image_file)
+        except DjangoValidationError as exc:
+            return Response({'detail': '; '.join(exc.messages) if hasattr(exc, 'messages') else str(exc)}, status=400)
+
+        try:
+            result = vision_client.extract_product_from_image(image_file.read())
+        except vision_client.OllamaUnavailableError:
+            return Response({'detail': 'Assistant IA indisponible'}, status=503)
+        except (ValueError, KeyError, TypeError):
+            return Response({'detail': "Photo pas assez nette ou document illisible, réessayez."}, status=502)
+
+        image_file.seek(0)
+
+        if result.get('type') == 'invoice':
+            items = result.get('items') or []
+            if not items:
+                return Response({'detail': "Aucun article détecté sur ce document."}, status=502)
+            drafts = [
+                AIProductDraft.objects.create(store=store, source='invoice', extracted_data=item)
+                for item in items
+            ]
+            return Response({'type': 'invoice', 'drafts': AIProductDraftSerializer(drafts, many=True).data})
+
+        data = result.get('data') or {}
+        if not data.get('name'):
+            return Response({'detail': "Aucun produit détecté sur cette photo."}, status=502)
+        draft = AIProductDraft.objects.create(store=store, source='photo', source_image=image_file, extracted_data=data)
+        return Response({'type': 'product', 'draft': AIProductDraftSerializer(draft).data})
+
+
+class ProductDraftListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if not is_owner_or_admin(request):
+            return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
+        store = get_store(request)
+        drafts = AIProductDraft.objects.filter(store=store, status='pending_review', source='invoice').order_by('-created_at')
+        return Response(AIProductDraftSerializer(drafts, many=True).data)
+
+
+class ProductDraftCreateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        if not is_owner_or_admin(request):
+            return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
+        store = get_store(request)
+        try:
+            draft = AIProductDraft.objects.get(pk=pk, store=store, status='pending_review')
+        except AIProductDraft.DoesNotExist:
+            return Response({'detail': 'Brouillon introuvable.'}, status=404)
+
+        data = draft.extracted_data
+        if not data.get('name') or data.get('price') is None:
+            return Response({'detail': 'Nom et prix requis pour créer le produit.'}, status=400)
+
+        from products.serializers import ProductSerializer
+        serializer = ProductSerializer(data={
+            'name': data['name'], 'price': data['price'], 'description': data.get('description', ''),
+        })
+        serializer.is_valid(raise_exception=True)
+        product = serializer.save(store=store)
+        draft.status = 'created'
+        draft.created_product = product
+        draft.save(update_fields=['status', 'created_product'])
+        return Response(ProductSerializer(product).data, status=201)
+
+
+class ProductDraftDiscardView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        if not is_owner_or_admin(request):
+            return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
+        store = get_store(request)
+        try:
+            draft = AIProductDraft.objects.get(pk=pk, store=store, status='pending_review')
+        except AIProductDraft.DoesNotExist:
+            return Response({'detail': 'Brouillon introuvable.'}, status=404)
+        draft.status = 'discarded'
+        draft.save(update_fields=['status'])
+        return Response({'status': 'discarded'})
 
 
 def _execute_pending_action(store, action):

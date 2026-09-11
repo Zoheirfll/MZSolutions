@@ -4,6 +4,7 @@ from unittest.mock import patch, MagicMock
 
 from django.test import TestCase, override_settings
 from django.utils import timezone
+from django.core.files.uploadedfile import SimpleUploadedFile
 
 from core.test_utils import make_owner, make_team_member, auth_client
 from team.models import PERMISSION_CATALOG, DEFAULT_PERMISSIONS
@@ -12,6 +13,7 @@ from orders.models import Order
 from .models import AIConversation, AIMessage, AIPendingAction, AIProductDraft
 from . import ollama_client
 from . import tools as ai_tools
+from . import vision_client
 from .chat_loop import run_chat_loop
 from .serializers import AIMessageSerializer
 from audit.models import AuditLog
@@ -579,6 +581,157 @@ class ChatLoopWriteToolTest(TestCase):
         self.assertEqual(content, 'Voici votre stock bas.')
         self.assertIsNone(pending_action_id)
         self.assertEqual(mock_chat.call_count, 2)
+
+
+@override_settings(AI_PROVIDER='groq', GROQ_API_KEY='test-key', GROQ_VISION_MODEL='test-vision-model')
+class ScanProductViewTest(TestCase):
+    def setUp(self):
+        self.owner, self.store = make_owner()
+        from core.test_utils import clear_throttle_cache
+        clear_throttle_cache()
+
+    def _image_file(self, name='produit.jpg'):
+        return SimpleUploadedFile(name, b'\xff\xd8\xff' + b'0' * 100, content_type='image/jpeg')
+
+    @patch('ai_assistant.views.vision_client.extract_product_from_image')
+    def test_scan_single_product_creates_one_draft(self, mock_extract):
+        mock_extract.return_value = {'type': 'product', 'data': {'name': 'Casquette', 'price': 1200, 'category': 'Accessoires'}}
+        client = auth_client(self.owner)
+        resp = client.post('/api/ai/scan/', {'image': self._image_file()}, format='multipart')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['type'], 'product')
+        self.assertEqual(resp.data['draft']['extracted_data']['name'], 'Casquette')
+        self.assertEqual(AIProductDraft.objects.filter(store=self.store, source='photo').count(), 1)
+
+    @patch('ai_assistant.views.vision_client.extract_product_from_image')
+    def test_scan_invoice_creates_multiple_drafts(self, mock_extract):
+        mock_extract.return_value = {'type': 'invoice', 'items': [
+            {'name': 'Produit A', 'price': 100}, {'name': 'Produit B', 'price': 200},
+        ]}
+        client = auth_client(self.owner)
+        resp = client.post('/api/ai/scan/', {'image': self._image_file()}, format='multipart')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['type'], 'invoice')
+        self.assertEqual(len(resp.data['drafts']), 2)
+        self.assertEqual(AIProductDraft.objects.filter(store=self.store, source='invoice').count(), 2)
+
+    def test_scan_forbidden_for_confirmateur(self):
+        confirmateur, _ = make_team_member(self.store, 'confirmateur')
+        client = auth_client(confirmateur)
+        resp = client.post('/api/ai/scan/', {'image': self._image_file()}, format='multipart')
+        self.assertEqual(resp.status_code, 403)
+
+    def test_scan_rejects_disallowed_extension(self):
+        client = auth_client(self.owner)
+        bad_file = SimpleUploadedFile('malware.exe', b'MZ' + b'0' * 100, content_type='application/octet-stream')
+        resp = client.post('/api/ai/scan/', {'image': bad_file}, format='multipart')
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(AIProductDraft.objects.count(), 0)
+
+    @patch('ai_assistant.views.vision_client.extract_product_from_image')
+    def test_scan_malformed_model_response_returns_502(self, mock_extract):
+        mock_extract.side_effect = ValueError('JSON invalide')
+        client = auth_client(self.owner)
+        resp = client.post('/api/ai/scan/', {'image': self._image_file()}, format='multipart')
+        self.assertEqual(resp.status_code, 502)
+        self.assertEqual(AIProductDraft.objects.count(), 0)
+
+    @patch('ai_assistant.views.vision_client.extract_product_from_image')
+    def test_scan_provider_unavailable_returns_503(self, mock_extract):
+        mock_extract.side_effect = vision_client.OllamaUnavailableError('panne')
+        client = auth_client(self.owner)
+        resp = client.post('/api/ai/scan/', {'image': self._image_file()}, format='multipart')
+        self.assertEqual(resp.status_code, 503)
+
+
+class ProductDraftEndpointsTest(TestCase):
+    def setUp(self):
+        self.owner, self.store = make_owner()
+        self.draft = AIProductDraft.objects.create(
+            store=self.store, source='invoice', extracted_data={'name': 'Sac à dos', 'price': 3500},
+        )
+
+    def test_list_only_pending_review_invoice_drafts(self):
+        AIProductDraft.objects.create(store=self.store, source='photo', extracted_data={'name': 'Photo produit', 'price': 100})
+        AIProductDraft.objects.create(store=self.store, source='invoice', extracted_data={'name': 'Déjà créé', 'price': 100}, status='created')
+        client = auth_client(self.owner)
+        resp = client.get('/api/ai/product-drafts/')
+        self.assertEqual(resp.status_code, 200)
+        names = [d['extracted_data']['name'] for d in resp.data]
+        self.assertIn('Sac à dos', names)
+        self.assertNotIn('Photo produit', names)
+        self.assertNotIn('Déjà créé', names)
+
+    def test_create_from_draft(self):
+        client = auth_client(self.owner)
+        resp = client.post(f'/api/ai/product-drafts/{self.draft.id}/create/')
+        self.assertEqual(resp.status_code, 201)
+        self.assertEqual(resp.data['name'], 'Sac à dos')
+        self.draft.refresh_from_db()
+        self.assertEqual(self.draft.status, 'created')
+        self.assertIsNotNone(self.draft.created_product)
+
+    def test_create_from_already_resolved_draft_returns_404(self):
+        self.draft.status = 'created'
+        self.draft.save(update_fields=['status'])
+        client = auth_client(self.owner)
+        resp = client.post(f'/api/ai/product-drafts/{self.draft.id}/create/')
+        self.assertEqual(resp.status_code, 404)
+
+    def test_discard_draft(self):
+        client = auth_client(self.owner)
+        resp = client.post(f'/api/ai/product-drafts/{self.draft.id}/discard/')
+        self.assertEqual(resp.status_code, 200)
+        self.draft.refresh_from_db()
+        self.assertEqual(self.draft.status, 'discarded')
+
+    def test_forbidden_for_confirmateur(self):
+        confirmateur, _ = make_team_member(self.store, 'confirmateur')
+        client = auth_client(confirmateur)
+        resp = client.get('/api/ai/product-drafts/')
+        self.assertEqual(resp.status_code, 403)
+
+
+class VisionClientTest(TestCase):
+    @patch('ai_assistant.vision_client.requests.post')
+    def test_extract_product_from_photo(self, mock_post):
+        mock_post.return_value = MagicMock(
+            status_code=200,
+            json=lambda: {'choices': [{'message': {'content': '{"type": "product", "data": {"name": "Casquette", "price": 1200}}'}}]},
+        )
+        result = vision_client.extract_product_from_image(b'fake-image-bytes')
+        self.assertEqual(result['type'], 'product')
+        self.assertEqual(result['data']['name'], 'Casquette')
+
+    @patch('ai_assistant.vision_client.requests.post')
+    def test_extract_invoice_multiple_items(self, mock_post):
+        mock_post.return_value = MagicMock(
+            status_code=200,
+            json=lambda: {'choices': [{'message': {'content': '{"type": "invoice", "items": [{"name": "A", "price": 100}, {"name": "B", "price": 200}]}'}}]},
+        )
+        result = vision_client.extract_product_from_image(b'fake-image-bytes')
+        self.assertEqual(result['type'], 'invoice')
+        self.assertEqual(len(result['items']), 2)
+
+    @patch('ai_assistant.vision_client.requests.post')
+    def test_invalid_json_raises_value_error(self, mock_post):
+        mock_post.return_value = MagicMock(
+            status_code=200,
+            json=lambda: {'choices': [{'message': {'content': 'pas du json'}}]},
+        )
+        with self.assertRaises(ValueError):
+            vision_client.extract_product_from_image(b'fake-image-bytes')
+
+    @patch('ai_assistant.vision_client.requests.post')
+    def test_provider_error_raises_unavailable(self, mock_post):
+        mock_post.return_value = MagicMock(status_code=500, text='erreur serveur')
+        with self.assertRaises(vision_client.OllamaUnavailableError):
+            vision_client.extract_product_from_image(b'fake-image-bytes')
+
+    @override_settings(AI_PROVIDER='ollama')
+    def test_ollama_provider_not_supported_yet(self):
+        with self.assertRaises(vision_client.OllamaUnavailableError):
+            vision_client.extract_product_from_image(b'fake-image-bytes')
 
 
 class ChatViewWriteToolIntegrationTest(TestCase):
