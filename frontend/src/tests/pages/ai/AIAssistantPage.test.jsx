@@ -69,4 +69,21 @@ describe('AIAssistantPage', () => {
     expect(screen.getByText('Ancienne conversation')).toBeInTheDocument()
     expect(screen.queryByText('Supprimer cette conversation ?')).not.toBeInTheDocument()
   })
+
+  it('filtre les conversations par titre via la recherche', async () => {
+    const axios = (await import('../../../api/axios')).default
+    axios.get.mockImplementation((url) => {
+      if (/\/ai\/conversations\/\d+\/?$/.test(url)) return Promise.resolve({ data: { id: 1, title: '', messages: [] } })
+      if (url.includes('/ai/conversations/')) return Promise.resolve({ data: [
+        { id: 1, title: 'Question sur le stock' },
+        { id: 2, title: 'Question sur les retours' },
+      ] })
+      return Promise.resolve({ data: { count: 0 } })
+    })
+    render(<MemoryRouter><AIAssistantPage /></MemoryRouter>)
+    await screen.findByText('Question sur le stock')
+    fireEvent.change(screen.getByPlaceholderText(/Rechercher une conversation/i), { target: { value: 'retours' } })
+    expect(screen.queryByText('Question sur le stock')).not.toBeInTheDocument()
+    expect(screen.getByText('Question sur les retours')).toBeInTheDocument()
+  })
 })

@@ -55,6 +55,7 @@ export default function AIAssistantPage() {
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(null)
+  const [conversationSearch, setConversationSearch] = useState('')
   const bottomRef = useRef(null)
   const textareaRef = useRef(null)
 
@@ -127,6 +128,9 @@ export default function AIAssistantPage() {
   }
 
   const visibleMessages = messages.filter(m => m.role !== 'tool')
+  const filteredConversations = conversations.filter(c =>
+    (c.title || `Conversation #${c.id}`).toLowerCase().includes(conversationSearch.trim().toLowerCase())
+  )
 
   return (
     <DashboardLayout title="Assistant IA" subtitle="Posez une question sur votre boutique — commandes, stock, clients à risque, rentabilité.">
@@ -139,11 +143,18 @@ export default function AIAssistantPage() {
               <Plus size={15} /> Nouvelle conversation
             </button>
           </div>
+          <div className="px-2 pb-2 border-b border-app">
+            <input
+              value={conversationSearch} onChange={e => setConversationSearch(e.target.value)}
+              placeholder="Rechercher une conversation…"
+              className="w-full px-2.5 py-1.5 rounded-lg text-xs text-app-primary bg-app-card-alt outline-none focus:ring-1 focus:ring-violet-500 transition"
+            />
+          </div>
           <div className="flex-1 overflow-y-auto">
-            {conversations.length === 0 && (
+            {filteredConversations.length === 0 && (
               <p className="text-xs text-app-muted px-3 py-4 text-center">Aucune conversation pour l'instant.</p>
             )}
-            {conversations.map(c => (
+            {filteredConversations.map(c => (
               <div key={c.id} className="group relative">
                 <button type="button" onClick={() => setActiveId(c.id)}
                   className={`w-full text-left pl-3 pr-8 py-2.5 text-sm truncate flex items-center gap-2 border-l-2 transition ${
