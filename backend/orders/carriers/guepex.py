@@ -1,5 +1,7 @@
-from .base import MockCarrierClient
+from .dzship import DzshipClient
 
 
-class GuepexClient(MockCarrierClient):
+class GuepexClient(DzshipClient):
     carrier_code = 'guepex'
+    dzship_key = 'guepex'
+    credential_fields = ('apiId', 'apiToken')

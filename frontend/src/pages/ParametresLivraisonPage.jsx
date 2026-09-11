@@ -31,32 +31,35 @@ function CarrierLogo({ code, label, size = 'w-16 h-16', textSize = 'text-lg', ro
   )
 }
 
-// `real: true` = API réellement branchée (via Ecotrack ou API propre) — le
-// transporteur reçoit vraiment l'expédition. `real: false` = simulé pour
-// l'instant (tracking factice MOCK-..., en attente d'accès API confirmé).
-// `tested: true` = en plus, une vraie expédition a été créée avec succès
-// avec un compte partenaire réel (pas juste la connexion/auth).
+// `real: true` = API réellement branchée (via Ecotrack, API propre, ou
+// dzship — voir `via`) — le transporteur reçoit vraiment l'expédition.
+// `real: false` = simulé pour l'instant (tracking factice MOCK-..., aucune
+// piste d'API trouvée à ce jour). `tested: true` = en plus, une vraie
+// expédition a été créée avec succès avec un compte partenaire réel (pas
+// juste la connexion/auth). `via: 'dzship'` = branché via la passerelle
+// tierce freeship.dzbuild.com (2026-09) plutôt qu'un client direct — décision
+// produit : uniquement pour les transporteurs sans compte réel chez
+// MZSolutions, jamais pour Noest/Yalidine/ZR Express qui ont leur propre
+// intégration directe (voir CLAUDE.md, section Livraison, pour le détail).
 const CARRIERS = [
-  { code: 'yalidine',       label: 'Yalidine',              real: false },
-  { code: 'zr_express',     label: 'ZR Express',            real: false },
+  { code: 'yalidine',       label: 'Yalidine',              real: true },
+  { code: 'zr_express',     label: 'ZR Express',            real: true },
   { code: 'noest',          label: 'Noest',                 real: true, tested: true },
-  { code: 'guepex',         label: 'Guepex',                real: false },
-  { code: 'maystro',        label: 'Maystro',               real: false },
-  { code: 'waslet',         label: 'Waslet',                real: false },
+  { code: 'guepex',         label: 'Guepex',                real: true, via: 'dzship' },
+  { code: 'maystro',        label: 'Maystro',               real: true, via: 'dzship' },
   { code: 'imir',           label: 'Imir',                  real: true },
   { code: 'dhd',            label: 'DHD',                   real: true },
-  { code: 'speedmail',      label: 'SpeedMail',             real: false },
+  { code: 'speedmail',      label: 'SpeedMail',             real: true, via: 'dzship' },
   { code: 'worldexpress',   label: 'Worldexpress',          real: true },
   { code: 'ups',            label: 'UPS',                   real: true },
   { code: 'anderson',       label: 'Anderson',               real: true },
   { code: 'ontime',         label: 'OnTime',                real: true },
-  { code: 'yalitec',        label: 'Yalitec',               real: false },
+  { code: 'yalitec',        label: 'Yalitec',               real: true, via: 'dzship' },
   { code: 'assil_delivery', label: 'Assil Delivery',        real: true },
-  { code: 'zimou_express',  label: 'Zimou Express',         real: false },
+  { code: 'zimou_express',  label: 'Zimou Express',         real: true, via: 'dzship' },
   { code: 'tikjdadelivery', label: 'Tikjdadelivery',        real: true },
-  { code: 'ecomdz',         label: 'EcomDz',                real: false },
+  { code: 'ecomdz',         label: 'EcomDz',                real: true, via: 'dzship' },
   { code: 'colireli',       label: 'Colireli',              real: true },
-  { code: 'overed',         label: 'Overed',                real: false },
   { code: 'expediachrono',  label: 'Expediachrono',         real: true },
   { code: 'navex',          label: 'Navex',                 real: true },
   { code: 'courier48hr',    label: '48HR Courrier Express', real: true },
@@ -65,7 +68,15 @@ const CARRIERS = [
   { code: 'tls',            label: 'TLS',                   real: true },
   { code: 'siexpress',      label: 'Siexpress',             real: true },
   { code: 'chronorex',      label: 'Chronorex',             real: true },
-  { code: 'mdm',            label: 'MDM',                   real: false },
+  { code: 'mdm',            label: 'MDM',                   real: true, via: 'dzship' },
+  { code: 'colivraison',    label: 'Colivraison',           real: true, via: 'dzship' },
+  { code: 'elogistia',      label: 'Elogistia',             real: true, via: 'dzship' },
+  { code: 'near_delivery',  label: 'Near Delivery',         real: true, via: 'dzship' },
+  { code: 'easy_speed',     label: 'Easy & Speed',          real: true, via: 'dzship' },
+  { code: 'economiqua',     label: 'Economiqua',            real: true, via: 'dzship' },
+  { code: 'wecan',          label: 'We Can Services',       real: true, via: 'dzship' },
+  { code: 'speeddelivery',  label: 'Speed Delivery',        real: true, via: 'dzship' },
+  { code: 'gsecommerce',    label: 'GS Ecommerce',          real: true, via: 'dzship' },
 ]
 
 const TABS = [
@@ -365,10 +376,18 @@ export default function ParametresLivraisonPage() {
                     <CarrierLogo code={c.code} label={c.label} />
                     <p className="font-semibold text-app-primary">{c.label}</p>
                     <span
-                      className={c.tested ? theme.badge.success : c.real ? theme.badge.info : theme.badge.warning}
-                      title={c.tested ? 'Expédition réelle créée avec succès avec un vrai compte partenaire' : c.real ? "Connexion à l'API confirmée — création d'expédition non encore testée avec un vrai compte" : undefined}
+                      className={c.tested ? theme.badge.success : c.via === 'dzship' ? theme.badge.info : c.real ? theme.badge.info : theme.badge.warning}
+                      title={
+                        c.tested
+                          ? 'Expédition réelle créée avec succès avec un vrai compte partenaire'
+                          : c.via === 'dzship'
+                          ? "Passe par la passerelle tierce dzship (freeship.dzbuild.com) plutôt qu'une intégration directe — non testé avec un vrai compte, voir CLAUDE.md"
+                          : c.real
+                          ? "Connexion à l'API confirmée — création d'expédition non encore testée avec un vrai compte"
+                          : undefined
+                      }
                     >
-                      {c.tested ? 'Testé et fonctionnel' : c.real ? 'API branchée (non testée)' : 'Simulé (à venir)'}
+                      {c.tested ? 'Testé et fonctionnel' : c.via === 'dzship' ? 'Via dzship (non testé)' : c.real ? 'API branchée (non testée)' : 'Simulé (à venir)'}
                     </span>
                     {account ? (
                       <>

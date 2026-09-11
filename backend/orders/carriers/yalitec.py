@@ -1,5 +1,7 @@
-from .base import MockCarrierClient
+from .dzship import DzshipClient
 
 
-class YalitecClient(MockCarrierClient):
+class YalitecClient(DzshipClient):
     carrier_code = 'yalitec'
+    dzship_key = 'yalitec'
+    credential_fields = ('apiId', 'apiToken')

@@ -82,7 +82,6 @@ CARRIER_CHOICES = [
     ('noest',          'Noest'),
     ('guepex',         'Guepex'),
     ('maystro',        'Maystro'),
-    ('waslet',         'Waslet'),
     ('imir',           'Imir'),
     ('dhd',            'DHD'),
     ('speedmail',      'SpeedMail'),
@@ -96,7 +95,6 @@ CARRIER_CHOICES = [
     ('tikjdadelivery', 'Tikjdadelivery'),
     ('ecomdz',         'EcomDz'),
     ('colireli',       'Colireli'),
-    ('overed',         'Overed'),
     ('expediachrono',  'Expediachrono'),
     ('navex',          'Navex'),
     ('courier48hr',    '48HR Courrier Express'),
@@ -106,6 +104,17 @@ CARRIER_CHOICES = [
     ('siexpress',      'Siexpress'),
     ('chronorex',      'Chronorex'),
     ('mdm',            'MDM'),
+    # Transporteurs ajoutés 2026-09 via le catalogue dzship (voir CLAUDE.md,
+    # section Livraison) — remplacent waslet/overed (retirés, aucune API
+    # trouvée pour ces deux-là ni via Ecotrack ni via dzship).
+    ('colivraison',    'Colivraison'),
+    ('elogistia',       'Elogistia'),
+    ('near_delivery',  'Near Delivery'),
+    ('easy_speed',     'Easy & Speed'),
+    ('economiqua',     'Economiqua'),
+    ('wecan',          'We Can Services'),
+    ('speeddelivery',  'Speed Delivery'),
+    ('gsecommerce',    'GS Ecommerce'),
 ]
 
 
