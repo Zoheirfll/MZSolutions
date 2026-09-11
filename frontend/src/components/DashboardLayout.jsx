@@ -771,7 +771,7 @@ export default function DashboardLayout({ children, title, subtitle }) {
           )}
 
           {/* IA — regroupe toutes les fonctionnalités IA du dashboard, présentes et à venir */}
-          {(can('ai_assistant_view') || can('stats_forecast_view') || can('stats_returns_forecast_view') || can('recommendations_view') || can('store_audit_view')) && (
+          {(can('ai_assistant_view') || can('stats_forecast_view') || can('stats_returns_forecast_view') || can('recommendations_view') || can('store_audit_view') || can('confirmateur_monitoring_view')) && (
             <div>
               <p className="text-[10px] font-semibold px-2 mb-2 tracking-widest" style={{ color: theme.dark.muted }}>IA</p>
               <ul className="space-y-0.5">
@@ -789,6 +789,9 @@ export default function DashboardLayout({ children, title, subtitle }) {
                 )}
                 {can('store_audit_view') && (
                   <li>{mainLink('/dashboard/audit-boutique', ICONS.stats, 'Audit de la boutique')}</li>
+                )}
+                {can('confirmateur_monitoring_view') && (
+                  <li>{mainLink('/dashboard/suivi-confirmateurs', ICONS.stats, 'Suivi des confirmateurs')}</li>
                 )}
               </ul>
             </div>
