@@ -206,6 +206,8 @@ export default function DashboardLayout({ children, title, subtitle }) {
     stats:        location.pathname.startsWith('/dashboard/stats'),
     expeditions:  location.pathname.startsWith('/dashboard/expeditions'),
     stock:        location.pathname.startsWith('/dashboard/stock'),
+    iaPrevisions: ['/dashboard/previsions-ventes', '/dashboard/previsions-retours', '/dashboard/stock'].some(p => location.pathname.startsWith(p)),
+    iaAnalyse:    ['/dashboard/recommandations', '/dashboard/audit-boutique', '/dashboard/suivi-confirmateurs'].some(p => location.pathname.startsWith(p)),
   })
   const [lowStockCount, setLowStockCount] = useState(0)
   const [inboxUnreadCount, setInboxUnreadCount] = useState(0)
@@ -778,20 +780,51 @@ export default function DashboardLayout({ children, title, subtitle }) {
                 {can('ai_assistant_view') && (
                   <li>{mainLink('/dashboard/assistant-ia', ICONS.marketing, 'Assistant IA')}</li>
                 )}
-                {can('stats_forecast_view') && (
-                  <li>{mainLink('/dashboard/stats/previsions', ICONS.stats, 'Prévision de ventes')}</li>
+                {(can('stats_forecast_view') || can('stats_returns_forecast_view')) && (
+                  <li>
+                    <button
+                      onClick={() => setExpanded(e => ({ ...e, iaPrevisions: !e.iaPrevisions }))}
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
+                        ['/dashboard/previsions-ventes', '/dashboard/previsions-retours'].some(p => location.pathname.startsWith(p))
+                          ? 'bg-violet-500/10 text-app-primary font-medium' : 'text-app-muted-light hover:text-app-primary hover:bg-violet-500/5'
+                      }`}
+                    >
+                      <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.stats}</span>Prévisions</span>
+                      <svg className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${expanded.iaPrevisions ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                    {expanded.iaPrevisions && (
+                      <ul className="mt-0.5 ml-5 space-y-0.5 border-l pl-3" style={{ borderColor: theme.dark.border }}>
+                        {can('stats_forecast_view') && <li>{link('/dashboard/previsions-ventes', 'Prévision de ventes')}</li>}
+                        {can('stock_view') && <li>{link('/dashboard/stock', 'Prévision de rupture de stock')}</li>}
+                        {can('stats_returns_forecast_view') && <li>{link('/dashboard/previsions-retours', 'Prévision de taux de retour')}</li>}
+                      </ul>
+                    )}
+                  </li>
                 )}
-                {can('stats_returns_forecast_view') && (
-                  <li>{mainLink('/dashboard/stats/previsions-retours', ICONS.stats, 'Prévision de taux de retour')}</li>
-                )}
-                {can('recommendations_view') && (
-                  <li>{mainLink('/dashboard/recommandations', ICONS.stats, 'Recommandations')}</li>
-                )}
-                {can('store_audit_view') && (
-                  <li>{mainLink('/dashboard/audit-boutique', ICONS.stats, 'Audit de la boutique')}</li>
-                )}
-                {can('confirmateur_monitoring_view') && (
-                  <li>{mainLink('/dashboard/suivi-confirmateurs', ICONS.stats, 'Suivi des confirmateurs')}</li>
+                {(can('recommendations_view') || can('store_audit_view') || can('confirmateur_monitoring_view')) && (
+                  <li>
+                    <button
+                      onClick={() => setExpanded(e => ({ ...e, iaAnalyse: !e.iaAnalyse }))}
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
+                        ['/dashboard/recommandations', '/dashboard/audit-boutique', '/dashboard/suivi-confirmateurs'].some(p => location.pathname.startsWith(p))
+                          ? 'bg-violet-500/10 text-app-primary font-medium' : 'text-app-muted-light hover:text-app-primary hover:bg-violet-500/5'
+                      }`}
+                    >
+                      <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.stats}</span>Analyse</span>
+                      <svg className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${expanded.iaAnalyse ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                    {expanded.iaAnalyse && (
+                      <ul className="mt-0.5 ml-5 space-y-0.5 border-l pl-3" style={{ borderColor: theme.dark.border }}>
+                        {can('recommendations_view') && <li>{link('/dashboard/recommandations', 'Recommandations')}</li>}
+                        {can('store_audit_view') && <li>{link('/dashboard/audit-boutique', 'Audit de la boutique')}</li>}
+                        {can('confirmateur_monitoring_view') && <li>{link('/dashboard/suivi-confirmateurs', 'Suivi des confirmateurs')}</li>}
+                      </ul>
+                    )}
+                  </li>
                 )}
               </ul>
             </div>
