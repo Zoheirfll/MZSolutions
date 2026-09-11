@@ -83,6 +83,7 @@ import SourceStatsPage from './pages/orders/stats/SourceStatsPage'
 import SalesForecastPage from './pages/orders/stats/SalesForecastPage'
 import ReturnsForecastPage from './pages/orders/stats/ReturnsForecastPage'
 import RecommendationsPage from './pages/orders/RecommendationsPage'
+import StoreAuditPage from './pages/orders/StoreAuditPage'
 import ProfitabilityPage from './pages/finance/ProfitabilityPage'
 import PaymentReadyPage from './pages/finance/PaymentReadyPage'
 import PaymentCollectedPage from './pages/finance/PaymentCollectedPage'
@@ -210,6 +211,7 @@ function App() {
           <Route path="/dashboard/stats/previsions"          element={<PD perm="stats_forecast_view"><SalesForecastPage /></PD>} />
           <Route path="/dashboard/stats/previsions-retours"   element={<PD perm="stats_returns_forecast_view"><ReturnsForecastPage /></PD>} />
           <Route path="/dashboard/recommandations"            element={<PD perm="recommendations_view"><RecommendationsPage /></PD>} />
+          <Route path="/dashboard/audit-boutique"              element={<PD perm="store_audit_view"><StoreAuditPage /></PD>} />
           <Route path="/dashboard/equipe"                    element={<PD perm="team_view"><TeamPage /></PD>} />
           <Route path="/dashboard/equipe/permissions"        element={<PD perm="ownerAdmin"><PermissionsPage /></PD>} />
           <Route path="/dashboard/audit"                     element={<PD perm="audit_view"><AuditPage /></PD>} />
