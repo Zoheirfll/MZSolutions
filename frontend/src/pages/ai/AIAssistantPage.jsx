@@ -4,7 +4,7 @@ import DashboardLayout from '../../components/DashboardLayout'
 import ConfirmDialog from '../../components/ConfirmDialog'
 import { theme } from '../../theme'
 import { renderMarkdown } from '../../lib/markdown'
-import { listConversations, getConversation, sendChatMessage, deleteConversation } from '../../api/aiApi'
+import { listConversations, getConversation, sendChatMessage, deleteConversation, confirmPendingAction, rejectPendingAction } from '../../api/aiApi'
 
 const SUGGESTIONS = [
   'Quel est mon stock bas ?',
@@ -42,6 +42,54 @@ function MessageBubble({ role, content }) {
         {isUser
           ? <p className="whitespace-pre-wrap">{content}</p>
           : <div className="ai-prose" dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }} />}
+      </div>
+    </div>
+  )
+}
+
+function PendingActionCard({ action, onResolved }) {
+  const [busy, setBusy] = useState(false)
+  const [resolvedStatus, setResolvedStatus] = useState(action.status === 'pending' ? null : action.status)
+
+  const handle = async (fn, status) => {
+    setBusy(true)
+    try {
+      await fn(action.id)
+      setResolvedStatus(status)
+      onResolved?.(action.id, status)
+    } catch {
+      // best-effort — l'utilisateur peut réessayer, aucun crash de l'UI
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="flex gap-2.5">
+      <Avatar role="assistant" />
+      <div className="rounded-2xl rounded-tl-sm border border-app bg-app-card-alt px-3.5 py-3 max-w-[75%] text-sm">
+        <p className="font-medium text-app-primary mb-2">{action.summary}</p>
+        {action.payload?.length > 0 && (
+          <ul className="space-y-1 mb-3 text-xs text-app-muted-light">
+            {action.payload.slice(0, 10).map((item, i) => (
+              <li key={i}>{item.name} — {JSON.stringify(item.before)} → {JSON.stringify(item.after)}</li>
+            ))}
+          </ul>
+        )}
+        {resolvedStatus === 'confirmed' && <p className="text-xs font-medium text-emerald-500">Confirmé</p>}
+        {resolvedStatus === 'rejected' && <p className="text-xs font-medium text-app-muted">Rejeté</p>}
+        {!resolvedStatus && (
+          <div className="flex gap-2">
+            <button type="button" disabled={busy} onClick={() => handle(confirmPendingAction, 'confirmed')}
+              className={theme.btn.primary + ' text-xs px-3 py-1.5 disabled:opacity-40'}>
+              Confirmer
+            </button>
+            <button type="button" disabled={busy} onClick={() => handle(rejectPendingAction, 'rejected')}
+              className="text-xs px-3 py-1.5 rounded-lg border border-app text-app-muted-light hover:text-app-primary transition disabled:opacity-40">
+              Rejeter
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -92,7 +140,7 @@ export default function AIAssistantPage() {
     try {
       const data = await sendChatMessage({ conversationId: activeId, message: text })
       setActiveId(data.conversation_id)
-      setMessages(m => [...m, { role: 'assistant', content: data.reply }])
+      setMessages(m => [...m, { role: 'assistant', content: data.reply, pending_action: data.pending_action || null }])
       refreshConversations()
     } catch (e) {
       setError(e?.response?.data?.detail || 'Assistant IA indisponible')
@@ -192,7 +240,11 @@ export default function AIAssistantPage() {
                 </div>
               </div>
             )}
-            {visibleMessages.map((m, i) => <MessageBubble key={i} role={m.role} content={m.content} />)}
+            {visibleMessages.map((m, i) => (
+              m.pending_action
+                ? <PendingActionCard key={i} action={m.pending_action} />
+                : <MessageBubble key={i} role={m.role} content={m.content} />
+            ))}
             {sending && (
               <div className="flex gap-2.5">
                 <Avatar role="assistant" />
