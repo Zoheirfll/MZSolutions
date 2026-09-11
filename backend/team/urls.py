@@ -3,6 +3,8 @@ from .views import (
     InviteView, TeamListView, TeamMemberDetailView, AcceptInvitationView,
     RolePermissionsView, TeamMemberPermissionsView, OnlineStatusView,
     TeamMemberReactivateView, TeamMemberResendInviteView,
+    ConfirmateurMonitoringOverviewView, ConfirmateurMonitoringDetailView,
+    ConfirmateurMonitoringExplainView, ConfirmateurMonitoringTeamExplainView,
 )
 
 urlpatterns = [
@@ -15,4 +17,8 @@ urlpatterns = [
     path('accept-invitation/',                 AcceptInvitationView.as_view()),
     path('permissions/',                       RolePermissionsView.as_view()),
     path('online-status/',                     OnlineStatusView.as_view()),
+    path('monitoring/',                        ConfirmateurMonitoringOverviewView.as_view()),
+    path('monitoring/team-explain/',           ConfirmateurMonitoringTeamExplainView.as_view()),
+    path('monitoring/<int:pk>/',               ConfirmateurMonitoringDetailView.as_view()),
+    path('monitoring/<int:pk>/explain/',       ConfirmateurMonitoringExplainView.as_view()),
 ]

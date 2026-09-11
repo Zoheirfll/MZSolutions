@@ -427,3 +427,58 @@ class ConfirmateurMonitoringEngineTest(TestCase):
         member_ids = [r['member_id'] for r in overview]
         self.assertIn(self.conf.id, member_ids)
         self.assertIn(conf2.id, member_ids)
+
+
+class ConfirmateurMonitoringViewsTest(TestCase):
+    def setUp(self):
+        self.owner, self.store = make_owner()
+        self.client_ = auth_client(self.owner)
+        _, self.conf = make_team_member(self.store, 'confirmateur')
+
+    def test_overview_requires_permission(self):
+        other_conf_user, _ = make_team_member(self.store, 'confirmateur', email='other@test.com')
+        client = auth_client(other_conf_user)
+        resp = client.get('/api/team/monitoring/')
+        self.assertEqual(resp.status_code, 403)
+
+    def test_overview_lists_confirmateur(self):
+        resp = self.client_.get('/api/team/monitoring/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn(self.conf.id, [r['member_id'] for r in resp.data['results']])
+
+    def test_detail_404_for_non_confirmateur_member(self):
+        _, admin = make_team_member(self.store, 'admin')
+        resp = self.client_.get(f'/api/team/monitoring/{admin.id}/')
+        self.assertEqual(resp.status_code, 404)
+
+    def test_detail_404_for_member_of_other_store(self):
+        other_owner, other_store = make_owner()
+        _, other_conf = make_team_member(other_store, 'confirmateur')
+        resp = self.client_.get(f'/api/team/monitoring/{other_conf.id}/')
+        self.assertEqual(resp.status_code, 404)
+
+    def test_detail_returns_computed_metrics(self):
+        resp = self.client_.get(f'/api/team/monitoring/{self.conf.id}/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['member_id'], self.conf.id)
+
+    def test_explain_calls_ai(self):
+        from unittest.mock import patch
+        with patch('team.views.ollama_client.generate', return_value='Synthèse individuelle test.'):
+            resp = self.client_.post(f'/api/team/monitoring/{self.conf.id}/explain/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['explanation'], 'Synthèse individuelle test.')
+
+    def test_explain_returns_503_on_ai_failure(self):
+        from unittest.mock import patch
+        from ai_assistant.ollama_client import OllamaUnavailableError
+        with patch('team.views.ollama_client.generate', side_effect=OllamaUnavailableError('down')):
+            resp = self.client_.post(f'/api/team/monitoring/{self.conf.id}/explain/')
+        self.assertEqual(resp.status_code, 503)
+
+    def test_team_explain_calls_ai(self):
+        from unittest.mock import patch
+        with patch('team.views.ollama_client.generate', return_value='Synthèse équipe test.'):
+            resp = self.client_.post('/api/team/monitoring/team-explain/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['explanation'], 'Synthèse équipe test.')

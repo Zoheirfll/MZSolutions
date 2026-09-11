@@ -13,6 +13,8 @@ from .serializers import InviteSerializer, TeamMemberSerializer, AcceptInvitatio
 from accounts.serializers import get_tokens, UserSerializer
 from core.permissions import IsOwnerOrAdminForWrites, is_owner_or_admin, has_permission
 from audit.utils import log_audit
+from ai_assistant import ollama_client
+from ai_assistant.ollama_client import OllamaUnavailableError
 
 logger = logging.getLogger(__name__)
 
@@ -392,3 +394,109 @@ class TeamMemberPermissionsView(APIView):
                 metadata={'permission': permission, 'reset': True},
             )
         return Response({'permissions': get_effective_permissions(store, member.role, member=member)})
+
+
+class ConfirmateurMonitoringOverviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if not (is_owner_or_admin(request) or has_permission(request, 'confirmateur_monitoring_view')):
+            return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
+        store = _get_store(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        from .monitoring import compute_team_overview
+        return Response({'results': compute_team_overview(store)})
+
+
+class ConfirmateurMonitoringDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        if not (is_owner_or_admin(request) or has_permission(request, 'confirmateur_monitoring_view')):
+            return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
+        store = _get_store(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        try:
+            member = store.team_members.get(pk=pk, role='confirmateur')
+        except TeamMember.DoesNotExist:
+            return Response({'detail': 'Confirmateur introuvable.'}, status=404)
+        from .monitoring import compute_confirmateur_detail
+        return Response(compute_confirmateur_detail(store, member))
+
+
+FLAG_LABELS = {
+    'inactive_online': "en ligne mais aucune activité enregistrée récemment",
+    'high_late_ratio': "plus de la moitié de ses commandes en attente sont en retard",
+    'high_cancellation': "taux d'annulation/retour nettement supérieur à la moyenne de l'équipe",
+    'low_throughput': "rythme de traitement très inférieur au reste de l'équipe",
+}
+
+
+class ConfirmateurMonitoringExplainView(APIView):
+    """Synthèse IA individuelle — JAMAIS de cache, recalculée à chaque appel
+    (les moyennes d'équipe évoluent en continu). Le prompt ne reçoit que les
+    chiffres déjà calculés, jamais l'historique brut d'appels/commandes."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        if not (is_owner_or_admin(request) or has_permission(request, 'confirmateur_monitoring_view')):
+            return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
+        store = _get_store(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        try:
+            member = store.team_members.get(pk=pk, role='confirmateur')
+        except TeamMember.DoesNotExist:
+            return Response({'detail': 'Confirmateur introuvable.'}, status=404)
+
+        from .monitoring import compute_confirmateur_detail
+        detail = compute_confirmateur_detail(store, member)
+        flags_fr = ', '.join(FLAG_LABELS.get(f, f) for f in detail['flags']) or 'aucun'
+        prompt = (
+            f"Le confirmateur {detail['name']} a un score de performance de {detail['score']}/100. "
+            f"Taux de confirmation : {detail['confirmation_rate']}%. Commandes traitées sur 30 jours : "
+            f"{detail['orders_assigned']}. Taux d'échec d'appel : {round(detail['call_failure_rate'] * 100, 1)}%. "
+            f"Part de commandes en attente en retard : {round(detail['late_ratio'] * 100, 1)}%. "
+            f"Signaux d'alerte déclenchés : {flags_fr}.\n"
+            "Explique en 2-3 phrases, en français, la performance de ce confirmateur — base-toi UNIQUEMENT "
+            "sur les chiffres fournis, n'invente aucune autre information."
+        )
+        try:
+            explanation = ollama_client.generate(prompt)
+        except OllamaUnavailableError:
+            return Response({'detail': 'Assistant IA indisponible'}, status=503)
+        return Response({'explanation': explanation.strip()})
+
+
+class ConfirmateurMonitoringTeamExplainView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        if not (is_owner_or_admin(request) or has_permission(request, 'confirmateur_monitoring_view')):
+            return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
+        store = _get_store(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+
+        from .monitoring import compute_team_overview
+        overview = compute_team_overview(store)
+        if not overview:
+            lines = ["Aucun confirmateur actif dans cette boutique."]
+        else:
+            lines = [f"Équipe de {len(overview)} confirmateur(s) :"]
+            for r in overview:
+                flags_fr = ', '.join(FLAG_LABELS.get(f, f) for f in r['flags']) or 'aucun'
+                lines.append(f"- {r['name']} : score {r['score']}/100, {r['orders_assigned']} commande(s) traitée(s), signaux : {flags_fr}.")
+        lines.append(
+            "Rédige en français, de façon concise (5 phrases maximum), une synthèse qui nomme qui se démarque "
+            "en bien et qui nécessite de l'attention — base-toi UNIQUEMENT sur ces chiffres, n'invente rien d'autre."
+        )
+        prompt = '\n'.join(lines)
+
+        try:
+            explanation = ollama_client.generate(prompt)
+        except OllamaUnavailableError:
+            return Response({'detail': 'Assistant IA indisponible'}, status=503)
+        return Response({'explanation': explanation.strip()})
