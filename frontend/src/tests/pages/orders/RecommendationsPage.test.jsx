@@ -47,4 +47,12 @@ describe('RecommendationsPage', () => {
     render(<MemoryRouter><RecommendationsPage /></MemoryRouter>)
     expect(await screen.findByText('Aucun candidat pour le moment.')).toBeInTheDocument()
   })
+
+  it('filtre les 3 sections par nom de produit via la recherche', async () => {
+    render(<MemoryRouter><RecommendationsPage /></MemoryRouter>)
+    await screen.findByText('Produit A')
+    fireEvent.change(screen.getByPlaceholderText(/Rechercher un produit/i), { target: { value: 'Produit B' } })
+    expect(screen.queryByText('Produit A')).not.toBeInTheDocument()
+    expect(screen.getByText('Produit B')).toBeInTheDocument()
+  })
 })

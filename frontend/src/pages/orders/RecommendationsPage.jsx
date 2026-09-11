@@ -28,6 +28,7 @@ export default function RecommendationsPage() {
   const [trending, setTrending] = useState([])
   const [bundles, setBundles] = useState([])
   const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
 
   useEffect(() => {
     Promise.all([
@@ -47,15 +48,27 @@ export default function RecommendationsPage() {
   const explainBundle = (idA, idB) =>
     api.post('/products/recommendations/bundle-explain/', { product_id_a: idA, product_id_b: idB }).then(({ data }) => data.explanation)
 
+  const matches = name => (name || '').toLowerCase().includes(search.trim().toLowerCase())
+  const filteredPromote = promote.filter(r => matches(r.product_name))
+  const filteredTrending = trending.filter(r => matches(r.product_name))
+  const filteredBundles = bundles.filter(r => matches(r.product_name_a) || matches(r.product_name_b))
+
   return (
     <DashboardLayout title="Recommandations" subtitle="Suggestions calculées à partir de vos ventes réelles — à mettre en avant, en tendance, ou à proposer en bundle.">
       {loading ? <p className="text-sm text-app-muted">Chargement…</p> : (
         <div className="space-y-8">
+          <input
+            value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Rechercher un produit…"
+            className="w-full max-w-sm px-3.5 py-2 rounded-lg text-sm text-app-primary border outline-none focus:border-violet-500 transition"
+            style={{ background: theme.dark.card, borderColor: theme.dark.border }}
+          />
+
           <section>
             <h2 className="text-base font-semibold text-app-primary mb-3">Produits à mettre en avant</h2>
-            {promote.length === 0 ? <p className="text-sm text-app-muted">Aucun candidat pour le moment.</p> : (
+            {filteredPromote.length === 0 ? <p className="text-sm text-app-muted">Aucun candidat pour le moment.</p> : (
               <div className="space-y-2">
-                {promote.map(r => (
+                {filteredPromote.map(r => (
                   <div key={r.product_id} className="rounded-xl border p-4" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
                     <p className="text-sm font-medium text-app-primary">{r.product_name}</p>
                     <p className="text-xs text-app-muted-light">Marge {Math.round(r.margin_pct * 100)}% · Stock {r.total_stock} · {r.sales_rate_14d}/jour</p>
@@ -68,9 +81,9 @@ export default function RecommendationsPage() {
 
           <section>
             <h2 className="text-base font-semibold text-app-primary mb-3">Produits en tendance</h2>
-            {trending.length === 0 ? <p className="text-sm text-app-muted">Aucun produit en tendance pour le moment.</p> : (
+            {filteredTrending.length === 0 ? <p className="text-sm text-app-muted">Aucun produit en tendance pour le moment.</p> : (
               <div className="space-y-2">
-                {trending.map(r => (
+                {filteredTrending.map(r => (
                   <div key={r.product_id} className="rounded-xl border p-4" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
                     <p className="text-sm font-medium text-app-primary">{r.product_name}</p>
                     <p className="text-xs text-app-muted-light">{r.prior_rate}/jour → {r.recent_rate}/jour (+{r.growth})</p>
@@ -83,9 +96,9 @@ export default function RecommendationsPage() {
 
           <section>
             <h2 className="text-base font-semibold text-app-primary mb-3">Associations de vente croisée</h2>
-            {bundles.length === 0 ? <p className="text-sm text-app-muted">Aucune association détectée pour le moment.</p> : (
+            {filteredBundles.length === 0 ? <p className="text-sm text-app-muted">Aucune association détectée pour le moment.</p> : (
               <div className="space-y-2">
-                {bundles.map(r => (
+                {filteredBundles.map(r => (
                   <div key={`${r.product_id_a}-${r.product_id_b}`} className="rounded-xl border p-4" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
                     <p className="text-sm font-medium text-app-primary">{r.product_name_a} + {r.product_name_b}</p>
                     <p className="text-xs text-app-muted-light">Achetés ensemble {r.count} fois</p>
