@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import DashboardLayout from '../../components/DashboardLayout'
 import Select from '../../components/Select'
 import RichEditor from '../../components/RichEditor'
@@ -550,6 +550,7 @@ export default function ProductFormPage() {
   const { id }  = useParams()
   const isEdit  = !!id
   const navigate = useNavigate()
+  const location = useLocation()
   const { user } = useAuth()
   // Un seul identifiant de lot pour toute la session d'édition — regroupe les
   // mouvements de stock de plusieurs variantes modifiées pendant cette visite
@@ -558,7 +559,7 @@ export default function ProductFormPage() {
 
   const [section, setSection]       = useState(SECTIONS[0])
   const sectionIndex = SECTIONS.indexOf(section)
-  const [form, setForm]             = useState(EMPTY)
+  const [form, setForm]             = useState(() => ({ ...EMPTY, ...(location.state?.prefill || {}) }))
   const [aiGenerating, setAiGenerating] = useState(false)
   const [aiError, setAiError] = useState('')
   const [categories, setCategories] = useState([])

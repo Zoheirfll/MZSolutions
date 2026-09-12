@@ -129,6 +129,7 @@ REST_FRAMEWORK = {
         'invitation':       '20/min',
         'abandoned_cart':   '20/min',
         'public_chat':      '10/min',
+        'ai_scan':          '20/hour',
         'user':             '2000/hour',
     },
 }
@@ -252,6 +253,7 @@ OLLAMA_BASE_URL = config('OLLAMA_BASE_URL', default='http://localhost:11434')
 OLLAMA_MODEL = config('OLLAMA_MODEL', default='llama3.1:8b')
 GROQ_API_KEY = config('GROQ_API_KEY', default='')
 GROQ_MODEL = config('GROQ_MODEL', default='openai/gpt-oss-20b')
+GROQ_VISION_MODEL = config('GROQ_VISION_MODEL', default='meta-llama/llama-4-scout-17b-16e-instruct')
 
 # Shopify (app publique OAuth — un client se connecte avec sa propre boutique)
 SHOPIFY_CLIENT_ID     = config('SHOPIFY_CLIENT_ID', default='')
