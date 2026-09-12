@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'notifications',
     'audit',
     'ai_assistant',
+    'platform_admin',
 ]
 
 MIDDLEWARE = [

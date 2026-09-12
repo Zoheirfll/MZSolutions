@@ -50,6 +50,7 @@ urlpatterns = [
     path('api/webhooks/', include('webhooks.urls')),
     path('api/audit/',    include('audit.urls')),
     path('api/ai/',       include('ai_assistant.urls')),
+    path('api/platform-admin/', include('platform_admin.urls')),
     path('api/token/refresh/', CookieTokenRefreshView.as_view(), name='token-refresh'),
     path('api/public/reviews/', __import__('products.views', fromlist=['PublicReviewView']).PublicReviewView.as_view()),
     path('api/public/orders/',  __import__('orders.views',   fromlist=['PublicOrderView']).PublicOrderView.as_view()),

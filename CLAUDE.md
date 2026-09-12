@@ -74,6 +74,7 @@ channels/clients/ — architecture client de canal (base.py BaseChannelClient/Mo
 webhooks/        — WebhookEndpoint, WebhookLog, IncomingWebhookKey, dispatch.py (fire_event, réel — pas mocké) (voir Epic 8.4)
 core/            — app Django générique (utilitaires partagés) : permissions.py (is_owner_or_admin, IsOwnerOrAdminForWrites)
 audit/           — journal d'audit transversal (2026-08) : AuditLog, log_audit() — voir section dédiée
+platform_admin/  — service de confirmation en marque blanche (2026-09), transversal à toutes les boutiques — voir section dédiée
 ```
 
 ### Paiement en ligne — Chargily Pay
@@ -1603,6 +1604,55 @@ Aucune nouvelle dépendance (déjà disponible via `django`/`djangorestframework
 ### Bugs réels repérés pendant l'écriture des tests (non corrigés, à trancher plus tard)
 
 - `DropshipperMyProductsPage.jsx` et `DropshipperMyEarningsPage.jsx` : la chaîne de chargement initiale (`Promise.all(...).finally(...)` / `api.get(...).then(...).finally(...)`) n'a pas de `.catch()` — un échec réseau laisse le spinner bloqué indéfiniment au lieu d'afficher un état d'erreur, et produit une promesse rejetée non gérée.
+
+---
+
+## Service de confirmation en marque blanche — Superadmin (2026-09, branche `epic-superadmin-confirmation`)
+
+Nouvelle offre : des boutiques MZSolutions existantes paient pour que des confirmateurs employés par MZSolutions (pas les leurs) traitent leurs commandes. Décisions produit validées avec l'utilisateur avant implémentation (voir conversation) :
+- Les boutiques concernées sont des `Store` **déjà existants** dans MZSolutions — pas de boutiques externes.
+- Le superadmin est une **couche globale transversale**, indépendante du système `team.TeamMember`/`RolePermission` scopé à une seule boutique — un confirmateur du superadmin n'appartient à aucune boutique unique, contrairement à `team.TeamMember`.
+- L'activation du service par boutique est une **décision unilatérale du superadmin** (pas un self-service du vendeur, contrairement à l'abonnement Epic 8.5).
+- `mode` (`replace`/`augment`) réglable par boutique : `replace` (défaut, les confirmateurs du superadmin remplacent les confirmateurs internes) évite les conflits de round-robin ; `augment` (coexistence) est stocké dès maintenant mais **son effet réel sur le routing n'est pas encore implémenté** (V2).
+
+### Modèles (app `platform_admin`, isolée comme `dropshipping`/`finance`/`webhooks`)
+
+```
+accounts.User.is_platform_admin (bool) — flag superadmin, indépendant de is_staff/is_superuser (admin Django) et de team.TeamMember (rôle par boutique)
+
+platform_admin.PlatformConfirmationAccount (OneToOne → stores.Store)
+  is_active (toggle superadmin), mode (replace|augment, défaut replace), note, activated_at, created_at, updated_at
+
+platform_admin.PlatformConfirmateur (OneToOne → accounts.User, nullable tant que l'invitation n'est pas acceptée)
+  first_name, last_name, email, phone, invite_token, is_active (interrupteur global), invited_at, activated_at
+  — même flux d'invitation par email/token que team.TeamMember (48h de validité, accept-invitation)
+
+platform_admin.PlatformConfirmateurAssignment (FK confirmateur, FK account, unique_together)
+  is_active (toggle par boutique — indépendant de PlatformConfirmateur.is_active et de PlatformConfirmationAccount.is_active)
+```
+
+### V1 livrée — lecture seule + organisation (pas encore de routing automatique)
+
+- Le superadmin peut : lister toutes les boutiques et activer/désactiver le service par boutique + régler son mode + une note ; inviter des confirmateurs (email/token, même pattern que `team.InviteView`) et les activer/désactiver globalement ; assigner/désassigner un confirmateur à une boutique précise (`PlatformConfirmateurAssignment`, upsert) ; lire en lecture seule les commandes et le catalogue produit d'une boutique — **uniquement si `PlatformConfirmationAccount.is_active=True`** (404 immédiat sinon, même en tapant l'URL directement, pour ne jamais exposer les données d'une boutique désactivée).
+- **Volontairement pas encore construit** (V2, une fois ce modèle validé en usage réel) : routing automatique des commandes vers les confirmateurs assignés (pas de round-robin équivalent à `team.online_confirmateurs_queryset`), file de travail quotidienne pour un confirmateur connecté (aucune notion de "mes commandes à traiter" côté superadmin pour l'instant — un `PlatformConfirmateur` peut se connecter mais n'a accès à aucune page dashboard boutique classique), effet réel du mode `augment` (routing simultané interne + superadmin).
+- Frontend : nouvel espace **`/platform-admin/*`**, séparé du dashboard boutique (`/dashboard/*`) — layout dédié (`PlatformAdminLayout.jsx`), garde d'accès `PlatformAdminRoute`/`PA` (composant `components/PlatformAdminRoute.jsx`) basée sur `user.is_platform_admin` uniquement, **aucun rapport avec le système `can('xxx_view')`/`PD` du dashboard boutique**. Pages : `PlatformAdminStoresPage.jsx` (liste + toggle actif/mode), `PlatformAdminStoreOrdersPage.jsx`/`PlatformAdminStoreProductsPage.jsx` (lecture seule par boutique), `PlatformAdminConfirmateursPage.jsx` (invitation + liste + assignation par boutique, accordéon dépliable), `PlatformAdminAcceptInvitation.jsx` (activation de compte confirmateur).
+- Django admin : `is_platform_admin` ajouté au fieldset Permissions de `UserAdmin` — c'est le moyen actuel de désigner le premier superadmin (aucune UI dédiée, pas nécessaire pour un rôle aussi rare).
+- Testé via `manage.py test platform_admin` (17 tests : contrôle d'accès strict sur chaque endpoint, activation/désactivation avec `activated_at` posé une seule fois, mode invalide rejeté, commandes/produits invisibles tant que le service n'est pas actif et à nouveau invisibles après désactivation, invitation + doublon email rejeté + acceptation crée bien le compte User, assignation upsert sans doublon) + suite `accounts`/`team` (aucune régression, `UserSerializer` étendu avec `is_platform_admin`) + build et suite frontend complète (430 tests, aucune régression).
+
+### API Endpoints — Service de confirmation (Superadmin)
+
+| Méthode | URL | Auth | Description |
+| ------- | --- | ---- | ----------- |
+| GET | `/api/platform-admin/stores/` | Superadmin | Liste toutes les boutiques (`?search=&active_only=1`), avec l'état du service s'il existe déjà |
+| POST | `/api/platform-admin/stores/<store_id>/toggle/` | Superadmin | Active/désactive le service pour une boutique + règle `mode`/`note` (upsert `PlatformConfirmationAccount`) |
+| GET | `/api/platform-admin/stores/<store_id>/orders/` | Superadmin | Commandes de la boutique en lecture seule — 404 si service inactif |
+| GET | `/api/platform-admin/stores/<store_id>/products/` | Superadmin | Catalogue de la boutique en lecture seule — 404 si service inactif |
+| GET/POST | `/api/platform-admin/confirmateurs/` | Superadmin | Liste / invite un confirmateur du superadmin |
+| PUT/DELETE | `/api/platform-admin/confirmateurs/<id>/` | Superadmin | Modifier / désactiver (soft, comme `team.TeamMemberDetailView`) |
+| POST | `/api/platform-admin/confirmateurs/<id>/resend-invite/` | Superadmin | Renvoie l'invitation avec un nouveau token (48h) |
+| GET/POST | `/api/platform-admin/accept-invitation/` | Non | Vérifie le token / active le compte confirmateur (mot de passe) |
+| GET/POST | `/api/platform-admin/assignments/` | Superadmin | Liste (`?account=&confirmateur=`) / assigne (upsert) un confirmateur à une boutique |
+| PUT/DELETE | `/api/platform-admin/assignments/<id>/` | Superadmin | Toggle actif/inactif / supprime une assignation |
 
 ---
 

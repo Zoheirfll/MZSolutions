@@ -18,6 +18,13 @@ import MarketingPixelsPage from './pages/MarketingPixelsPage'
 import WebhooksPage from './pages/WebhooksPage'
 import SubscriptionPage from './pages/SubscriptionPage'
 import AcceptInvitation from './pages/AcceptInvitation'
+import { PA } from './components/PlatformAdminRoute'
+import PlatformAdminLayout from './pages/platform-admin/PlatformAdminLayout'
+import PlatformAdminStoresPage from './pages/platform-admin/PlatformAdminStoresPage'
+import PlatformAdminStoreOrdersPage from './pages/platform-admin/PlatformAdminStoreOrdersPage'
+import PlatformAdminStoreProductsPage from './pages/platform-admin/PlatformAdminStoreProductsPage'
+import PlatformAdminConfirmateursPage from './pages/platform-admin/PlatformAdminConfirmateursPage'
+import PlatformAdminAcceptInvitation from './pages/platform-admin/PlatformAdminAcceptInvitation'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
 import StockPage from './pages/StockPage'
@@ -137,6 +144,15 @@ function App() {
           <Route path="/forgot-password"  element={<ForgotPassword />} />
           <Route path="/reset-password"   element={<ResetPassword />} />
           <Route path="/accept-invitation" element={<AcceptInvitation />} />
+          <Route path="/platform-admin/accept-invitation" element={<PlatformAdminAcceptInvitation />} />
+
+          <Route path="/platform-admin" element={<PA><PlatformAdminLayout /></PA>}>
+            <Route index element={<Navigate to="boutiques" replace />} />
+            <Route path="boutiques" element={<PlatformAdminStoresPage />} />
+            <Route path="boutiques/:storeId/commandes" element={<PlatformAdminStoreOrdersPage />} />
+            <Route path="boutiques/:storeId/produits" element={<PlatformAdminStoreProductsPage />} />
+            <Route path="confirmateurs" element={<PlatformAdminConfirmateursPage />} />
+          </Route>
 
           <Route path="/dashboard"                           element={<PD perm={['dashboard_view', 'confirmateur']}><Dashboard /></PD>} />
           <Route path="/dashboard/boutique"                  element={<PD perm="store_view"><StorePage /></PD>} />

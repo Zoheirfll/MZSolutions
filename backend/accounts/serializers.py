@@ -23,7 +23,7 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ['id', 'email', 'first_name', 'last_name', 'phone', 'avatar',
                   'store_slug', 'store_name', 'team_role', 'team_member_id', 'permissions',
-                  'is_email_verified', 'is_online', 'store_is_paused']
+                  'is_email_verified', 'is_online', 'store_is_paused', 'is_platform_admin']
 
     def get_store_slug(self, obj):
         try:

@@ -30,6 +30,11 @@ class User(AbstractUser):
                                 validators=[validate_image_extension, validate_image_size])
     google_id = models.CharField(max_length=120, blank=True)
     is_email_verified = models.BooleanField(default=False)
+    # Service de confirmation en marque blanche (platform_admin) — compte
+    # opérateur MZSolutions transversal à toutes les boutiques, distinct de
+    # is_staff/is_superuser (accès admin Django) et de is_owner_or_admin
+    # (scopé à une seule boutique via team.TeamMember).
+    is_platform_admin = models.BooleanField(default=False)
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['first_name', 'last_name']
