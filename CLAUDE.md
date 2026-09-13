@@ -1716,7 +1716,7 @@ Décision produit explicite (feedback direct : un confirmateur payé pour gérer
 | Soumission Shopify App Store (app "MZSolutions Production")                                | Formulaire de review commencé (`Register for the Shopify App Store`) mais interrompu avant le paiement des frais uniques (19 $ US) et le choix Individual/Organization — décision utilisateur en attente. Le code est prêt et fonctionnel (OAuth, webhooks temps réel, conformité RGPD) ; seule la distribution publique self-service est bloquée tant que la review n'est pas soumise/approuvée. En attendant, onboarding possible en Custom Distribution (lien d'installation généré manuellement par boutique cliente depuis le Partner Dashboard) |
 | Domaine fixe pour `BACKEND_URL`/redirect Shopify                                           | Dépend actuellement d'un tunnel ngrok (URL change à chaque redémarrage) — à remplacer par un domaine de production stable (voir aussi ligne "Infra de déploiement" ci-dessus), sinon resynchroniser `.env` + `shopify.app.toml` à chaque nouveau tunnel                                                                                                                                                                                                                                                                                               |
 | Actions en masse sur commandes / réassignation via l'agent IA                              | Reportées volontairement (voir section Agent IA avec actions d'écriture) — effets en cascade plus lourds que sur les produits (webhooks, stock, commission dropshipper), à ajouter dans un chantier séparé une fois le mécanisme de proposition/confirmation éprouvé en usage réel sur les produits |
-| `GROQ_VISION_MODEL` — jamais testé avec une vraie clé Groq en conditions réelles            | Implémenté et testé uniquement via appel HTTP simulé (mock) — à vérifier avec une vraie clé Groq dès que possible (photo réelle, facture réelle), même situation que plusieurs intégrations transporteurs avant leur premier essai réel |
+| ~~`GROQ_VISION_MODEL` — jamais testé avec une vraie clé Groq en conditions réelles~~ | ✅ Vérifié le 2026-09-13 avec une vraie clé Groq (appel direct à l'API, image réelle) — a révélé que le modèle vision par défaut initial (`meta-llama/llama-4-scout-17b-16e-instruct`) n'était pas accessible du tout sur ce compte ; remplacé par `qwen/qwen3.8-27b` (modèle Qwen multimodal, catalogue vision Groq ayant changé depuis la conception initiale), fonctionnel de bout en bout |
 
 ### Assistant IA (Ollama local + Groq cloud, 2026-09)
 
@@ -1810,6 +1810,39 @@ Premier accès en **écriture** donné à l'IA (jusqu'ici les 7 chantiers préc�
 Sidebar : "Scanner un produit" et "Brouillons de produits (scan)" ajoutés au groupe "Assistant" du menu IA (à côté de "Assistant IA"), visibles owner/admin uniquement.
 
 Testé via `manage.py test ai_assistant` (104 tests, dont 43 dédiés à ce chantier : chaque outil d'écriture isolément — calcul before/after, plafond de 50 respecté, cible figée non recalculée à la confirmation — confirm/reject avec exécution réelle par type d'outil, expiration bloquante avec 409, double résolution refusée, `ai_agent_write` implicite absent du schéma pour un non-admin, pipeline de scan avec image invalide/JSON malformé/panne du fournisseur) + suite backend complète (471 tests, aucune régression) + suite frontend complète (442 tests, dont 7 dédiés : carte de proposition confirmer/rejeter, page brouillons, page de scan, pré-remplissage du formulaire produit).
+
+⚠️ **Modèle vision Groq remplacé (2026-09-13)** — Groq a retiré ses modèles vision Llama (`llama-3.2-*-vision-preview` décommissionnés, `meta-llama/llama-4-scout/maverick` jamais accessibles sur ce compte) et les a remplacés par des modèles **Qwen multimodaux**. `GROQ_VISION_MODEL` par défaut bascule sur `qwen/qwen3.8-27b` (vérifié en conditions réelles : appel direct à l'API Groq, image réelle, format data URI + `response_format: json_object`) — vérifier `GET https://api.groq.com/openai/v1/models` avant de changer ce réglage, le catalogue vision de Groq a déjà changé une fois.
+
+### Agent IA — moteur complet (2026-09-13, 9ème chantier IA)
+
+Suite directe du 8ème chantier, en 3 volets — spec : `docs/superpowers/specs/2026-09-13-agent-ia-moteur-complet-design.md`.
+
+**Conseiller complet** — l'agent doit juger/synthétiser, pas réciter un chiffre isolé. Prompt système renforcé (`ChatView`) : toute question de jugement ("est-ce bon/normal ?", "puis-je faire confiance à ce chiffre ?") doit croiser plusieurs outils avant de conclure. 3 nouveaux outils de lecture (`ai_assistant/tools.py`), tous agrégeant des modules déjà existants — aucun calcul dupliqué :
+
+- `compare_period(metric, period)` — compare `orders`/`revenue`/`confirmation_rate`/`return_rate` à la période précédente équivalente, réutilise `GlobalStatsView._summary()` (appelé directement, pas via HTTP) + `orders.utils.previous_period`. Permission `stats_view`.
+- `assess_product(name_or_id)` — synthèse d'un produit : rupture de stock estimée (mêmes agrégats `StockMovement` que `InventoryListView`), fourchette de prix suggérée (masquée sans `purchase_prices_view`), score de mise en avant s'il en a un (`products.recommendations.products_to_promote`). Permission `products_view`.
+- `get_store_audit_summary()` — dernier `stores.StoreAudit` déjà calculé, **jamais recalculé** ici (éviterait un appel IA imbriqué dans un appel IA). Permission `store_audit_view`.
+
+**`products/pricing.py::suggest_price(store, product)`** (nouveau module, calcul 100% déterministe) — fourchette de prix suggérée, jamais un chiffre unique : marge actuelle du produit comparée à la marge moyenne de la boutique (cible = moyenne des deux), ajustée par la vélocité de vente récente (`products.recommendations._sales_rate`, ±5 points de marge si la vélocité varie de plus de 30% sur 14j vs les 14j précédents), plancher de marge à 5%. `available: False` si `cost_price` n'est pas renseigné — jamais un prix inventé sans donnée réelle. Exposé au chat via `get_price_suggestion(name_or_id)`, permission `purchase_prices_view`.
+
+**Écriture élargie** — réutilise **exactement** le mécanisme du 8ème chantier (`AIPendingAction`, `write_tools.py`, `PendingActionConfirmView`), 7 nouveaux outils, même vérification stricte `is_owner_or_admin` (jamais `has_permission`) :
+
+- `propose_toggle_team_member(name_or_email, is_active)` — active/désactive un membre **déjà existant** uniquement, jamais une invitation directe (créer un compte envoie un email réel à un tiers — geste humain volontaire réservé à `TeamPage.jsx`)
+- `propose_update_carrier_default(carrier_name)` — parmi les comptes transporteur **déjà connectés et actifs**, jamais de création de compte (clé API trop sensible pour un chat)
+- `propose_update_wilaya_rate(wilaya_name, home_price, desk_price)` — met à jour/crée un `WilayaRate`
+- `propose_toggle_client_risk(phone, manual_risk)` / `propose_blacklist_phone(phone, message)` / `propose_unblacklist_phone(phone)`
+- `propose_update_store_settings(low_stock_threshold, risk_threshold_orders, risk_period_days, insurance_fee)` — sous-ensemble volontairement limité aux champs numériques simples ; les toggles de comportement (`deduct_stock_on_order_create`, etc.) restent réservés à la page Paramètres (plus grand risque de malentendu en une phrase)
+
+⚠️ **La matrice de permissions par rôle reste explicitement hors du chat** (décision produit) — éditer les permissions est une élévation de privilège en soi, seul cas `ownerAdmin` non configurable du projet ; l'IA peut tout expliquer sur les permissions (lecture) mais renvoie vers `/dashboard/equipe/permissions` pour les modifier.
+
+**Aide contextuelle par page** — `ai_assistant/page_help.py::PAGE_HELP` (dict Python, texte fixe rédigé à l'avance pour ~75 routes du dashboard, **jamais généré par un modèle** — fiabilité garantie). Source unique consommée des deux côtés :
+
+- `GET /api/ai/page-help/` (`PageHelpView`, `IsAuthenticated` seul — documentation générique, pas une donnée sensible) — le "?" de chaque page (`DashboardLayout.jsx::PageInfoButton`) retombe automatiquement dessus si aucun `subtitle` explicite n'est passé à la page (résolution des routes à segment dynamique, ex. `/dashboard/commandes/:id`, via un motif généré à la volée côté frontend — évite de dupliquer la liste des routes paramétrées d'`App.jsx`)
+- Outil chat `get_page_help(page_path)` — réutilise **exactement** le même texte (correspondance exacte puis floue sur le chemin), jamais une paraphrase inventée par le modèle
+
+⚠️ **Piège rencontré et corrigé en vérifiant** : deux mocks de test partiels de `../../api/aiApi` (`ScanProductPage.test.jsx`, `ProductDraftsPage.test.jsx`) ne définissaient pas `getPageHelp` — comme `DashboardLayout.jsx` importe désormais cette fonction du même module, le mock remplaçait le module entier et cassait le rendu de la page dans ces deux fichiers de test. Corrigé en complétant les deux mocks, et `aiApi.js::getPageHelp()` rendu plus défensif (`Promise.resolve().then(() => api.get(...))` plutôt qu'un appel direct) contre un futur mock sans implémentation par défaut pour un appel inattendu.
+
+Testé via `manage.py test ai_assistant` (143 tests, dont 39 dédiés à ce chantier + `products.tests.SuggestPriceTest`, 5 tests dédiés à `suggest_price`) + suite backend complète (564 tests, aucune régression) + suite frontend complète (446 tests, dont les correctifs de mocks ci-dessus).
 
 ---
 
