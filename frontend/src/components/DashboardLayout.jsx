@@ -5,8 +5,24 @@ import api from '../api/axios'
 import Logo from './Logo'
 import { theme } from '../theme'
 import { useTheme } from '../hooks/useTheme'
+import { getPageHelp } from '../api/aiApi'
 
 let sidebarScrollTop = 0
+
+// Résout l'aide contextuelle d'une route : correspondance exacte d'abord,
+// puis les clés à segment dynamique (ex. '/dashboard/commandes/:id') testées
+// via un motif généré à la volée — évite de dupliquer la liste des routes
+// paramétrées d'App.jsx dans ce composant.
+function resolvePageHelp(pathname, helpMap) {
+  if (!helpMap) return null
+  if (helpMap[pathname]) return helpMap[pathname]
+  for (const key of Object.keys(helpMap)) {
+    if (!key.includes(':')) continue
+    const pattern = '^' + key.replace(/:[^/]+/g, '[^/]+') + '$'
+    if (new RegExp(pattern).test(pathname)) return helpMap[key]
+  }
+  return null
+}
 
 function playNewOrderChime() {
   try {
@@ -184,6 +200,9 @@ export default function DashboardLayout({ children, title, subtitle }) {
   const can = key => !!user?.permissions?.[key]
   const navigate = useNavigate()
   const location = useLocation()
+  const [pageHelpMap, setPageHelpMap] = useState(null)
+  useEffect(() => { getPageHelp().then(setPageHelpMap) }, [])
+  const effectiveSubtitle = subtitle || resolvePageHelp(location.pathname, pageHelpMap)
 
   const handleLeaveImpersonation = async () => {
     // Best-effort : même si l'appel échoue, on rafraîchit /auth/me/ pour
@@ -942,7 +961,7 @@ export default function DashboardLayout({ children, title, subtitle }) {
             </button>
             <div className="min-w-0 flex items-center gap-2">
               <h1 className="text-base sm:text-lg font-semibold text-app-primary truncate">{title}</h1>
-              <PageInfoButton text={subtitle} />
+              <PageInfoButton text={effectiveSubtitle} />
             </div>
           </div>
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">

@@ -16,6 +16,7 @@ vi.mock('../../../api/aiApi', () => ({
   ])),
   createProductFromDraft: vi.fn(() => Promise.resolve({ id: 10, name: 'Casquette' })),
   discardProductDraft: vi.fn(() => Promise.resolve({ status: 'discarded' })),
+  getPageHelp: vi.fn(() => Promise.resolve({})),
 }))
 vi.mock('../../../context/AuthContext', () => ({
   useAuth: () => ({ user: { team_role: null, permissions: {} } }),

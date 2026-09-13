@@ -14,6 +14,13 @@ vi.mock('../../api/axios', () => ({
 }))
 import api from '../../api/axios'
 
+vi.mock('../../api/aiApi', () => ({
+  getPageHelp: vi.fn(() => Promise.resolve({
+    '/dashboard': 'Aide du tableau de bord.',
+    '/dashboard/commandes/:id': "Aide du détail d'une commande.",
+  })),
+}))
+
 function renderLayout(user) {
   mockUseAuth.mockReturnValue({ user, logout: vi.fn() })
   return render(
@@ -80,6 +87,43 @@ describe('DashboardLayout — sidebar gated by permissions', () => {
     renderLayout({ email: 'c@test.com', team_role: 'confirmateur', permissions: {} })
     await waitFor(() => expect(screen.getByText('Tableau de bord')).toBeInTheDocument())
     expect(screen.queryByText('PARAMÈTRES')).not.toBeInTheDocument()
+  })
+
+  it("affiche l'aide contextuelle de la page via le registre quand aucun subtitle explicite n'est passé", async () => {
+    mockUseAuth.mockReturnValue({ user: { email: 'owner@test.com', team_role: null, permissions: {} }, logout: vi.fn() })
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <DashboardLayout title="Tableau de bord">contenu</DashboardLayout>
+      </MemoryRouter>
+    )
+    const button = await screen.findByLabelText('Informations sur cette page')
+    await userEvent.setup().click(button)
+    expect(await screen.findByText('Aide du tableau de bord.')).toBeInTheDocument()
+  })
+
+  it('résout une route à segment dynamique (ex. /dashboard/commandes/:id) via le registre', async () => {
+    mockUseAuth.mockReturnValue({ user: { email: 'owner@test.com', team_role: null, permissions: {} }, logout: vi.fn() })
+    render(
+      <MemoryRouter initialEntries={['/dashboard/commandes/42']}>
+        <DashboardLayout title="Commande #42">contenu</DashboardLayout>
+      </MemoryRouter>
+    )
+    const button = await screen.findByLabelText('Informations sur cette page')
+    await userEvent.setup().click(button)
+    expect(await screen.findByText("Aide du détail d'une commande.")).toBeInTheDocument()
+  })
+
+  it("un subtitle explicite passé à la page prime toujours sur le registre", async () => {
+    mockUseAuth.mockReturnValue({ user: { email: 'owner@test.com', team_role: null, permissions: {} }, logout: vi.fn() })
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <DashboardLayout title="Tableau de bord" subtitle="Texte explicite de la page.">contenu</DashboardLayout>
+      </MemoryRouter>
+    )
+    const button = await screen.findByLabelText('Informations sur cette page')
+    await userEvent.setup().click(button)
+    expect(await screen.findByText('Texte explicite de la page.')).toBeInTheDocument()
+    expect(screen.queryByText('Aide du tableau de bord.')).not.toBeInTheDocument()
   })
 
   it('toggles the theme and persists it to localStorage', async () => {

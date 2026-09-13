@@ -5,6 +5,7 @@ from .views import (
     ConversationListView, ConversationDetailView, ChatView,
     PendingActionConfirmView, PendingActionRejectView,
     ScanProductView, ProductDraftListView, ProductDraftCreateView, ProductDraftDiscardView,
+    PageHelpView,
 )
 
 urlpatterns = [
@@ -20,4 +21,5 @@ urlpatterns = [
     path('product-drafts/', ProductDraftListView.as_view()),
     path('product-drafts/<int:pk>/create/', ProductDraftCreateView.as_view()),
     path('product-drafts/<int:pk>/discard/', ProductDraftDiscardView.as_view()),
+    path('page-help/', PageHelpView.as_view()),
 ]

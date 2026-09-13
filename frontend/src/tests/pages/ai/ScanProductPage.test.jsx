@@ -9,7 +9,7 @@ vi.mock('react-router-dom', async () => {
   return { ...actual, useNavigate: () => mockNavigate }
 })
 vi.mock('../../../api/axios', () => ({ default: { get: vi.fn(() => Promise.resolve({ data: {} })) } }))
-vi.mock('../../../api/aiApi', () => ({ scanProduct: vi.fn() }))
+vi.mock('../../../api/aiApi', () => ({ scanProduct: vi.fn(), getPageHelp: vi.fn(() => Promise.resolve({})) }))
 vi.mock('../../../context/AuthContext', () => ({ useAuth: () => ({ user: { team_role: null, permissions: {} } }) }))
 
 function makeFile() {

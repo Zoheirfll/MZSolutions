@@ -233,6 +233,21 @@ def get_subscription_status(request):
     })
 
 
+def get_page_help(request, page_path):
+    """Réutilise EXACTEMENT le même texte que le \"?\" de la page — jamais
+    une description inventée par le modèle. Aucune permission spécifique,
+    documentation générique du dashboard."""
+    from .page_help import PAGE_HELP
+    text = PAGE_HELP.get(page_path)
+    if not text:
+        needle = (page_path or '').strip('/').lower()
+        for path, help_text in PAGE_HELP.items():
+            if needle and needle in path.lower():
+                return help_text
+        return f"Aucune aide enregistrée pour « {page_path} »."
+    return text
+
+
 def compare_period(request, metric='orders', period='week'):
     """Compare une métrique à la période précédente équivalente — réutilise
     GlobalStatsView._summary (déjà appelée deux fois par cette vue pour ses
@@ -427,6 +442,7 @@ TOOL_REGISTRY = {
     'compare_period': compare_period,
     'assess_product': assess_product,
     'get_store_audit_summary': get_store_audit_summary,
+    'get_page_help': get_page_help,
 }
 
 TOOL_DEFINITIONS = [
@@ -562,6 +578,18 @@ TOOL_DEFINITIONS = [
             'name': 'get_subscription_status',
             'description': "Quota de commandes restant et palier d'abonnement actuel de la boutique.",
             'parameters': {'type': 'object', 'properties': {}},
+        },
+    },
+    {
+        'type': 'function',
+        'function': {
+            'name': 'get_page_help',
+            'description': "Explique à quoi sert une page précise du dashboard, à partir de son chemin exact (ex: '/dashboard/produits', '/dashboard/stats/retours'). Utiliser quand le vendeur demande \"c'est quoi cette page ?\" ou \"à quoi sert X ?\".",
+            'parameters': {
+                'type': 'object',
+                'properties': {'page_path': {'type': 'string', 'description': "Chemin exact de la page (ex: '/dashboard/produits')"}},
+                'required': ['page_path'],
+            },
         },
     },
     {

@@ -256,6 +256,18 @@ class ChatView(APIView):
         return Response(response_data)
 
 
+class PageHelpView(APIView):
+    """Registre complet de l'aide contextuelle par page — texte fixe, jamais
+    généré. Aucune permission spécifique : c'est de la documentation
+    générique du dashboard, pas une donnée sensible (même exposition
+    qu'un `subtitle` codé en dur dans une page)."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from .page_help import PAGE_HELP
+        return Response(PAGE_HELP)
+
+
 class ScanProductView(APIView):
     permission_classes = [IsAuthenticated]
     throttle_scope = 'ai_scan'

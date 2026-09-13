@@ -53,3 +53,20 @@ export function createProductFromDraft(id) {
 export function discardProductDraft(id) {
   return api.post(`/ai/product-drafts/${id}/discard/`).then(r => r.data)
 }
+
+let pageHelpPromise = null
+export function getPageHelp() {
+  if (!pageHelpPromise) {
+    // Enveloppé dans Promise.resolve().then(...) plutôt qu'un appel direct à
+    // api.get() : certains mocks de test ne définissent `get` que pour les
+    // URLs qu'ils attendent explicitement (vi.fn() sans implémentation par
+    // défaut renvoie `undefined` pour tout le reste) — un throw synchrone
+    // sur `.then` échapperait au `.catch` ci-dessous s'il survenait avant
+    // que la chaîne de promesses existe.
+    pageHelpPromise = Promise.resolve()
+      .then(() => api.get('/ai/page-help/'))
+      .then(r => r.data)
+      .catch(() => ({}))
+  }
+  return pageHelpPromise
+}

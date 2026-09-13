@@ -470,6 +470,18 @@ class MoreExtendedToolsTest(TestCase):
         result = ai_tools.execute_tool(self._req(member_user), 'get_recommendations', {})
         self.assertIn("n'avez pas la permission", result)
 
+    def test_get_page_help_exact_match(self):
+        result = ai_tools.execute_tool(self._req(self.owner), 'get_page_help', {'page_path': '/dashboard/produits'})
+        self.assertIn('catalogue', result.lower())
+
+    def test_get_page_help_fuzzy_match(self):
+        result = ai_tools.execute_tool(self._req(self.owner), 'get_page_help', {'page_path': 'stats/retours'})
+        self.assertIn('retour', result.lower())
+
+    def test_get_page_help_unknown_path(self):
+        result = ai_tools.execute_tool(self._req(self.owner), 'get_page_help', {'page_path': '/dashboard/inexistant'})
+        self.assertIn('aucune aide', result.lower())
+
     def test_get_recommendations_returns_all_three_sections(self):
         result = json.loads(ai_tools.execute_tool(self._req(self.owner), 'get_recommendations', {}))
         self.assertIn('promote', result)
@@ -707,6 +719,27 @@ class ChatLoopWriteToolTest(TestCase):
 
 
 @override_settings(AI_PROVIDER='groq', GROQ_API_KEY='test-key', GROQ_VISION_MODEL='test-vision-model')
+class PageHelpViewTest(TestCase):
+    def setUp(self):
+        self.owner, self.store = make_owner()
+
+    def test_returns_full_registry(self):
+        client = auth_client(self.owner)
+        resp = client.get('/api/ai/page-help/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('/dashboard/produits', resp.data)
+
+    def test_same_text_as_chat_tool(self):
+        from ai_assistant.page_help import PAGE_HELP
+        client = auth_client(self.owner)
+        resp = client.get('/api/ai/page-help/')
+        request = type('R', (), {})()
+        request.user = self.owner
+        tool_text = ai_tools.execute_tool(request, 'get_page_help', {'page_path': '/dashboard/produits'})
+        self.assertEqual(resp.data['/dashboard/produits'], tool_text)
+        self.assertEqual(resp.data['/dashboard/produits'], PAGE_HELP['/dashboard/produits'])
+
+
 class ScanProductViewTest(TestCase):
     def setUp(self):
         self.owner, self.store = make_owner()
