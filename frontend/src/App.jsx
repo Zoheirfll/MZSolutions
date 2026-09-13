@@ -26,6 +26,7 @@ import PlatformAdminStoreProductsPage from './pages/platform-admin/PlatformAdmin
 import PlatformAdminConfirmateursPage from './pages/platform-admin/PlatformAdminConfirmateursPage'
 import PlatformAdminAcceptInvitation from './pages/platform-admin/PlatformAdminAcceptInvitation'
 import PlatformAdminMyQueuePage from './pages/platform-admin/PlatformAdminMyQueuePage'
+import PlatformAdminAuditPage from './pages/platform-admin/PlatformAdminAuditPage'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
 import StockPage from './pages/StockPage'
@@ -155,6 +156,7 @@ function App() {
             <Route path="boutiques/:storeId/commandes" element={<PlatformAdminStoreOrdersPage />} />
             <Route path="boutiques/:storeId/produits" element={<PlatformAdminStoreProductsPage />} />
             <Route path="confirmateurs" element={<PlatformAdminConfirmateursPage />} />
+            <Route path="journal" element={<PlatformAdminAuditPage />} />
           </Route>
 
           <Route path="/platform-admin/ma-file" element={<PC><PlatformAdminMyQueuePage /></PC>} />

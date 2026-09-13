@@ -605,3 +605,121 @@ class PlatformAssignmentPermissionsView(APIView):
             return Response({'detail': 'Permission inconnue.'}, status=400)
         PlatformAssignmentPermission.objects.filter(assignment=assignment, permission=permission).delete()
         return Response({'permissions': get_effective_platform_permissions(assignment)})
+
+
+# ─── Tableau de bord agrégé confirmateur (V4) ───────────────────────────────
+
+NEEDS_ACTION_STATUSES = ['pending', 'no_answer_1', 'no_answer_2', 'no_answer_3']
+
+
+class MyDashboardSummaryView(APIView):
+    """Vue d'ensemble CROSS-BOUTIQUE pour un confirmateur du superadmin — pas
+    besoin d'entrer dans chaque boutique (mode "Gérer cette boutique") pour
+    savoir ce qu'il y a à traiter : commandes en attente de sa file, plus
+    réclamations/échanges ouverts **des boutiques où il a la permission
+    correspondante** (inbox_view/exchanges_view, via PlatformAssignmentPermission
+    — jamais des données qu'il n'a pas le droit de voir)."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        confirmateur = get_platform_confirmateur(request)
+        if not confirmateur:
+            return _confirmateur_forbidden()
+
+        assignments = (
+            PlatformConfirmateurAssignment.objects
+            .filter(confirmateur=confirmateur, is_active=True, account__is_active=True)
+            .select_related('account__store')
+        )
+
+        from inbox.models import Conversation
+        from orders.models import ExchangeRequest
+
+        stores_summary = []
+        totals = {'pending_orders': 0, 'open_complaints': 0, 'open_exchanges': 0}
+        for assignment in assignments:
+            store = assignment.account.store
+            perms = get_effective_platform_permissions(assignment)
+
+            pending_orders = Order.objects.filter(
+                platform_assignment__confirmateur=confirmateur,
+                store=store, status__in=NEEDS_ACTION_STATUSES,
+            ).count()
+
+            open_complaints = None
+            if perms.get('inbox_view'):
+                open_complaints = Conversation.objects.filter(
+                    store=store, status__in=['open', 'in_progress'],
+                ).count()
+
+            open_exchanges = None
+            if perms.get('exchanges_view'):
+                open_exchanges = ExchangeRequest.objects.filter(store=store, status='open').count()
+
+            totals['pending_orders'] += pending_orders
+            totals['open_complaints'] += open_complaints or 0
+            totals['open_exchanges'] += open_exchanges or 0
+
+            stores_summary.append({
+                'assignment_id': assignment.id,
+                'store_id': store.id,
+                'store_name': store.name,
+                'pending_orders': pending_orders,
+                'open_complaints': open_complaints,   # None = permission non accordée sur cette boutique
+                'open_exchanges': open_exchanges,
+            })
+
+        return Response({'stores': stores_summary, 'totals': totals})
+
+
+# ─── Journal d'audit transversal (V4, superadmin uniquement) ───────────────
+
+class PlatformAuditLogListView(APIView):
+    """Journal d'audit à travers TOUTES les boutiques — réservé au superadmin.
+    Réutilise audit.AuditLog tel quel (déjà correctement rempli pour les
+    actions faites en mode "Gérer cette boutique", voir audit.utils.log_audit
+    corrigé en V3) plutôt qu'un journal séparé."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if not is_platform_admin(request):
+            return _forbidden()
+
+        from audit.models import AuditLog
+        from audit.serializers import AuditLogSerializer
+
+        qs = AuditLog.objects.select_related('store', 'actor').order_by('-created_at')
+
+        store_id = request.query_params.get('store')
+        if store_id:
+            qs = qs.filter(store_id=store_id)
+
+        action = request.query_params.get('action')
+        if action:
+            qs = qs.filter(action=action)
+
+        search = request.query_params.get('search', '').strip()
+        if search:
+            qs = qs.filter(
+                Q(actor_name__icontains=search) | Q(description__icontains=search) |
+                Q(target_repr__icontains=search) | Q(store__name__icontains=search)
+            )
+
+        date_from = request.query_params.get('date_from')
+        if date_from:
+            qs = qs.filter(created_at__date__gte=date_from)
+        date_to = request.query_params.get('date_to')
+        if date_to:
+            qs = qs.filter(created_at__date__lte=date_to)
+
+        page, per_page = parse_pagination(request, default_per_page=25)
+        total = qs.count()
+        qs = qs[(page - 1) * per_page: page * per_page]
+
+        results = []
+        for entry in qs:
+            row = AuditLogSerializer(entry).data
+            row['store_name'] = entry.store.name if entry.store_id else None
+            results.append(row)
+
+        return Response({'count': total, 'page': page, 'per_page': per_page, 'results': results})

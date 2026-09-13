@@ -4,7 +4,18 @@ import api from '../../api/axios'
 import { theme } from '../../theme'
 import Select from '../../components/Select'
 import Toast from '../../components/Toast'
+import StatCard from '../../components/StatCard'
 import { useAuth } from '../../context/AuthContext'
+
+function InboxIcon(props) {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M22 12h-6l-2 3h-4l-2-3H2M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z" /></svg>
+}
+function PackageIcon(props) {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M21 8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" /><path d="M3.27 6.96L12 12l8.73-5.04M12 22.08V12" /></svg>
+}
+function RefreshCwIcon(props) {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M23 4v6h-6M1 20v-6h6" /><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" /></svg>
+}
 
 const STATUS_OPTIONS = [
   { value: '',                 label: 'Tous les statuts' },
@@ -31,19 +42,21 @@ export default function PlatformAdminMyQueuePage() {
   const [editing, setEditing] = useState(null) // order id en cours d'édition
   const [newStatus, setNewStatus] = useState('')
   const [note, setNote]       = useState('')
-  const [myStores, setMyStores] = useState([])
+  const [dashboard, setDashboard] = useState(null)
   const [entering, setEntering] = useState(null)
 
-  useEffect(() => {
-    api.get('/platform-admin/my-assignments/')
-      .then(({ data }) => setMyStores(data))
+  const loadDashboard = useCallback(() => {
+    api.get('/platform-admin/my-dashboard/')
+      .then(({ data }) => setDashboard(data))
       .catch(() => {})
   }, [])
 
-  const handleEnter = async (assignment) => {
-    setEntering(assignment.id)
+  useEffect(() => { loadDashboard() }, [loadDashboard])
+
+  const handleEnter = async (assignmentId) => {
+    setEntering(assignmentId)
     try {
-      await api.post(`/platform-admin/assignments/${assignment.id}/enter/`)
+      await api.post(`/platform-admin/assignments/${assignmentId}/enter/`)
       await refresh()
       navigate('/dashboard')
     } catch {
@@ -74,6 +87,7 @@ export default function PlatformAdminMyQueuePage() {
       setToast({ type: 'success', message: 'Statut mis à jour.' })
       setEditing(null)
       load()
+      loadDashboard()
     } catch (err) {
       setToast({ type: 'error', message: err.response?.data?.detail || 'Échec de la mise à jour.' })
     }
@@ -89,23 +103,66 @@ export default function PlatformAdminMyQueuePage() {
         </div>
       </header>
 
-      <main className="p-6 max-w-6xl mx-auto flex flex-col gap-5">
-        {myStores.length > 0 && (
-          <div className="flex flex-col gap-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-app-muted-light">Mes boutiques</p>
-            <div className="flex flex-wrap gap-2">
-              {myStores.map(a => (
-                <button key={a.id} onClick={() => handleEnter(a)} disabled={entering === a.id}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ring-1 ring-inset ring-violet-500/30 bg-violet-500/10 text-violet-300 hover:bg-violet-500/15 transition cursor-pointer disabled:opacity-50">
-                  {entering === a.id ? 'Entrée…' : `Gérer ${a.store_name}`}
-                </button>
-              ))}
-            </div>
+      <main className="p-6 max-w-6xl mx-auto flex flex-col gap-6">
+        <div>
+          <h1 className="text-xl font-bold text-app-primary">Vue d'ensemble</h1>
+          <p className="text-sm text-app-muted mt-1">Toutes vos boutiques, en un coup d'œil — pas besoin d'entrer dans chacune pour savoir ce qu'il y a à traiter.</p>
+        </div>
+
+        {dashboard && (
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+            <StatCard label="Commandes à traiter" value={dashboard.totals.pending_orders} icon={PackageIcon} color="violet" />
+            <StatCard label="Réclamations ouvertes" value={dashboard.totals.open_complaints} icon={InboxIcon} color="orange" />
+            <StatCard label="Échanges ouverts" value={dashboard.totals.open_exchanges} icon={RefreshCwIcon} color="cyan" />
+          </div>
+        )}
+
+        {dashboard && dashboard.stores.length > 0 && (
+          <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-color)', background: 'var(--bg-card)' }}>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs font-semibold uppercase tracking-wide text-app-muted-light border-b" style={{ borderColor: 'var(--border-color)' }}>
+                  <th className="px-4 py-3">Boutique</th>
+                  <th className="px-4 py-3">Commandes à traiter</th>
+                  <th className="px-4 py-3">Réclamations ouvertes</th>
+                  <th className="px-4 py-3">Échanges ouverts</th>
+                  <th className="px-4 py-3">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {dashboard.stores.map(s => (
+                  <tr key={s.assignment_id} className="border-b last:border-0" style={{ borderColor: 'var(--border-color)' }}>
+                    <td className="px-4 py-3 text-app-primary font-medium">{s.store_name}</td>
+                    <td className="px-4 py-3">
+                      {s.pending_orders > 0
+                        ? <span className={theme.badge.info}>{s.pending_orders}</span>
+                        : <span className="text-app-muted">0</span>}
+                    </td>
+                    <td className="px-4 py-3">
+                      {s.open_complaints === null
+                        ? <span className="text-app-muted text-xs" title="Permission non accordée">—</span>
+                        : s.open_complaints > 0 ? <span className={theme.badge.warning}>{s.open_complaints}</span> : <span className="text-app-muted">0</span>}
+                    </td>
+                    <td className="px-4 py-3">
+                      {s.open_exchanges === null
+                        ? <span className="text-app-muted text-xs" title="Permission non accordée">—</span>
+                        : s.open_exchanges > 0 ? <span className={theme.badge.cyan}>{s.open_exchanges}</span> : <span className="text-app-muted">0</span>}
+                    </td>
+                    <td className="px-4 py-3">
+                      <button onClick={() => handleEnter(s.assignment_id)} disabled={entering === s.assignment_id}
+                        className="text-xs font-semibold px-2.5 py-1.5 rounded-md bg-violet-600 text-white hover:bg-violet-500 transition disabled:opacity-50 cursor-pointer">
+                        {entering === s.assignment_id ? 'Entrée…' : 'Gérer'}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
 
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold text-app-primary">Mes commandes à traiter</h1>
+          <h2 className="text-xl font-bold text-app-primary">Mes commandes à traiter</h2>
           <Select value={statusFilter} onChange={setStatusFilter} options={STATUS_OPTIONS} className={theme.inputDark + ' w-64'} />
         </div>
 

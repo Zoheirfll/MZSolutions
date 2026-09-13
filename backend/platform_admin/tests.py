@@ -3,7 +3,7 @@ from django.test import TestCase
 from accounts.models import User
 from core.test_utils import make_owner, auth_client, clear_throttle_cache
 from orders.models import Order
-from .models import PlatformConfirmationAccount, PlatformConfirmateur, PlatformConfirmateurAssignment, PlatformOrderAssignment
+from .models import PlatformConfirmationAccount, PlatformConfirmateur, PlatformConfirmateurAssignment, PlatformOrderAssignment, PlatformAssignmentPermission
 from .routing import route_order
 
 
@@ -451,3 +451,119 @@ class MyAssignmentsListViewTests(TestCase):
         client = auth_client(self.owner)
         resp = client.get('/api/platform-admin/my-assignments/')
         self.assertEqual(resp.status_code, 403)
+
+
+class MyDashboardSummaryTests(TestCase):
+    def setUp(self):
+        clear_throttle_cache()
+        self.owner, self.store = make_owner()
+        self.account = PlatformConfirmationAccount.objects.create(store=self.store, is_active=True, mode='replace')
+        self.confirmateur = make_active_confirmateur(self.store, self.account)
+        self.client_conf = auth_client(self.confirmateur.user)
+
+    def test_non_confirmateur_forbidden(self):
+        client = auth_client(self.owner)
+        resp = client.get('/api/platform-admin/my-dashboard/')
+        self.assertEqual(resp.status_code, 403)
+
+    def test_pending_orders_counted_only_for_own_assignment(self):
+        o1 = Order.objects.create(store=self.store, first_name='A', phone='0555000001', wilaya='Alger', status='pending')
+        PlatformOrderAssignment.objects.create(order=o1, confirmateur=self.confirmateur)
+        o2 = Order.objects.create(store=self.store, first_name='B', phone='0555000002', wilaya='Alger', status='delivered')
+        PlatformOrderAssignment.objects.create(order=o2, confirmateur=self.confirmateur)
+
+        resp = self.client_conf.get('/api/platform-admin/my-dashboard/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['totals']['pending_orders'], 1)
+        row = resp.data['stores'][0]
+        self.assertEqual(row['store_name'], self.store.name)
+        self.assertEqual(row['pending_orders'], 1)
+
+    def test_complaints_hidden_without_inbox_permission(self):
+        from inbox.models import Conversation
+        Conversation.objects.create(store=self.store, channel='complaint', status='open')
+
+        resp = self.client_conf.get('/api/platform-admin/my-dashboard/')
+        row = resp.data['stores'][0]
+        self.assertIsNone(row['open_complaints'])
+        self.assertEqual(resp.data['totals']['open_complaints'], 0)
+
+    def test_complaints_visible_once_permission_granted(self):
+        from inbox.models import Conversation
+        Conversation.objects.create(store=self.store, channel='complaint', status='open')
+        Conversation.objects.create(store=self.store, channel='complaint', status='resolved')
+        assignment = PlatformConfirmateurAssignment.objects.get(confirmateur=self.confirmateur, account=self.account)
+        PlatformAssignmentPermission.objects.create(assignment=assignment, permission='inbox_view', enabled=True)
+
+        resp = self.client_conf.get('/api/platform-admin/my-dashboard/')
+        row = resp.data['stores'][0]
+        self.assertEqual(row['open_complaints'], 1)
+        self.assertEqual(resp.data['totals']['open_complaints'], 1)
+
+    def test_exchanges_visible_once_permission_granted(self):
+        from products.models import Product, ProductVariant, VariantOption
+        from orders.models import OrderItem, ExchangeRequest
+        product = Product.objects.create(store=self.store, name='Shoe', price=3000)
+        order = Order.objects.create(store=self.store, first_name='C', phone='0555000003', wilaya='Alger')
+        item = OrderItem.objects.create(order=order, product=product, product_name='Shoe', price=3000, quantity=1)
+        variant = ProductVariant.objects.create(product=product, name='Taille')
+        opt = VariantOption.objects.create(variant=variant, value='42', stock=5)
+        ExchangeRequest.objects.create(store=self.store, order_item=item, replacement_option=opt, reason='x', status='open')
+
+        assignment = PlatformConfirmateurAssignment.objects.get(confirmateur=self.confirmateur, account=self.account)
+        resp = self.client_conf.get('/api/platform-admin/my-dashboard/')
+        self.assertIsNone(resp.data['stores'][0]['open_exchanges'])
+
+        PlatformAssignmentPermission.objects.create(assignment=assignment, permission='exchanges_view', enabled=True)
+        resp2 = self.client_conf.get('/api/platform-admin/my-dashboard/')
+        self.assertEqual(resp2.data['stores'][0]['open_exchanges'], 1)
+
+
+class PlatformAuditLogListViewTests(TestCase):
+    def setUp(self):
+        clear_throttle_cache()
+        self.owner, self.store = make_owner()
+        self.admin = make_platform_admin()
+        self.client_admin = auth_client(self.admin)
+
+    def test_non_admin_forbidden(self):
+        client = auth_client(self.owner)
+        resp = client.get('/api/platform-admin/audit-logs/')
+        self.assertEqual(resp.status_code, 403)
+
+    def test_lists_entries_across_stores_with_store_name(self):
+        from audit.models import AuditLog
+        other_owner, other_store = make_owner()
+        AuditLog.objects.create(store=self.store, actor=self.owner, actor_name='Owner1', actor_role='owner', action='order.created', description='Test 1')
+        AuditLog.objects.create(store=other_store, actor=other_owner, actor_name='Owner2', actor_role='owner', action='order.created', description='Test 2')
+
+        resp = self.client_admin.get('/api/platform-admin/audit-logs/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['count'], 2)
+        store_names = {r['store_name'] for r in resp.data['results']}
+        self.assertEqual(store_names, {self.store.name, other_store.name})
+
+    def test_filter_by_store(self):
+        from audit.models import AuditLog
+        other_owner, other_store = make_owner()
+        AuditLog.objects.create(store=self.store, actor=self.owner, actor_name='Owner1', actor_role='owner', action='order.created', description='Test 1')
+        AuditLog.objects.create(store=other_store, actor=other_owner, actor_name='Owner2', actor_role='owner', action='order.created', description='Test 2')
+
+        resp = self.client_admin.get('/api/platform-admin/audit-logs/', {'store': self.store.id})
+        self.assertEqual(resp.data['count'], 1)
+        self.assertEqual(resp.data['results'][0]['store_name'], self.store.name)
+
+    def test_impersonated_action_is_logged_with_correct_store(self):
+        """Vérifie bout en bout qu'une action faite en mode "Gérer cette
+        boutique" apparaît bien dans le journal transversal — pas juste que
+        l'endpoint de listing fonctionne."""
+        PlatformConfirmationAccount.objects.create(store=self.store, is_active=True)
+        enter = self.client_admin.post(f'/api/platform-admin/stores/{self.store.id}/enter/')
+        self.assertEqual(enter.status_code, 200)
+        self.client_admin.post('/api/team/invite/', {
+            'role': 'confirmateur', 'first_name': 'X', 'last_name': 'Y', 'email': 'x-invite@test.com',
+        }, format='json')
+
+        from audit.models import AuditLog
+        entry = AuditLog.objects.filter(store=self.store, action='team.member_invited').first()
+        self.assertIsNotNone(entry)

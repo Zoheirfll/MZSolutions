@@ -24,4 +24,7 @@ urlpatterns = [
     path('my-queue/',                        views.MyQueueListView.as_view()),
     path('my-queue/<int:order_id>/status/',  views.MyQueueOrderStatusView.as_view()),
     path('my-assignments/',                  views.MyAssignmentsListView.as_view()),
+    path('my-dashboard/',                    views.MyDashboardSummaryView.as_view()),
+
+    path('audit-logs/',                      views.PlatformAuditLogListView.as_view()),
 ]
