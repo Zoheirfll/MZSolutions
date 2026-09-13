@@ -24,6 +24,13 @@ const MODE_OPTIONS = [
   { value: 'augment', label: 'Coexiste avec les confirmateurs internes' },
 ]
 
+// Libellés courts pour la cellule du tableau (place limitée) — le libellé
+// complet reste affiché ailleurs (filtre, etc.).
+const MODE_OPTIONS_SHORT = [
+  { value: 'replace', label: 'Remplace' },
+  { value: 'augment', label: 'Coexiste' },
+]
+
 const PER_PAGE_OPTIONS = [10, 20, 50]
 
 function StoreIcon(props) {
@@ -237,7 +244,7 @@ export default function PlatformAdminStoresPage() {
               <th className="px-4 py-3">Mode</th>
               <th className="px-4 py-3">Confirmateurs</th>
               <th className="px-4 py-3">Activé le</th>
-              <th className="px-4 py-3">Accès</th>
+              <th className="px-4 py-3 sticky right-0" style={{ background: theme.dark.sidebar }}>Accès</th>
             </tr>
           </thead>
           <tbody>
@@ -282,11 +289,11 @@ export default function PlatformAdminStoresPage() {
                       {active ? 'Actif' : 'Inactif'}
                     </button>
                   </td>
-                  <td className="px-4 py-3 w-60">
+                  <td className="px-4 py-3 w-36">
                     <Select
                       value={store.confirmation?.mode || 'replace'}
                       onChange={v => changeMode(store, v)}
-                      options={MODE_OPTIONS}
+                      options={MODE_OPTIONS_SHORT}
                       disabled={!active}
                       className={theme.inputDark + ' py-1.5 text-xs'}
                     />
@@ -297,15 +304,17 @@ export default function PlatformAdminStoresPage() {
                   <td className="px-4 py-3 text-app-muted-light whitespace-nowrap">
                     {store.confirmation?.activated_at ? new Date(store.confirmation.activated_at).toLocaleDateString('fr-DZ') : '—'}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 sticky right-0" style={{ background: 'var(--bg-card)' }}>
                     {active ? (
-                      <div className="flex items-center gap-3 flex-wrap">
-                        <Link to={`/platform-admin/boutiques/${store.id}/commandes`} className="text-violet-400 hover:text-violet-300 text-xs font-medium">Commandes</Link>
-                        <Link to={`/platform-admin/boutiques/${store.id}/produits`} className="text-violet-400 hover:text-violet-300 text-xs font-medium">Produits</Link>
+                      <div className="flex flex-col items-start gap-1.5 min-w-32">
                         <button onClick={() => handleEnter(store)} disabled={entering === store.id}
-                          className="text-xs font-semibold px-2.5 py-1 rounded-md bg-violet-600 text-white hover:bg-violet-500 transition disabled:opacity-50 cursor-pointer">
-                          {entering === store.id ? 'Entrée…' : 'Gérer cette boutique'}
+                          className="w-full text-xs font-semibold px-2.5 py-1.5 rounded-md bg-violet-600 text-white hover:bg-violet-500 transition disabled:opacity-50 cursor-pointer whitespace-nowrap">
+                          {entering === store.id ? 'Entrée…' : 'Gérer la boutique'}
                         </button>
+                        <div className="flex items-center gap-2.5">
+                          <Link to={`/platform-admin/boutiques/${store.id}/commandes`} className="text-violet-400 hover:text-violet-300 text-xs font-medium">Commandes</Link>
+                          <Link to={`/platform-admin/boutiques/${store.id}/produits`} className="text-violet-400 hover:text-violet-300 text-xs font-medium">Produits</Link>
+                        </div>
                       </div>
                     ) : <span className="text-app-muted text-xs">—</span>}
                   </td>
