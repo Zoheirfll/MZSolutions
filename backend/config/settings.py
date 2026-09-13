@@ -253,7 +253,7 @@ OLLAMA_BASE_URL = config('OLLAMA_BASE_URL', default='http://localhost:11434')
 OLLAMA_MODEL = config('OLLAMA_MODEL', default='llama3.1:8b')
 GROQ_API_KEY = config('GROQ_API_KEY', default='')
 GROQ_MODEL = config('GROQ_MODEL', default='openai/gpt-oss-20b')
-GROQ_VISION_MODEL = config('GROQ_VISION_MODEL', default='meta-llama/llama-4-scout-17b-16e-instruct')
+GROQ_VISION_MODEL = config('GROQ_VISION_MODEL', default='qwen/qwen3.8-27b')
 
 # Shopify (app publique OAuth — un client se connecte avec sa propre boutique)
 SHOPIFY_CLIENT_ID     = config('SHOPIFY_CLIENT_ID', default='')

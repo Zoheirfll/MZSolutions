@@ -1,6 +1,11 @@
 """Client vision — extraction de fiche(s) produit à partir d'une image
 (photo d'un article, ou document fournisseur listant plusieurs articles).
-Fournisseur unique pour l'instant : Groq (modèle multimodal Llama 4).
+Fournisseur unique pour l'instant : Groq (modèle multimodal Qwen —
+`GROQ_VISION_MODEL`, `qwen/qwen3.8-27b` par défaut). ⚠️ Groq a retiré ses
+anciens modèles vision Llama (`llama-3.2-*-vision-preview`, décommissionnés,
+et `meta-llama/llama-4-scout/maverick`, jamais accessibles sur ce compte) —
+vérifier `GET https://api.groq.com/openai/v1/models` avant de changer ce
+réglage, le catalogue vision de Groq a déjà changé une fois (2026-09).
 Ollama vision (llava/llama3.2-vision) reste hors de portée tant que le
 serveur de production n'a pas été dimensionné au-delà de l'incident RAM
 du 2026-09-05 (voir CLAUDE.md, section Assistant IA).
