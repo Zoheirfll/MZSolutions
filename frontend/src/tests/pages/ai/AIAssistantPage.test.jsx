@@ -21,6 +21,13 @@ vi.mock('../../../context/AuthContext', () => ({
 describe('AIAssistantPage', () => {
   beforeEach(() => vi.clearAllMocks())
 
+  it('affiche toujours le bandeau des capacités (pas caché dans une infobulle)', async () => {
+    render(<MemoryRouter><AIAssistantPage /></MemoryRouter>)
+    expect(await screen.findByText(/Me poser des questions/)).toBeInTheDocument()
+    expect(screen.getByText(/Me demander d'agir/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Scanner un produit/ })).toHaveAttribute('href', '/dashboard/produits/scanner')
+  })
+
   it('affiche le champ de saisie et envoie un message', async () => {
     render(<MemoryRouter><AIAssistantPage /></MemoryRouter>)
     const input = await screen.findByPlaceholderText(/posez une question/i)

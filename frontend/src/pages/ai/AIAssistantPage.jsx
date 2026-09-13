@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Plus, Send, Sparkles, User, MessageSquare, Trash2 } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Plus, Send, Sparkles, User, MessageSquare, Trash2, ScanLine } from 'lucide-react'
 import DashboardLayout from '../../components/DashboardLayout'
 import ConfirmDialog from '../../components/ConfirmDialog'
 import { theme } from '../../theme'
@@ -43,6 +44,23 @@ function MessageBubble({ role, content }) {
           ? <p className="whitespace-pre-wrap">{content}</p>
           : <div className="ai-prose" dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }} />}
       </div>
+    </div>
+  )
+}
+
+function CapabilitiesBanner() {
+  return (
+    <div className="border-b border-app px-4 py-3 bg-app-card-alt/40 text-xs text-app-muted-light space-y-1.5">
+      <p><span className="font-medium text-app-primary">🔍 Me poser des questions</span> — commandes, stock, clients à risque, rentabilité, équipe, retours...</p>
+      <p>
+        <span className="font-medium text-app-primary">✏️ Me demander d'agir</span> — modifier le prix/stock/statut d'un produit (un ou plusieurs à la fois), créer un produit, changer le statut d'une commande précise. <span className="text-app-muted">Je vous montre toujours l'avant/après et j'attends votre confirmation avant d'écrire quoi que ce soit.</span>
+      </p>
+      <p>
+        <span className="font-medium text-app-primary">📷 Scanner un produit</span> — pour créer une fiche depuis une photo ou une facture fournisseur, direction{' '}
+        <Link to="/dashboard/produits/scanner" className="inline-flex items-center gap-1 text-violet-400 hover:text-violet-300 underline">
+          <ScanLine size={12} /> Scanner un produit
+        </Link>.
+      </p>
     </div>
   )
 }
@@ -222,6 +240,7 @@ export default function AIAssistantPage() {
 
         {/* Fil de discussion */}
         <div className="flex-1 flex flex-col rounded-xl border border-app bg-app-card overflow-hidden">
+          <CapabilitiesBanner />
           <div data-testid="chat-messages" className="flex-1 overflow-y-auto p-4 space-y-4">
             {visibleMessages.length === 0 && !sending && (
               <div className="h-full flex flex-col items-center justify-center text-center px-6">
