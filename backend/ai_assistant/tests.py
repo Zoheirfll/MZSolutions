@@ -651,7 +651,10 @@ class ProductDraftEndpointsTest(TestCase):
             store=self.store, source='invoice', extracted_data={'name': 'Sac à dos', 'price': 3500},
         )
 
-    def test_list_only_pending_review_invoice_drafts(self):
+    def test_list_includes_photo_and_invoice_pending_drafts(self):
+        # Un scan photo unique redirige normalement vers ProductFormPage
+        # pré-rempli — s'il quitte sans enregistrer, ce brouillon doit rester
+        # visible ici, pas perdu.
         AIProductDraft.objects.create(store=self.store, source='photo', extracted_data={'name': 'Photo produit', 'price': 100})
         AIProductDraft.objects.create(store=self.store, source='invoice', extracted_data={'name': 'Déjà créé', 'price': 100}, status='created')
         client = auth_client(self.owner)
@@ -659,7 +662,7 @@ class ProductDraftEndpointsTest(TestCase):
         self.assertEqual(resp.status_code, 200)
         names = [d['extracted_data']['name'] for d in resp.data]
         self.assertIn('Sac à dos', names)
-        self.assertNotIn('Photo produit', names)
+        self.assertIn('Photo produit', names)
         self.assertNotIn('Déjà créé', names)
 
     def test_create_from_draft(self):

@@ -306,7 +306,11 @@ class ProductDraftListView(APIView):
         if not is_owner_or_admin(request):
             return Response({'detail': 'Accès réservé au propriétaire ou administrateur.'}, status=403)
         store = get_store(request)
-        drafts = AIProductDraft.objects.filter(store=store, status='pending_review', source='invoice').order_by('-created_at')
+        # Inclut aussi les brouillons issus d'une photo unique (source='photo')
+        # — le scan redirige normalement vers ProductFormPage pré-rempli, mais
+        # si le vendeur quitte sans enregistrer, le brouillon reste orphelin
+        # sans cette liste, invisible bien que déjà en base.
+        drafts = AIProductDraft.objects.filter(store=store, status='pending_review').order_by('-created_at')
         return Response(AIProductDraftSerializer(drafts, many=True).data)
 
 
