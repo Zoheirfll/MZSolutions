@@ -34,7 +34,10 @@ export default function PlatformAdminAcceptInvitation() {
     try {
       const { data } = await api.post('/platform-admin/accept-invitation/', { token, password: form.password })
       setUser(data.user)
-      navigate('/platform-admin/boutiques')
+      // Cette invitation crée toujours un PlatformConfirmateur (jamais un
+      // superadmin) — /platform-admin/boutiques est réservé à is_platform_admin
+      // et l'aurait renvoyé vers /dashboard (la garde PA le rejette).
+      navigate('/platform-admin/ma-file')
     } catch (err) {
       setError(err.response?.data?.detail || 'Une erreur est survenue.')
     } finally {

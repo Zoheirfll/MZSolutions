@@ -1037,6 +1037,23 @@ export default function DashboardLayout({ children, title, subtitle }) {
                       Abonnement
                     </button>
                   )}
+                  {(user?.is_platform_admin || user?.is_platform_confirmateur) && (
+                    <>
+                      <div className="my-1.5 border-t" style={{ borderColor: theme.dark.border }} />
+                      {user?.is_platform_admin && (
+                        <button onClick={() => { setProfileOpen(false); navigate('/platform-admin/boutiques') }}
+                          className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-violet-400 hover:bg-violet-500/10 transition-colors duration-100 text-left cursor-pointer">
+                          Espace superadmin
+                        </button>
+                      )}
+                      {user?.is_platform_confirmateur && (
+                        <button onClick={() => { setProfileOpen(false); navigate('/platform-admin/ma-file') }}
+                          className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-violet-400 hover:bg-violet-500/10 transition-colors duration-100 text-left cursor-pointer">
+                          Ma file de confirmation
+                        </button>
+                      )}
+                    </>
+                  )}
                   <div className="my-1.5 border-t" style={{ borderColor: theme.dark.border }} />
                   <button onClick={() => { setProfileOpen(false); navigate('/dashboard/contact') }}
                     className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition-colors duration-100 text-left cursor-pointer">

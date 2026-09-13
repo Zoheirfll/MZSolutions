@@ -15,19 +15,17 @@ def log_audit(request, action, target=None, description='', metadata=None, store
     optionnelle — sert juste à remplir target_type/target_id/target_repr.
     """
     from .models import AuditLog
+    from core.permissions import get_store, get_team_role
     try:
         user = request.user
-        resolved_store = store
-        if resolved_store is None:
-            try:
-                resolved_store = user.store
-            except Exception:
-                resolved_store = user.team_membership.store
-
-        try:
-            actor_role = user.team_membership.role
-        except Exception:
-            actor_role = 'owner'
+        # get_store/get_team_role résolvent aussi le mode "Gérer cette
+        # boutique" (platform_admin) — sans ça, toute action d'un superadmin/
+        # confirmateur du service en impersonation échouait silencieusement
+        # ici (resolved_store restait None, IntegrityError avalée par le
+        # except ci-dessous) : aucune trace en audit, contraire à l'objectif
+        # "vraiment tout, sans exception" de ce journal.
+        resolved_store = store if store is not None else get_store(request)
+        actor_role = get_team_role(request) or 'owner'
 
         actor_name = (f"{user.first_name} {user.last_name}".strip() or user.email)
 

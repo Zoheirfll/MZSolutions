@@ -167,10 +167,10 @@ class MeView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        return Response(UserSerializer(request.user).data)
+        return Response(UserSerializer(request.user, context={'request': request}).data)
 
     def put(self, request):
-        s = UserSerializer(request.user, data=request.data, partial=True)
+        s = UserSerializer(request.user, data=request.data, partial=True, context={'request': request})
         s.is_valid(raise_exception=True)
         s.save()
         return Response(s.data)

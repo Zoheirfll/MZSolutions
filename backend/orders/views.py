@@ -18,7 +18,7 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from .models import Order, OrderItem, OrderStatusHistory, STATUS_CHOICES, NO_ANSWER_STATUSES, OrderAssignment, FailureReason, CallAttempt, CALL_STATUS_CHOICES, PaymentWebhookLog, AbandonedCart, CarrierAccount, CARRIER_CHOICES, CustomerRisk, BlacklistedPhone, Complaint, ComplaintMessage, ComplaintAssignment, COMPLAINT_STATUS_CHOICES, ExchangeRequest, EXCHANGE_STATUS_CHOICES, WilayaRate, CommuneRate, DispatchRule
 from .serializers import OrderSerializer, OrderDetailSerializer, OrderAssignmentSerializer, FailureReasonSerializer, CallAttemptSerializer, AbandonedCartSerializer, CarrierAccountSerializer, BlacklistedPhoneSerializer, ComplaintSerializer, ComplaintDetailSerializer, ExchangeRequestSerializer, WilayaRateSerializer, CommuneRateSerializer, DispatchRuleSerializer
-from .utils import assign_order_round_robin, assign_complaint_round_robin, send_abandoned_cart_email, dispatch_confirmateur_for_order, dispatch_carrier_for_order
+from .utils import assign_order_round_robin, assign_complaint_round_robin, send_abandoned_cart_email, dispatch_confirmateur_for_order, dispatch_confirmateur_for_order_with_platform, dispatch_carrier_for_order
 from .risk_scoring import compute_risk_score
 from ai_assistant import ollama_client
 from ai_assistant.ollama_client import OllamaUnavailableError
@@ -27,22 +27,11 @@ from .carriers import get_carrier_client
 from .carriers.ecotrack import TrackingNotFoundError
 from .carriers.yalidine import YALIDINE_STATUS_MAP
 from audit.utils import log_audit
-from core.permissions import IsOwnerOrAdminForWrites, is_owner_or_admin, has_permission
+from core.permissions import IsOwnerOrAdminForWrites, is_owner_or_admin, has_permission, get_store as _get_store
 from core.validators import validate_uploaded_file
 from core.pagination import parse_pagination
 from django.core.exceptions import ValidationError as DjangoValidationError
 from stores.models import quota_block_reason as _quota_block_reason
-
-
-def _get_store(request):
-    try:
-        return request.user.store
-    except Exception:
-        pass
-    try:
-        return request.user.team_membership.store
-    except Exception:
-        return None
 
 
 def _authoritative_item_price(store, item, quantity=1):
@@ -415,7 +404,7 @@ def activate_scheduled_order(store, order, changed_by=None):
     order.status = 'pending'
     order.save(update_fields=['status'])
     OrderStatusHistory.objects.create(order=order, status='pending', changed_by=changed_by)
-    dispatch_confirmateur_for_order(order)
+    dispatch_confirmateur_for_order_with_platform(order)
     _deduct_stock_for_order_on_creation(store, order)
     _fire_order_webhook(store, order, 'order.created')
 
@@ -684,7 +673,7 @@ class OrderListCreateView(APIView):
             OrderStatusHistory.objects.create(order=order, status='scheduled', changed_by=request.user)
         else:
             OrderStatusHistory.objects.create(order=order, status='pending', changed_by=request.user)
-            dispatch_confirmateur_for_order(order)
+            dispatch_confirmateur_for_order_with_platform(order)
             _deduct_stock_for_order_on_creation(store, order)
             _fire_order_webhook(store, order, 'order.created')
 
@@ -2726,7 +2715,7 @@ class PublicOrderView(APIView):
         order.save(update_fields=['risk_score', 'risk_signals'])
 
         OrderStatusHistory.objects.create(order=order, status='pending')
-        dispatch_confirmateur_for_order(order)
+        dispatch_confirmateur_for_order_with_platform(order)
         _deduct_stock_for_order_on_creation(store, order)
         _fire_order_webhook(store, order, 'order.created')
 

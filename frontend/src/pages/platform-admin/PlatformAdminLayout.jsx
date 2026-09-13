@@ -1,40 +1,81 @@
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { theme } from '../../theme'
 
 const LINKS = [
-  { to: '/platform-admin/boutiques',      label: 'Boutiques' },
-  { to: '/platform-admin/confirmateurs',  label: 'Confirmateurs' },
+  {
+    to: '/platform-admin/boutiques', label: 'Boutiques',
+    icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9l1.5-5h15L21 9M3 9v10a1 1 0 001 1h4a1 1 0 001-1v-4a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 001 1h4a1 1 0 001-1V9M3 9h18" />,
+  },
+  {
+    to: '/platform-admin/confirmateurs', label: 'Confirmateurs',
+    icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1.13a4 4 0 100-8 4 4 0 000 8zm6 0a4 4 0 10-8 0" />,
+  },
 ]
 
 export default function PlatformAdminLayout() {
   const { user, logout } = useAuth()
+  const navigate = useNavigate()
 
   return (
-    <div className="min-h-screen" style={{ background: 'var(--bg-app)' }}>
-      <header className="border-b px-6 py-4 flex items-center justify-between" style={{ borderColor: 'var(--border-color)' }}>
-        <div className="flex items-center gap-8">
-          <p className="text-lg font-bold text-app-primary">MZSolutions <span className="text-violet-500">· Superadmin</span></p>
-          <nav className="flex items-center gap-1">
-            {LINKS.map(l => (
-              <NavLink
-                key={l.to}
-                to={l.to}
-                className={({ isActive }) =>
-                  `px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${isActive ? 'bg-violet-500/10 text-violet-400' : 'text-app-muted-light hover:text-app-primary'}`
-                }
-              >
-                {l.label}
-              </NavLink>
-            ))}
-          </nav>
+    <div className="min-h-screen flex" style={{ background: 'var(--bg-app)' }}>
+      <aside
+        className="w-64 shrink-0 flex flex-col border-r"
+        style={{ background: theme.dark.sidebar, borderColor: theme.dark.border }}
+      >
+        <div className="px-5 py-5 border-b" style={{ borderColor: theme.dark.border }}>
+          <p className="text-base font-bold text-app-primary">MZSolutions</p>
+          <p className="text-xs text-violet-400 font-medium mt-0.5">Espace Superadmin</p>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-app-muted">{user?.email}</span>
-          <button onClick={logout} className={theme.btn.ghost}>Déconnexion</button>
+
+        <nav className="flex-1 px-3 py-4 flex flex-col gap-1">
+          {LINKS.map(l => (
+            <NavLink
+              key={l.to}
+              to={l.to}
+              className={({ isActive }) =>
+                `flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                  isActive ? 'bg-violet-500/10 text-violet-400' : 'text-app-muted-light hover:text-app-primary hover:bg-violet-500/5'
+                }`
+              }
+            >
+              <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">{l.icon}</svg>
+              {l.label}
+            </NavLink>
+          ))}
+
+          {user?.is_platform_confirmateur && (
+            <NavLink
+              to="/platform-admin/ma-file"
+              className={({ isActive }) =>
+                `flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors mt-1 border-t pt-3 ${
+                  isActive ? 'bg-violet-500/10 text-violet-400' : 'text-app-muted-light hover:text-app-primary hover:bg-violet-500/5'
+                }`
+              }
+              style={{ borderColor: theme.dark.border }}
+            >
+              <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+              Ma file de confirmation
+            </NavLink>
+          )}
+        </nav>
+
+        <div className="px-3 py-4 border-t" style={{ borderColor: theme.dark.border }}>
+          <div className="px-3 mb-2">
+            <p className="text-xs text-app-muted truncate">{user?.email}</p>
+          </div>
+          <button onClick={() => navigate('/dashboard')} className="w-full text-left px-3 py-2 rounded-lg text-sm text-app-muted-light hover:text-app-primary hover:bg-violet-500/5 transition-colors">
+            Retour au dashboard boutique
+          </button>
+          <button onClick={logout} className="w-full text-left px-3 py-2 rounded-lg text-sm text-red-400 hover:bg-red-500/10 transition-colors">
+            Déconnexion
+          </button>
         </div>
-      </header>
-      <main className="p-6">
+      </aside>
+
+      <main className="flex-1 p-6 overflow-y-auto">
         <Outlet />
       </main>
     </div>

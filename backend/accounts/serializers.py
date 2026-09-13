@@ -18,49 +18,70 @@ class UserSerializer(serializers.ModelSerializer):
     permissions    = serializers.SerializerMethodField()
     is_online      = serializers.SerializerMethodField()
     store_is_paused = serializers.SerializerMethodField()
+    is_platform_confirmateur = serializers.SerializerMethodField()
+    impersonating  = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = ['id', 'email', 'first_name', 'last_name', 'phone', 'avatar',
                   'store_slug', 'store_name', 'team_role', 'team_member_id', 'permissions',
-                  'is_email_verified', 'is_online', 'store_is_paused', 'is_platform_admin']
+                  'is_email_verified', 'is_online', 'store_is_paused',
+                  'is_platform_admin', 'is_platform_confirmateur', 'impersonating']
+
+    def _request_context_for(self, obj):
+        """Le contexte de requête n'est fiable que pour SE décrire soi-même
+        (MeView, et les vues d'entrée/sortie du mode "Gérer cette boutique")
+        — si ce UserSerializer sérialise un AUTRE utilisateur que
+        request.user (ex: après acceptation d'invitation), on ignore le
+        contexte et retombe sur la résolution directe habituelle."""
+        request = self.context.get('request')
+        if request is not None and getattr(request, 'user', None) == obj:
+            return request
+        return None
+
+    def _effective_store(self, obj):
+        try:
+            return obj.store
+        except Store.DoesNotExist:
+            pass
+        try:
+            return obj.team_membership.store
+        except Exception:
+            pass
+        request = self._request_context_for(obj)
+        if request is not None:
+            from core.permissions import get_store
+            return get_store(request)
+        return None
 
     def get_store_slug(self, obj):
-        try:
-            return obj.store.slug
-        except Store.DoesNotExist:
-            pass
-        try:
-            return obj.team_membership.store.slug
-        except Exception:
-            return None
+        store = self._effective_store(obj)
+        return store.slug if store else None
 
     def get_store_name(self, obj):
-        try:
-            return obj.store.name
-        except Store.DoesNotExist:
-            pass
-        try:
-            return obj.team_membership.store.name
-        except Exception:
-            return None
+        store = self._effective_store(obj)
+        return store.name if store else None
 
     def get_store_is_paused(self, obj):
-        from stores.models import store_is_paused
-        try:
-            return store_is_paused(obj.store)
-        except Store.DoesNotExist:
-            pass
-        try:
-            return store_is_paused(obj.team_membership.store)
-        except Exception:
+        store = self._effective_store(obj)
+        if not store:
             return False
+        from stores.models import store_is_paused
+        return store_is_paused(store)
 
     def get_team_role(self, obj):
         try:
             return obj.team_membership.role
         except Exception:
-            return None
+            pass
+        # Confirmateur du service de confirmation en mode "Gérer cette
+        # boutique" → 'confirmateur' virtuel ; superadmin en mode gestion ou
+        # owner réel sans équipe → None (accès total), comportement existant.
+        request = self._request_context_for(obj)
+        if request is not None:
+            from core.permissions import get_team_role
+            return get_team_role(request)
+        return None
 
     def get_team_member_id(self, obj):
         try:
@@ -74,15 +95,40 @@ class UserSerializer(serializers.ModelSerializer):
         except Exception:
             return None
 
+    def get_is_platform_confirmateur(self, obj):
+        try:
+            return bool(obj.platform_confirmateur_profile.is_active)
+        except Exception:
+            return False
+
     def get_permissions(self, obj):
         from team.models import PERMISSION_CATALOG, get_effective_permissions
         try:
             membership = obj.team_membership
         except Exception:
             membership = None
-        if not membership:
-            return {key: True for key, _ in PERMISSION_CATALOG}
-        return get_effective_permissions(membership.store, membership.role, member=membership)
+        if membership:
+            return get_effective_permissions(membership.store, membership.role, member=membership)
+        request = self._request_context_for(obj)
+        if request is not None:
+            from core.permissions import get_store, get_effective_permissions as _core_effective_permissions
+            if get_store(request):
+                # Mode "Gérer cette boutique" — résout correctement les deux cas
+                # (superadmin = accès total, confirmateur = PlatformAssignmentPermission).
+                return _core_effective_permissions(request)
+        # Owner réel sans équipe (comportement existant, inchangé) — ou aucun
+        # contexte de requête disponible pour vérifier une impersonation.
+        return {key: True for key, _ in PERMISSION_CATALOG}
+
+    def get_impersonating(self, obj):
+        request = self._request_context_for(obj)
+        if request is None:
+            return None
+        from platform_admin.impersonation import resolve_impersonation
+        ctx = resolve_impersonation(request)
+        if not ctx:
+            return None
+        return {'store_id': ctx['store'].id, 'store_name': ctx['store'].name, 'is_admin': ctx['is_admin']}
 
 
 class RegisterSerializer(serializers.Serializer):

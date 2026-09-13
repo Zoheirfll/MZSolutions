@@ -10,12 +10,16 @@ class StoreConfirmationSerializer(serializers.ModelSerializer):
     store_name       = serializers.CharField(source='store.name', read_only=True)
     store_slug       = serializers.CharField(source='store.slug', read_only=True)
     store_owner_email = serializers.CharField(source='store.owner.email', read_only=True)
+    assigned_count   = serializers.SerializerMethodField()
 
     class Meta:
         model = PlatformConfirmationAccount
         fields = ['id', 'store_id', 'store_name', 'store_slug', 'store_owner_email',
-                  'is_active', 'mode', 'note', 'activated_at', 'created_at']
+                  'is_active', 'mode', 'note', 'activated_at', 'created_at', 'assigned_count']
         read_only_fields = ['id', 'activated_at', 'created_at']
+
+    def get_assigned_count(self, obj):
+        return obj.assignments.filter(is_active=True, confirmateur__is_active=True).count()
 
 
 class StoreListItemSerializer(serializers.Serializer):

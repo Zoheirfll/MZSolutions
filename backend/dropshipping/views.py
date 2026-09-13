@@ -4,7 +4,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from core.permissions import is_owner_or_admin, has_permission
+from core.permissions import is_owner_or_admin, has_permission, get_store as _get_store
 from products.models import Product
 from team.models import TeamMember
 from .models import DropshipperProduct, Commission, CommissionEntry, CommissionPayment
@@ -13,17 +13,6 @@ from .serializers import (
     CommissionPaymentSerializer, DropshipperSummarySerializer,
 )
 from audit.utils import log_audit
-
-
-def _get_store(request):
-    try:
-        return request.user.store
-    except Exception:
-        pass
-    try:
-        return request.user.team_membership.store
-    except Exception:
-        return None
 
 
 def _get_membership(request):

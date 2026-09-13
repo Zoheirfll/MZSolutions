@@ -7,24 +7,13 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
 
-from core.permissions import is_owner_or_admin, has_permission
+from core.permissions import is_owner_or_admin, has_permission, get_store as _get_store
 from core.pagination import parse_pagination
 from core.validators import validate_uploaded_file
 from .models import Conversation, Message, CONVERSATION_STATUS_CHOICES
 from .serializers import ConversationSerializer, ConversationDetailSerializer, MessageSerializer
 from .assignment import assign_conversation_round_robin
 from audit.utils import log_audit
-
-
-def _get_store(request):
-    try:
-        return request.user.store
-    except Exception:
-        pass
-    try:
-        return request.user.team_membership.store
-    except Exception:
-        return None
 
 
 def _can_view_inbox(request):

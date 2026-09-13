@@ -21,3 +21,22 @@ export function PA({ children }) {
     </PrivateRoute>
   )
 }
+
+// Garde distincte pour la file de travail (V2) : un confirmateur du
+// superadmin n'est PAS un superadmin (is_platform_admin) — il n'a accès
+// qu'à sa propre file, jamais à la gestion des boutiques/confirmateurs.
+function PlatformConfirmateurRoute({ children }) {
+  const { user, loading } = useAuth()
+  if (loading) return null
+  if (!user) return <Navigate to="/auth" replace />
+  if (!user.is_platform_confirmateur) return <Navigate to="/dashboard" replace />
+  return children
+}
+
+export function PC({ children }) {
+  return (
+    <PrivateRoute>
+      <PlatformConfirmateurRoute>{children}</PlatformConfirmateurRoute>
+    </PrivateRoute>
+  )
+}

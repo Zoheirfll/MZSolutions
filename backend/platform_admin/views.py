@@ -3,6 +3,7 @@ import secrets
 
 from django.conf import settings
 from django.core.mail import send_mail
+from django.db.models import Q
 from django.utils import timezone
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -11,13 +12,14 @@ from rest_framework.views import APIView
 from accounts.serializers import get_tokens, UserSerializer
 from stores.models import Store
 from core.pagination import parse_pagination
-from orders.models import Order
-from orders.serializers import OrderSerializer
+from orders.models import Order, STATUS_CHOICES
+from orders.serializers import OrderSerializer, OrderDetailSerializer
 from products.models import Product
 from products.serializers import ProductSerializer
 
-from .models import PlatformConfirmationAccount, PlatformConfirmateur, PlatformConfirmateurAssignment
-from .permissions import is_platform_admin
+from .models import PlatformConfirmationAccount, PlatformConfirmateur, PlatformConfirmateurAssignment, PlatformOrderAssignment, PlatformAssignmentPermission, get_effective_platform_permissions
+from .permissions import is_platform_admin, get_platform_confirmateur
+from .impersonation import set_impersonation_cookie, clear_impersonation_cookie
 from .serializers import (
     StoreListItemSerializer, StoreConfirmationSerializer,
     PlatformConfirmateurSerializer, PlatformConfirmateurInviteSerializer,
@@ -61,19 +63,44 @@ class PlatformStoreListView(APIView):
     def get(self, request):
         if not is_platform_admin(request):
             return _forbidden()
-        qs = Store.objects.select_related('owner', 'platform_confirmation_account').order_by('name')
+        base_qs = Store.objects.select_related('owner', 'platform_confirmation_account')
+
+        # Stats calculées sur TOUTES les boutiques (avant filtre/pagination) —
+        # alimentent les StatCards du frontend, jamais tronquées par la page courante.
+        stats = {
+            'total':   base_qs.count(),
+            'active':  base_qs.filter(platform_confirmation_account__is_active=True).count(),
+            'replace': base_qs.filter(platform_confirmation_account__is_active=True, platform_confirmation_account__mode='replace').count(),
+            'augment': base_qs.filter(platform_confirmation_account__is_active=True, platform_confirmation_account__mode='augment').count(),
+        }
+
+        qs = base_qs.order_by('name')
         search = request.query_params.get('search', '').strip()
         if search:
-            qs = qs.filter(name__icontains=search)
+            qs = qs.filter(Q(name__icontains=search) | Q(owner__email__icontains=search))
+
+        # `active_only=1` conservé pour compatibilité (utilisé par la page
+        # Confirmateurs pour ne lister que les boutiques assignables) — `service`
+        # est le filtre 3 états (tous/actif/inactif) exposé par cette page.
         only_active = request.query_params.get('active_only')
         if only_active in ('1', 'true', 'True'):
             qs = qs.filter(platform_confirmation_account__is_active=True)
+
+        service = request.query_params.get('service')
+        if service == 'active':
+            qs = qs.filter(platform_confirmation_account__is_active=True)
+        elif service == 'inactive':
+            qs = qs.filter(Q(platform_confirmation_account__isnull=True) | Q(platform_confirmation_account__is_active=False))
+
+        mode = request.query_params.get('mode')
+        if mode in ('replace', 'augment'):
+            qs = qs.filter(platform_confirmation_account__is_active=True, platform_confirmation_account__mode=mode)
 
         page, per_page = parse_pagination(request, default_per_page=20)
         total = qs.count()
         qs = qs[(page - 1) * per_page: page * per_page]
         return Response({
-            'count': total, 'page': page, 'per_page': per_page,
+            'count': total, 'page': page, 'per_page': per_page, 'stats': stats,
             'results': StoreListItemSerializer(qs, many=True).data,
         })
 
@@ -110,6 +137,32 @@ class PlatformStoreToggleView(APIView):
 
         account.save()
         return Response(StoreConfirmationSerializer(account).data)
+
+
+class PlatformStoreBulkToggleView(APIView):
+    """Active/désactive le service en masse sur une sélection de boutiques
+    (action groupée) — même effet que PlatformStoreToggleView répété, mais en
+    une seule requête pour l'UI (checkbox + barre d'actions, comme OrdersPage.jsx)."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        if not is_platform_admin(request):
+            return _forbidden()
+        store_ids = request.data.get('store_ids') or []
+        if not store_ids:
+            return Response({'detail': 'store_ids requis.'}, status=400)
+        new_active = bool(request.data.get('is_active'))
+
+        updated = 0
+        for store in Store.objects.filter(pk__in=store_ids):
+            account, _ = PlatformConfirmationAccount.objects.get_or_create(store=store)
+            was_active = account.is_active
+            account.is_active = new_active
+            if new_active and not was_active:
+                account.activated_at = timezone.now()
+            account.save(update_fields=['is_active', 'activated_at', 'updated_at'])
+            updated += 1
+        return Response({'updated': updated})
 
 
 def _get_active_account_or_404(store_id):
@@ -344,3 +397,194 @@ class PlatformConfirmateurAssignmentDetailView(APIView):
             return Response({'detail': 'Assignation introuvable.'}, status=404)
         assignment.delete()
         return Response(status=204)
+
+
+# ─── File de travail du confirmateur (V2) ───────────────────────────────────
+
+def _confirmateur_forbidden():
+    return Response({'detail': 'Réservé aux confirmateurs du service de confirmation.'}, status=403)
+
+
+class MyQueueListView(APIView):
+    """Commandes assignées AU confirmateur connecté (PlatformOrderAssignment),
+    toutes boutiques confondues — jamais les commandes d'une boutique qui ne
+    lui a pas été assignée, même s'il a accès au compte."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        confirmateur = get_platform_confirmateur(request)
+        if not confirmateur:
+            return _confirmateur_forbidden()
+
+        qs = (Order.objects
+              .filter(platform_assignment__confirmateur=confirmateur)
+              .select_related('store', 'carrier')
+              .order_by('-created_at'))
+        status_filter = request.query_params.get('status')
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+
+        from core.pagination import parse_pagination
+        page, per_page = parse_pagination(request, default_per_page=20)
+        total = qs.count()
+        qs = qs[(page - 1) * per_page: page * per_page]
+        results = OrderSerializer(qs, many=True).data
+        # store_name ajouté après coup — un confirmateur travaille plusieurs
+        # boutiques à la fois, contrairement à OrdersPage.jsx (dashboard
+        # boutique classique) où la boutique est implicite.
+        by_id = {o.id: o.store.name for o in qs}
+        for row in results:
+            row['store_name'] = by_id.get(row['id'])
+        return Response({'count': total, 'page': page, 'per_page': per_page, 'results': results})
+
+
+class MyQueueOrderStatusView(APIView):
+    """Change le statut d'UNE commande de la file du confirmateur connecté —
+    réutilise orders.views._transition_order_status pour produire exactement
+    les mêmes effets de bord qu'un changement depuis le dashboard boutique
+    (historique, stock, expédition, commission, webhooks)."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, order_id):
+        confirmateur = get_platform_confirmateur(request)
+        if not confirmateur:
+            return _confirmateur_forbidden()
+        try:
+            assignment = PlatformOrderAssignment.objects.select_related('order__store').get(
+                order_id=order_id, confirmateur=confirmateur
+            )
+        except PlatformOrderAssignment.DoesNotExist:
+            return Response({'detail': 'Commande introuvable ou non assignée.'}, status=404)
+
+        order = assignment.order
+        new_status = request.data.get('status')
+        valid = [s[0] for s in STATUS_CHOICES]
+        if new_status not in valid:
+            return Response({'detail': f'Statut invalide. Valeurs : {valid}'}, status=400)
+
+        from orders.views import _transition_order_status, activate_scheduled_order
+        if order.status == 'scheduled' and new_status != 'scheduled':
+            activate_scheduled_order(order.store, order, changed_by=request.user)
+            order.refresh_from_db()
+
+        carrier_warning = _transition_order_status(
+            order.store, order, new_status, changed_by=request.user,
+            note=request.data.get('note', ''), carrier_id=request.data.get('carrier_id'),
+        )
+        data = OrderDetailSerializer(order).data
+        if carrier_warning:
+            data['carrier_warning'] = carrier_warning
+        return Response(data)
+
+
+# ─── Mode "Gérer cette boutique" (impersonation) ────────────────────────────
+
+class PlatformStoreEnterView(APIView):
+    """Superadmin uniquement — entre dans le VRAI dashboard boutique
+    (/dashboard/*) avec accès total, comme si owner. Réservé aux boutiques
+    ayant activé le service (cohérent avec le reste de l'espace superadmin —
+    jamais une boutique qui n'a pas souscrit)."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, store_id):
+        if not is_platform_admin(request):
+            return _forbidden()
+        try:
+            account = PlatformConfirmationAccount.objects.select_related('store').get(store_id=store_id, is_active=True)
+        except PlatformConfirmationAccount.DoesNotExist:
+            return Response({'detail': "Boutique introuvable ou service de confirmation inactif."}, status=404)
+        response = Response({'detail': 'ok', 'store_name': account.store.name})
+        set_impersonation_cookie(response, account.store.id)
+        return response
+
+
+class PlatformConfirmateurEnterView(APIView):
+    """Confirmateur du service — entre dans le dashboard réel d'UNE de ses
+    boutiques assignées, avec les permissions accordées par le superadmin
+    pour cette assignation précise (PlatformAssignmentPermission)."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, assignment_id):
+        confirmateur = get_platform_confirmateur(request)
+        if not confirmateur:
+            return _confirmateur_forbidden()
+        try:
+            assignment = PlatformConfirmateurAssignment.objects.select_related('account__store').get(
+                pk=assignment_id, confirmateur=confirmateur, is_active=True, account__is_active=True,
+            )
+        except PlatformConfirmateurAssignment.DoesNotExist:
+            return Response({'detail': 'Assignation introuvable ou inactive.'}, status=404)
+        response = Response({'detail': 'ok', 'store_name': assignment.account.store.name})
+        set_impersonation_cookie(response, assignment.account.store.id)
+        return response
+
+
+class PlatformImpersonationLeaveView(APIView):
+    """Quitte le mode "Gérer cette boutique" — superadmin ou confirmateur,
+    même endpoint (efface simplement le cookie, jamais de vérification de
+    rôle nécessaire pour EN SORTIR)."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        response = Response({'detail': 'ok'})
+        clear_impersonation_cookie(response)
+        return response
+
+
+# ─── Permissions par assignation (réutilise team.PERMISSION_CATALOG) ───────
+
+class PlatformAssignmentPermissionsView(APIView):
+    """GET catalogue complet + valeurs effectives + is_custom ; POST upsert
+    un toggle ; DELETE réinitialise (retire l'override, retombe à False —
+    pas de "défaut du rôle" ici, contrairement à team.TeamMemberPermission).
+    Superadmin uniquement."""
+    permission_classes = [IsAuthenticated]
+
+    def _get_assignment(self, request, pk):
+        if not is_platform_admin(request):
+            return None, _forbidden()
+        try:
+            return PlatformConfirmateurAssignment.objects.select_related('confirmateur', 'account__store').get(pk=pk), None
+        except PlatformConfirmateurAssignment.DoesNotExist:
+            return None, Response({'detail': 'Assignation introuvable.'}, status=404)
+
+    def get(self, request, pk):
+        assignment, err = self._get_assignment(request, pk)
+        if err:
+            return err
+        from team.models import PERMISSION_CATALOG, PERMISSION_CATEGORIES
+        effective = get_effective_platform_permissions(assignment)
+        custom_keys = set(assignment.permission_overrides.values_list('permission', flat=True))
+        return Response({
+            'catalog': [
+                {'key': k, 'label': label, 'enabled': effective.get(k, False), 'is_custom': k in custom_keys,
+                 'category': PERMISSION_CATEGORIES.get(k, ('Autres', 'Autres'))[0],
+                 'subcategory': PERMISSION_CATEGORIES.get(k, ('Autres', 'Autres'))[1]}
+                for k, label in PERMISSION_CATALOG
+            ],
+        })
+
+    def post(self, request, pk):
+        assignment, err = self._get_assignment(request, pk)
+        if err:
+            return err
+        from team.models import PERMISSION_CATALOG
+        permission = request.data.get('permission')
+        enabled = bool(request.data.get('enabled'))
+        if permission not in dict(PERMISSION_CATALOG):
+            return Response({'detail': 'Permission inconnue.'}, status=400)
+        PlatformAssignmentPermission.objects.update_or_create(
+            assignment=assignment, permission=permission, defaults={'enabled': enabled},
+        )
+        return Response({'permissions': get_effective_platform_permissions(assignment)})
+
+    def delete(self, request, pk):
+        assignment, err = self._get_assignment(request, pk)
+        if err:
+            return err
+        from team.models import PERMISSION_CATALOG
+        permission = request.query_params.get('permission')
+        if permission not in dict(PERMISSION_CATALOG):
+            return Response({'detail': 'Permission inconnue.'}, status=400)
+        PlatformAssignmentPermission.objects.filter(assignment=assignment, permission=permission).delete()
+        return Response({'permissions': get_effective_platform_permissions(assignment)})

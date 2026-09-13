@@ -3,21 +3,10 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from core.permissions import is_owner_or_admin, has_permission
+from core.permissions import is_owner_or_admin, has_permission, get_store as _get_store
 from .models import WebhookEndpoint, WebhookLog, IncomingWebhookKey, WEBHOOK_EVENT_CHOICES
 from .serializers import WebhookEndpointSerializer, WebhookLogSerializer, IncomingWebhookKeySerializer
 from audit.utils import log_audit
-
-
-def _get_store(request):
-    try:
-        return request.user.store
-    except Exception:
-        pass
-    try:
-        return request.user.team_membership.store
-    except Exception:
-        return None
 
 
 class WebhookEventCatalogView(APIView):
