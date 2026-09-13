@@ -70,7 +70,20 @@ PAGE_HELP = {
     '/dashboard/canaux-vente': "Connecte votre boutique à Shopify, Google Sheets, ou expose votre catalogue à Meta Commerce.",
     '/dashboard/marketing': "Identifiants de pixels marketing (Facebook, TikTok, Google Analytics/Tag Manager) pour suivre vos conversions.",
     '/dashboard/webhooks': "Notifie automatiquement des outils externes (Zapier, Make...) des événements de votre boutique, ou reçoit des données depuis eux.",
-    '/dashboard/assistant-ia': "Chat avec l'assistant IA de la boutique — répond à des questions sur vos données et peut proposer des modifications (toujours avec votre confirmation avant d'écrire quoi que ce soit).",
+    '/dashboard/assistant-ia': (
+        "Chat avec l'assistant IA de la boutique, en trois volets :\n\n"
+        "🔍 Répondre à des questions sur vos données — commandes, stock, clients à risque, "
+        "rentabilité, équipe, retours, échanges, réclamations, coûts, paiements, abonnement, "
+        "recommandations produit — et juger un chiffre en le comparant à la période précédente "
+        "ou à un audit global de la boutique, jamais un chiffre isolé sans contexte.\n\n"
+        "✏️ Proposer des modifications — produits (prix/stock/statut, un ou plusieurs à la fois, "
+        "création), statut d'une commande précise, équipe (activer/désactiver un membre), "
+        "transporteur par défaut, tarifs de livraison par wilaya, clients (risque manuel, liste "
+        "noire), réglages boutique (seuils, frais d'assurance). Toujours un aperçu avant/après, "
+        "jamais d'écriture sans votre confirmation.\n\n"
+        "📷 Scanner un produit — depuis une photo (fiche pré-remplie) ou une facture fournisseur "
+        "(plusieurs brouillons à valider), accessible via le lien dédié dans le menu IA."
+    ),
     '/dashboard/produits/scanner': "Prenez en photo un produit ou une facture fournisseur — l'IA propose une fiche produit pré-remplie ou plusieurs brouillons à valider.",
     '/dashboard/expeditions/etiquettes': "Pipeline d'impression des étiquettes de livraison — en attente, générées, imprimées — avec fusion PDF pour plusieurs commandes.",
     '/dashboard/expeditions/preparees': "Commandes marquées comme physiquement préparées avant expédition.",
