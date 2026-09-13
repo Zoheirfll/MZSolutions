@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { theme } from '../theme'
 
 // Custom dropdown replacing the native <select>. Windows/Chrome renders
@@ -6,12 +7,52 @@ import { theme } from '../theme'
 // (background, text color) — appearance:none, color-scheme and
 // forced-color-adjust all failed to override it on some machines, so this
 // draws the list entirely in React/Tailwind instead.
+//
+// The option list is rendered via a portal into document.body, positioned
+// with `position: fixed` computed from the trigger's bounding rect — a
+// plain `position: absolute` popup gets clipped whenever this Select sits
+// inside any ancestor with `overflow-x-auto`/`overflow-hidden` (e.g. a
+// horizontally-scrollable table wrapper), which silently cuts the dropdown
+// off or forces an unwanted inner scrollbar. The portal escapes that clipping
+// entirely, so this Select is always safe to use inside a scrollable table.
 export default function Select({ value, onChange, options, placeholder = 'Sélectionner…', className = '', style, disabled = false, variant = 'dark' }) {
   const [open, setOpen] = useState(false)
+  const [coords, setCoords] = useState(null)
   const ref = useRef(null)
+  const listRef = useRef(null)
+
+  const updateCoords = () => {
+    const el = ref.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    const spaceBelow = window.innerHeight - rect.bottom
+    const openUpward = spaceBelow < 220 && rect.top > spaceBelow
+    setCoords({
+      left: rect.left,
+      width: rect.width,
+      top: openUpward ? undefined : rect.bottom + 6,
+      bottom: openUpward ? window.innerHeight - rect.top + 6 : undefined,
+    })
+  }
+
+  useLayoutEffect(() => {
+    if (!open) return
+    updateCoords()
+    const onReflow = () => updateCoords()
+    window.addEventListener('resize', onReflow)
+    window.addEventListener('scroll', onReflow, true)
+    return () => {
+      window.removeEventListener('resize', onReflow)
+      window.removeEventListener('scroll', onReflow, true)
+    }
+  }, [open])
 
   useEffect(() => {
-    const onClick = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    const onClick = (e) => {
+      if (ref.current && ref.current.contains(e.target)) return
+      if (listRef.current && listRef.current.contains(e.target)) return
+      setOpen(false)
+    }
     document.addEventListener('mousedown', onClick)
     return () => document.removeEventListener('mousedown', onClick)
   }, [])
@@ -33,9 +74,15 @@ export default function Select({ value, onChange, options, placeholder = 'Sélec
           <path d="M6 9l6 6 6-6" />
         </svg>
       </button>
-      {open && (
-        <div className="absolute z-50 mt-1.5 w-full max-h-64 overflow-y-auto rounded-lg border shadow-xl py-1"
-          style={variant === 'light' ? { background: '#ffffff', borderColor: '#e5e7eb' } : { background: theme.dark.sidebar, borderColor: theme.dark.border }}>
+      {open && coords && createPortal(
+        <div
+          ref={listRef}
+          className="fixed z-100 max-h-64 overflow-y-auto rounded-lg border shadow-xl py-1"
+          style={{
+            left: coords.left, width: coords.width, top: coords.top, bottom: coords.bottom,
+            ...(variant === 'light' ? { background: '#ffffff', borderColor: '#e5e7eb' } : { background: theme.dark.sidebar, borderColor: theme.dark.border }),
+          }}
+        >
           {options.map(o => (
             <button
               key={o.value}
@@ -50,7 +97,8 @@ export default function Select({ value, onChange, options, placeholder = 'Sélec
               {o.label}
             </button>
           ))}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )

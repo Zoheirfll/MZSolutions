@@ -11,22 +11,12 @@ from .models import TeamMember, RolePermission, TeamMemberPermission, PERMISSION
 import secrets
 from .serializers import InviteSerializer, TeamMemberSerializer, AcceptInvitationSerializer
 from accounts.serializers import get_tokens, UserSerializer
-from core.permissions import IsOwnerOrAdminForWrites, is_owner_or_admin, has_permission
+from core.permissions import IsOwnerOrAdminForWrites, is_owner_or_admin, has_permission, get_store as _get_store
 from audit.utils import log_audit
 from ai_assistant import ollama_client
 from ai_assistant.ollama_client import OllamaUnavailableError
 
 logger = logging.getLogger(__name__)
-
-
-def _get_store(request):
-    try:
-        return request.user.store
-    except Exception:
-        try:
-            return request.user.team_membership.store
-        except Exception:
-            return None
 
 
 def _send_invite_email(member):
@@ -266,14 +256,7 @@ class RolePermissionsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def _get_store(self, request):
-        try:
-            return request.user.store
-        except Exception:
-            pass
-        try:
-            return request.user.team_membership.store
-        except Exception:
-            return None
+        return _get_store(request)
 
     def get(self, request):
         if not is_owner_or_admin(request):

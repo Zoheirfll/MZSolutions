@@ -48,6 +48,12 @@ function GoogleButton({ onClick, loading, children }) {
 // charger les statistiques" — on les redirige vers une page qu'ils peuvent
 // réellement utiliser.
 function landingPathFor(user) {
+  // Un compte superadmin (platform_admin) ou un confirmateur du service de
+  // confirmation n'a le plus souvent aucune boutique (pas de Store/team_membership)
+  // — /dashboard planterait ou n'aurait rien à afficher. Prioritaire sur les
+  // autres cas puisque ces comptes n'ont normalement pas de team_role.
+  if (user?.is_platform_admin) return '/platform-admin/boutiques'
+  if (user?.is_platform_confirmateur) return '/platform-admin/ma-file'
   // /dashboard affiche un tableau de bord dédié (commandes assignées) pour
   // un confirmateur sans stats_view — donc toujours accessible pour lui.
   // Seul le dropshipper n'a aucune variante de /dashboard qui lui convienne.

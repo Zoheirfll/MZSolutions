@@ -9,24 +9,13 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from core.pagination import parse_pagination
-from core.permissions import is_owner_or_admin, has_permission
+from core.permissions import is_owner_or_admin, has_permission, get_store as _get_store
 from orders.models import Order
 from orders.utils import order_channel
 from dropshipping.models import CommissionEntry
 from .models import Cost, COST_CATEGORY_CHOICES
 from .serializers import CostSerializer
 from audit.utils import log_audit
-
-
-def _get_store(request):
-    try:
-        return request.user.store
-    except Exception:
-        pass
-    try:
-        return request.user.team_membership.store
-    except Exception:
-        return None
 
 
 class CostListCreateView(APIView):

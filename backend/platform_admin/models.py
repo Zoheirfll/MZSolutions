@@ -77,3 +77,50 @@ class PlatformConfirmateurAssignment(models.Model):
 
     def __str__(self):
         return f"{self.confirmateur} → {self.account.store.name} ({'actif' if self.is_active else 'inactif'})"
+
+
+# Override de permission par assignation (confirmateur × boutique précise) —
+# réutilise VOLONTAIREMENT les mêmes clés que team.PERMISSION_CATALOG plutôt
+# qu'un catalogue dédié : un confirmateur du superadmin en mode "Gérer cette
+# boutique" (impersonation, voir core.permissions) utilise le vrai dashboard
+# boutique, exactement comme un confirmateur interne — mêmes pages, mêmes
+# vérifications de permission déjà en place partout dans le code (orders_view,
+# inbox_view, products_view, failure_reasons_view, clients_view,
+# shipping_settings_view, etc.). Contrairement à team.DEFAULT_PERMISSIONS
+# (confirmateur interne, quelques permissions vraies par défaut), TOUT est
+# désactivé par défaut ici — c'est un intervenant externe, le superadmin
+# accorde explicitement boutique par boutique.
+class PlatformAssignmentPermission(models.Model):
+    """Seuls les overrides explicites sont stockés — mêmes principes que
+    team.TeamMemberPermission."""
+    assignment = models.ForeignKey('PlatformConfirmateurAssignment', on_delete=models.CASCADE, related_name='permission_overrides')
+    permission = models.CharField(max_length=50)
+    enabled    = models.BooleanField(default=True)
+
+    class Meta:
+        unique_together = [('assignment', 'permission')]
+
+    def __str__(self):
+        return f"{self.assignment_id} — {self.permission} = {self.enabled}"
+
+
+def get_effective_platform_permissions(assignment):
+    """Permissions effectives d'une assignation, sur le catalogue team.PERMISSION_CATALOG
+    — défaut strict à False partout (voir note ci-dessus), jamais team.DEFAULT_PERMISSIONS."""
+    from team.models import PERMISSION_CATALOG
+    overrides = {p.permission: p.enabled for p in assignment.permission_overrides.all()}
+    return {key: overrides.get(key, False) for key, _ in PERMISSION_CATALOG}
+
+
+class PlatformOrderAssignment(models.Model):
+    """Confirmateur du superadmin responsable d'UNE commande — distinct de
+    orders.OrderAssignment (confirmateur interne de la boutique) : les deux
+    peuvent coexister sur une même commande en mode 'augment', mais jamais
+    en mode 'replace' (le round-robin interne n'est alors jamais déclenché,
+    voir platform_admin.routing.route_order)."""
+    order        = models.OneToOneField('orders.Order', on_delete=models.CASCADE, related_name='platform_assignment')
+    confirmateur = models.ForeignKey(PlatformConfirmateur, on_delete=models.CASCADE, related_name='order_assignments')
+    assigned_at  = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Commande #{self.order_id} → {self.confirmateur}"

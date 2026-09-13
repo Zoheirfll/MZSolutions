@@ -9,7 +9,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from core.permissions import is_owner_or_admin, has_permission
+from core.permissions import is_owner_or_admin, has_permission, get_store as _get_store
 from core.pagination import parse_pagination
 from .models import Order, CallAttempt, STATUS_CHOICES
 from .utils import parse_period, order_channel, previous_period
@@ -70,16 +70,6 @@ def _apply_dashboard_filters(qs, request):
 CONFIRMED_STATUSES = ['confirmed', 'shipped', 'delivered']
 PROCESSED_STATUSES = ['no_answer_1', 'no_answer_2', 'no_answer_3', 'confirmed', 'shipped', 'delivered', 'returned', 'cancelled']
 
-
-def _get_store(request):
-    try:
-        return request.user.store
-    except Exception:
-        pass
-    try:
-        return request.user.team_membership.store
-    except Exception:
-        return None
 
 
 def _csv_response(filename, header, rows):

@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import PlatformConfirmationAccount, PlatformConfirmateur, PlatformConfirmateurAssignment
+from .models import PlatformConfirmationAccount, PlatformConfirmateur, PlatformConfirmateurAssignment, PlatformAssignmentPermission
 
 
 @admin.register(PlatformConfirmationAccount)
@@ -20,3 +20,8 @@ class PlatformConfirmateurAdmin(admin.ModelAdmin):
 class PlatformConfirmateurAssignmentAdmin(admin.ModelAdmin):
     list_display = ['confirmateur', 'account', 'is_active', 'assigned_at']
     list_filter = ['is_active']
+
+
+@admin.register(PlatformAssignmentPermission)
+class PlatformAssignmentPermissionAdmin(admin.ModelAdmin):
+    list_display = ['assignment', 'permission', 'enabled']

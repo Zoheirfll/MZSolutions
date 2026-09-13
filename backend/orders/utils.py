@@ -130,6 +130,19 @@ def dispatch_confirmateur_for_order(order):
     return assign_order_round_robin(order)
 
 
+def dispatch_confirmateur_for_order_with_platform(order):
+    """Point d'entrée utilisé par les 3 sites de création de commande — ajoute
+    le service de confirmation superadmin (platform_admin, V2) au-dessus du
+    dispatch existant, sans le modifier. Import local pour éviter tout couplage
+    au niveau module entre orders et platform_admin (l'inverse n'existe pas :
+    platform_admin peut importer orders.views, jamais l'inverse)."""
+    from platform_admin.routing import route_order
+    skip_internal = route_order(order)
+    if skip_internal:
+        return None
+    return dispatch_confirmateur_for_order(order)
+
+
 def dispatch_carrier_for_order(order, default_account):
     """Transporteur à utiliser pour l'expédition — priorité à une règle de
     dispatch active correspondant à la commande, sinon `default_account`

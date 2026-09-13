@@ -3,21 +3,11 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from core.permissions import is_owner_or_admin, has_permission
+from core.permissions import is_owner_or_admin, has_permission, get_store as _get_store
 from core.pagination import parse_pagination
 from team.models import TeamMember
 from .models import AuditLog, ACTION_CATALOG
 from .serializers import AuditLogSerializer
-
-
-def _get_store(request):
-    try:
-        return request.user.store
-    except Exception:
-        try:
-            return request.user.team_membership.store
-        except Exception:
-            return None
 
 
 class AuditLogListView(APIView):
