@@ -233,6 +233,122 @@ def get_subscription_status(request):
     })
 
 
+def compare_period(request, metric='orders', period='week'):
+    """Compare une métrique à la période précédente équivalente — réutilise
+    GlobalStatsView._summary (déjà appelée deux fois par cette vue pour ses
+    propres deltas), jamais un chiffre isolé sans point de comparaison."""
+    if not (is_owner_or_admin(request) or has_permission(request, 'stats_view')):
+        return _forbidden()
+    store = get_store(request)
+    if not store:
+        return _forbidden()
+    if metric not in ('orders', 'revenue', 'confirmation_rate', 'return_rate'):
+        return "metric doit être 'orders', 'revenue', 'confirmation_rate' ou 'return_rate'."
+
+    from datetime import date, timedelta
+    from orders.stats_views import GlobalStatsView
+    from orders.utils import previous_period
+
+    days = {'day': 1, 'week': 7, 'month': 30}.get(period, 7)
+    today = date.today()
+    date_from = today - timedelta(days=days)
+    prev_from, prev_to = previous_period(date_from, today)
+
+    view = GlobalStatsView()
+    current = view._summary(store, date_from, today)
+    previous = view._summary(store, prev_from, prev_to)
+
+    def extract(summary):
+        if metric == 'orders':
+            return summary['total_orders']
+        if metric == 'revenue':
+            return float(summary['revenue'])
+        if metric == 'confirmation_rate':
+            return summary['confirmation_rate']
+        total = summary['total_orders']
+        return round(summary['returned_count'] / total * 100, 1) if total else 0.0
+
+    current_value = extract(current)
+    previous_value = extract(previous)
+    change_pct = round((current_value - previous_value) / previous_value * 100, 1) if previous_value else None
+    return _serialize({
+        'metric': metric, 'period': period,
+        'current': current_value, 'previous': previous_value, 'change_pct': change_pct,
+    })
+
+
+def assess_product(request, name_or_id):
+    """Synthèse d'un produit unique — agrège 3 modules déjà existants
+    (jamais de nouveau calcul dupliqué) : marge/prix suggéré, rupture de
+    stock estimée, score de mise en avant s'il en a un. Le prix
+    d'achat/marge reste masqué sans purchase_prices_view, le reste répond
+    quand même (même logique que ProductSerializer.cost_price)."""
+    if not (is_owner_or_admin(request) or has_permission(request, 'products_view')):
+        return _forbidden()
+    store = get_store(request)
+    if not store:
+        return _forbidden()
+
+    product = None
+    if str(name_or_id).isdigit():
+        product = store.products.filter(pk=int(name_or_id)).first()
+    if not product:
+        product = store.products.filter(name__icontains=name_or_id).first()
+    if not product:
+        return f"Produit « {name_or_id} » introuvable."
+
+    result = {'product_name': product.name, 'is_active': product.is_active, 'total_stock': product.total_stock}
+
+    from datetime import timedelta
+    from django.db.models import Sum
+    from django.utils import timezone
+    from products.models import StockMovement
+    from products.stock_forecast import STOCKOUT_WINDOW_DAYS, days_until_stockout
+
+    since = timezone.now() - timedelta(days=STOCKOUT_WINDOW_DAYS)
+    units_sold_14d = abs(StockMovement.objects.filter(
+        store=store, product=product, reason='order_sale', created_at__gte=since,
+    ).aggregate(s=Sum('quantity'))['s'] or 0)
+    result['days_until_stockout'] = days_until_stockout(product.total_stock, units_sold_14d)
+
+    if is_owner_or_admin(request) or has_permission(request, 'purchase_prices_view'):
+        from products.pricing import suggest_price
+        result['pricing'] = suggest_price(store, product)
+
+    from products.recommendations import products_to_promote
+    promote_ids = {r['product'].id: r for r in products_to_promote(store)}
+    if product.id in promote_ids:
+        r = promote_ids[product.id]
+        result['promote_score'] = r['score']
+        result['margin_pct'] = r['margin_pct']
+
+    return _serialize(result)
+
+
+def get_store_audit_summary(request):
+    """Renvoie le dernier audit boutique déjà calculé — ne le recalcule
+    JAMAIS ici (éviterait un appel IA imbriqué dans un appel IA), invite à
+    lancer l'audit depuis la page dédiée s'il n'existe pas encore."""
+    if not (is_owner_or_admin(request) or has_permission(request, 'store_audit_view')):
+        return _forbidden()
+    store = get_store(request)
+    if not store:
+        return _forbidden()
+    from stores.models import StoreAudit
+    audit = StoreAudit.objects.filter(store=store).first()
+    if not audit:
+        return "Aucun audit n'a encore été calculé pour cette boutique — lancez « Analyser ma boutique » depuis /dashboard/audit-boutique."
+    return _serialize({
+        'global_score': audit.global_score,
+        'catalogue_score': audit.catalogue_score,
+        'logistics_score': audit.logistics_score,
+        'stock_score': audit.stock_score,
+        'returns_risk_score': audit.returns_risk_score,
+        'synthesis': audit.synthesis,
+        'computed_at': audit.computed_at,
+    })
+
+
 def get_price_suggestion(request, name_or_id):
     """Fourchette de prix suggérée (jamais un chiffre unique) pour un produit
     précis — réutilise products.pricing.suggest_price, même permission que
@@ -308,6 +424,9 @@ TOOL_REGISTRY = {
     'get_subscription_status': get_subscription_status,
     'get_recommendations': get_recommendations,
     'get_price_suggestion': get_price_suggestion,
+    'compare_period': compare_period,
+    'assess_product': assess_product,
+    'get_store_audit_summary': get_store_audit_summary,
 }
 
 TOOL_DEFINITIONS = [
@@ -442,6 +561,40 @@ TOOL_DEFINITIONS = [
         'function': {
             'name': 'get_subscription_status',
             'description': "Quota de commandes restant et palier d'abonnement actuel de la boutique.",
+            'parameters': {'type': 'object', 'properties': {}},
+        },
+    },
+    {
+        'type': 'function',
+        'function': {
+            'name': 'compare_period',
+            'description': "Compare une métrique (orders/revenue/confirmation_rate/return_rate) à la période précédente équivalente. TOUJOURS utiliser cet outil avant de juger si un chiffre est \"normal\", \"bon\" ou \"inquiétant\" — jamais de jugement sans point de comparaison.",
+            'parameters': {
+                'type': 'object',
+                'properties': {
+                    'metric': {'type': 'string', 'description': "'orders', 'revenue', 'confirmation_rate' ou 'return_rate'"},
+                    'period': {'type': 'string', 'description': "'day', 'week' ou 'month'"},
+                },
+            },
+        },
+    },
+    {
+        'type': 'function',
+        'function': {
+            'name': 'assess_product',
+            'description': "Synthèse complète d'un produit précis : marge/prix suggéré, rupture de stock estimée, score de mise en avant. Utiliser pour toute question du type \"ce produit est-il bon ?\" ou \"que penses-tu de X ?\" — ne jamais répondre à ce genre de question avec un seul autre outil isolé.",
+            'parameters': {
+                'type': 'object',
+                'properties': {'name_or_id': {'type': 'string', 'description': 'Nom (ou fragment de nom) du produit'}},
+                'required': ['name_or_id'],
+            },
+        },
+    },
+    {
+        'type': 'function',
+        'function': {
+            'name': 'get_store_audit_summary',
+            'description': "Dernier audit global de la boutique déjà calculé (scores catalogue/logistique/stock/retours + synthèse). Utiliser pour toute question du type \"comment va ma boutique ?\" ou \"est-ce que je peux faire confiance à mes chiffres ?\". Ne recalcule jamais l'audit.",
             'parameters': {'type': 'object', 'properties': {}},
         },
     },

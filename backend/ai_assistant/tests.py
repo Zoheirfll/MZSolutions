@@ -389,6 +389,82 @@ class MoreExtendedToolsTest(TestCase):
         result = ai_tools.execute_tool(self._req(self.owner), 'get_price_suggestion', {'name_or_id': 'Inexistant'})
         self.assertIn('introuvable', result.lower())
 
+    def test_compare_period_requires_permission(self):
+        member_user, _ = make_team_member(self.store, role='confirmateur')
+        result = ai_tools.execute_tool(self._req(member_user), 'compare_period', {})
+        self.assertIn("n'avez pas la permission", result)
+
+    def test_compare_period_invalid_metric(self):
+        result = ai_tools.execute_tool(self._req(self.owner), 'compare_period', {'metric': 'bidon'})
+        self.assertIn('metric doit être', result)
+
+    def test_compare_period_orders_no_previous_change_is_none(self):
+        result = json.loads(ai_tools.execute_tool(self._req(self.owner), 'compare_period', {'metric': 'orders', 'period': 'week'}))
+        self.assertEqual(result['current'], 0)
+        self.assertIsNone(result['change_pct'])
+
+    def test_compare_period_computes_change_pct(self):
+        from datetime import timedelta
+        from django.utils import timezone
+        from orders.models import Order
+        now = timezone.now()
+        for i in range(2):
+            o = Order.objects.create(store=self.store, first_name='C', last_name='L', phone=f'055500000{i}',
+                                      wilaya='Alger', address='Adr', status='pending', subtotal=1000, shipping_cost=0, total=1000)
+            Order.objects.filter(pk=o.pk).update(created_at=now - timedelta(days=1))
+        old = Order.objects.create(store=self.store, first_name='C', last_name='L', phone='0555000099',
+                                    wilaya='Alger', address='Adr', status='pending', subtotal=1000, shipping_cost=0, total=1000)
+        Order.objects.filter(pk=old.pk).update(created_at=now - timedelta(days=10))
+        result = json.loads(ai_tools.execute_tool(self._req(self.owner), 'compare_period', {'metric': 'orders', 'period': 'week'}))
+        self.assertEqual(result['current'], 2)
+        self.assertEqual(result['previous'], 1)
+        self.assertEqual(result['change_pct'], 100.0)
+
+    def test_assess_product_requires_permission(self):
+        from products.models import Product
+        Product.objects.create(store=self.store, name='Nike Dunk', price=5000)
+        member_user, _ = make_team_member(self.store, role='confirmateur')
+        result = ai_tools.execute_tool(self._req(member_user), 'assess_product', {'name_or_id': 'Nike Dunk'})
+        self.assertIn("n'avez pas la permission", result)
+
+    def test_assess_product_hides_pricing_without_purchase_prices_view(self):
+        from products.models import Product
+        from team.models import RolePermission
+        Product.objects.create(store=self.store, name='Nike Dunk', price=5000, cost_price=3000)
+        member_user, _ = make_team_member(self.store, role='confirmateur')
+        RolePermission.objects.create(store=self.store, role='confirmateur', permission='products_view', enabled=True)
+        result = json.loads(ai_tools.execute_tool(self._req(member_user), 'assess_product', {'name_or_id': 'Nike Dunk'}))
+        self.assertNotIn('pricing', result)
+        self.assertIn('total_stock', result)
+
+    def test_assess_product_includes_pricing_for_owner(self):
+        from products.models import Product
+        Product.objects.create(store=self.store, name='Nike Dunk', price=5000, cost_price=3000)
+        result = json.loads(ai_tools.execute_tool(self._req(self.owner), 'assess_product', {'name_or_id': 'Nike Dunk'}))
+        self.assertIn('pricing', result)
+        self.assertTrue(result['pricing']['available'])
+
+    def test_assess_product_not_found(self):
+        result = ai_tools.execute_tool(self._req(self.owner), 'assess_product', {'name_or_id': 'Inexistant'})
+        self.assertIn('introuvable', result.lower())
+
+    def test_get_store_audit_summary_requires_permission(self):
+        member_user, _ = make_team_member(self.store, role='confirmateur')
+        result = ai_tools.execute_tool(self._req(member_user), 'get_store_audit_summary', {})
+        self.assertIn("n'avez pas la permission", result)
+
+    def test_get_store_audit_summary_no_audit_yet(self):
+        result = ai_tools.execute_tool(self._req(self.owner), 'get_store_audit_summary', {})
+        self.assertIn('audit-boutique', result)
+
+    def test_get_store_audit_summary_returns_existing_audit(self):
+        from stores.models import StoreAudit
+        StoreAudit.objects.create(store=self.store, global_score=72, catalogue_score=80,
+                                   logistics_score=65, stock_score=70, returns_risk_score=75, synthesis='Ça va bien.')
+        result = json.loads(ai_tools.execute_tool(self._req(self.owner), 'get_store_audit_summary', {}))
+        self.assertEqual(result['global_score'], 72)
+        self.assertEqual(result['synthesis'], 'Ça va bien.')
+
     def test_get_recommendations_requires_permission(self):
         member_user, _ = make_team_member(self.store, role='confirmateur')
         result = ai_tools.execute_tool(self._req(member_user), 'get_recommendations', {})

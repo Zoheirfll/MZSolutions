@@ -214,7 +214,12 @@ class ChatView(APIView):
                 "Si tu proposes une modification (produit, stock, prix, statut de commande), appelle "
                 "l'outil de proposition correspondant UNE SEULE FOIS et arrête-toi — ne suppose jamais "
                 "que la proposition a été acceptée, et n'enchaîne jamais une deuxième proposition dans "
-                "la même réponse."
+                "la même réponse. "
+                "Pour toute question de JUGEMENT (\"est-ce que X est bon/normal/inquiétant ?\", \"puis-je "
+                "faire confiance à ce chiffre ?\", \"comment va ma boutique ?\"), ne réponds JAMAIS avec un "
+                "seul chiffre isolé : croise plusieurs outils pertinents avant de conclure (ex. compare_period "
+                "pour situer un chiffre par rapport à la période précédente, assess_product pour juger un "
+                "produit précis, get_store_audit_summary pour une vue d'ensemble de la boutique)."
             ),
         }
         history = [system_message] + [
