@@ -8,10 +8,18 @@ from .routing import route_order
 
 
 def make_platform_admin():
-    owner, _ = make_owner()  # réutilise le helper, mais sans se servir du Store créé
-    owner.is_platform_admin = True
-    owner.save(update_fields=['is_platform_admin'])
-    return owner
+    """Un vrai superadmin n'a AUCUNE boutique propre (comme admin_mz@gmail.com
+    en production) — ne jamais réutiliser make_owner() ici, ça lui donnerait
+    un Store qui masquerait la résolution par impersonation dans get_store()
+    (request.user.store réussirait avant même de consulter le cookie)."""
+    n = User.objects.count()
+    user = User.objects.create_user(
+        email=f'platform-admin-{n}@test.com', password='TestPass123',
+        first_name='Super', last_name='Admin', is_active=True, is_email_verified=True,
+    )
+    user.is_platform_admin = True
+    user.save(update_fields=['is_platform_admin'])
+    return user
 
 
 class AccessControlTests(TestCase):
@@ -310,3 +318,136 @@ class MyQueueTests(TestCase):
         self.assertEqual(resp.status_code, 404)
         other_order.refresh_from_db()
         self.assertEqual(other_order.status, 'pending')
+
+
+class ImpersonationTests(TestCase):
+    """Mode "Gérer cette boutique" — superadmin (accès total) et confirmateur
+    (accès selon PlatformAssignmentPermission), via core.permissions."""
+
+    def setUp(self):
+        clear_throttle_cache()
+        self.owner, self.store = make_owner()
+        self.admin = make_platform_admin()
+        self.client_admin = auth_client(self.admin)
+        self.account = PlatformConfirmationAccount.objects.create(store=self.store, is_active=True)
+        self.confirmateur_user = User.objects.create_user(
+            email='conf-imp@test.com', password='TestPass123', is_active=True, is_email_verified=True,
+        )
+        self.confirmateur = PlatformConfirmateur.objects.create(
+            user=self.confirmateur_user, first_name='Conf', last_name='Imp', email='conf-imp@test.com', is_active=True,
+        )
+        self.assignment = PlatformConfirmateurAssignment.objects.create(
+            confirmateur=self.confirmateur, account=self.account, is_active=True,
+        )
+
+    def test_superadmin_cannot_enter_inactive_service(self):
+        self.account.is_active = False
+        self.account.save(update_fields=['is_active'])
+        resp = self.client_admin.post(f'/api/platform-admin/stores/{self.store.id}/enter/')
+        self.assertEqual(resp.status_code, 404)
+
+    def test_superadmin_enter_then_access_real_dashboard(self):
+        enter = self.client_admin.post(f'/api/platform-admin/stores/{self.store.id}/enter/')
+        self.assertEqual(enter.status_code, 200)
+        # Le cookie posé par enter/ doit être renvoyé sur les requêtes suivantes
+        # du même client de test (comportement standard de session cookie).
+        me = self.client_admin.get('/api/auth/me/')
+        self.assertEqual(me.data['store_slug'], self.store.slug)
+        self.assertIsNone(me.data['team_role'])
+        self.assertTrue(all(me.data['permissions'].values()))
+        self.assertEqual(me.data['impersonating']['store_id'], self.store.id)
+        self.assertTrue(me.data['impersonating']['is_admin'])
+
+        orders_resp = self.client_admin.get('/api/orders/')
+        self.assertEqual(orders_resp.status_code, 200)
+
+    def test_regular_owner_cannot_enter(self):
+        client = auth_client(self.owner)
+        resp = client.post(f'/api/platform-admin/stores/{self.store.id}/enter/')
+        self.assertEqual(resp.status_code, 403)
+
+    def test_confirmateur_enter_without_assignment_rejected(self):
+        other_owner, other_store = make_owner()
+        client = auth_client(self.confirmateur_user)
+        resp = client.post(f'/api/platform-admin/assignments/{self.assignment.id + 999}/enter/')
+        self.assertEqual(resp.status_code, 404)
+
+    def test_confirmateur_enter_grants_only_permitted_sections(self):
+        from team.models import PERMISSION_CATALOG
+        client = auth_client(self.confirmateur_user)
+        enter = client.post(f'/api/platform-admin/assignments/{self.assignment.id}/enter/')
+        self.assertEqual(enter.status_code, 200)
+
+        me = client.get('/api/auth/me/')
+        self.assertEqual(me.data['team_role'], 'confirmateur')
+        self.assertFalse(any(me.data['permissions'].values()))
+
+        # Sans permission accordée, l'accès aux commandes reste refusé.
+        orders_resp = client.get('/api/orders/')
+        self.assertEqual(orders_resp.status_code, 200)  # OrderListCreateView.get n'exige pas de permission dédiée
+        inbox_resp = client.get('/api/inbox/conversations/')
+        self.assertEqual(inbox_resp.status_code, 403)
+
+        self.client_admin.post(f'/api/platform-admin/assignments/{self.assignment.id}/permissions/', {
+            'permission': 'inbox_view', 'enabled': True,
+        }, format='json')
+        inbox_resp2 = client.get('/api/inbox/conversations/')
+        self.assertEqual(inbox_resp2.status_code, 200)
+
+    def test_confirmateur_impersonation_does_not_leak_to_other_store(self):
+        other_owner, other_store = make_owner()
+        client = auth_client(self.confirmateur_user)
+        client.post(f'/api/platform-admin/assignments/{self.assignment.id}/enter/')
+        me = client.get('/api/auth/me/')
+        self.assertEqual(me.data['store_slug'], self.store.slug)
+        self.assertNotEqual(me.data['store_slug'], other_store.slug)
+
+    def test_leave_clears_impersonation(self):
+        self.client_admin.post(f'/api/platform-admin/stores/{self.store.id}/enter/')
+        leave = self.client_admin.post('/api/platform-admin/leave/')
+        self.assertEqual(leave.status_code, 200)
+        me = self.client_admin.get('/api/auth/me/')
+        self.assertIsNone(me.data['store_slug'])
+        self.assertIsNone(me.data['impersonating'])
+
+    def test_deactivating_assignment_revokes_access_immediately(self):
+        client = auth_client(self.confirmateur_user)
+        client.post(f'/api/platform-admin/assignments/{self.assignment.id}/enter/')
+        self.assignment.is_active = False
+        self.assignment.save(update_fields=['is_active'])
+        me = client.get('/api/auth/me/')
+        # Le cookie porte toujours le store_id, mais resolve_impersonation()
+        # revérifie l'assignation en base à chaque requête — plus d'accès.
+        self.assertIsNone(me.data['store_slug'])
+
+
+class MyAssignmentsListViewTests(TestCase):
+    def setUp(self):
+        clear_throttle_cache()
+        self.owner, self.store = make_owner()
+        self.account = PlatformConfirmationAccount.objects.create(store=self.store, is_active=True)
+        self.confirmateur_user = User.objects.create_user(
+            email='conf-list@test.com', password='TestPass123', is_active=True, is_email_verified=True,
+        )
+        self.confirmateur = PlatformConfirmateur.objects.create(
+            user=self.confirmateur_user, first_name='Conf', last_name='List', email='conf-list@test.com', is_active=True,
+        )
+
+    def test_lists_only_active_assignments(self):
+        active = PlatformConfirmateurAssignment.objects.create(confirmateur=self.confirmateur, account=self.account, is_active=True)
+        client = auth_client(self.confirmateur_user)
+        resp = client.get('/api/platform-admin/my-assignments/')
+        self.assertEqual(resp.status_code, 200)
+        ids = [a['id'] for a in resp.data]
+        self.assertIn(active.id, ids)
+
+    def test_inactive_assignment_excluded(self):
+        PlatformConfirmateurAssignment.objects.create(confirmateur=self.confirmateur, account=self.account, is_active=False)
+        client = auth_client(self.confirmateur_user)
+        resp = client.get('/api/platform-admin/my-assignments/')
+        self.assertEqual(resp.data, [])
+
+    def test_non_confirmateur_forbidden(self):
+        client = auth_client(self.owner)
+        resp = client.get('/api/platform-admin/my-assignments/')
+        self.assertEqual(resp.status_code, 403)

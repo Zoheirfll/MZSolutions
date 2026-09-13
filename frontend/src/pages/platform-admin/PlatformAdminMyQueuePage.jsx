@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import api from '../../api/axios'
 import { theme } from '../../theme'
 import Select from '../../components/Select'
@@ -21,7 +22,8 @@ const STATUS_OPTIONS = [
 const CHANGE_STATUS_OPTIONS = STATUS_OPTIONS.filter(o => o.value)
 
 export default function PlatformAdminMyQueuePage() {
-  const { user, logout } = useAuth()
+  const { user, logout, refresh } = useAuth()
+  const navigate = useNavigate()
   const [orders, setOrders]   = useState([])
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState('')
@@ -29,6 +31,26 @@ export default function PlatformAdminMyQueuePage() {
   const [editing, setEditing] = useState(null) // order id en cours d'édition
   const [newStatus, setNewStatus] = useState('')
   const [note, setNote]       = useState('')
+  const [myStores, setMyStores] = useState([])
+  const [entering, setEntering] = useState(null)
+
+  useEffect(() => {
+    api.get('/platform-admin/my-assignments/')
+      .then(({ data }) => setMyStores(data))
+      .catch(() => {})
+  }, [])
+
+  const handleEnter = async (assignment) => {
+    setEntering(assignment.id)
+    try {
+      await api.post(`/platform-admin/assignments/${assignment.id}/enter/`)
+      await refresh()
+      navigate('/dashboard')
+    } catch {
+      setToast({ type: 'error', message: "Impossible d'accéder à cette boutique." })
+      setEntering(null)
+    }
+  }
 
   const load = useCallback(() => {
     setLoading(true)
@@ -68,6 +90,20 @@ export default function PlatformAdminMyQueuePage() {
       </header>
 
       <main className="p-6 max-w-6xl mx-auto flex flex-col gap-5">
+        {myStores.length > 0 && (
+          <div className="flex flex-col gap-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-app-muted-light">Mes boutiques</p>
+            <div className="flex flex-wrap gap-2">
+              {myStores.map(a => (
+                <button key={a.id} onClick={() => handleEnter(a)} disabled={entering === a.id}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ring-1 ring-inset ring-violet-500/30 bg-violet-500/10 text-violet-300 hover:bg-violet-500/15 transition cursor-pointer disabled:opacity-50">
+                  {entering === a.id ? 'Entrée…' : `Gérer ${a.store_name}`}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold text-app-primary">Mes commandes à traiter</h1>
           <Select value={statusFilter} onChange={setStatusFilter} options={STATUS_OPTIONS} className={theme.inputDark + ' w-64'} />

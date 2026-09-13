@@ -178,12 +178,20 @@ function PageInfoButton({ text }) {
 }
 
 export default function DashboardLayout({ children, title, subtitle }) {
-  const { user, logout } = useAuth()
+  const { user, logout, refresh } = useAuth()
   const { theme: currentTheme, toggleTheme } = useTheme()
   const teamRole = user?.team_role || null
   const can = key => !!user?.permissions?.[key]
   const navigate = useNavigate()
   const location = useLocation()
+
+  const handleLeaveImpersonation = async () => {
+    // Best-effort : même si l'appel échoue, on rafraîchit /auth/me/ pour
+    // refléter l'état réel plutôt que de laisser l'UI dans un état incertain.
+    try { await api.post('/platform-admin/leave/') } catch {}
+    const fresh = await refresh()
+    navigate(fresh?.is_platform_admin ? '/platform-admin/boutiques' : '/platform-admin/ma-file')
+  }
   const [profileOpen, setProfileOpen] = useState(false)
   const profileRef = useRef(null)
 
@@ -911,6 +919,18 @@ export default function DashboardLayout({ children, title, subtitle }) {
 
       {/* ── Main area ── */}
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+        {user?.impersonating && (
+          <div className="flex items-center justify-between gap-3 px-5 sm:px-8 py-2 shrink-0 text-sm"
+            style={{ background: 'rgba(139,92,246,0.15)', borderBottom: '1px solid rgba(139,92,246,0.3)' }}>
+            <span className="text-violet-200 font-medium truncate">
+              Vous gérez <strong>{user.impersonating.store_name}</strong> {user.impersonating.is_admin ? 'en tant que superadmin' : 'via le service de confirmation'}.
+            </span>
+            <button onClick={handleLeaveImpersonation}
+              className="shrink-0 px-3 py-1 rounded-lg text-xs font-semibold bg-violet-600 text-white hover:bg-violet-500 transition cursor-pointer">
+              Quitter
+            </button>
+          </div>
+        )}
         <header className="flex items-center justify-between gap-2 px-5 sm:px-8 py-4 border-b shrink-0"
           style={{ background: theme.dark.app, borderColor: theme.dark.border }}>
           <div className="flex items-center gap-2 min-w-0">

@@ -1,10 +1,11 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import api from '../../api/axios'
 import { theme } from '../../theme'
 import Select from '../../components/Select'
 import Toast from '../../components/Toast'
 import StatCard from '../../components/StatCard'
+import { useAuth } from '../../context/AuthContext'
 
 const SERVICE_OPTIONS = [
   { value: '',         label: 'Tous les statuts' },
@@ -72,6 +73,9 @@ function SearchIcon(props) {
 }
 
 export default function PlatformAdminStoresPage() {
+  const navigate = useNavigate()
+  const { refresh } = useAuth()
+  const [entering, setEntering] = useState(null)
   const [stores, setStores]     = useState([])
   const [stats, setStats]       = useState(null)
   const [count, setCount]       = useState(0)
@@ -106,6 +110,18 @@ export default function PlatformAdminStoresPage() {
 
   const totalPages = Math.max(1, Math.ceil(count / perPage))
   const activeFilterCount = [serviceF, modeF, search].filter(Boolean).length
+
+  const handleEnter = async (store) => {
+    setEntering(store.id)
+    try {
+      await api.post(`/platform-admin/stores/${store.id}/enter/`)
+      await refresh()
+      navigate('/dashboard')
+    } catch {
+      setToast({ type: 'error', message: "Impossible d'entrer dans cette boutique." })
+      setEntering(null)
+    }
+  }
 
   const toggleActive = async (store) => {
     const nowActive = !(store.confirmation?.is_active)
@@ -283,9 +299,13 @@ export default function PlatformAdminStoresPage() {
                   </td>
                   <td className="px-4 py-3">
                     {active ? (
-                      <div className="flex gap-3">
+                      <div className="flex items-center gap-3 flex-wrap">
                         <Link to={`/platform-admin/boutiques/${store.id}/commandes`} className="text-violet-400 hover:text-violet-300 text-xs font-medium">Commandes</Link>
                         <Link to={`/platform-admin/boutiques/${store.id}/produits`} className="text-violet-400 hover:text-violet-300 text-xs font-medium">Produits</Link>
+                        <button onClick={() => handleEnter(store)} disabled={entering === store.id}
+                          className="text-xs font-semibold px-2.5 py-1 rounded-md bg-violet-600 text-white hover:bg-violet-500 transition disabled:opacity-50 cursor-pointer">
+                          {entering === store.id ? 'Entrée…' : 'Gérer cette boutique'}
+                        </button>
                       </div>
                     ) : <span className="text-app-muted text-xs">—</span>}
                   </td>

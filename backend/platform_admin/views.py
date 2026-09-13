@@ -405,6 +405,23 @@ def _confirmateur_forbidden():
     return Response({'detail': 'Réservé aux confirmateurs du service de confirmation.'}, status=403)
 
 
+class MyAssignmentsListView(APIView):
+    """Boutiques assignées AU confirmateur connecté — utilisée pour afficher
+    le bouton "Gérer cette boutique" côté confirmateur (mode impersonation),
+    distincte de PlatformConfirmateurAssignmentListCreateView (superadmin,
+    toutes les assignations)."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        confirmateur = get_platform_confirmateur(request)
+        if not confirmateur:
+            return _confirmateur_forbidden()
+        qs = PlatformConfirmateurAssignment.objects.filter(
+            confirmateur=confirmateur, is_active=True, account__is_active=True,
+        ).select_related('account__store')
+        return Response(PlatformConfirmateurAssignmentSerializer(qs, many=True).data)
+
+
 class MyQueueListView(APIView):
     """Commandes assignées AU confirmateur connecté (PlatformOrderAssignment),
     toutes boutiques confondues — jamais les commandes d'une boutique qui ne
