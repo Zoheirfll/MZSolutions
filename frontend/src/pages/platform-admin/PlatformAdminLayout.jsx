@@ -66,9 +66,17 @@ export default function PlatformAdminLayout() {
           <div className="px-3 mb-2">
             <p className="text-xs text-app-muted truncate">{user?.email}</p>
           </div>
-          <button onClick={() => navigate('/dashboard')} className="w-full text-left px-3 py-2 rounded-lg text-sm text-app-muted-light hover:text-app-primary hover:bg-violet-500/5 transition-colors">
-            Retour au dashboard boutique
-          </button>
+          {/* Un superadmin "pur" n'a aucune boutique propre (comme
+              admin_mz@gmail.com) — /dashboard planterait silencieusement
+              (403 avalé sur chaque appel) tant qu'il n'a pas d'abord activé
+              le mode "Gérer cette boutique" (impersonation, voir
+              PlatformAdminStoresPage). Le lien n'a donc de sens que si une
+              vraie boutique est déjà résolue côté serveur. */}
+          {user?.store_slug && (
+            <button onClick={() => navigate('/dashboard')} className="w-full text-left px-3 py-2 rounded-lg text-sm text-app-muted-light hover:text-app-primary hover:bg-violet-500/5 transition-colors">
+              Retour au dashboard boutique
+            </button>
+          )}
           <button onClick={logout} className="w-full text-left px-3 py-2 rounded-lg text-sm text-red-400 hover:bg-red-500/10 transition-colors">
             Déconnexion
           </button>
