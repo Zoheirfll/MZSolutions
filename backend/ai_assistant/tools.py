@@ -233,6 +233,39 @@ def get_subscription_status(request):
     })
 
 
+def get_recommendations(request, section=None):
+    """Moteur complet de recommandations produit — réutilise products.recommendations
+    (aucun calcul dupliqué), même permission que RecommendationsPage.jsx.
+    `section` optionnel ('promote'|'trending'|'bundles') pour ne renvoyer
+    qu'une partie ; par défaut renvoie les trois."""
+    if not (is_owner_or_admin(request) or has_permission(request, 'recommendations_view')):
+        return _forbidden()
+    store = get_store(request)
+    if not store:
+        return _forbidden()
+    from products.recommendations import products_to_promote, trending_products, bundle_suggestions
+
+    data = {}
+    if section in (None, 'promote'):
+        data['promote'] = [
+            {'product_name': r['product'].name, 'margin_pct': r['margin_pct'],
+             'total_stock': r['total_stock'], 'sales_rate_14d': r['sales_rate_14d'], 'score': r['score']}
+            for r in products_to_promote(store)
+        ]
+    if section in (None, 'trending'):
+        data['trending'] = [
+            {'product_name': r['product'].name, 'recent_rate': r['recent_rate'],
+             'prior_rate': r['prior_rate'], 'growth': r['growth']}
+            for r in trending_products(store)
+        ]
+    if section in (None, 'bundles'):
+        data['bundles'] = [
+            {'product_name_a': r['product_a'].name, 'product_name_b': r['product_b'].name, 'count': r['count']}
+            for r in bundle_suggestions(store)
+        ]
+    return _serialize(data)
+
+
 TOOL_REGISTRY = {
     'get_orders_summary': get_orders_summary,
     'get_low_stock': get_low_stock,
@@ -248,6 +281,7 @@ TOOL_REGISTRY = {
     'get_costs_summary': get_costs_summary,
     'get_payments_summary': get_payments_summary,
     'get_subscription_status': get_subscription_status,
+    'get_recommendations': get_recommendations,
 }
 
 TOOL_DEFINITIONS = [
@@ -383,6 +417,17 @@ TOOL_DEFINITIONS = [
             'name': 'get_subscription_status',
             'description': "Quota de commandes restant et palier d'abonnement actuel de la boutique.",
             'parameters': {'type': 'object', 'properties': {}},
+        },
+    },
+    {
+        'type': 'function',
+        'function': {
+            'name': 'get_recommendations',
+            'description': "Moteur de recommandations produit : produits à mettre en avant (marge/stock/vélocité), produits en tendance (croissance du rythme de vente), et associations de vente croisée (souvent achetés ensemble). Utiliser pour toute question du type \"quels produits dois-je mettre en avant/promouvoir ?\" ou \"quelles sont mes tendances ?\".",
+            'parameters': {
+                'type': 'object',
+                'properties': {'section': {'type': 'string', 'description': "'promote', 'trending' ou 'bundles' (optionnel — vide renvoie les trois)"}},
+            },
         },
     },
 ]

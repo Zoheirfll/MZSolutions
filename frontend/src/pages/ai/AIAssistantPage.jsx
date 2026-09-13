@@ -51,7 +51,7 @@ function MessageBubble({ role, content }) {
 function CapabilitiesBanner() {
   return (
     <div className="border-b border-app px-4 py-3 bg-app-card-alt/40 text-xs text-app-muted-light space-y-1.5">
-      <p><span className="font-medium text-app-primary">🔍 Me poser des questions</span> — commandes, stock, clients à risque, rentabilité, équipe, retours...</p>
+      <p><span className="font-medium text-app-primary">🔍 Me poser des questions</span> — commandes, stock, clients à risque, rentabilité, équipe, retours, recommandations produit...</p>
       <p>
         <span className="font-medium text-app-primary">✏️ Me demander d'agir</span> — modifier le prix/stock/statut d'un produit (un ou plusieurs à la fois), créer un produit, changer le statut d'une commande précise. <span className="text-app-muted">Je vous montre toujours l'avant/après et j'attends votre confirmation avant d'écrire quoi que ce soit.</span>
       </p>

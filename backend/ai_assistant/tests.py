@@ -371,6 +371,35 @@ class MoreExtendedToolsTest(TestCase):
         result = json.loads(ai_tools.execute_tool(self._req(self.owner), 'get_subscription_status', {}))
         self.assertIn('orders_remaining', result)
 
+    def test_get_recommendations_requires_permission(self):
+        member_user, _ = make_team_member(self.store, role='confirmateur')
+        result = ai_tools.execute_tool(self._req(member_user), 'get_recommendations', {})
+        self.assertIn("n'avez pas la permission", result)
+
+    def test_get_recommendations_returns_all_three_sections(self):
+        result = json.loads(ai_tools.execute_tool(self._req(self.owner), 'get_recommendations', {}))
+        self.assertIn('promote', result)
+        self.assertIn('trending', result)
+        self.assertIn('bundles', result)
+
+    def test_get_recommendations_section_filter(self):
+        result = json.loads(ai_tools.execute_tool(self._req(self.owner), 'get_recommendations', {'section': 'trending'}))
+        self.assertIn('trending', result)
+        self.assertNotIn('promote', result)
+        self.assertNotIn('bundles', result)
+
+    def test_get_recommendations_matches_dashboard_data(self):
+        from products.models import Product, Category
+        cat = Category.objects.create(store=self.store, name='Chaussures')
+        p1 = Product.objects.create(store=self.store, name='Basket A', price=3000, cost_price=1000, stock=10, is_active=True)
+        p1.categories.add(cat)
+        p2 = Product.objects.create(store=self.store, name='Basket B', price=2500, cost_price=800, stock=5, is_active=True)
+        p2.categories.add(cat)
+        from products.recommendations import products_to_promote
+        expected = products_to_promote(self.store)
+        result = json.loads(ai_tools.execute_tool(self._req(self.owner), 'get_recommendations', {'section': 'promote'}))
+        self.assertEqual(len(result['promote']), len(expected))
+
 
 class ChatLoopTest(TestCase):
     @patch('ai_assistant.chat_loop.ollama_client.chat')
