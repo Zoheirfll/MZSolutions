@@ -202,7 +202,11 @@ export default function DashboardLayout({ children, title, subtitle }) {
   const location = useLocation()
   const [pageHelpMap, setPageHelpMap] = useState(null)
   useEffect(() => { getPageHelp().then(setPageHelpMap) }, [])
-  const effectiveSubtitle = subtitle || resolvePageHelp(location.pathname, pageHelpMap)
+  // Le registre (page_help.py, backend) prime sur un `subtitle` codé en dur
+  // dans une page — une seule source de vérité éditable sans toucher au
+  // frontend. `subtitle` ne sert plus que de repli pour une route absente
+  // du registre.
+  const effectiveSubtitle = resolvePageHelp(location.pathname, pageHelpMap) || subtitle
 
   const handleLeaveImpersonation = async () => {
     // Best-effort : même si l'appel échoue, on rafraîchit /auth/me/ pour

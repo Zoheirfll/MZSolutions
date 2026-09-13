@@ -113,17 +113,29 @@ describe('DashboardLayout — sidebar gated by permissions', () => {
     expect(await screen.findByText("Aide du détail d'une commande.")).toBeInTheDocument()
   })
 
-  it("un subtitle explicite passé à la page prime toujours sur le registre", async () => {
+  it('le registre prime toujours sur un subtitle codé en dur dans la page (source unique éditable sans toucher au frontend)', async () => {
     mockUseAuth.mockReturnValue({ user: { email: 'owner@test.com', team_role: null, permissions: {} }, logout: vi.fn() })
     render(
       <MemoryRouter initialEntries={['/dashboard']}>
-        <DashboardLayout title="Tableau de bord" subtitle="Texte explicite de la page.">contenu</DashboardLayout>
+        <DashboardLayout title="Tableau de bord" subtitle="Texte codé en dur dans la page.">contenu</DashboardLayout>
       </MemoryRouter>
     )
     const button = await screen.findByLabelText('Informations sur cette page')
     await userEvent.setup().click(button)
-    expect(await screen.findByText('Texte explicite de la page.')).toBeInTheDocument()
-    expect(screen.queryByText('Aide du tableau de bord.')).not.toBeInTheDocument()
+    expect(await screen.findByText('Aide du tableau de bord.')).toBeInTheDocument()
+    expect(screen.queryByText('Texte codé en dur dans la page.')).not.toBeInTheDocument()
+  })
+
+  it("retombe sur le subtitle de la page si le registre n'a aucune entrée pour cette route", async () => {
+    mockUseAuth.mockReturnValue({ user: { email: 'owner@test.com', team_role: null, permissions: {} }, logout: vi.fn() })
+    render(
+      <MemoryRouter initialEntries={['/dashboard/route-sans-registre']}>
+        <DashboardLayout title="Page inconnue du registre" subtitle="Texte de repli de la page.">contenu</DashboardLayout>
+      </MemoryRouter>
+    )
+    const button = await screen.findByLabelText('Informations sur cette page')
+    await userEvent.setup().click(button)
+    expect(await screen.findByText('Texte de repli de la page.')).toBeInTheDocument()
   })
 
   it('toggles the theme and persists it to localStorage', async () => {
