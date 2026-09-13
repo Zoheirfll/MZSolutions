@@ -371,6 +371,24 @@ class MoreExtendedToolsTest(TestCase):
         result = json.loads(ai_tools.execute_tool(self._req(self.owner), 'get_subscription_status', {}))
         self.assertIn('orders_remaining', result)
 
+    def test_get_price_suggestion_requires_permission(self):
+        from products.models import Product
+        Product.objects.create(store=self.store, name='Nike Dunk', price=5000, cost_price=3000)
+        member_user, _ = make_team_member(self.store, role='confirmateur')
+        result = ai_tools.execute_tool(self._req(member_user), 'get_price_suggestion', {'name_or_id': 'Nike Dunk'})
+        self.assertIn("n'avez pas la permission", result)
+
+    def test_get_price_suggestion_returns_range(self):
+        from products.models import Product
+        Product.objects.create(store=self.store, name='Nike Dunk', price=5000, cost_price=3000)
+        result = json.loads(ai_tools.execute_tool(self._req(self.owner), 'get_price_suggestion', {'name_or_id': 'Nike Dunk'}))
+        self.assertTrue(result['available'])
+        self.assertLess(result['suggested_price_low'], result['suggested_price_high'])
+
+    def test_get_price_suggestion_product_not_found(self):
+        result = ai_tools.execute_tool(self._req(self.owner), 'get_price_suggestion', {'name_or_id': 'Inexistant'})
+        self.assertIn('introuvable', result.lower())
+
     def test_get_recommendations_requires_permission(self):
         member_user, _ = make_team_member(self.store, role='confirmateur')
         result = ai_tools.execute_tool(self._req(member_user), 'get_recommendations', {})

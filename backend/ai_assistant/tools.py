@@ -233,6 +233,31 @@ def get_subscription_status(request):
     })
 
 
+def get_price_suggestion(request, name_or_id):
+    """Fourchette de prix suggérée (jamais un chiffre unique) pour un produit
+    précis — réutilise products.pricing.suggest_price, même permission que
+    l'affichage du prix d'achat (purchase_prices_view) puisque le calcul
+    expose la marge/le coût du produit."""
+    if not (is_owner_or_admin(request) or has_permission(request, 'purchase_prices_view')):
+        return _forbidden()
+    store = get_store(request)
+    if not store:
+        return _forbidden()
+
+    product = None
+    if str(name_or_id).isdigit():
+        product = store.products.filter(pk=int(name_or_id)).first()
+    if not product:
+        product = store.products.filter(name__icontains=name_or_id).first()
+    if not product:
+        return f"Produit « {name_or_id} » introuvable."
+
+    from products.pricing import suggest_price
+    result = suggest_price(store, product)
+    result['product_name'] = product.name
+    return _serialize(result)
+
+
 def get_recommendations(request, section=None):
     """Moteur complet de recommandations produit — réutilise products.recommendations
     (aucun calcul dupliqué), même permission que RecommendationsPage.jsx.
@@ -282,6 +307,7 @@ TOOL_REGISTRY = {
     'get_payments_summary': get_payments_summary,
     'get_subscription_status': get_subscription_status,
     'get_recommendations': get_recommendations,
+    'get_price_suggestion': get_price_suggestion,
 }
 
 TOOL_DEFINITIONS = [
@@ -417,6 +443,18 @@ TOOL_DEFINITIONS = [
             'name': 'get_subscription_status',
             'description': "Quota de commandes restant et palier d'abonnement actuel de la boutique.",
             'parameters': {'type': 'object', 'properties': {}},
+        },
+    },
+    {
+        'type': 'function',
+        'function': {
+            'name': 'get_price_suggestion',
+            'description': "Fourchette de prix suggérée pour UN produit précis, basée sur son prix d'achat, sa marge actuelle comparée à la marge moyenne de la boutique, et l'évolution récente de son rythme de vente. Renvoie toujours une fourchette (jamais un chiffre unique) — utiliser pour toute question du type \"quel prix mettre sur X ?\" ou \"est-ce que je devrais changer le prix de X ?\".",
+            'parameters': {
+                'type': 'object',
+                'properties': {'name_or_id': {'type': 'string', 'description': 'Nom (ou fragment de nom) du produit'}},
+                'required': ['name_or_id'],
+            },
         },
     },
     {

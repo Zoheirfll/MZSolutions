@@ -588,3 +588,46 @@ class PublicRecommendationsTest(TestCase):
         resp = self.client.get(f'/api/public/store/{self.store.slug}/cart-recommendations/?product_ids=')
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.data['results'], [])
+
+
+class SuggestPriceTest(TestCase):
+    def setUp(self):
+        self.owner, self.store = make_owner()
+
+    def test_unavailable_without_cost_price(self):
+        from .pricing import suggest_price
+        product = Product.objects.create(store=self.store, name='Sans coût', price=1000)
+        result = suggest_price(self.store, product)
+        self.assertFalse(result['available'])
+        self.assertIn('reason', result)
+
+    def test_computes_current_margin(self):
+        from .pricing import suggest_price
+        product = Product.objects.create(store=self.store, name='Produit', price=1000, cost_price=600)
+        result = suggest_price(self.store, product)
+        self.assertTrue(result['available'])
+        self.assertEqual(result['current_margin_pct'], 40.0)  # (1000-600)/1000
+
+    def test_target_blends_with_store_average_margin(self):
+        from .pricing import suggest_price
+        # Marge du produit (40%) très différente de la moyenne boutique (~70%)
+        Product.objects.create(store=self.store, name='Autre A', price=1000, cost_price=200, is_active=True)  # 80%
+        Product.objects.create(store=self.store, name='Autre B', price=1000, cost_price=400, is_active=True)  # 60%
+        product = Product.objects.create(store=self.store, name='Produit', price=1000, cost_price=600, is_active=True)  # 40%
+        result = suggest_price(self.store, product)
+        self.assertEqual(result['store_avg_margin_pct'], 70.0)
+        # cible = moyenne(40, 70) = 55, jamais juste la marge actuelle ni juste la moyenne boutique
+        self.assertEqual(result['target_margin_pct'], 55.0)
+        self.assertLess(result['suggested_price_low'], result['suggested_price_high'])
+
+    def test_range_always_low_below_high(self):
+        from .pricing import suggest_price
+        product = Product.objects.create(store=self.store, name='Produit', price=1000, cost_price=600)
+        result = suggest_price(self.store, product)
+        self.assertLess(result['suggested_price_low'], result['suggested_price_high'])
+
+    def test_no_history_velocity_change_is_none(self):
+        from .pricing import suggest_price
+        product = Product.objects.create(store=self.store, name='Nouveau', price=1000, cost_price=600)
+        result = suggest_price(self.store, product)
+        self.assertIsNone(result['velocity_change_pct'])
