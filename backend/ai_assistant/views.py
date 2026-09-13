@@ -403,6 +403,57 @@ def _execute_pending_action(store, action):
         order = store.orders.get(pk=item['id'])
         _transition_order_status(store, order, item['after']['status'], changed_by=None, note=item['after'].get('note', "Action confirmée via l'agent IA"))
 
+    elif action.tool_name == 'propose_toggle_team_member':
+        item = action.payload[0]
+        member = store.team_members.get(pk=item['id'])
+        member.is_active = item['after']['is_active']
+        member.save(update_fields=['is_active'])
+
+    elif action.tool_name == 'propose_update_carrier_default':
+        item = action.payload[0]
+        store.carrier_accounts.exclude(pk=item['id']).update(is_default=False)
+        account = store.carrier_accounts.get(pk=item['id'])
+        account.is_default = True
+        account.save(update_fields=['is_default'])
+
+    elif action.tool_name == 'propose_update_wilaya_rate':
+        from orders.models import WilayaRate
+        item = action.payload[0]
+        after = item['after']
+        rate, _created = WilayaRate.objects.get_or_create(
+            store=store, wilaya_id=action.target_ids[0], defaults={'wilaya_name': item['name']},
+        )
+        if after.get('home_price') is not None:
+            rate.home_price = after['home_price']
+        if after.get('desk_price') is not None:
+            rate.desk_price = after['desk_price']
+        rate.save()
+
+    elif action.tool_name == 'propose_toggle_client_risk':
+        from orders.models import CustomerRisk
+        item = action.payload[0]
+        risk, _created = CustomerRisk.objects.get_or_create(store=store, phone=item['name'])
+        risk.manual_risk = item['after']['manual_risk']
+        risk.save(update_fields=['manual_risk'])
+
+    elif action.tool_name == 'propose_blacklist_phone':
+        from orders.models import BlacklistedPhone
+        item = action.payload[0]
+        BlacklistedPhone.objects.get_or_create(
+            store=store, phone=item['name'], defaults={'message': item['after'].get('message', '')},
+        )
+
+    elif action.tool_name == 'propose_unblacklist_phone':
+        item = action.payload[0]
+        store.blacklisted_phones.filter(pk=item['id']).delete()
+
+    elif action.tool_name == 'propose_update_store_settings':
+        item = action.payload[0]
+        settings = store.settings
+        for field, value in item['after'].items():
+            setattr(settings, field, value)
+        settings.save(update_fields=list(item['after'].keys()))
+
 
 def _log_ai_agent_action(request, store, action, audit_action):
     try:

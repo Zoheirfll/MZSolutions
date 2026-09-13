@@ -166,11 +166,207 @@ def propose_update_order_status(request, conversation, order_number, new_status,
     return _create_pending_action(conversation, 'propose_update_order_status', summary, payload, [order.id])
 
 
+def propose_toggle_team_member(request, conversation, name_or_email, is_active):
+    """Active/désactive un membre d'équipe DÉJÀ EXISTANT — jamais d'invitation
+    directe par l'IA (créer un compte envoie un email réel à un tiers,
+    action trop lourde pour être déléguée sans qu'un humain choisisse
+    explicitement le destinataire sur TeamPage.jsx)."""
+    if not is_owner_or_admin(request):
+        return _write_forbidden()
+    store = get_store(request)
+    if not store:
+        return _write_forbidden()
+
+    member = store.team_members.filter(email__iexact=name_or_email).first()
+    if not member:
+        member = store.team_members.filter(first_name__icontains=name_or_email).first()
+    if not member:
+        return f"Membre d'équipe « {name_or_email} » introuvable."
+
+    before = {'is_active': member.is_active}
+    after = {'is_active': bool(is_active)}
+    if before == after:
+        return f"{member.first_name} {member.last_name} est déjà {'actif' if is_active else 'inactif'}."
+
+    summary = f"{'Activer' if is_active else 'Désactiver'} {member.first_name} {member.last_name} ({member.role})"
+    payload = [{'id': member.id, 'name': f"{member.first_name} {member.last_name}", 'before': before, 'after': after}]
+    return _create_pending_action(conversation, 'propose_toggle_team_member', summary, payload, [member.id])
+
+
+def propose_update_carrier_default(request, conversation, carrier_name):
+    """Change le transporteur par défaut parmi les comptes DÉJÀ CONNECTÉS et
+    actifs — ne crée jamais de nouveau compte transporteur (clé API trop
+    sensible pour être saisie via un chat)."""
+    if not is_owner_or_admin(request):
+        return _write_forbidden()
+    store = get_store(request)
+    if not store:
+        return _write_forbidden()
+
+    account = store.carrier_accounts.filter(carrier__icontains=carrier_name, is_active=True).first()
+    if not account:
+        account = store.carrier_accounts.filter(name__icontains=carrier_name, is_active=True).first()
+    if not account:
+        return f"Aucun compte transporteur actif correspondant à « {carrier_name} » — il doit d'abord être connecté depuis Paramètres livraison."
+    if account.is_default:
+        return f"{account.get_carrier_display()} est déjà le transporteur par défaut."
+
+    current_default = store.carrier_accounts.filter(is_default=True).first()
+    summary = f"Transporteur par défaut → {account.get_carrier_display()}"
+    payload = [{
+        'id': account.id, 'name': account.get_carrier_display(),
+        'before': {'default_carrier': current_default.get_carrier_display() if current_default else None},
+        'after': {'default_carrier': account.get_carrier_display()},
+    }]
+    return _create_pending_action(conversation, 'propose_update_carrier_default', summary, payload, [account.id])
+
+
+def _resolve_wilaya(wilaya_name_input):
+    from orders.wilaya_codes import WILAYA_CODES
+    needle = (wilaya_name_input or '').strip().lower()
+    for name, code in WILAYA_CODES.items():
+        if name.lower() == needle:
+            return name, code
+    for name, code in WILAYA_CODES.items():
+        if needle in name.lower():
+            return name, code
+    return None, None
+
+
+def propose_update_wilaya_rate(request, conversation, wilaya_name, home_price=None, desk_price=None):
+    if not is_owner_or_admin(request):
+        return _write_forbidden()
+    store = get_store(request)
+    if not store:
+        return _write_forbidden()
+    if home_price is None and desk_price is None:
+        return "Indiquez au moins un tarif (domicile ou point relais) à mettre à jour."
+
+    resolved_name, wilaya_id = _resolve_wilaya(wilaya_name)
+    if not resolved_name:
+        return f"Wilaya « {wilaya_name} » introuvable."
+
+    from orders.models import WilayaRate
+    existing = store.wilaya_rates.filter(wilaya_id=wilaya_id).first()
+    before = {
+        'home_price': float(existing.home_price) if existing else None,
+        'desk_price': float(existing.desk_price) if existing and existing.desk_price is not None else None,
+    }
+    after = dict(before)
+    if home_price is not None:
+        after['home_price'] = float(home_price)
+    if desk_price is not None:
+        after['desk_price'] = float(desk_price)
+
+    summary = f"Tarif de livraison {resolved_name} : {before} → {after}"
+    payload = [{'id': existing.id if existing else None, 'name': resolved_name, 'before': before, 'after': after}]
+    return _create_pending_action(conversation, 'propose_update_wilaya_rate', summary, payload, [wilaya_id])
+
+
+def propose_toggle_client_risk(request, conversation, phone, manual_risk):
+    if not is_owner_or_admin(request):
+        return _write_forbidden()
+    store = get_store(request)
+    if not store:
+        return _write_forbidden()
+    phone = (phone or '').strip()
+    if not phone:
+        return "Le numéro de téléphone est requis."
+
+    from orders.models import CustomerRisk
+    existing = CustomerRisk.objects.filter(store=store, phone=phone).first()
+    before = {'manual_risk': existing.manual_risk if existing else False}
+    after = {'manual_risk': bool(manual_risk)}
+    if before == after:
+        return f"Le client {phone} est déjà {'marqué à risque' if manual_risk else 'non marqué à risque'}."
+
+    summary = f"Client {phone} : {'marquer à risque' if manual_risk else 'retirer le marquage à risque'}"
+    payload = [{'id': None, 'name': phone, 'before': before, 'after': after}]
+    return _create_pending_action(conversation, 'propose_toggle_client_risk', summary, payload, [phone])
+
+
+def propose_blacklist_phone(request, conversation, phone, message=''):
+    if not is_owner_or_admin(request):
+        return _write_forbidden()
+    store = get_store(request)
+    if not store:
+        return _write_forbidden()
+    phone = (phone or '').strip()
+    if not phone:
+        return "Le numéro de téléphone est requis."
+
+    from orders.models import BlacklistedPhone
+    if store.blacklisted_phones.filter(phone=phone).exists():
+        return f"Le numéro {phone} est déjà sur liste noire."
+
+    summary = f"Bloquer le numéro {phone}"
+    payload = [{'id': None, 'name': phone, 'before': {'blacklisted': False}, 'after': {'blacklisted': True, 'message': message}}]
+    return _create_pending_action(conversation, 'propose_blacklist_phone', summary, payload, [phone])
+
+
+def propose_unblacklist_phone(request, conversation, phone):
+    if not is_owner_or_admin(request):
+        return _write_forbidden()
+    store = get_store(request)
+    if not store:
+        return _write_forbidden()
+    phone = (phone or '').strip()
+
+    from orders.models import BlacklistedPhone
+    entry = store.blacklisted_phones.filter(phone=phone).first()
+    if not entry:
+        return f"Le numéro {phone} n'est pas sur liste noire."
+
+    summary = f"Débloquer le numéro {phone}"
+    payload = [{'id': entry.id, 'name': phone, 'before': {'blacklisted': True}, 'after': {'blacklisted': False}}]
+    return _create_pending_action(conversation, 'propose_unblacklist_phone', summary, payload, [entry.id])
+
+
+def propose_update_store_settings(request, conversation, low_stock_threshold=None, risk_threshold_orders=None, risk_period_days=None, insurance_fee=None):
+    """Sous-ensemble volontairement limité de StoreSettings — champs
+    numériques simples à formuler en langage naturel. Les toggles de
+    comportement (deduct_stock_on_order_create, etc.) restent réservés à la
+    page Paramètres (plus grand risque de malentendu en une phrase)."""
+    if not is_owner_or_admin(request):
+        return _write_forbidden()
+    store = get_store(request)
+    if not store:
+        return _write_forbidden()
+    fields = {
+        'low_stock_threshold': low_stock_threshold,
+        'risk_threshold_orders': risk_threshold_orders,
+        'risk_period_days': risk_period_days,
+        'insurance_fee': insurance_fee,
+    }
+    changes = {k: v for k, v in fields.items() if v is not None}
+    if not changes:
+        return "Indiquez au moins un réglage à modifier (seuil de stock bas, seuil/période de risque client, frais d'assurance)."
+
+    settings = store.settings
+    after = {}
+    for k, v in changes.items():
+        after[k] = float(v) if k == 'insurance_fee' else int(v)
+    before = {k: (float(getattr(settings, k)) if k == 'insurance_fee' else getattr(settings, k)) for k in changes}
+    if before == after:
+        return "Ces réglages ont déjà ces valeurs."
+
+    summary = f"Paramètres boutique : {before} → {after}"
+    payload = [{'id': settings.id, 'name': 'Paramètres boutique', 'before': before, 'after': after}]
+    return _create_pending_action(conversation, 'propose_update_store_settings', summary, payload, [settings.id])
+
+
 WRITE_TOOL_REGISTRY = {
     'propose_update_product': propose_update_product,
     'propose_bulk_update_products': propose_bulk_update_products,
     'propose_create_product': propose_create_product,
     'propose_update_order_status': propose_update_order_status,
+    'propose_toggle_team_member': propose_toggle_team_member,
+    'propose_update_carrier_default': propose_update_carrier_default,
+    'propose_update_wilaya_rate': propose_update_wilaya_rate,
+    'propose_toggle_client_risk': propose_toggle_client_risk,
+    'propose_blacklist_phone': propose_blacklist_phone,
+    'propose_unblacklist_phone': propose_unblacklist_phone,
+    'propose_update_store_settings': propose_update_store_settings,
 }
 
 WRITE_TOOL_DEFINITIONS = [
@@ -239,6 +435,107 @@ WRITE_TOOL_DEFINITIONS = [
                     'note': {'type': 'string', 'description': 'Note optionnelle à joindre au changement de statut'},
                 },
                 'required': ['order_number', 'new_status'],
+            },
+        },
+    },
+    {
+        'type': 'function',
+        'function': {
+            'name': 'propose_toggle_team_member',
+            'description': "Propose d'activer ou désactiver un membre d'équipe DÉJÀ EXISTANT (jamais une invitation — ça reste un geste manuel sur la page Équipe).",
+            'parameters': {
+                'type': 'object',
+                'properties': {
+                    'name_or_email': {'type': 'string', 'description': 'Prénom ou email du membre'},
+                    'is_active': {'type': 'boolean', 'description': 'True pour activer, False pour désactiver'},
+                },
+                'required': ['name_or_email', 'is_active'],
+            },
+        },
+    },
+    {
+        'type': 'function',
+        'function': {
+            'name': 'propose_update_carrier_default',
+            'description': "Propose de changer le transporteur par défaut parmi les comptes DÉJÀ connectés et actifs de la boutique. Ne crée jamais un nouveau compte transporteur.",
+            'parameters': {
+                'type': 'object',
+                'properties': {'carrier_name': {'type': 'string', 'description': 'Nom du transporteur (ex: Yalidine, Noest)'}},
+                'required': ['carrier_name'],
+            },
+        },
+    },
+    {
+        'type': 'function',
+        'function': {
+            'name': 'propose_update_wilaya_rate',
+            'description': "Propose de mettre à jour le tarif de livraison (domicile et/ou point relais) d'une wilaya précise.",
+            'parameters': {
+                'type': 'object',
+                'properties': {
+                    'wilaya_name': {'type': 'string', 'description': 'Nom de la wilaya'},
+                    'home_price': {'type': 'number', 'description': 'Tarif domicile (optionnel)'},
+                    'desk_price': {'type': 'number', 'description': 'Tarif point relais (optionnel)'},
+                },
+                'required': ['wilaya_name'],
+            },
+        },
+    },
+    {
+        'type': 'function',
+        'function': {
+            'name': 'propose_toggle_client_risk',
+            'description': "Propose de marquer/démarquer manuellement un client à risque, par son numéro de téléphone.",
+            'parameters': {
+                'type': 'object',
+                'properties': {
+                    'phone': {'type': 'string', 'description': 'Numéro de téléphone du client'},
+                    'manual_risk': {'type': 'boolean', 'description': 'True pour marquer à risque, False pour retirer le marquage'},
+                },
+                'required': ['phone', 'manual_risk'],
+            },
+        },
+    },
+    {
+        'type': 'function',
+        'function': {
+            'name': 'propose_blacklist_phone',
+            'description': "Propose de bloquer un numéro de téléphone (liste noire) pour empêcher toute nouvelle commande de ce numéro.",
+            'parameters': {
+                'type': 'object',
+                'properties': {
+                    'phone': {'type': 'string', 'description': 'Numéro de téléphone à bloquer'},
+                    'message': {'type': 'string', 'description': 'Message optionnel affiché au client bloqué'},
+                },
+                'required': ['phone'],
+            },
+        },
+    },
+    {
+        'type': 'function',
+        'function': {
+            'name': 'propose_unblacklist_phone',
+            'description': "Propose de retirer un numéro de téléphone de la liste noire.",
+            'parameters': {
+                'type': 'object',
+                'properties': {'phone': {'type': 'string', 'description': 'Numéro de téléphone à débloquer'}},
+                'required': ['phone'],
+            },
+        },
+    },
+    {
+        'type': 'function',
+        'function': {
+            'name': 'propose_update_store_settings',
+            'description': "Propose de modifier un ou plusieurs réglages numériques de la boutique : seuil de stock bas, seuil/période de risque client automatique, frais d'assurance livraison.",
+            'parameters': {
+                'type': 'object',
+                'properties': {
+                    'low_stock_threshold': {'type': 'integer', 'description': 'Seuil de stock bas (optionnel)'},
+                    'risk_threshold_orders': {'type': 'integer', 'description': "Nombre de commandes annulées/retournées déclenchant le risque auto (optionnel)"},
+                    'risk_period_days': {'type': 'integer', 'description': 'Fenêtre glissante en jours pour le calcul du risque (optionnel)'},
+                    'insurance_fee': {'type': 'number', 'description': "Supplément d'assurance livraison (optionnel)"},
+                },
             },
         },
     },

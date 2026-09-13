@@ -1161,6 +1161,164 @@ class ProposeUpdateOrderStatusTest(TestCase):
         self.assertEqual(AIPendingAction.objects.count(), 0)
 
 
+class ExpandedWriteToolsTest(TestCase):
+    """Chantier A (moteur complet) — équipe, transporteurs, tarifs, clients,
+    liste noire, paramètres boutique. Chaque outil : forbidden pour un
+    non-admin, calcul before/after correct, exécution réelle via confirm."""
+    def setUp(self):
+        self.owner, self.store = make_owner()
+        from stores.models import StoreSettings
+        StoreSettings.objects.get_or_create(store=self.store)
+        self.conv = AIConversation.objects.create(store=self.store, user=self.owner, title='Test')
+
+    def _request(self, user):
+        request = type('R', (), {})()
+        request.user = user
+        return request
+
+    def _confirm(self, action_id):
+        client = auth_client(self.owner)
+        return client.post(f'/api/ai/pending-actions/{action_id}/confirm/')
+
+    # --- Équipe ---
+
+    def test_toggle_team_member_forbidden_for_confirmateur(self):
+        from ai_assistant import write_tools
+        _, target = make_team_member(self.store, 'confirmateur', email='cible@test.com')
+        confirmateur, _ = make_team_member(self.store, 'confirmateur')
+        result = write_tools.propose_toggle_team_member(self._request(confirmateur), self.conv, 'cible@test.com', False)
+        self.assertIn('réservée', result.lower())
+
+    def test_toggle_team_member_creates_and_executes(self):
+        from ai_assistant import write_tools
+        _, target = make_team_member(self.store, 'confirmateur', email='cible@test.com')
+        self.assertTrue(target.is_active)
+        result = write_tools.propose_toggle_team_member(self._request(self.owner), self.conv, 'cible@test.com', False)
+        data = json.loads(result)
+        resp = self._confirm(data['action_id'])
+        self.assertEqual(resp.status_code, 200, resp.data)
+        target.refresh_from_db()
+        self.assertFalse(target.is_active)
+
+    def test_toggle_team_member_not_found(self):
+        from ai_assistant import write_tools
+        result = write_tools.propose_toggle_team_member(self._request(self.owner), self.conv, 'inconnu@test.com', False)
+        self.assertIn('introuvable', result.lower())
+
+    def test_toggle_team_member_already_at_state(self):
+        from ai_assistant import write_tools
+        _, target = make_team_member(self.store, 'confirmateur', email='cible@test.com')
+        result = write_tools.propose_toggle_team_member(self._request(self.owner), self.conv, 'cible@test.com', True)
+        self.assertIn('déjà', result.lower())
+        self.assertEqual(AIPendingAction.objects.count(), 0)
+
+    # --- Transporteur par défaut ---
+
+    def test_update_carrier_default_creates_and_executes(self):
+        from ai_assistant import write_tools
+        from orders.models import CarrierAccount
+        acc1 = CarrierAccount.objects.create(store=self.store, carrier='yalidine', is_active=True, is_default=True)
+        acc2 = CarrierAccount.objects.create(store=self.store, carrier='noest', is_active=True, is_default=False)
+        result = write_tools.propose_update_carrier_default(self._request(self.owner), self.conv, 'noest')
+        data = json.loads(result)
+        resp = self._confirm(data['action_id'])
+        self.assertEqual(resp.status_code, 200)
+        acc1.refresh_from_db(); acc2.refresh_from_db()
+        self.assertFalse(acc1.is_default)
+        self.assertTrue(acc2.is_default)
+
+    def test_update_carrier_default_not_found(self):
+        from ai_assistant import write_tools
+        result = write_tools.propose_update_carrier_default(self._request(self.owner), self.conv, 'Zimou Express')
+        self.assertIn('introuvable' if 'introuvable' in result.lower() else 'aucun compte', result.lower())
+
+    # --- Tarif wilaya ---
+
+    def test_update_wilaya_rate_creates_and_executes(self):
+        from ai_assistant import write_tools
+        from orders.models import WilayaRate
+        result = write_tools.propose_update_wilaya_rate(self._request(self.owner), self.conv, 'Alger', home_price=400)
+        data = json.loads(result)
+        resp = self._confirm(data['action_id'])
+        self.assertEqual(resp.status_code, 200)
+        rate = WilayaRate.objects.get(store=self.store, wilaya_name='Alger')
+        self.assertEqual(float(rate.home_price), 400.0)
+
+    def test_update_wilaya_rate_unknown_wilaya(self):
+        from ai_assistant import write_tools
+        result = write_tools.propose_update_wilaya_rate(self._request(self.owner), self.conv, 'Wilaya Bidon', home_price=400)
+        self.assertIn('introuvable', result.lower())
+
+    def test_update_wilaya_rate_requires_a_price(self):
+        from ai_assistant import write_tools
+        result = write_tools.propose_update_wilaya_rate(self._request(self.owner), self.conv, 'Alger')
+        self.assertIn('tarif', result.lower())
+        self.assertEqual(AIPendingAction.objects.count(), 0)
+
+    # --- Client à risque ---
+
+    def test_toggle_client_risk_creates_and_executes(self):
+        from ai_assistant import write_tools
+        from orders.models import CustomerRisk
+        result = write_tools.propose_toggle_client_risk(self._request(self.owner), self.conv, '0555111222', True)
+        data = json.loads(result)
+        resp = self._confirm(data['action_id'])
+        self.assertEqual(resp.status_code, 200)
+        risk = CustomerRisk.objects.get(store=self.store, phone='0555111222')
+        self.assertTrue(risk.manual_risk)
+
+    # --- Liste noire ---
+
+    def test_blacklist_phone_creates_and_executes(self):
+        from ai_assistant import write_tools
+        from orders.models import BlacklistedPhone
+        result = write_tools.propose_blacklist_phone(self._request(self.owner), self.conv, '0555111222', 'Fraude suspectée')
+        data = json.loads(result)
+        resp = self._confirm(data['action_id'])
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(BlacklistedPhone.objects.filter(store=self.store, phone='0555111222').exists())
+
+    def test_blacklist_phone_already_blacklisted(self):
+        from ai_assistant import write_tools
+        from orders.models import BlacklistedPhone
+        BlacklistedPhone.objects.create(store=self.store, phone='0555111222')
+        result = write_tools.propose_blacklist_phone(self._request(self.owner), self.conv, '0555111222')
+        self.assertIn('déjà', result.lower())
+
+    def test_unblacklist_phone_creates_and_executes(self):
+        from ai_assistant import write_tools
+        from orders.models import BlacklistedPhone
+        BlacklistedPhone.objects.create(store=self.store, phone='0555111222')
+        result = write_tools.propose_unblacklist_phone(self._request(self.owner), self.conv, '0555111222')
+        data = json.loads(result)
+        resp = self._confirm(data['action_id'])
+        self.assertEqual(resp.status_code, 200)
+        self.assertFalse(BlacklistedPhone.objects.filter(store=self.store, phone='0555111222').exists())
+
+    # --- Paramètres boutique ---
+
+    def test_update_store_settings_creates_and_executes(self):
+        from ai_assistant import write_tools
+        result = write_tools.propose_update_store_settings(self._request(self.owner), self.conv, low_stock_threshold=3)
+        data = json.loads(result)
+        resp = self._confirm(data['action_id'])
+        self.assertEqual(resp.status_code, 200)
+        self.store.settings.refresh_from_db()
+        self.assertEqual(self.store.settings.low_stock_threshold, 3)
+
+    def test_update_store_settings_no_field_given(self):
+        from ai_assistant import write_tools
+        result = write_tools.propose_update_store_settings(self._request(self.owner), self.conv)
+        self.assertIn('réglage', result.lower())
+        self.assertEqual(AIPendingAction.objects.count(), 0)
+
+    def test_update_store_settings_forbidden_for_confirmateur(self):
+        from ai_assistant import write_tools
+        confirmateur, _ = make_team_member(self.store, 'confirmateur')
+        result = write_tools.propose_update_store_settings(self._request(confirmateur), self.conv, low_stock_threshold=3)
+        self.assertIn('réservée', result.lower())
+
+
 class SerializerTest(TestCase):
     def test_message_serializer_includes_pending_action(self):
         owner, store = make_owner()

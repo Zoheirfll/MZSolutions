@@ -53,7 +53,7 @@ function CapabilitiesBanner() {
     <div className="border-b border-app px-4 py-3 bg-app-card-alt/40 text-xs text-app-muted-light space-y-1.5">
       <p><span className="font-medium text-app-primary">🔍 Me poser des questions</span> — commandes, stock, clients à risque, rentabilité, équipe, retours, recommandations produit...</p>
       <p>
-        <span className="font-medium text-app-primary">✏️ Me demander d'agir</span> — modifier le prix/stock/statut d'un produit (un ou plusieurs à la fois), créer un produit, changer le statut d'une commande précise. <span className="text-app-muted">Je vous montre toujours l'avant/après et j'attends votre confirmation avant d'écrire quoi que ce soit.</span>
+        <span className="font-medium text-app-primary">✏️ Me demander d'agir</span> — produits (prix/stock/statut, un ou plusieurs à la fois, création), statut d'une commande précise, équipe (activer/désactiver un membre), transporteur par défaut, tarifs de livraison par wilaya, clients (risque manuel, liste noire), réglages boutique (seuils, frais d'assurance). <span className="text-app-muted">Je vous montre toujours l'avant/après et j'attends votre confirmation avant d'écrire quoi que ce soit.</span>
       </p>
       <p>
         <span className="font-medium text-app-primary">📷 Scanner un produit</span> — pour créer une fiche depuis une photo ou une facture fournisseur, direction{' '}
