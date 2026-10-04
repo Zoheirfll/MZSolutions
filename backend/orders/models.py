@@ -73,7 +73,7 @@ DELIVERY_CHOICES = [
 
 PAYMENT_METHOD_CHOICES = [
     ('cod',      'Paiement à la livraison'),
-    ('chargily', 'Paiement en ligne (Chargily)'),
+    ('sofizpay', 'Paiement en ligne (SofizPay)'),
 ]
 
 CARRIER_CHOICES = [
@@ -252,8 +252,8 @@ class Order(models.Model):
     discount_amount  = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     delivery_types = models.JSONField(default=list, blank=True, help_text="Liste de codes DELIVERY_CHOICES — plusieurs types combinables (ex: Assurance + Échange)")
     payment_method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES, default='cod')
-    chargily_checkout_id   = models.CharField(max_length=100, blank=True, db_index=True)
-    chargily_payment_link  = models.URLField(blank=True)
+    sofizpay_transaction_id = models.CharField(max_length=100, blank=True, db_index=True)
+    sofizpay_payment_link  = models.URLField(blank=True)
     note           = models.TextField(blank=True)
     customer_email = models.EmailField(blank=True)
     external_ref   = models.CharField(max_length=100, blank=True, db_index=True, help_text="Identifiant de la commande sur un canal externe (ex: 'shopify:123456') — garantit l'idempotence des imports webhook")

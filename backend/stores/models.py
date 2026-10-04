@@ -264,3 +264,17 @@ class StoreAudit(models.Model):
 
     def __str__(self):
         return f"Audit {self.store.name} — {self.global_score}"
+
+
+class SubscriptionPayment(models.Model):
+    """Tentative de paiement d'abonnement via SofizPay (sans webhook : le statut
+    est vérifié par interrogation). Le quota n'est mis à jour qu'à la confirmation."""
+    STATUS_CHOICES = [('pending', 'En attente'), ('success', 'Payé'), ('failed', 'Échoué')]
+
+    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='subscription_payments')
+    plan = models.ForeignKey('SubscriptionPlan', on_delete=models.PROTECT, related_name='+')
+    billing_cycle = models.CharField(max_length=10, default='monthly')
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    transaction_id = models.CharField(max_length=100, blank=True, db_index=True)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
+    created_at = models.DateTimeField(auto_now_add=True)

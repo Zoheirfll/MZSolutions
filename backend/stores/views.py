@@ -463,8 +463,8 @@ class SubscriptionPlanListView(APIView):
 
 
 class SubscribeView(APIView):
-    """Crée un checkout Chargily pour le palier choisi — le quota n'est mis à
-    jour qu'au webhook checkout.paid (paiement réel confirmé), pas ici."""
+    """Crée un paiement SofizPay pour le palier choisi — le quota n'est mis à
+    jour qu'à la vérification d'un paiement réellement confirmé, pas ici."""
     permission_classes = [IsAuthenticated, IsOwnerOrAdminForWrites]
 
     def post(self, request):
@@ -485,14 +485,43 @@ class SubscribeView(APIView):
         if amount <= 0:
             return Response({'detail': "Ce palier n'a pas de montant à payer."}, status=400)
 
-        from orders import chargily
+        from orders import sofizpay
+        from django.conf import settings
+        from .models import SubscriptionPayment
+        payment = SubscriptionPayment.objects.create(store=store, plan=plan, billing_cycle=billing_cycle, amount=amount)
         try:
-            checkout_id, payment_link = chargily.create_subscription_checkout(store, amount, plan.id, billing_cycle)
-        except chargily.ChargilyError as e:
-            return Response({'detail': f"Erreur Chargily : {e}"}, status=502)
+            transaction_id, payment_link = sofizpay.create_payment_link(
+                amount=amount, full_name=store.name or 'Vendeur',
+                phone=store.phone or '0000000000', email=store.email or request.user.email or 'noreply@mzsol.online',
+                memo=f"Abonnement {plan.name} ({billing_cycle}) #{payment.id}",
+                return_url=f"{settings.FRONTEND_URL}/dashboard/abonnement?payment=return&ref={payment.id}",
+            )
+        except sofizpay.SofizPayError as e:
+            payment.status = 'failed'
+            payment.save(update_fields=['status'])
+            return Response({'detail': f"Erreur SofizPay : {e}"}, status=502)
+        payment.transaction_id = transaction_id
+        payment.save(update_fields=['transaction_id'])
 
-        log_audit(request, 'subscription.checkout_started', store=store, description=f"Checkout d'abonnement démarré — palier {plan.name} ({billing_cycle})", metadata={'plan': plan.name, 'billing_cycle': billing_cycle, 'checkout_id': checkout_id})
-        return Response({'payment_url': payment_link, 'checkout_id': checkout_id})
+        log_audit(request, 'subscription.checkout_started', store=store, description=f"Checkout d'abonnement démarré — palier {plan.name} ({billing_cycle})", metadata={'plan': plan.name, 'billing_cycle': billing_cycle, 'payment_id': payment.id})
+        return Response({'payment_url': payment_link, 'payment_id': payment.id})
+
+
+class SubscribeVerifyView(APIView):
+    """Vérifie auprès de SofizPay un paiement d'abonnement (pas de webhook) —
+    appelée au retour du vendeur sur /dashboard/abonnement."""
+    permission_classes = [IsAuthenticated, IsOwnerOrAdminForWrites]
+
+    def post(self, request):
+        store = _get_store_from_request(request)
+        if not store or not is_owner_or_admin(request):
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        from .models import SubscriptionPayment
+        from orders import payments
+        payment = SubscriptionPayment.objects.filter(store=store, id=request.data.get('ref')).first()
+        if not payment:
+            return Response({'detail': 'Paiement introuvable.'}, status=404)
+        return Response({'status': payments.verify_subscription_payment(payment.id)})
 
 
 class StoreAuditView(APIView):

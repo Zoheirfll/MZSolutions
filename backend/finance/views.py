@@ -264,7 +264,7 @@ class ProfitabilitySummaryView(APIView):
 # "Paiement prêt" = commandes livrées payées à la livraison (COD) dont le
 # transporteur n'a pas encore reversé l'argent au vendeur ; "Paiement
 # récupéré" = celles déjà pointées comme reversées (Order.payment_collected_at).
-# Uniquement les commandes COD — un paiement Chargily est déjà réglé
+# Uniquement les commandes COD — un paiement SofizPay est déjà réglé
 # électroniquement, aucune remise physique à suivre.
 
 def _cod_delivered_orders(store, period_start, period_end, state):

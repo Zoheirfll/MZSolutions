@@ -14,7 +14,7 @@ SECRET_KEY = config('SECRET_KEY')
 DEBUG = config('DEBUG', default=False, cast=bool)
 
 # En dev (DEBUG=True), on garde la permissivité actuelle pour ne pas casser
-# les tunnels ngrok (domaine qui change à chaque session, cf. section Chargily
+# les tunnels ngrok (domaine qui change à chaque session, cf. section SofizPay
 # du CLAUDE.md). En production, ALLOWED_HOSTS doit être explicite dans .env
 # (ex: ALLOWED_HOSTS=monsite.com,www.monsite.com) — jamais de wildcard.
 ALLOWED_HOSTS = ['*'] if DEBUG else config('ALLOWED_HOSTS', cast=Csv())
@@ -121,6 +121,7 @@ REST_FRAMEWORK = {
         'otp':              '10/min',
         'password_reset':   '5/min',
         'promo':            '20/min',
+        'payment_verify':   '30/min',
         'incoming_webhook': '30/min',
         'order':            '10/min',
         'exchange':         '10/min',
@@ -237,11 +238,11 @@ PASSWORD_RESET_TIMEOUT = 3600  # 1 heure
 # Google OAuth
 GOOGLE_CLIENT_ID = config('GOOGLE_CLIENT_ID', default='')
 
-# Chargily Pay
-CHARGILY_API_KEY    = config('CHARGILY_API_KEY', default='')
-CHARGILY_SECRET_KEY = config('CHARGILY_SECRET_KEY', default='')
-CHARGILY_MODE       = config('CHARGILY_MODE', default='test')
-CHARGILY_API_BASE   = config('CHARGILY_API_BASE', default='https://pay.chargily.net/api/v2')
+# SofizPay (CIB / EDAHABIA) — remplace SofizPay. SOFIZPAY_ACCOUNT = clé PUBLIQUE
+# du compte marchand (aucun secret requis). Sandbox par défaut : mettre
+# SOFIZPAY_SANDBOX=False explicitement en production.
+SOFIZPAY_ACCOUNT = config('SOFIZPAY_ACCOUNT', default='')
+SOFIZPAY_SANDBOX = config('SOFIZPAY_SANDBOX', default=True, cast=bool)
 BACKEND_URL         = config('BACKEND_URL', default='http://localhost:8000')
 
 # Assistant IA (2026-09) — jamais figés en dur, voir ai_assistant/ollama_client.py

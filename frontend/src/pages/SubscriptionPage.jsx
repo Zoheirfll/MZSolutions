@@ -24,6 +24,24 @@ export default function SubscriptionPage() {
   const [loading, setLoading] = useState(true)
   const [subscribing, setSubscribing] = useState(null)
   const [error, setError]   = useState('')
+  const [payNotice, setPayNotice] = useState('')
+
+  // Retour de SofizPay (?payment=return&ref=ID) : pas de webhook, on fait vérifier
+  // le paiement côté serveur avant de relire le quota.
+  useEffect(() => {
+    const qs = new URLSearchParams(window.location.search)
+    const ref = qs.get('ref')
+    if (qs.get('payment') !== 'return' || !ref) return
+    setPayNotice('Vérification de votre paiement…')
+    api.post('/stores/me/subscribe/verify/', { ref })
+      .then(({ data }) => {
+        setPayNotice(data.status === 'success' ? 'Paiement confirmé : votre abonnement est actif.'
+          : data.status === 'failed' ? 'Le paiement a échoué ou a été annulé.'
+          : "Paiement pas encore confirmé. Il sera appliqué automatiquement dès que SofizPay le confirmera.")
+        if (data.status === 'success') api.get('/stores/me/quota/').then(q => setQuota(q.data)).catch(() => {})
+      })
+      .catch(() => setPayNotice('Impossible de vérifier le paiement pour le moment.'))
+  }, [])
 
   useEffect(() => {
     Promise.all([api.get('/stores/plans/'), api.get('/stores/me/quota/')])
@@ -45,9 +63,10 @@ export default function SubscriptionPage() {
   }
 
   return (
-    <DashboardLayout title="Abonnement" subtitle={`Cette page vous montre où vous en êtes dans votre période d'essai gratuit ou votre abonnement payant (combien de commandes il vous reste, combien de jours). Elle affiche aussi les différents paliers d'abonnement disponibles avec leurs prix mensuels ou annuels. En cliquant sur "Commencer", vous êtes redirigé vers un paiement sécurisé (Chargily) ; votre abonnement n'est activé qu'une fois le paiement confirmé, pas avant.`}>
+    <DashboardLayout title="Abonnement" subtitle={`Cette page vous montre où vous en êtes dans votre période d'essai gratuit ou votre abonnement payant (combien de commandes il vous reste, combien de jours). Elle affiche aussi les différents paliers d'abonnement disponibles avec leurs prix mensuels ou annuels. En cliquant sur "Commencer", vous êtes redirigé vers un paiement sécurisé (SofizPay) ; votre abonnement n'est activé qu'une fois le paiement confirmé, pas avant.`}>
       {loading ? <Spinner /> : (
         <>
+          {payNotice && <div className="rounded-xl border p-4 mb-6 text-sm text-app-primary" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>{payNotice}</div>}
           {quota && (() => {
             const active = quota.is_trial_active || quota.is_subscription_active
             return (

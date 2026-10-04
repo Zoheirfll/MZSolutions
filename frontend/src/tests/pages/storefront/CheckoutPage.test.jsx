@@ -133,20 +133,20 @@ describe('CheckoutPage', () => {
     expect(mockCart.clearCart).toHaveBeenCalledWith('demo')
   })
 
-  it('redirects to the Chargily payment URL when payment_method is chargily', async () => {
+  it('redirects to the SofizPay payment URL when payment_method is sofizpay', async () => {
     const user = userEvent.setup()
     publicApi.post.mockImplementation((url) => {
-      if (url === '/orders/') return Promise.resolve({ data: { id: 100, payment_url: 'https://pay.chargily.test/x' } })
+      if (url === '/orders/') return Promise.resolve({ data: { id: 100, payment_url: 'https://pay.sofizpay.test/x' } })
       return Promise.resolve({ data: {} })
     })
     renderPage()
 
     await user.type(screen.getAllByRole('textbox')[0], 'Ali')
     await user.type(document.querySelector('input[type="tel"]'), '0555000000')
-    await user.click(screen.getByText('Paiement en ligne (Chargily)'))
+    await user.click(screen.getByText('Paiement en ligne (SofizPay)'))
     await user.click(screen.getByRole('button', { name: 'Confirmer la commande' }))
 
-    await waitFor(() => expect(publicApi.post).toHaveBeenCalledWith('/orders/', expect.objectContaining({ payment_method: 'chargily' })))
+    await waitFor(() => expect(publicApi.post).toHaveBeenCalledWith('/orders/', expect.objectContaining({ payment_method: 'sofizpay' })))
     await waitFor(() => expect(mockCart.clearCart).toHaveBeenCalledWith('demo'))
   })
 

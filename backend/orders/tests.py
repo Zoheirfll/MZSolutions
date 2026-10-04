@@ -346,26 +346,55 @@ class CallAttemptPermissionTests(TestCase):
         self.assertEqual(resp.status_code, 201)
 
 
-class ChargilyWebhookOrderTests(TestCase):
+class SofizPayOrderPaymentTests(TestCase):
     def setUp(self):
         self.owner, self.store = make_owner()
         self.order = Order.objects.create(store=self.store, first_name='C', phone='0600', wilaya='Alger',
-                                           status='pending', chargily_checkout_id='chk_1', payment_method='chargily')
+                                           status='pending', sofizpay_transaction_id='cib_1', payment_method='sofizpay')
 
-    def test_valid_signature_confirms_order_and_increments_quota(self):
-        payload = {'type': 'checkout.paid', 'data': {'id': 'chk_1', 'metadata': {'order_id': self.order.id}}}
-        with patch('orders.chargily.verify_webhook_signature', return_value=True):
-            resp = self.client.post('/api/public/webhooks/chargily/', data=json.dumps(payload), content_type='application/json')
+    def _verify(self, result):
+        with patch('orders.sofizpay.check_status', return_value=result):
+            return self.client.post(f'/api/public/orders/{self.order.id}/verify-payment/')
+
+    def test_paid_confirms_order_and_increments_quota(self):
+        resp = self._verify('success')
         self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['status'], 'success')
         self.order.refresh_from_db()
         self.assertEqual(self.order.status, 'confirmed')
         self.store.quota.refresh_from_db()
         self.assertEqual(self.store.quota.orders_used, 1)
 
-    def test_invalid_signature_rejected_and_order_untouched(self):
-        payload = {'type': 'checkout.paid', 'data': {'id': 'chk_1', 'metadata': {'order_id': self.order.id}}}
-        resp = self.client.post('/api/public/webhooks/chargily/', data=json.dumps(payload), content_type='application/json')
-        self.assertEqual(resp.status_code, 403)
+    def test_double_verification_counts_quota_once(self):
+        self._verify('success')
+        self._verify('success')
+        self.store.quota.refresh_from_db()
+        self.assertEqual(self.store.quota.orders_used, 1)
+
+    def test_pending_leaves_order_untouched(self):
+        self._verify('pending')
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, 'pending')
+
+    def test_failed_leaves_order_pending_and_logs_once(self):
+        self._verify('failed')
+        self._verify('failed')
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, 'pending')
+        self.assertEqual(self.order.history.filter(note__contains='échoué').count(), 1)
+
+    def test_sofizpay_outage_leaves_order_untouched(self):
+        from orders.sofizpay import SofizPayError
+        with patch('orders.sofizpay.check_status', side_effect=SofizPayError('down')):
+            resp = self.client.post(f'/api/public/orders/{self.order.id}/verify-payment/')
+        self.assertEqual(resp.data['status'], 'pending')
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, 'pending')
+
+    def test_cod_order_is_never_confirmed_by_verification(self):
+        self.order.payment_method = 'cod'
+        self.order.save()
+        self._verify('success')
         self.order.refresh_from_db()
         self.assertEqual(self.order.status, 'pending')
 
