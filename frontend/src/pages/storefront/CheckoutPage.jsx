@@ -115,6 +115,23 @@ export default function CheckoutPage() {
   const [stationCode,    setStationCode]    = useState('')
   const [cartRecommendations, setCartRecommendations] = useState([])
   const abandonedTimerRef = useRef(null)
+  // Retour de SofizPay (?payment=return&order=ID) : pas de webhook chez eux, on
+  // interroge le serveur, qui lui-même interroge SofizPay (jamais cru sur parole).
+  const [paymentReturn, setPaymentReturn] = useState(null) // null | 'checking' | 'pending' | 'failed'
+  const [returnOrderId, setReturnOrderId] = useState(null)
+  useEffect(() => {
+    const qs = new URLSearchParams(window.location.search)
+    const orderId = qs.get('order')
+    if (qs.get('payment') !== 'return' || !orderId) return
+    setReturnOrderId(orderId)
+    setPaymentReturn('checking')
+    publicApi.post(`/orders/${orderId}/verify-payment/`)
+      .then(({ data }) => {
+        if (data.status === 'success') { setConfirmedId(orderId); setPaymentReturn(null) }
+        else setPaymentReturn(data.status === 'failed' ? 'failed' : 'pending')
+      })
+      .catch(() => setPaymentReturn('pending'))
+  }, [])
 
   const cartProductIds = cartItems.map(i => i.product).filter(Boolean).join(',')
 
@@ -257,6 +274,24 @@ export default function CheckoutPage() {
     } finally {
       setSaving(false)
     }
+  }
+
+  if (paymentReturn && !confirmedId) {
+    const texts = {
+      checking: 'Vérification de votre paiement…',
+      pending: `Votre paiement n'est pas encore confirmé. La commande #${returnOrderId} est enregistrée ; si vous avez payé, elle sera confirmée automatiquement sous quelques minutes.`,
+      failed: `Le paiement a échoué ou a été annulé. La commande #${returnOrderId} n'a pas été confirmée — le vendeur pourra vous contacter.`,
+    }
+    return (
+      <StorefrontLayout>
+        <div className="max-w-lg mx-auto px-4 py-20 text-center">
+          <p style={{ color: 'var(--sf-text-muted)' }}>{texts[paymentReturn]}</p>
+          <Link to={`/store/${slug}/products`} className="inline-flex mt-6 px-6 py-3 rounded-xl text-sm font-semibold text-white transition" style={{ background: 'var(--sf-primary)' }}>
+            Continuer mes achats
+          </Link>
+        </div>
+      </StorefrontLayout>
+    )
   }
 
   if (confirmedId) {
@@ -422,9 +457,9 @@ export default function CheckoutPage() {
                   <input type="radio" name="payment_method" checked={paymentMethod === 'cod'} onChange={() => setPaymentMethod('cod')} className="accent-violet-600 w-4 h-4" />
                   <span className="text-sm" style={{ color: 'inherit' }}>Paiement à la livraison</span>
                 </label>
-                <label className="flex items-center gap-3 cursor-pointer rounded-xl p-3.5 transition" style={radioLabelStyle(paymentMethod === 'chargily')}>
-                  <input type="radio" name="payment_method" checked={paymentMethod === 'chargily'} onChange={() => setPaymentMethod('chargily')} className="accent-violet-600 w-4 h-4" />
-                  <span className="text-sm" style={{ color: 'inherit' }}>Paiement en ligne (Chargily)</span>
+                <label className="flex items-center gap-3 cursor-pointer rounded-xl p-3.5 transition" style={radioLabelStyle(paymentMethod === 'sofizpay')}>
+                  <input type="radio" name="payment_method" checked={paymentMethod === 'sofizpay'} onChange={() => setPaymentMethod('sofizpay')} className="accent-violet-600 w-4 h-4" />
+                  <span className="text-sm" style={{ color: 'inherit' }}>Paiement en ligne (SofizPay)</span>
                 </label>
               </div>
             </div>

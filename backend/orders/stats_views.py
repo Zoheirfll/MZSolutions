@@ -530,11 +530,11 @@ class GlobalStatsView(StatsPermissionMixin, APIView):
     def _is_paid(self, order):
         # Même définition que le tableau de bord (DashboardRevenueView) — pas
         # de champ "payé" explicite en base, proxy le plus fiable : COD encaissé
-        # à la livraison, ou Chargily déjà confirmé (le webhook checkout.paid
+        # à la livraison, ou SofizPay déjà confirmé (la vérification du paiement
         # ne confirme la commande qu'une fois le paiement reçu).
         if order.status == 'delivered':
             return True
-        return order.payment_method == 'chargily' and order.status in CONFIRMED_STATUSES
+        return order.payment_method == 'sofizpay' and order.status in CONFIRMED_STATUSES
 
     def _daily_breakdown(self, store, date_from, date_to):
         qs = store.orders.filter(created_at__date__gte=date_from, created_at__date__lte=date_to).prefetch_related('history')
@@ -828,8 +828,8 @@ class DashboardKpiView(StatsPermissionMixin, APIView):
     """Onglet "KPI" du tableau de bord — Top 5 sources et Top 5 wilayas avec
     ventilation complète du funnel (Commandes/Confirmé/Expédié/Livré/Payé/
     Retour). "Payé" = livrée (COD encaissé à la remise) OU payée en ligne via
-    Chargily et confirmée (une commande Chargily n'est confirmée qu'après le
-    webhook checkout.paid — voir ChargilyWebhookView) — pas de champ "payé"
+    SofizPay et confirmée (une commande SofizPay n'est confirmée qu'après la
+    vérification du paiement — voir orders/payments.py) — pas de champ "payé"
     explicite en base, c'est le proxy le plus fiable disponible.
 
     Ouverte aussi au rôle confirmateur — voir DashboardDeliveriesView, même
@@ -851,7 +851,7 @@ class DashboardKpiView(StatsPermissionMixin, APIView):
         def is_paid(o):
             if o.status == 'delivered':
                 return True
-            return o.payment_method == 'chargily' and o.status in CONFIRMED_STATUSES
+            return o.payment_method == 'sofizpay' and o.status in CONFIRMED_STATUSES
 
         source_stats = defaultdict(lambda: {'orders': 0, 'confirmed': 0, 'shipped': 0, 'delivered': 0, 'paid': 0, 'returned': 0})
         wilaya_stats  = defaultdict(lambda: {'orders': 0, 'confirmed': 0, 'shipped': 0, 'delivered': 0, 'paid': 0, 'returned': 0})

@@ -77,12 +77,16 @@ audit/           — journal d'audit transversal (2026-08) : AuditLog, log_audit
 platform_admin/  — service de confirmation en marque blanche (2026-09), transversal à toutes les boutiques — voir section dédiée
 ```
 
-### Paiement en ligne — Chargily Pay
+### Paiement en ligne — SofizPay (2026-10, remplace Chargily)
 
-- `backend/orders/chargily.py` : `create_checkout(order)` (crée un checkout via l'API REST Chargily) et `verify_webhook_signature(raw_body, signature_header)` (HMAC-SHA256)
-- Settings (`.env`, jamais commité) : `CHARGILY_API_KEY`, `CHARGILY_SECRET_KEY`, `CHARGILY_MODE` (test/live), `CHARGILY_API_BASE`, `BACKEND_URL`
-- ⚠️ URL de base différente entre modes : **test** = `https://pay.chargily.net/test/api/v2`, **live** = `https://pay.chargily.net/api/v2`
-- En dev local, le webhook Chargily (`/api/public/webhooks/chargily/`) doit être exposé via un tunnel public (ngrok) car Chargily ne peut pas appeler `localhost` — mettre à jour `BACKEND_URL` dans `.env` et le champ "Point de terminaison webhook" du dashboard Chargily à chaque nouveau tunnel
+> **Chargily a été retiré** (module `orders/chargily.py`, `ChargilyWebhookView`, route `/api/public/webhooks/chargily/`, variables `CHARGILY_*`). Les mentions « Chargily » plus bas dans ce fichier (Epics 5.3, 8.5, sécurité 8.6) décrivent l'historique ; le comportement actuel est celui de cette section. Implémentation reprise de `plateforme-prof` (`subscriptions/sofizpay.py`).
+
+- `backend/orders/sofizpay.py` : `create_payment_link(...)` → `(cib_transaction_id, payment_url)` et `check_status(id, montant_attendu)` → `'success'|'pending'|'failed'`. Appels HTTP directs (`requests`, pas de SDK). Settings : `SOFIZPAY_ACCOUNT` (clé **publique** du compte marchand, aucun secret), `SOFIZPAY_SANDBOX` (défaut `True` — mettre `False` explicitement en prod).
+- ⚠️ **Pas de webhook chez SofizPay** : le statut se vérifie par interrogation. `orders/payments.py` (`verify_order_payment`, `verify_subscription_payment`) est appelé (1) au retour du client (`PublicOrderPaymentVerifyView` `POST /api/public/orders/<id>/verify-payment/`, `SubscribeVerifyView` `POST /api/stores/me/subscribe/verify/`), (2) par `python manage.py check_pending_payments` (paiements en attente < 2 jours — **à planifier toutes les ~10 min** sur le serveur, comme `sync_carrier_tracking`, pour couvrir un client qui ferme l'onglet avant le retour). Idempotent (verrou `select_for_update` + re-contrôle du statut) : jamais de double confirmation ni double quota.
+- Sécurité : « payé » n'est accepté que si `orderStatus == 2` **ET** montant **ET** `destination_account` correspondent à notre compte ; toute réponse douteuse ou panne SofizPay = `pending` (jamais de confirmation sur ambiguïté). Le client ne fournit jamais le résultat. Throttle `payment_verify` (30/min).
+- Données : `Order.payment_method='sofizpay'` (migration de données `orders/0041` convertit les anciens `chargily`), `Order.sofizpay_transaction_id`/`sofizpay_payment_link` (renommés depuis `chargily_*`). Nouveau modèle `stores.SubscriptionPayment` (store, plan, billing_cycle, amount, transaction_id, status) — nécessaire car sans webhook il faut mémoriser le paiement d'abonnement en attente ; le quota n'est mis à jour qu'à sa confirmation. `PaymentWebhookLog` est conservé (historique) mais n'est plus alimenté.
+- Retour client : `CheckoutPage.jsx` (`?payment=return&order=ID`) et `SubscriptionPage.jsx` (`?payment=return&ref=ID`) appellent la vérification et affichent confirmé / en attente / échoué.
+- ⚠️ Non testé avec un vrai compte SofizPay depuis MZSolutions (logique identique à plateforme-prof, qui l'a validée en sandbox). `phone` envoyé = téléphone de la commande ; `email` = `customer_email` ou `noreply@mzsol.online`.
 
 ### Transporteurs — 35 sociétés de livraison (17 réels via Ecotrack + Noest/Yalidine/ZR Express réels + 15 via dzship, 0 mockée)
 

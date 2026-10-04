@@ -22,7 +22,7 @@ from .utils import assign_order_round_robin, assign_complaint_round_robin, send_
 from .risk_scoring import compute_risk_score
 from ai_assistant import ollama_client
 from ai_assistant.ollama_client import OllamaUnavailableError
-from . import chargily
+from . import sofizpay, payments
 from .carriers import get_carrier_client
 from .carriers.ecotrack import TrackingNotFoundError
 from .carriers.yalidine import YALIDINE_STATUS_MAP
@@ -2602,7 +2602,7 @@ class PublicOrderView(APIView):
             return Response({'detail': 'Panier vide.'}, status=400)
 
         payment_method = request.data.get('payment_method', 'cod')
-        if payment_method not in ('cod', 'chargily'):
+        if payment_method not in ('cod', 'sofizpay'):
             return Response({'detail': 'Mode de paiement invalide.'}, status=400)
 
         # Prix résolus côté serveur (jamais celui envoyé par le client) avant
@@ -2765,173 +2765,31 @@ class PublicOrderView(APIView):
                 quota.save(update_fields=['orders_used'])
         else:
             try:
-                checkout_id, payment_link = chargily.create_checkout(order)
-                order.chargily_checkout_id  = checkout_id
-                order.chargily_payment_link = payment_link
-                order.save(update_fields=['chargily_checkout_id', 'chargily_payment_link'])
+                transaction_id, payment_link = sofizpay.create_payment_link(
+                    amount=order.total, full_name=f"{order.first_name} {order.last_name}".strip() or 'Client',
+                    phone=order.phone, email=order.customer_email or 'noreply@mzsol.online',
+                    memo=f"Commande #{order.id}",
+                    return_url=f"{settings.FRONTEND_URL}/store/{store.slug}/checkout?payment=return&order={order.id}",
+                )
+                order.sofizpay_transaction_id = transaction_id
+                order.sofizpay_payment_link   = payment_link
+                order.save(update_fields=['sofizpay_transaction_id', 'sofizpay_payment_link'])
                 payment_url = payment_link
-            except chargily.ChargilyError:
+            except sofizpay.SofizPayError:
                 detail = "Commande créée mais le lien de paiement n'a pas pu être généré. Le vendeur vous contactera."
 
         return Response({'id': order.id, 'detail': detail, 'payment_url': payment_url}, status=status.HTTP_201_CREATED)
 
 
-class ChargilyWebhookView(APIView):
+class PublicOrderPaymentVerifyView(APIView):
+    """Vérifie auprès de SofizPay le paiement d'une commande (SofizPay n'a pas
+    de webhook) — appelée par le checkout au retour du client. N'expose que le
+    statut ; le résultat vient toujours de SofizPay, jamais du client."""
     permission_classes = [AllowAny]
+    throttle_scope = 'payment_verify'
 
-    def post(self, request):
-        raw_body = request.body
-        signature_header = request.headers.get('Signature', '')
-        signature_valid = chargily.verify_webhook_signature(raw_body, signature_header)
-
-        try:
-            payload = json.loads(raw_body or b'{}')
-        except json.JSONDecodeError:
-            payload = {}
-
-        event_type  = payload.get('type', '')
-        data        = payload.get('data', {}) or {}
-        checkout_id = data.get('id', '')
-        metadata    = data.get('metadata') or {}
-
-        if not signature_valid:
-            # Epic 8.6 — faille critique corrigée : la signature était calculée
-            # et journalisée mais jamais appliquée, permettant à quiconque de
-            # forger un faux "checkout.paid" (confirmation de commande ou
-            # upgrade d'abonnement gratuits, sans authentification).
-            PaymentWebhookLog.objects.create(
-                order=None, event_type=event_type, checkout_id=checkout_id,
-                raw_payload=payload, signature_valid=False,
-                status='error', error_message='Signature invalide — requête rejetée.',
-            )
-            return Response(status=403)
-
-        if metadata.get('subscription'):
-            return self._handle_subscription_webhook(event_type, checkout_id, metadata, payload, signature_valid)
-
-        order = None
-        if checkout_id:
-            order = Order.objects.filter(chargily_checkout_id=checkout_id).first()
-        if not order:
-            order_id = (data.get('metadata') or {}).get('order_id')
-            if order_id:
-                order = Order.objects.filter(id=order_id).first()
-
-        log = PaymentWebhookLog.objects.create(
-            order           = order,
-            event_type      = event_type,
-            checkout_id     = checkout_id,
-            raw_payload     = payload,
-            signature_valid = signature_valid,
-            status          = 'received',
-        )
-
-        try:
-            if not order:
-                log.status = 'error'
-                log.error_message = 'Aucune commande correspondante trouvée.'
-                log.save(update_fields=['status', 'error_message'])
-                return Response(status=200)
-
-            if event_type == 'checkout.paid':
-                order.status = 'confirmed'
-                order.save(update_fields=['status'])
-                OrderStatusHistory.objects.create(
-                    order  = order,
-                    status = 'confirmed',
-                    note   = 'Paiement confirmé automatiquement via Chargily.',
-                )
-                try:
-                    quota = order.store.quota
-                    quota.orders_used += 1
-                    quota.save(update_fields=['orders_used'])
-                except Exception:
-                    pass
-                _fire_order_webhook(order.store, order, 'order.paid')
-                _fire_order_webhook(order.store, order, 'order.confirmed')
-                log.status = 'processed'
-                log.save(update_fields=['status'])
-
-            elif event_type in ('checkout.failed', 'checkout.expired'):
-                OrderStatusHistory.objects.create(
-                    order  = order,
-                    status = order.status,
-                    note   = "Paiement Chargily échoué. Commande non confirmée automatiquement.",
-                )
-                if order.store.email:
-                    send_mail(
-                        subject=f"MZSolutions — Paiement échoué pour la commande #{order.id}",
-                        message=(
-                            f"Le paiement en ligne (Chargily) pour la commande #{order.id} "
-                            f"({order.first_name} {order.last_name}) a échoué.\n\n"
-                            "La commande n'a pas été confirmée automatiquement. "
-                            "Vous pouvez la traiter manuellement depuis votre tableau de bord."
-                        ),
-                        from_email=None,
-                        recipient_list=[order.store.email],
-                        fail_silently=True,
-                    )
-                log.status = 'processed'
-                log.save(update_fields=['status'])
-
-            else:
-                log.status = 'error'
-                log.error_message = f"Type d'événement non géré : {event_type}"
-                log.save(update_fields=['status', 'error_message'])
-
-        except Exception as e:
-            log.status = 'error'
-            log.error_message = str(e)
-            log.save(update_fields=['status', 'error_message'])
-
-        return Response(status=200)
-
-    def _handle_subscription_webhook(self, event_type, checkout_id, metadata, payload, signature_valid):
-        """Traite un checkout.paid pour un abonnement (Epic 8.5 US-8.5.1) —
-        upgrade le quota de la boutique (nouveau plan, nouvelle limite,
-        période payée). Toujours 200 + journalisé, même en erreur, même
-        philosophie que le flux commande."""
-        from stores.models import Store, SubscriptionPlan
-        from datetime import timedelta
-
-        store = Store.objects.filter(id=metadata.get('store_id')).first()
-        log = PaymentWebhookLog.objects.create(
-            order=None, event_type=event_type, checkout_id=checkout_id,
-            raw_payload=payload, signature_valid=signature_valid, status='received',
-        )
-        if not store:
-            log.status = 'error'
-            log.error_message = 'Boutique introuvable pour cet abonnement.'
-            log.save(update_fields=['status', 'error_message'])
-            return Response(status=200)
-
-        try:
-            if event_type == 'checkout.paid':
-                plan = SubscriptionPlan.objects.filter(id=metadata.get('plan_id')).first()
-                billing_cycle = metadata.get('billing_cycle', 'monthly')
-                if plan:
-                    quota = store.quota
-                    quota.plan = plan
-                    quota.billing_cycle = billing_cycle
-                    quota.orders_limit = plan.orders_limit if plan.orders_limit is not None else 10**9
-                    quota.orders_used = 0
-                    days = 365 if billing_cycle == 'yearly' else 30
-                    quota.period_end = timezone.now() + timedelta(days=days)
-                    quota.save(update_fields=['plan', 'billing_cycle', 'orders_limit', 'orders_used', 'period_end'])
-                    log.status = 'processed'
-                else:
-                    log.status = 'error'
-                    log.error_message = 'Palier introuvable pour cet abonnement.'
-                log.save(update_fields=['status', 'error_message'])
-            else:
-                log.status = 'processed'
-                log.save(update_fields=['status'])
-        except Exception as e:
-            log.status = 'error'
-            log.error_message = str(e)
-            log.save(update_fields=['status', 'error_message'])
-
-        return Response(status=200)
+    def post(self, request, pk):
+        return Response({'status': payments.verify_order_payment(pk)})
 
 
 # ─── Assignment ───────────────────────────────────────────────────────────────

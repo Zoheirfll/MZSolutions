@@ -51,14 +51,14 @@ describe('SubscriptionPage', () => {
     expect(screen.getByText(/Essai gratuit/)).toBeInTheDocument()
   })
 
-  it('subscribes to a plan and redirects to the Chargily payment url', async () => {
+  it('subscribes to a plan and redirects to the SofizPay payment url', async () => {
     const user = userEvent.setup()
     api.get.mockImplementation((url) => {
       if (url === '/stores/plans/') return Promise.resolve({ data: PLANS })
       if (url === '/stores/me/quota/') return Promise.resolve({ data: QUOTA_TRIAL })
       return Promise.resolve({ data: {} })
     })
-    api.post.mockResolvedValueOnce({ data: { payment_url: 'https://pay.chargily.net/checkout/xyz' } })
+    api.post.mockResolvedValueOnce({ data: { payment_url: 'https://pay.sofizpay.test/xyz' } })
     renderPage()
 
     await screen.findByText('Starter')
@@ -66,7 +66,7 @@ describe('SubscriptionPage', () => {
     await user.click(buttons[0])
 
     await waitFor(() => expect(api.post).toHaveBeenCalledWith('/stores/me/subscribe/', { plan_id: 1, billing_cycle: 'monthly' }))
-    await waitFor(() => expect(window.location.href).toBe('https://pay.chargily.net/checkout/xyz'))
+    await waitFor(() => expect(window.location.href).toBe('https://pay.sofizpay.test/xyz'))
   })
 
   it('shows an error message if the subscribe call fails', async () => {

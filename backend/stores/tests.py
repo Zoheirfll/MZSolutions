@@ -117,42 +117,20 @@ class SubscribeTests(TestCase):
         if not self.plan:
             self.plan = SubscriptionPlan.objects.create(name='Pro', orders_limit=1000, price_monthly=4500, price_yearly=45000)
 
-    @patch('orders.chargily.requests.post')
-    def test_subscribe_creates_checkout_without_touching_quota(self, mock_post):
-        mock_post.return_value.status_code = 200
-        mock_post.return_value.raise_for_status = lambda: None
-        mock_post.return_value.json = lambda: {'id': 'chk_1', 'checkout_url': 'https://pay.test/chk_1'}
-
+    @patch('orders.sofizpay.create_payment_link', return_value=('cib_1', 'https://pay.test/cib_1'))
+    def test_subscribe_creates_payment_without_touching_quota(self, _mock):
         client = auth_client(self.owner)
         resp = client.post('/api/stores/me/subscribe/', {'plan_id': self.plan.id, 'billing_cycle': 'monthly'}, format='json')
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp.data['payment_url'], 'https://pay.test/chk_1')
-
+        self.assertEqual(resp.data['payment_url'], 'https://pay.test/cib_1')
         self.store.quota.refresh_from_db()
-        self.assertIsNone(self.store.quota.plan)  # pas encore upgradé, juste le checkout créé
+        self.assertIsNone(self.store.quota.plan)  # pas encore upgradé, juste le paiement créé
 
     def test_confirmateur_cannot_subscribe(self):
         conf_user, _ = make_team_member(self.store, 'confirmateur')
         client = auth_client(conf_user)
         resp = client.post('/api/stores/me/subscribe/', {'plan_id': self.plan.id, 'billing_cycle': 'monthly'}, format='json')
         self.assertEqual(resp.status_code, 403)
-
-    def test_subscribe_webhook_upgrades_quota(self):
-        import json
-        from django.test import Client as PublicClient
-        c = PublicClient()
-        payload = {
-            'type': 'checkout.paid',
-            'data': {'id': 'chk_sub_x', 'metadata': {
-                'subscription': True, 'store_id': self.store.id, 'plan_id': self.plan.id, 'billing_cycle': 'monthly',
-            }},
-        }
-        with patch('orders.chargily.verify_webhook_signature', return_value=True):
-            resp = c.post('/api/public/webhooks/chargily/', data=json.dumps(payload), content_type='application/json')
-        self.assertEqual(resp.status_code, 200)
-        self.store.quota.refresh_from_db()
-        self.assertEqual(self.store.quota.plan_id, self.plan.id)
-        self.assertEqual(self.store.quota.orders_limit, 1000)
 
     def test_subscribe_invalid_plan_id_404(self):
         client = auth_client(self.owner)
@@ -164,58 +142,69 @@ class SubscribeTests(TestCase):
         resp = client.post('/api/stores/me/subscribe/', {'plan_id': self.plan.id, 'billing_cycle': 'weekly'}, format='json')
         self.assertEqual(resp.status_code, 400)
 
+    def _pending(self, cycle='monthly'):
+        from stores.models import SubscriptionPayment
+        return SubscriptionPayment.objects.create(
+            store=self.store, plan=self.plan, billing_cycle=cycle, amount=4500, transaction_id='cib_x')
+
+    def _verify(self, payment, result):
+        client = auth_client(self.owner)
+        with patch('orders.sofizpay.check_status', return_value=result):
+            return client.post('/api/stores/me/subscribe/verify/', {'ref': payment.id}, format='json')
+
+    def test_verify_paid_upgrades_quota(self):
+        resp = self._verify(self._pending(), 'success')
+        self.assertEqual(resp.data['status'], 'success')
+        self.store.quota.refresh_from_db()
+        self.assertEqual(self.store.quota.plan_id, self.plan.id)
+        self.assertEqual(self.store.quota.orders_limit, 1000)
+
+    def test_verify_is_idempotent(self):
+        payment = self._pending()
+        self._verify(payment, 'success')
+        self.store.quota.refresh_from_db()
+        self.store.quota.orders_used = 7
+        self.store.quota.save()
+        self._verify(payment, 'success')  # ne doit pas remettre orders_used à 0 une 2e fois
+        self.store.quota.refresh_from_db()
+        self.assertEqual(self.store.quota.orders_used, 7)
+
+    def test_verify_pending_does_not_upgrade(self):
+        resp = self._verify(self._pending(), 'pending')
+        self.assertEqual(resp.data['status'], 'pending')
+        self.store.quota.refresh_from_db()
+        self.assertIsNone(self.store.quota.plan)
+
+    def test_verify_failed_does_not_upgrade(self):
+        payment = self._pending()
+        resp = self._verify(payment, 'failed')
+        self.assertEqual(resp.data['status'], 'failed')
+        self.store.quota.refresh_from_db()
+        self.assertIsNone(self.store.quota.plan)
+
     def test_monthly_upgrade_sets_period_end_30_days(self):
-        import json
-        from django.test import Client as PublicClient
         from django.utils import timezone
-        c = PublicClient()
-        payload = {
-            'type': 'checkout.paid',
-            'data': {'id': 'chk_monthly', 'metadata': {
-                'subscription': True, 'store_id': self.store.id, 'plan_id': self.plan.id, 'billing_cycle': 'monthly',
-            }},
-        }
         before = timezone.now()
-        with patch('orders.chargily.verify_webhook_signature', return_value=True):
-            resp = c.post('/api/public/webhooks/chargily/', data=json.dumps(payload), content_type='application/json')
-        self.assertEqual(resp.status_code, 200)
+        self._verify(self._pending('monthly'), 'success')
         self.store.quota.refresh_from_db()
         self.assertEqual(self.store.quota.billing_cycle, 'monthly')
-        delta = self.store.quota.period_end - before
-        self.assertTrue(28 <= delta.days <= 31, delta.days)
+        self.assertTrue(28 <= (self.store.quota.period_end - before).days <= 31)
 
     def test_yearly_upgrade_sets_period_end_365_days(self):
-        import json
-        from django.test import Client as PublicClient
         from django.utils import timezone
-        c = PublicClient()
-        payload = {
-            'type': 'checkout.paid',
-            'data': {'id': 'chk_yearly', 'metadata': {
-                'subscription': True, 'store_id': self.store.id, 'plan_id': self.plan.id, 'billing_cycle': 'yearly',
-            }},
-        }
         before = timezone.now()
-        with patch('orders.chargily.verify_webhook_signature', return_value=True):
-            resp = c.post('/api/public/webhooks/chargily/', data=json.dumps(payload), content_type='application/json')
-        self.assertEqual(resp.status_code, 200)
+        self._verify(self._pending('yearly'), 'success')
         self.store.quota.refresh_from_db()
         self.assertEqual(self.store.quota.billing_cycle, 'yearly')
-        delta = self.store.quota.period_end - before
-        self.assertTrue(363 <= delta.days <= 366, delta.days)
+        self.assertTrue(363 <= (self.store.quota.period_end - before).days <= 366)
 
-    def test_forged_webhook_without_valid_signature_does_not_upgrade(self):
-        import json
-        from django.test import Client as PublicClient
-        c = PublicClient()
-        payload = {
-            'type': 'checkout.paid',
-            'data': {'id': 'chk_forged', 'metadata': {
-                'subscription': True, 'store_id': self.store.id, 'plan_id': self.plan.id, 'billing_cycle': 'monthly',
-            }},
-        }
-        resp = c.post('/api/public/webhooks/chargily/', data=json.dumps(payload), content_type='application/json')
-        self.assertEqual(resp.status_code, 403)
+    def test_cannot_verify_another_stores_payment(self):
+        other_owner, _ = make_owner()
+        payment = self._pending()
+        client = auth_client(other_owner)
+        with patch('orders.sofizpay.check_status', return_value='success'):
+            resp = client.post('/api/stores/me/subscribe/verify/', {'ref': payment.id}, format='json')
+        self.assertEqual(resp.status_code, 404)
         self.store.quota.refresh_from_db()
         self.assertIsNone(self.store.quota.plan)
 
