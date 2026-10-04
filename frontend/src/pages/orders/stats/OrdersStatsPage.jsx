@@ -5,8 +5,12 @@ import DashboardLayout from '../../../components/DashboardLayout'
 import api from '../../../api/axios'
 import { theme } from '../../../theme'
 import { usePeriod, PeriodFilter, Spinner, PIE_COLORS, StatsToolbar, TrendBadge, downloadCsv } from './statsShared'
+import { useTranslation } from 'react-i18next'
+import { sfx } from '../../../i18n'
+import { tt } from '../../../i18n'
 
 export default function OrdersStatsPage() {
+  const { t } = useTranslation('dashboard')
   const navigate = useNavigate()
   const { period, setPeriod, dateFrom, setDateFrom, dateTo, setDateTo, queryString, resolvedRange, ready } = usePeriod()
   const [data, setData]       = useState(null)
@@ -42,34 +46,32 @@ export default function OrdersStatsPage() {
   }))
 
   return (
-    <DashboardLayout title="Statistiques commandes" subtitle="Cette page trace un graphique montrant combien de commandes vous recevez chaque jour sur la période choisie, pour repérer vos tendances (jours forts, baisses...), ainsi qu'un camembert montrant la proportion de commandes dans chaque statut.">
+    <DashboardLayout title={t('Statistiques commandes')} subtitle={t('Cette page trace un graphique montrant combien de commandes vous recevez chaque jour sur la période choisie, pour repérer vos tendances (jours forts, baisses...), ainsi qu\'un camembert montrant la proportion de commandes dans chaque statut.')}>
       <div className="flex items-center justify-between gap-3 mb-6 flex-wrap">
         <PeriodFilter period={period} setPeriod={setPeriod} dateFrom={dateFrom} setDateFrom={setDateFrom} dateTo={dateTo} setDateTo={setDateTo} />
         <StatsToolbar onRefresh={fetchData} onExport={handleExport} exporting={exporting} exportDisabled={!data?.total} />
       </div>
       {loading || !data ? <Spinner /> : (
         <>
-          <p className="text-sm mb-5 flex items-center gap-2" style={{ color: theme.dark.muted }}>
-            {data.total} commande{data.total !== 1 ? 's' : ''} sur la période.
-            <TrendBadge pct={data.total_delta_pct} />
+          <p className="text-sm mb-5 flex items-center gap-2" style={{ color: theme.dark.muted }}>{t('{{total}} commande', { total: data.total })}{data.total !== 1 ? sfx('s') : ''}{' '}{t('sur la période.')}<TrendBadge pct={data.total_delta_pct} />
           </p>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="rounded-xl border p-5" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-              <p className="text-sm font-medium text-app-primary mb-4">Évolution quotidienne</p>
+              <p className="text-sm font-medium text-app-primary mb-4">{t('Évolution quotidienne')}</p>
               <ResponsiveContainer width="100%" height={260}>
                 <BarChart data={dailyChart}>
                   <CartesianGrid strokeDasharray="3 3" stroke={theme.dark.border} vertical={false} />
                   <XAxis dataKey="date" tick={{ fontSize: 11, fill: theme.dark.muted }} axisLine={false} tickLine={false} />
                   <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: theme.dark.muted }} axisLine={false} tickLine={false} />
                   <Tooltip contentStyle={{ background: theme.dark.sidebar, border: `1px solid ${theme.dark.border}`, borderRadius: 8, fontSize: 12 }} />
-                  <Bar dataKey="count" name="Commandes" fill="#7c3aed" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="count" name={tt('Commandes')} fill="#7c3aed" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
             <div className="rounded-xl border p-5" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-              <p className="text-sm font-medium text-app-primary mb-4">Répartition par statut <span className="font-normal text-xs" style={{ color: theme.dark.muted }}>(cliquer pour voir les commandes)</span></p>
+              <p className="text-sm font-medium text-app-primary mb-4">{t('Répartition par statut')}{' '}<span className="font-normal text-xs" style={{ color: theme.dark.muted }}>{t('(cliquer pour voir les commandes)')}</span></p>
               {data.by_status.length === 0 ? (
-                <p className="text-sm text-app-muted py-16 text-center">Aucune commande sur cette période.</p>
+                <p className="text-sm text-app-muted py-16 text-center">{t('Aucune commande sur cette période.')}</p>
               ) : (
                 <ResponsiveContainer width="100%" height={260}>
                   <PieChart>

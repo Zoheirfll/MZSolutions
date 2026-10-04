@@ -1,11 +1,13 @@
 import { useState, useCallback } from 'react'
 import { theme } from '../../../theme'
+import { tt } from '../../../i18n'
+import { useTranslation } from 'react-i18next'
 
 export const PERIODS = [
-  { value: 'day',   label: "Aujourd'hui" },
+  { value: 'day',   label: tt('Aujourd\'hui') },
   { value: 'week',  label: '7 derniers jours' },
   { value: 'month', label: '30 derniers jours' },
-  { value: 'custom', label: 'Personnalisé' },
+  { value: 'custom', label: tt('Personnalisé') },
 ]
 
 export function usePeriod(initial = 'week') {
@@ -63,7 +65,7 @@ export function PeriodFilter({ period, setPeriod, dateFrom, setDateFrom, dateTo,
         </button>
       ))}
       {period === 'custom' && (
-        <div className="flex items-center gap-2 ml-2">
+        <div className="flex items-center gap-2 ms-2">
           <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
             className="px-3 py-1.5 rounded-lg border text-sm text-app-primary bg-transparent outline-none focus:border-violet-500 [color-scheme:dark]"
             style={{ borderColor: theme.dark.border }} />
@@ -78,14 +80,13 @@ export function PeriodFilter({ period, setPeriod, dateFrom, setDateFrom, dateTo,
 }
 
 export function Spinner() {
+  const { t } = useTranslation('dashboard')
   return (
     <div className="flex items-center justify-center gap-2 text-app-muted py-16">
       <svg className="w-5 h-5 animate-spin text-violet-500" viewBox="0 0 24 24" fill="none">
         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-      </svg>
-      Chargement…
-    </div>
+      </svg>{t('Chargement…')}</div>
   )
 }
 
@@ -97,12 +98,12 @@ export const PIE_COLORS = ['#7c3aed', '#3b82f6', '#22c55e', '#f59e0b', '#ef4444'
 // stats (pattern initialement propre à ConfirmationRatePage). `pct` = delta
 // déjà calculé côté serveur (`_pct_delta`, `null` si non comparable).
 export function TrendBadge({ pct }) {
+  const { t } = useTranslation('dashboard')
   if (pct === null || pct === undefined) return null
   const positive = pct >= 0
   return (
     <span className={`text-xs font-medium ${positive ? 'text-emerald-400' : 'text-red-400'}`}>
-      {positive ? '+' : ''}{pct}% vs préc.
-    </span>
+      {positive ? '+' : ''}{t('{{pct}}% vs préc.', { pct })}</span>
   )
 }
 
@@ -126,18 +127,18 @@ function RefreshIcon(props) {
 // Barre d'actions commune (bouton Actualiser + Exporter en CSV), placée à
 // droite du PeriodFilter sur chaque page de stats.
 export function StatsToolbar({ onRefresh, onExport, exporting, exportDisabled }) {
+  const { t, t: tr } = useTranslation('dashboard')
   return (
     <div className="flex items-center gap-2">
       <button onClick={onRefresh}
         className="px-3 py-1.5 rounded-lg text-sm font-medium border text-app-primary hover:bg-violet-500/5 transition cursor-pointer flex items-center gap-1.5"
         style={{ borderColor: theme.dark.border }}>
-        <RefreshIcon /> Actualiser
-      </button>
+        <RefreshIcon />{' '}{t('Actualiser')}</button>
       {onExport && (
         <button onClick={onExport} disabled={exporting || exportDisabled}
           className="px-3 py-1.5 rounded-lg text-sm font-medium border text-app-primary hover:bg-violet-500/5 disabled:opacity-50 transition cursor-pointer flex items-center gap-1.5"
           style={{ borderColor: theme.dark.border }}>
-          <DownloadIcon /> {exporting ? 'Export…' : 'Exporter en CSV'}
+          <DownloadIcon /> {exporting ? tr('Export…') : t('Exporter en CSV')}
         </button>
       )}
     </div>
@@ -162,13 +163,14 @@ export async function downloadCsv(api, url, filename) {
 // Pagination simple, réutilisée sur les pages stats listant produits/wilayas/
 // raisons d'échec/ventes de stock (bornées côté serveur depuis cette passe).
 export function StatsPagination({ page, setPage, count, perPage }) {
+  const { t } = useTranslation('dashboard')
   const totalPages = Math.max(1, Math.ceil(count / perPage))
   if (count <= perPage) return null
   return (
     <div className="flex items-center justify-end gap-2 mt-3 text-sm" style={{ color: theme.dark.muted }}>
-      <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">← Précédent</button>
+      <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">{t('← Précédent')}</button>
       <span className={theme.badge.info}>{page}/{totalPages}</span>
-      <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">Suivant →</button>
+      <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">{t('Suivant →')}</button>
     </div>
   )
 }

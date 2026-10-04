@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-sans: "Plus Jakarta Sans", "Noto Sans Arabic", ui-sans-serif, system-ui, -apple-system, sans-serif;
 }
 
 :root {
@@ -93,7 +93,7 @@ select {
 .sf-prose a  { color: var(--sf-primary); text-decoration: underline; }
 .sf-prose strong { font-weight: 700; }
 .sf-prose em { font-style: italic; }
-.sf-prose blockquote { border-left: 3px solid var(--sf-primary); padding-left: 1rem; margin: 1rem 0; opacity: 0.8; font-style: italic; }
+.sf-prose blockquote { border-inline-start: 3px solid var(--sf-primary); padding-inline-start: 1rem; margin: 1rem 0; opacity: 0.8; font-style: italic; }
 .sf-prose hr { border: none; border-top: 1px solid var(--sf-footer-border); margin: 2rem 0; }
 .sf-prose img { max-width: 100%; height: auto; border-radius: 0.5rem; margin: 0.75rem 0; }
 
@@ -110,5 +110,5 @@ select {
 .ai-prose code { background: var(--bg-card-alt); padding: 0.1rem 0.35rem; border-radius: 0.25rem; font-size: 0.85em; font-family: ui-monospace, monospace; }
 .ai-prose pre { background: var(--bg-card-alt); padding: 0.6rem 0.75rem; border-radius: 0.5rem; overflow-x: auto; margin: 0.5rem 0; }
 .ai-prose pre code { background: none; padding: 0; }
-.ai-prose blockquote { border-left: 2px solid var(--text-muted); padding-left: 0.75rem; opacity: 0.85; }
+.ai-prose blockquote { border-inline-start: 2px solid var(--text-muted); padding-inline-start: 0.75rem; opacity: 0.85; }
 .sf-prose iframe { max-width: 100%; border-radius: 0.5rem; margin: 0.75rem 0; }

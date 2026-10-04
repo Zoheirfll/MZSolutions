@@ -1,7 +1,10 @@
 import DashboardLayout from '../components/DashboardLayout'
 import { theme } from '../theme'
+import { useTranslation } from 'react-i18next'
+import { tt } from '../i18n'
 
-export default function ComingSoon({ title = 'Bientôt disponible' }) {
+export default function ComingSoon({ title = tt('Bientôt disponible') }) {
+  const { t } = useTranslation('dashboard')
   return (
     <DashboardLayout title={title}>
       <div className="flex items-center justify-center h-full min-h-64 px-4">
@@ -13,7 +16,7 @@ export default function ComingSoon({ title = 'Bientôt disponible' }) {
             </svg>
           </div>
           <p className="text-lg font-semibold text-app-primary mb-2">{title}</p>
-          <p className="text-sm" style={{ color: theme.dark.muted }}>Cette section sera disponible dans un prochain sprint.</p>
+          <p className="text-sm" style={{ color: theme.dark.muted }}>{t('Cette section sera disponible dans un prochain sprint.')}</p>
         </div>
       </div>
     </DashboardLayout>

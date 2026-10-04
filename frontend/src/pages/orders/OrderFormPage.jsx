@@ -9,12 +9,14 @@ import { WILAYAS, getWilayaIdByName } from '../../data/wilayas'
 import { getCommunesForWilaya } from '../../data/communes'
 import { useAuth } from '../../context/AuthContext'
 import { itemLineTotal } from '../../context/CartContext'
+import { tt } from '../../i18n'
+import { useTranslation } from 'react-i18next'
 
 const DELIVERY_OPTIONS = [
-  { value: 'store',     label: 'Vendu depuis le magasin' },
-  { value: 'insurance', label: 'Assurance' },
-  { value: 'free',      label: 'Livraison gratuite' },
-  { value: 'exchange',  label: 'Échange' },
+  { value: 'store',     label: tt('Vendu depuis le magasin') },
+  { value: 'insurance', label: tt('Assurance') },
+  { value: 'free',      label: tt('Livraison gratuite') },
+  { value: 'exchange',  label: tt('Échange') },
 ]
 
 const EMPTY_CLIENT = {
@@ -23,6 +25,7 @@ const EMPTY_CLIENT = {
 }
 
 export default function OrderFormPage() {
+  const { t, t: tr } = useTranslation('dashboard')
   const navigate = useNavigate()
   const { user } = useAuth()
   const isDropshipper = user?.team_role === 'dropshipper'
@@ -218,7 +221,7 @@ export default function OrderFormPage() {
       setPromoApplied(data)
     } catch (err) {
       setPromoApplied(null)
-      setPromoError(err.response?.data?.detail || "Code promo invalide.")
+      setPromoError(err.response?.data?.detail || t('Code promo invalide.'))
     } finally {
       setPromoChecking(false)
     }
@@ -231,7 +234,7 @@ export default function OrderFormPage() {
     setErrors({})
     const belowMinimum = cartItems.find(i => i.minimum_selling_price != null && Number(i.price) < i.minimum_selling_price)
     if (belowMinimum) {
-      setErrors({ detail: `Le prix de vente de « ${belowMinimum.product_name} » doit être d'au moins ${belowMinimum.minimum_selling_price} DA.` })
+      setErrors({ detail: t('Le prix de vente de « {{product_name}} » doit être d\'au moins {{minimum_selling_price}} DA.', { product_name: belowMinimum.product_name, minimum_selling_price: belowMinimum.minimum_selling_price }) })
       setSaving(false)
       return
     }
@@ -261,7 +264,7 @@ export default function OrderFormPage() {
   const bdrStyle = { borderColor: theme.dark.border }
 
   return (
-    <DashboardLayout title="Nouvelle commande" subtitle="Utilisez cette page quand un client vous passe commande directement (par téléphone, en magasin, sur les réseaux sociaux...) plutôt que via votre boutique en ligne. Choisissez les produits, la quantité, la wilaya/commune du client, et le transporteur — le tarif de livraison se remplit automatiquement selon la destination. Vous pouvez aussi programmer l'envoi à une date future si le client ne veut pas être livré tout de suite : la commande ne consommera votre quota et votre stock qu'au moment de son activation.">
+    <DashboardLayout title={t('Nouvelle commande')} subtitle={t('Utilisez cette page quand un client vous passe commande directement (par téléphone, en magasin, sur les réseaux sociaux...) plutôt que via votre boutique en ligne. Choisissez les produits, la quantité, la wilaya/commune du client, et le transporteur — le tarif de livraison se remplit automatiquement selon la destination. Vous pouvez aussi programmer l\'envoi à une date future si le client ne veut pas être livré tout de suite : la commande ne consommera votre quota et votre stock qu\'au moment de son activation.')}>
       <div className="flex flex-col lg:flex-row gap-6 items-start">
 
         {/* ── Colonne gauche ── */}
@@ -269,21 +272,21 @@ export default function OrderFormPage() {
 
           {/* Articles */}
           <div className="rounded-xl border p-5" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-            <h2 className="font-semibold text-app-primary mb-4">Articles</h2>
+            <h2 className="font-semibold text-app-primary mb-4">{t('Articles')}</h2>
 
             {/* Recherche produit */}
             <div className="relative mb-4">
               <input
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder="Recherche de produit"
+                placeholder={t('Recherche de produit')}
                 className={inputCls}
                 style={bdrStyle}
               />
               {(products.length > 0 || searching) && (
-                <div className="absolute z-20 left-0 right-0 top-full mt-1 rounded-lg border overflow-hidden shadow-xl"
+                <div className="absolute z-20 start-0 end-0 top-full mt-1 rounded-lg border overflow-hidden shadow-xl"
                   style={{ background: theme.dark.sidebar, borderColor: theme.dark.border }}>
-                  {searching && <p className="px-4 py-3 text-xs text-app-muted">Recherche…</p>}
+                  {searching && <p className="px-4 py-3 text-xs text-app-muted">{t('Recherche…')}</p>}
                   {products.map(p => {
                     const allOptions = (p.variants || []).flatMap(v => v.options || [])
                     const basePrice = p.active_promotion ? Number(p.active_promotion.discounted_price) : Number(p.price)
@@ -293,10 +296,10 @@ export default function OrderFormPage() {
                         {allOptions.length === 0 && (
                           <button
                             onClick={() => addProduct(p)}
-                            className="w-full text-left px-4 py-2.5 text-sm text-app-primary hover:bg-violet-500/5 transition flex items-center justify-between"
+                            className="w-full text-start px-4 py-2.5 text-sm text-app-primary hover:bg-violet-500/5 transition flex items-center justify-between"
                           >
                             <span>{p.name}</span>
-                            <span className="text-violet-300 text-xs">{basePrice.toLocaleString('fr-DZ')} DZD</span>
+                            <span className="text-violet-300 text-xs">{basePrice.toLocaleString('fr-DZ')}{' '}{t('DZD')}</span>
                           </button>
                         )}
                         {/* Options de variante — si l'option a des sous-options (2e niveau,
@@ -308,20 +311,20 @@ export default function OrderFormPage() {
                               <button
                                 key={sub.id}
                                 onClick={() => addProduct(p, opt, sub)}
-                                className="w-full text-left px-4 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition flex items-center justify-between"
+                                className="w-full text-start px-4 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition flex items-center justify-between"
                               >
                                 <span>{p.name} — {opt.value} / {sub.value}</span>
-                                <span className="text-violet-300 text-xs">{Number(sub.price != null ? sub.price : (opt.price != null ? opt.price : basePrice)).toLocaleString('fr-DZ')} DZD</span>
+                                <span className="text-violet-300 text-xs">{Number(sub.price != null ? sub.price : (opt.price != null ? opt.price : basePrice)).toLocaleString('fr-DZ')}{' '}{t('DZD')}</span>
                               </button>
                             ))
                           ) : (
                             <button
                               key={opt.id}
                               onClick={() => addProduct(p, opt)}
-                              className="w-full text-left px-4 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition flex items-center justify-between"
+                              className="w-full text-start px-4 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition flex items-center justify-between"
                             >
                               <span>{p.name} — {opt.value}</span>
-                              <span className="text-violet-300 text-xs">{Number(opt.price != null ? opt.price : basePrice).toLocaleString('fr-DZ')} DZD</span>
+                              <span className="text-violet-300 text-xs">{Number(opt.price != null ? opt.price : basePrice).toLocaleString('fr-DZ')}{' '}{t('DZD')}</span>
                             </button>
                           )
                         ))}
@@ -339,38 +342,38 @@ export default function OrderFormPage() {
                   <circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" />
                   <path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6" />
                 </svg>
-                <p>Aucun article ajouté</p>
+                <p>{t('Aucun article ajouté')}</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm min-w-105">
                   <thead>
                     <tr className="text-xs border-b" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
-                      <th className="pb-2 text-left font-medium">PRODUIT</th>
-                      <th className="pb-2 text-right font-medium">PRIX</th>
-                      <th className="pb-2 text-center font-medium w-24">QTÉ</th>
-                      <th className="pb-2 text-right font-medium">TOTAL</th>
+                      <th className="pb-2 text-start font-medium">{t('PRODUIT')}</th>
+                      <th className="pb-2 text-end font-medium">{t('PRIX')}</th>
+                      <th className="pb-2 text-center font-medium w-24">{t('QTÉ')}</th>
+                      <th className="pb-2 text-end font-medium">{t('TOTAL')}</th>
                       <th className="pb-2 w-8"></th>
                     </tr>
                   </thead>
                   <tbody>
                     {cartItems.map(item => (
                       <tr key={item._key} className="border-b" style={{ borderColor: theme.dark.borderRowHover }}>
-                        <td className="py-2.5 pr-3 text-app-primary">{item.product_name}</td>
-                        <td className="py-2.5 text-right text-app-primary">
+                        <td className="py-2.5 pe-3 text-app-primary">{item.product_name}</td>
+                        <td className="py-2.5 text-end text-app-primary">
                           {item.minimum_selling_price != null ? (
                             <div className="flex flex-col items-end">
                               <input
                                 type="number" min={item.minimum_selling_price} step="0.01" value={item.price}
                                 onChange={e => updatePrice(item._key, e.target.value)}
-                                className="w-24 px-2 py-1 rounded border text-right text-sm bg-transparent outline-none focus:border-violet-500"
+                                className="w-24 px-2 py-1 rounded border text-end text-sm bg-transparent outline-none focus:border-violet-500"
                                 style={bdrStyle}
                               />
-                              <span className="text-[10px] mt-0.5" style={{ color: theme.dark.muted }}>min. {item.minimum_selling_price}</span>
+                              <span className="text-[10px] mt-0.5" style={{ color: theme.dark.muted }}>{t('min. {{minimum_selling_price}}', { minimum_selling_price: item.minimum_selling_price })}</span>
                             </div>
                           ) : Number(item.price).toLocaleString('fr-DZ')}
                           {item.offer_enabled && item.offer_quantity && item.quantity >= item.offer_quantity && (
-                            <div className="text-[10px] mt-0.5" style={{ color: '#6ee7b7' }}>Offre : {item.offer_quantity} pour {Number(item.offer_price).toLocaleString('fr-DZ')}</div>
+                            <div className="text-[10px] mt-0.5" style={{ color: '#6ee7b7' }}>{t('Offre : {{offer_quantity}} pour', { offer_quantity: item.offer_quantity })}{' '}{Number(item.offer_price).toLocaleString('fr-DZ')}</div>
                           )}
                         </td>
                         <td className="py-2.5 text-center">
@@ -380,11 +383,11 @@ export default function OrderFormPage() {
                             <button onClick={() => updateQty(item._key, item.quantity + 1)} className="w-6 h-6 rounded border text-app-muted-light hover:text-app-primary text-xs" style={{ borderColor: theme.dark.border }}>+</button>
                           </div>
                         </td>
-                        <td className="py-2.5 text-right text-app-primary font-medium">
+                        <td className="py-2.5 text-end text-app-primary font-medium">
                           {itemLineTotal(item).toLocaleString('fr-DZ')}
                         </td>
                         <td className="py-2.5 text-center">
-                          <button onClick={() => removeItem(item._key)} className="text-red-400 hover:text-red-300 transition" title="Retirer">
+                          <button onClick={() => removeItem(item._key)} className="text-red-400 hover:text-red-300 transition" title={t('Retirer')}>
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
                               <path d="M18 6L6 18M6 6l12 12" />
                             </svg>
@@ -400,43 +403,43 @@ export default function OrderFormPage() {
 
           {/* Information Client */}
           <div className="rounded-xl border p-5 space-y-4" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-            <h2 className="font-semibold text-app-primary">Information Client</h2>
+            <h2 className="font-semibold text-app-primary">{t('Information Client')}</h2>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
-                <label className="block text-xs text-app-muted-light mb-1.5">Prénom *</label>
-                <input value={client.first_name} onChange={e => setClient(c => ({ ...c, first_name: e.target.value }))} required className={inputCls} style={bdrStyle} placeholder="Prénom" />
+                <label className="block text-xs text-app-muted-light mb-1.5">{t('Prénom *')}</label>
+                <input value={client.first_name} onChange={e => setClient(c => ({ ...c, first_name: e.target.value }))} required className={inputCls} style={bdrStyle} placeholder={t('Prénom')} />
                 {errors.first_name && <p className="text-red-400 text-xs mt-1">{errors.first_name}</p>}
               </div>
               <div>
-                <label className="block text-xs text-app-muted-light mb-1.5">Nom</label>
-                <input value={client.last_name} onChange={e => setClient(c => ({ ...c, last_name: e.target.value }))} className={inputCls} style={bdrStyle} placeholder="Nom" />
+                <label className="block text-xs text-app-muted-light mb-1.5">{t('Nom')}</label>
+                <input value={client.last_name} onChange={e => setClient(c => ({ ...c, last_name: e.target.value }))} className={inputCls} style={bdrStyle} placeholder={t('Nom')} />
               </div>
               <div>
-                <label className="block text-xs text-app-muted-light mb-1.5">Téléphone *</label>
-                <input value={client.phone} onChange={e => setClient(c => ({ ...c, phone: e.target.value }))} required className={inputCls} style={bdrStyle} placeholder="Téléphone" />
+                <label className="block text-xs text-app-muted-light mb-1.5">{t('Téléphone *')}</label>
+                <input value={client.phone} onChange={e => setClient(c => ({ ...c, phone: e.target.value }))} required className={inputCls} style={bdrStyle} placeholder={t('Téléphone')} />
                 {errors.phone && <p className="text-red-400 text-xs mt-1">{errors.phone}</p>}
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs text-app-muted-light mb-1.5">Wilaya *</label>
+                <label className="block text-xs text-app-muted-light mb-1.5">{t('Wilaya *')}</label>
                 <Select
                   value={client.wilaya}
                   onChange={v => setClient(c => ({ ...c, wilaya: v, commune: '' }))}
                   options={WILAYAS.map(w => ({ value: w.name, label: `${w.id} — ${w.name}` }))}
-                  placeholder="Choisissez une Wilaya"
+                  placeholder={t('Choisissez une Wilaya')}
                   className={inputCls}
                   style={{ ...bdrStyle, background: theme.dark.sidebar }}
                 />
                 {errors.wilaya && <p className="text-red-400 text-xs mt-1">{errors.wilaya}</p>}
               </div>
               <div>
-                <label className="block text-xs text-app-muted-light mb-1.5">Commune</label>
+                <label className="block text-xs text-app-muted-light mb-1.5">{t('Commune')}</label>
                 <Select
                   value={client.commune}
                   onChange={v => setClient(c => ({ ...c, commune: v }))}
                   options={communeOptions}
-                  placeholder={client.wilaya ? 'Choisissez une commune' : "Choisissez d'abord une wilaya"}
+                  placeholder={client.wilaya ? t('Choisissez une commune') : t('Choisissez d\'abord une wilaya')}
                   disabled={!client.wilaya}
                   className={inputCls}
                   style={{ ...bdrStyle, background: theme.dark.sidebar }}
@@ -447,8 +450,8 @@ export default function OrderFormPage() {
 
           {/* Livraison */}
           <div className="rounded-xl border p-5 space-y-3" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-            <h2 className="font-semibold text-app-primary">Livraison</h2>
-            <p className="text-xs" style={{ color: theme.dark.muted }}>Plusieurs types combinables (ex: Assurance + Échange).</p>
+            <h2 className="font-semibold text-app-primary">{t('Livraison')}</h2>
+            <p className="text-xs" style={{ color: theme.dark.muted }}>{t('Plusieurs types combinables (ex: Assurance + Échange).')}</p>
             {DELIVERY_OPTIONS.map(opt => (
               <label key={opt.value} className="flex items-center gap-3 cursor-pointer">
                 <input
@@ -464,27 +467,27 @@ export default function OrderFormPage() {
               </label>
             ))}
             {deliveryTypes.includes('store') && (
-              <p className="text-xs text-emerald-400">Frais de livraison à 0 — aucune expédition transporteur ne sera créée à la confirmation.</p>
+              <p className="text-xs text-emerald-400">{t('Frais de livraison à 0 — aucune expédition transporteur ne sera créée à la confirmation.')}</p>
             )}
             {deliveryTypes.includes('free') && !deliveryTypes.includes('store') && (
-              <p className="text-xs text-emerald-400">Frais de livraison à 0 pour le client — l'expédition transporteur reste créée normalement.</p>
+              <p className="text-xs text-emerald-400">{t('Frais de livraison à 0 pour le client — l\'expédition transporteur reste créée normalement.')}</p>
             )}
             {deliveryTypes.includes('insurance') && !deliveryTypes.includes('store') && (
-              <p className="text-xs text-emerald-400">+{insuranceFee.toLocaleString('fr-DZ')} DZD d'assurance ajoutés aux frais de livraison.</p>
+              <p className="text-xs text-emerald-400">+{insuranceFee.toLocaleString('fr-DZ')}{' '}{t('DZD d\'assurance ajoutés aux frais de livraison.')}</p>
             )}
           </div>
 
           {/* Remarque */}
           <div className="rounded-xl border p-5" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-            <h2 className="font-semibold text-app-primary mb-3">Remarque</h2>
-            <label className="block text-xs text-app-muted-light mb-1.5">Remarque</label>
+            <h2 className="font-semibold text-app-primary mb-3">{t('Remarque')}</h2>
+            <label className="block text-xs text-app-muted-light mb-1.5">{t('Remarque')}</label>
             <textarea
               value={note}
               onChange={e => setNote(e.target.value)}
               rows={4}
               className="w-full px-3.5 py-2.5 rounded-lg border text-sm text-app-primary bg-transparent outline-none focus:border-violet-500 transition resize-none"
               style={bdrStyle}
-              placeholder="Ajouter une note…"
+              placeholder={t('Ajouter une note…')}
             />
           </div>
 
@@ -501,11 +504,11 @@ export default function OrderFormPage() {
               >
                 <span className="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform" style={{ transform: scheduleEnabled ? 'translateX(18px)' : 'translateX(2px)' }} />
               </button>
-              <span className="font-semibold text-app-primary">Programmer l'envoi</span>
+              <span className="font-semibold text-app-primary">{t('Programmer l\'envoi')}</span>
             </label>
             {scheduleEnabled && (
               <>
-                <label className="block text-xs text-app-muted-light mb-1.5">Date et heure d'envoi</label>
+                <label className="block text-xs text-app-muted-light mb-1.5">{t('Date et heure d\'envoi')}</label>
                 <input
                   type="datetime-local"
                   value={scheduledAt}
@@ -514,9 +517,7 @@ export default function OrderFormPage() {
                   className={inputCls}
                   style={bdrStyle}
                 />
-                <p className="text-xs mt-1.5" style={{ color: theme.dark.muted }}>
-                  La commande sera créée avec le statut "Programmée" et activée automatiquement à cette date (stock, quota et assignation appliqués à ce moment-là).
-                </p>
+                <p className="text-xs mt-1.5" style={{ color: theme.dark.muted }}>{t('La commande sera créée avec le statut "Programmée" et activée automatiquement à cette date (stock, quota et assignation appliqués à ce moment-là).')}</p>
               </>
             )}
           </div>
@@ -525,14 +526,14 @@ export default function OrderFormPage() {
         {/* ── Panier (colonne droite fixe) ── */}
         <div className="w-full lg:w-72 shrink-0 lg:sticky lg:top-4">
           <div className="rounded-xl border p-5" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-            <h2 className="font-semibold text-app-primary mb-4 text-center">Panier</h2>
+            <h2 className="font-semibold text-app-primary mb-4 text-center">{t('Panier')}</h2>
 
             <div className="mb-4">
-              <label className="block text-xs text-app-muted-light mb-1.5">Code promo</label>
+              <label className="block text-xs text-app-muted-light mb-1.5">{t('Code promo')}</label>
               {promoApplied ? (
                 <div className="flex items-center justify-between px-3 py-2 rounded-lg border text-sm" style={bdrStyle}>
                   <span className="text-emerald-400 font-medium">{promoApplied.code}</span>
-                  <button type="button" onClick={removePromoCode} className="text-app-muted-light hover:text-app-primary transition text-xs cursor-pointer">Retirer</button>
+                  <button type="button" onClick={removePromoCode} className="text-app-muted-light hover:text-app-primary transition text-xs cursor-pointer">{t('Retirer')}</button>
                 </div>
               ) : (
                 <div className="flex gap-2">
@@ -540,7 +541,7 @@ export default function OrderFormPage() {
                     value={promoCode}
                     onChange={e => setPromoCode(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); applyPromoCode() } }}
-                    placeholder="Code"
+                    placeholder={t('Code')}
                     className={`${inputCls} flex-1`}
                     style={bdrStyle}
                   />
@@ -550,7 +551,7 @@ export default function OrderFormPage() {
                     disabled={promoChecking || !promoCode.trim() || cartItems.length === 0}
                     className="px-3 py-2 rounded-lg text-xs font-semibold text-white bg-violet-600 hover:bg-violet-500 transition cursor-pointer disabled:opacity-60"
                   >
-                    {promoChecking ? '…' : 'Appliquer'}
+                    {promoChecking ? '…' : tr('Appliquer')}
                   </button>
                 </div>
               )}
@@ -559,35 +560,35 @@ export default function OrderFormPage() {
 
             <div className="space-y-2 mb-4">
               <div className="flex justify-between text-sm">
-                <span style={{ color: theme.dark.muted }}>Total des articles</span>
-                <span className="text-app-primary">{subtotal.toLocaleString('fr-DZ')} <span className="text-xs text-app-muted">DZD</span></span>
+                <span style={{ color: theme.dark.muted }}>{t('Total des articles')}</span>
+                <span className="text-app-primary">{subtotal.toLocaleString('fr-DZ')} <span className="text-xs text-app-muted">{t('DZD')}</span></span>
               </div>
               {promoApplied && (
                 <div className="flex justify-between text-sm">
-                  <span style={{ color: theme.dark.muted }}>Réduction ({promoApplied.code})</span>
-                  <span className="text-emerald-400">-{discountAmount.toLocaleString('fr-DZ')} <span className="text-xs">DZD</span></span>
+                  <span style={{ color: theme.dark.muted }}>{t('Réduction ({{code}})', { code: promoApplied.code })}</span>
+                  <span className="text-emerald-400">-{discountAmount.toLocaleString('fr-DZ')} <span className="text-xs">{t('DZD')}</span></span>
                 </div>
               )}
               <div className="flex justify-between text-sm">
-                <span style={{ color: theme.dark.muted }}>Frais de livraison</span>
-                <span className="text-app-primary">{Number(shippingCost || 0).toLocaleString('fr-DZ')} <span className="text-xs text-app-muted">DZD</span></span>
+                <span style={{ color: theme.dark.muted }}>{t('Frais de livraison')}</span>
+                <span className="text-app-primary">{Number(shippingCost || 0).toLocaleString('fr-DZ')} <span className="text-xs text-app-muted">{t('DZD')}</span></span>
               </div>
               <div className="border-t pt-2 mt-2" style={{ borderColor: theme.dark.border }}>
                 <div className="flex justify-between font-semibold">
-                  <span className="text-sm text-app-primary">Montant à payer à la livraison</span>
-                  <span className="text-white">{total.toLocaleString('fr-DZ')} <span className="text-xs text-app-muted-light">DZD</span></span>
+                  <span className="text-sm text-app-primary">{t('Montant à payer à la livraison')}</span>
+                  <span className="text-white">{total.toLocaleString('fr-DZ')} <span className="text-xs text-app-muted-light">{t('DZD')}</span></span>
                 </div>
               </div>
             </div>
 
             {carrierAccounts.length > 0 && !deliveryTypes.includes('store') && (
               <div className="mb-4">
-                <label className="block text-xs text-app-muted-light mb-1.5">Société de livraison</label>
+                <label className="block text-xs text-app-muted-light mb-1.5">{t('Société de livraison')}</label>
                 <Select
                   value={selectedCarrierId}
                   onChange={v => { setSelectedCarrierId(v); setShippingCostEdited(false) }}
                   options={carrierAccounts.map(a => ({ value: a.id, label: a.carrier_label }))}
-                  placeholder="Aucun (frais manuels)"
+                  placeholder={t('Aucun (frais manuels)')}
                   className={inputCls}
                   style={{ ...bdrStyle, background: theme.dark.sidebar }}
                 />
@@ -596,22 +597,18 @@ export default function OrderFormPage() {
 
             {!deliveryTypes.includes('store') && (
               <div className="mb-4">
-                <label className="block text-xs text-app-muted-light mb-1.5">Mode de livraison</label>
+                <label className="block text-xs text-app-muted-light mb-1.5">{t('Mode de livraison')}</label>
                 <div className="flex rounded-lg border overflow-hidden" style={bdrStyle}>
                   <button
                     type="button"
                     onClick={() => { setStopDesk(false); setShippingCostEdited(false) }}
                     className={`flex-1 py-2 text-sm cursor-pointer transition ${!stopDesk ? 'bg-violet-600 text-white' : 'text-app-muted-light hover:text-app-primary'}`}
-                  >
-                    Domicile
-                  </button>
+                  >{t('Domicile')}</button>
                   <button
                     type="button"
                     onClick={() => { setStopDesk(true); setShippingCostEdited(false) }}
                     className={`flex-1 py-2 text-sm cursor-pointer transition ${stopDesk ? 'bg-violet-600 text-white' : 'text-app-muted-light hover:text-app-primary'}`}
-                  >
-                    Point relais
-                  </button>
+                  >{t('Point relais')}</button>
                 </div>
                 {stopDesk && desks.length > 0 && (
                   <div className="mt-2">
@@ -619,7 +616,7 @@ export default function OrderFormPage() {
                       value={stationCode}
                       onChange={setStationCode}
                       options={desks.map(d => ({ value: d.code, label: `${d.name} — ${d.address}` }))}
-                      placeholder="Choisissez un point relais"
+                      placeholder={t('Choisissez un point relais')}
                       className={inputCls}
                       style={{ ...bdrStyle, background: theme.dark.sidebar }}
                     />
@@ -630,13 +627,13 @@ export default function OrderFormPage() {
                   </div>
                 )}
                 {stopDesk && selectedCarrierId && desks.length === 0 && (
-                  <p className="text-xs mt-1.5" style={{ color: theme.dark.muted }}>Aucun point relais disponible pour cette wilaya/transporteur.</p>
+                  <p className="text-xs mt-1.5" style={{ color: theme.dark.muted }}>{t('Aucun point relais disponible pour cette wilaya/transporteur.')}</p>
                 )}
               </div>
             )}
 
             <div className="mb-1">
-              <label className="block text-xs text-app-muted-light mb-1.5">Frais de livraison</label>
+              <label className="block text-xs text-app-muted-light mb-1.5">{t('Frais de livraison')}</label>
               <input
                 type="number"
                 min="0"
@@ -648,24 +645,18 @@ export default function OrderFormPage() {
             </div>
             <div className="mb-4 min-h-4">
               {cartFreeShipping && (
-                <p className="text-xs mt-1 text-emerald-400">Livraison gratuite (article du panier marqué "Livraison gratuite").</p>
+                <p className="text-xs mt-1 text-emerald-400">{t('Livraison gratuite (article du panier marqué "Livraison gratuite").')}</p>
               )}
               {!cartFreeShipping && cartSpecificShipping && (
-                <p className="text-xs mt-1 text-violet-400">
-                  Tarif spécifique ({cartSpecificShipping.product_name}) : {Number(stopDesk ? cartSpecificShipping.specific_shipping_desk_price : cartSpecificShipping.specific_shipping_home_price).toLocaleString('fr-DZ')} DZD
-                </p>
+                <p className="text-xs mt-1 text-violet-400">{t('Tarif spécifique ({{product_name}}) :', { product_name: cartSpecificShipping.product_name })}{' '}{Number(stopDesk ? cartSpecificShipping.specific_shipping_desk_price : cartSpecificShipping.specific_shipping_home_price).toLocaleString('fr-DZ')}{' '}{t('DZD')}</p>
               )}
-              {!cartFreeShipping && !cartSpecificShipping && rateLoading && <p className="text-xs mt-1" style={{ color: theme.dark.muted }}>Récupération du tarif…</p>}
+              {!cartFreeShipping && !cartSpecificShipping && rateLoading && <p className="text-xs mt-1" style={{ color: theme.dark.muted }}>{t('Récupération du tarif…')}</p>}
               {!cartFreeShipping && !cartSpecificShipping && !rateLoading && rateInfo && !shippingCostEdited && !deliveryTypes.includes('store') && (
-                <p className="text-xs mt-1 text-emerald-400">
-                  Tarif {stopDesk ? 'point relais' : 'domicile'} : {(stopDesk && rateInfo.tarif_stopdesk != null ? rateInfo.tarif_stopdesk : rateInfo.tarif).toLocaleString('fr-DZ')} DZD
-                  {deliveryTypes.includes('insurance') && ` (+ ${insuranceFee.toLocaleString('fr-DZ')} DZD assurance)`}
+                <p className="text-xs mt-1 text-emerald-400">{t('Tarif')}{' '}{stopDesk ? 'point relais' : 'domicile'} : {(stopDesk && rateInfo.tarif_stopdesk != null ? rateInfo.tarif_stopdesk : rateInfo.tarif).toLocaleString('fr-DZ')}{' '}{t('DZD')}{deliveryTypes.includes('insurance') && ` (+ ${insuranceFee.toLocaleString('fr-DZ')} DZD assurance)`}
                 </p>
               )}
               {shippingCostEdited && (
-                <button onClick={() => setShippingCostEdited(false)} className="text-xs text-violet-400 hover:text-violet-300 transition cursor-pointer mt-1">
-                  Revenir au tarif automatique
-                </button>
+                <button onClick={() => setShippingCostEdited(false)} className="text-xs text-violet-400 hover:text-violet-300 transition cursor-pointer mt-1">{t('Revenir au tarif automatique')}</button>
               )}
             </div>
 
@@ -676,15 +667,13 @@ export default function OrderFormPage() {
               disabled={saving || cartItems.length === 0 || !client.first_name || !client.phone || !client.wilaya || (scheduleEnabled && !scheduledAt)}
               className="w-full py-3 rounded-lg text-sm font-semibold text-white bg-violet-600 hover:bg-violet-500 transition disabled:opacity-50"
             >
-              {saving ? 'Enregistrement…' : 'Enregistrer'}
+              {saving ? tr('Enregistrement…') : tr('Enregistrer')}
             </button>
 
             <button onClick={() => navigate('/dashboard/commandes')} className="w-full mt-2 py-2 text-xs text-app-muted-light hover:text-app-primary transition flex items-center justify-center gap-1.5">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="12" height="12">
                 <path d="M19 12H5M12 19l-7-7 7-7" />
-              </svg>
-              Retour
-            </button>
+              </svg>{t('Retour')}</button>
           </div>
         </div>
       </div>

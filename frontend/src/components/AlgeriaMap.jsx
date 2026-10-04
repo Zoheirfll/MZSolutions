@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
 import { ALGERIA_MAP_VIEWBOX, ALGERIA_WILAYA_PATHS } from '../data/algeriaMapPaths'
 import { theme } from '../theme'
+import { useTranslation } from 'react-i18next'
+import { sfx } from '../i18n'
 
 // Le SVG source (simplemaps.com) contient 3 coquilles orthographiques dans les
 // attributs `name` — alias vers le nom réel pour que la correspondance avec les
@@ -32,6 +34,7 @@ const PATHS_BY_NORMALIZED_NAME = ALGERIA_WILAYA_PATHS.reduce((acc, p) => {
  * Tracés SVG : simplemaps.com (Free for Commercial Use).
  */
 export default function AlgeriaMap({ data = [], onWilayaClick }) {
+  const { t } = useTranslation('dashboard')
   const [hovered, setHovered] = useState(null)
 
   const { valueByPathId, maxValue } = useMemo(() => {
@@ -57,7 +60,7 @@ export default function AlgeriaMap({ data = [], onWilayaClick }) {
 
   return (
     <div className="relative">
-      <svg viewBox={ALGERIA_MAP_VIEWBOX} className="w-full h-auto" role="img" aria-label="Carte des commandes par wilaya">
+      <svg viewBox={ALGERIA_MAP_VIEWBOX} className="w-full h-auto" role="img" aria-label={t('Carte des commandes par wilaya')}>
         {ALGERIA_WILAYA_PATHS.map(p => (
           <path
             key={p.id}
@@ -76,18 +79,18 @@ export default function AlgeriaMap({ data = [], onWilayaClick }) {
         const row = valueByPathId[hovered]
         const path = ALGERIA_WILAYA_PATHS.find(p => p.id === hovered)
         return (
-          <div className="absolute top-2 left-2 rounded-lg border px-3 py-2 text-xs pointer-events-none"
+          <div className="absolute top-2 start-2 rounded-lg border px-3 py-2 text-xs pointer-events-none"
             style={{ background: theme.dark.sidebar, borderColor: theme.dark.border }}>
             <p className="font-semibold text-app-primary">{path?.name}</p>
             {row ? (
               <>
-                <p style={{ color: theme.dark.muted }}>{row.orders_count} commande{row.orders_count !== 1 ? 's' : ''}</p>
+                <p style={{ color: theme.dark.muted }}>{t('{{orders_count}} commande', { orders_count: row.orders_count })}{row.orders_count !== 1 ? sfx('s') : ''}</p>
                 {row.revenue != null && (
-                  <p style={{ color: theme.dark.muted }}>{Number(row.revenue).toLocaleString('fr-DZ')} DA</p>
+                  <p style={{ color: theme.dark.muted }}>{Number(row.revenue).toLocaleString('fr-DZ')}{' '}{t('DA')}</p>
                 )}
               </>
             ) : (
-              <p style={{ color: theme.dark.muted }}>Aucune commande</p>
+              <p style={{ color: theme.dark.muted }}>{t('Aucune commande')}</p>
             )}
           </div>
         )

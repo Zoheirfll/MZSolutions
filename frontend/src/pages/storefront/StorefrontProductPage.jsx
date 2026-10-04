@@ -7,6 +7,7 @@ import { trackEvent } from '../../lib/pixels'
 import useDocumentMeta from '../../hooks/useDocumentMeta'
 import { sanitizeHtml } from '../../lib/sanitize'
 import ProductCard from '../../components/storefront/ProductCard'
+import { useTranslation } from 'react-i18next'
 
 function PackageIcon(props) {
   return (
@@ -30,6 +31,7 @@ function TruckIcon(props) {
 }
 
 function CountdownBadge({ endDate }) {
+  const { t } = useTranslation('storefront')
   const [remaining, setRemaining] = useState(() => new Date(endDate).getTime() - Date.now())
   useEffect(() => {
     const timer = setInterval(() => setRemaining(new Date(endDate).getTime() - Date.now()), 1000)
@@ -43,7 +45,7 @@ function CountdownBadge({ endDate }) {
   return (
     <div className="inline-flex items-center gap-1.5 mb-4 px-3 py-1.5 rounded-lg text-sm font-semibold"
       style={{ background: 'rgba(239,68,68,0.15)', color: '#fca5a5' }}>
-      Offre se termine dans {d > 0 ? `${d}j ` : ''}{String(h).padStart(2, '0')}:{String(m).padStart(2, '0')}:{String(s).padStart(2, '0')}
+      {t('product.offerEnds')} {d > 0 ? `${d}${t('product.dayShort')} ` : ''}{String(h).padStart(2, '0')}:{String(m).padStart(2, '0')}:{String(s).padStart(2, '0')}
     </div>
   )
 }
@@ -101,6 +103,7 @@ const modalInputCls = 'w-full px-3.5 py-2.5 rounded-lg text-sm outline-none tran
 const modalInputStyle = { background: 'var(--sf-body-bg)', border: '1px solid var(--sf-header-border)', color: 'var(--sf-text)' }
 
 function ReviewFormModal({ slug, productId, onClose, onSubmitted }) {
+  const { t } = useTranslation('storefront')
   const [form, setForm] = useState({ first_name: '', last_name: '', email: '', rating: 5, comment: '' })
   const [saving, setSaving] = useState(false)
   const [error, setError]   = useState('')
@@ -113,7 +116,7 @@ function ReviewFormModal({ slug, productId, onClose, onSubmitted }) {
       await publicApi.post('/reviews/', { store_slug: slug, product: productId, ...form })
       onSubmitted()
     } catch (err) {
-      setError(err.response?.data?.detail || "Une erreur est survenue lors de l'envoi.")
+      setError(err.response?.data?.detail || t('common.sendError'))
     } finally {
       setSaving(false)
     }
@@ -123,37 +126,37 @@ function ReviewFormModal({ slug, productId, onClose, onSubmitted }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: 'rgba(0,0,0,0.6)' }} onClick={onClose}>
       <div className="w-full max-w-md rounded-2xl p-6" style={{ background: 'var(--sf-card-bg)', border: '1px solid var(--sf-header-border)' }} onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
-          <h3 className="font-semibold" style={{ color: 'var(--sf-text)' }}>Laisser un avis</h3>
+          <h3 className="font-semibold" style={{ color: 'var(--sf-text)' }}>{t('product.leaveReview')}</h3>
           <button onClick={onClose} className="transition cursor-pointer" style={{ color: 'var(--sf-text-muted)' }}>
             <XIcon className="w-5 h-5" />
           </button>
         </div>
         <form onSubmit={submit} className="space-y-4">
           <div>
-            <label className="block text-xs mb-1.5" style={{ color: 'var(--sf-text-muted)' }}>Note</label>
+            <label className="block text-xs mb-1.5" style={{ color: 'var(--sf-text-muted)' }}>{t('product.rating')}</label>
             <StarRating rating={form.rating} size="text-2xl" onChange={r => setForm(f => ({ ...f, rating: r }))} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs mb-1.5" style={{ color: 'var(--sf-text-muted)' }}>Prénom *</label>
+              <label className="block text-xs mb-1.5" style={{ color: 'var(--sf-text-muted)' }}>{t('product.firstName')}</label>
               <input value={form.first_name} onChange={e => setForm(f => ({ ...f, first_name: e.target.value }))} required className={modalInputCls} style={modalInputStyle} />
             </div>
             <div>
-              <label className="block text-xs mb-1.5" style={{ color: 'var(--sf-text-muted)' }}>Nom</label>
+              <label className="block text-xs mb-1.5" style={{ color: 'var(--sf-text-muted)' }}>{t('product.lastName')}</label>
               <input value={form.last_name} onChange={e => setForm(f => ({ ...f, last_name: e.target.value }))} className={modalInputCls} style={modalInputStyle} />
             </div>
           </div>
           <div>
-            <label className="block text-xs mb-1.5" style={{ color: 'var(--sf-text-muted)' }}>Email (optionnel)</label>
+            <label className="block text-xs mb-1.5" style={{ color: 'var(--sf-text-muted)' }}>{t('product.emailOptional')}</label>
             <input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} className={modalInputCls} style={modalInputStyle} />
           </div>
           <div>
-            <label className="block text-xs mb-1.5" style={{ color: 'var(--sf-text-muted)' }}>Commentaire</label>
-            <textarea value={form.comment} onChange={e => setForm(f => ({ ...f, comment: e.target.value }))} rows={3} className={`${modalInputCls} resize-none`} style={modalInputStyle} placeholder="Votre expérience avec ce produit…" />
+            <label className="block text-xs mb-1.5" style={{ color: 'var(--sf-text-muted)' }}>{t('product.comment')}</label>
+            <textarea value={form.comment} onChange={e => setForm(f => ({ ...f, comment: e.target.value }))} rows={3} className={`${modalInputCls} resize-none`} style={modalInputStyle} placeholder={t("product.commentPlaceholder")} />
           </div>
           {error && <p className="text-sm" style={{ color: '#f87171' }}>{error}</p>}
           <button type="submit" disabled={saving} className="w-full py-2.5 rounded-lg text-sm font-semibold text-white transition disabled:opacity-60" style={{ background: 'var(--sf-primary)' }}>
-            {saving ? 'Envoi…' : "Envoyer l'avis"}
+            {saving ? t('common.sending') : t('product.sendReview')}
           </button>
         </form>
       </div>
@@ -162,6 +165,7 @@ function ReviewFormModal({ slug, productId, onClose, onSubmitted }) {
 }
 
 export default function StorefrontProductPage() {
+  const { t } = useTranslation('storefront')
   const { slug, productId } = useParams()
   const navigate = useNavigate()
   const { addItem } = useCart()
@@ -247,7 +251,7 @@ export default function StorefrontProductPage() {
     <StorefrontLayout>
       <div className="flex flex-col items-center justify-center text-center py-20 px-6" style={{ color: 'var(--sf-text-muted)' }}>
         <PackageIcon className="w-12 h-12 mb-3 opacity-30" />
-        <p>Produit introuvable.</p>
+        <p>{t('product.notFound')}</p>
       </div>
     </StorefrontLayout>
   )
@@ -308,9 +312,9 @@ export default function StorefrontProductPage() {
       <div className="max-w-6xl mx-auto px-4 py-10">
         {/* Breadcrumb */}
         <nav className="text-sm mb-6 flex items-center gap-2" style={{ color: 'var(--sf-text-muted)' }}>
-          <Link to={`/store/${slug}`} className="hover:opacity-80" style={{ color: 'var(--sf-text-muted)' }}>Accueil</Link>
+          <Link to={`/store/${slug}`} className="hover:opacity-80" style={{ color: 'var(--sf-text-muted)' }}>{t('layout.home')}</Link>
           <span>/</span>
-          <Link to={`/store/${slug}/products`} className="hover:opacity-80" style={{ color: 'var(--sf-text-muted)' }}>Produits</Link>
+          <Link to={`/store/${slug}/products`} className="hover:opacity-80" style={{ color: 'var(--sf-text-muted)' }}>{t('layout.products')}</Link>
           <span>/</span>
           <span style={{ color: 'var(--sf-text)' }}>{product.name}</span>
         </nav>
@@ -358,7 +362,7 @@ export default function StorefrontProductPage() {
             {product.avg_rating && (
               <div className="flex items-center gap-2 mb-4">
                 <StarRating rating={Math.round(product.avg_rating)} />
-                <span className="text-sm" style={{ color: 'var(--sf-text-muted)' }}>{product.avg_rating}/5 ({product.reviews_count} avis)</span>
+                <span className="text-sm" style={{ color: 'var(--sf-text-muted)' }}>{product.avg_rating}/5 ({product.reviews_count} {t('product.reviewsWord')})</span>
               </div>
             )}
 
@@ -370,18 +374,18 @@ export default function StorefrontProductPage() {
             {/* Prix */}
             <div className="flex items-baseline gap-3 mb-5 flex-wrap">
               {product.show_discounted_price !== false && (
-                <span className="text-3xl font-bold" style={{ color: 'var(--sf-primary)' }}>{Number(displayPrice).toLocaleString('fr-DZ')} DZD</span>
+                <span className="text-3xl font-bold" style={{ color: 'var(--sf-primary)' }}>{Number(displayPrice).toLocaleString('fr-DZ')} {t('common.currency')}</span>
               )}
               {product.show_full_price !== false && (product.original_price ? (
                 <>
-                  <span className="text-lg line-through" style={{ color: 'var(--sf-text-muted)' }}>{Number(product.original_price).toLocaleString('fr-DZ')} DZD</span>
+                  <span className="text-lg line-through" style={{ color: 'var(--sf-text-muted)' }}>{Number(product.original_price).toLocaleString('fr-DZ')} {t('common.currency')}</span>
                   <span className={`${badgeCls} ring-red-400/40`} style={{ background: 'rgba(239,68,68,0.15)', color: '#fca5a5' }}>
                     -{Math.round((1 - product.price / product.original_price) * 100)}%
                   </span>
                 </>
               ) : product.compare_price && (
                 <>
-                  <span className="text-lg line-through" style={{ color: 'var(--sf-text-muted)' }}>{Number(product.compare_price).toLocaleString('fr-DZ')} DZD</span>
+                  <span className="text-lg line-through" style={{ color: 'var(--sf-text-muted)' }}>{Number(product.compare_price).toLocaleString('fr-DZ')} {t('common.currency')}</span>
                   <span className={`${badgeCls} ring-red-400/40`} style={{ background: 'rgba(239,68,68,0.15)', color: '#fca5a5' }}>
                     -{Math.round((1 - product.price / product.compare_price) * 100)}%
                   </span>
@@ -393,8 +397,8 @@ export default function StorefrontProductPage() {
             {product.offer_enabled && product.offer_quantity && product.offer_price != null && (
               <div className="mb-5 grid grid-cols-2 gap-3">
                 {[
-                  { qty: 1, total: displayPrice, label: '1 article' },
-                  { qty: product.offer_quantity, total: Number(product.offer_price), label: `${product.offer_quantity} articles` },
+                  { qty: 1, total: displayPrice, label: t('product.oneItem') },
+                  { qty: product.offer_quantity, total: Number(product.offer_price), label: t('product.nItems', { count: product.offer_quantity }) },
                 ].map(tier => {
                   const active = selectedQty === tier.qty
                   const savings = displayPrice * tier.qty - tier.total
@@ -403,20 +407,20 @@ export default function StorefrontProductPage() {
                       key={tier.qty}
                       type="button"
                       onClick={() => setSelectedQty(tier.qty)}
-                      className="relative text-left px-4 py-3 rounded-xl transition"
+                      className="relative text-start px-4 py-3 rounded-xl transition"
                       style={active
                         ? { border: '2px solid var(--sf-primary)', background: 'var(--sf-primary-light)' }
                         : { border: '1px solid var(--sf-header-border)' }}
                     >
                       {tier.qty > 1 && (
-                        <span className={`${badgeCls} absolute -top-2.5 right-3 ring-emerald-400/40`} style={{ background: '#065f46', color: '#6ee7b7' }}>
-                          Le plus populaire
+                        <span className={`${badgeCls} absolute -top-2.5 end-3 ring-emerald-400/40`} style={{ background: '#065f46', color: '#6ee7b7' }}>
+                          {t('product.popular')}
                         </span>
                       )}
                       <p className="text-sm font-semibold" style={{ color: 'var(--sf-text)' }}>{tier.label}</p>
-                      <p className="text-lg font-bold mt-0.5" style={{ color: 'var(--sf-primary)' }}>{tier.total.toLocaleString('fr-DZ')} DZD</p>
+                      <p className="text-lg font-bold mt-0.5" style={{ color: 'var(--sf-primary)' }}>{tier.total.toLocaleString('fr-DZ')} {t('common.currency')}</p>
                       {tier.qty > 1 && savings > 0 && (
-                        <p className="text-xs mt-0.5" style={{ color: '#6ee7b7' }}>Économisez {savings.toLocaleString('fr-DZ')} DZD</p>
+                        <p className="text-xs mt-0.5" style={{ color: '#6ee7b7' }}>{t('product.save')} {savings.toLocaleString('fr-DZ')} {t('common.currency')}</p>
                       )}
                     </button>
                   )
@@ -443,10 +447,10 @@ export default function StorefrontProductPage() {
                           ? { border: '1px solid var(--sf-primary)', background: 'var(--sf-primary-light)', color: 'var(--sf-primary)' }
                           : { border: '1px solid var(--sf-header-border)', color: 'var(--sf-text)' }}
                       >
-                        {opt.image_url && <img src={opt.image_url} alt="" className="w-4 h-4 rounded inline-block mr-1.5 object-cover" />}
+                        {opt.image_url && <img src={opt.image_url} alt="" className="w-4 h-4 rounded inline-block me-1.5 object-cover" />}
                         {opt.value}
                         {opt.price && Number(opt.price) !== Number(product.price) && (
-                          <span className="ml-1 text-xs" style={{ color: 'var(--sf-text-muted)' }}>({Number(opt.price).toLocaleString('fr-DZ')})</span>
+                          <span className="ms-1 text-xs" style={{ color: 'var(--sf-text-muted)' }}>({Number(opt.price).toLocaleString('fr-DZ')})</span>
                         )}
                       </button>
                     )
@@ -483,16 +487,16 @@ export default function StorefrontProductPage() {
               <span className={`${badgeCls} ${inStock ? 'ring-emerald-400/40' : 'ring-red-400/40'}`}
                 style={{ background: inStock ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)', color: inStock ? '#6ee7b7' : '#fca5a5' }}>
                 {inStock ? <CheckIcon className="w-3 h-3" /> : <XIcon className="w-3 h-3" />}
-                {inStock ? 'En stock' : 'Rupture de stock'}
+                {inStock ? t('product.inStock') : t('product.outOfStock')}
               </span>
               {product.free_shipping && (
                 <span className={`${badgeCls} ring-violet-400/30`} style={{ background: 'var(--sf-primary-light)', color: 'var(--sf-primary)' }}>
-                  <TruckIcon className="w-3 h-3" /> Livraison gratuite
+                  <TruckIcon className="w-3 h-3" /> {t('product.freeShipping')}
                 </span>
               )}
               {!product.free_shipping && product.specific_shipping_enabled && product.specific_shipping_home_price != null && (
                 <span className={`${badgeCls} ring-violet-400/30`} style={{ background: 'var(--sf-primary-light)', color: 'var(--sf-primary)' }}>
-                  <TruckIcon className="w-3 h-3" /> Livraison : {Number(product.specific_shipping_home_price).toLocaleString('fr-DZ')} DZD
+                  <TruckIcon className="w-3 h-3" /> {t('product.shipping')} : {Number(product.specific_shipping_home_price).toLocaleString('fr-DZ')} {t('common.currency')}
                 </span>
               )}
             </div>
@@ -506,7 +510,7 @@ export default function StorefrontProductPage() {
                 style={{ border: '1px solid var(--sf-header-border)', color: 'var(--sf-text)' }}
               >
                 <CartIcon className="w-4 h-4" />
-                {added ? <><CheckIcon className="w-4 h-4" /> Ajouté</> : 'Ajouter au panier'}
+                {added ? <><CheckIcon className="w-4 h-4" /> {t('product.added')}</> : t('product.addToCart')}
               </button>
               <button
                 onClick={handleBuyNow}
@@ -515,14 +519,14 @@ export default function StorefrontProductPage() {
                 style={{ background: 'var(--sf-primary)' }}
               >
                 <BoltIcon className="w-4 h-4" />
-                Acheter maintenant
+                {t('product.buyNow')}
               </button>
             </div>
 
             {/* Description */}
             {product.description && (
               <div className="mt-6 pt-6" style={{ borderTop: '1px solid var(--sf-header-border)' }}>
-                <h3 className="text-sm font-semibold mb-2" style={{ color: 'var(--sf-text)' }}>Description</h3>
+                <h3 className="text-sm font-semibold mb-2" style={{ color: 'var(--sf-text)' }}>{t('product.descriptionTitle')}</h3>
                 <div className="sf-prose text-sm" style={{ color: 'var(--sf-text-muted)' }}
                   dangerouslySetInnerHTML={{ __html: sanitizeHtml(product.description) }} />
               </div>
@@ -534,15 +538,15 @@ export default function StorefrontProductPage() {
         <div className="mt-12 pt-8" style={{ borderTop: '1px solid var(--sf-header-border)' }}>
           <div className="flex items-center justify-between flex-wrap gap-3 mb-6">
             <h2 className="text-xl font-bold" style={{ color: 'var(--sf-text)' }}>
-              Avis clients {product.reviews.length > 0 && <span className="font-normal text-base" style={{ color: 'var(--sf-text-muted)' }}>({product.reviews_count})</span>}
+              {t('product.reviews')} {product.reviews.length > 0 && <span className="font-normal text-base" style={{ color: 'var(--sf-text-muted)' }}>({product.reviews_count})</span>}
             </h2>
             <button onClick={() => setReviewModalOpen(true)} className="px-4 py-2 rounded-lg text-sm font-medium transition" style={{ border: '1px solid var(--sf-header-border)', color: 'var(--sf-text)' }}>
-              Laisser un avis
+              {t('product.leaveReview')}
             </button>
           </div>
 
           {product.reviews.length === 0 ? (
-            <p className="text-sm" style={{ color: 'var(--sf-text-muted)' }}>Aucun avis pour l'instant. Soyez le premier à en laisser un !</p>
+            <p className="text-sm" style={{ color: 'var(--sf-text-muted)' }}>{t('product.noReviews')}</p>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {product.reviews.map(r => (
@@ -567,7 +571,7 @@ export default function StorefrontProductPage() {
 
       {recommendations.length > 0 && (
         <div className="max-w-6xl mx-auto px-4 py-10">
-          <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--sf-text)' }}>Vous pourriez aussi aimer</h2>
+          <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--sf-text)' }}>{t('product.youMayLike')}</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {recommendations.map(p => <ProductCard key={p.id} product={p} slug={slug} />)}
           </div>
@@ -589,9 +593,9 @@ export default function StorefrontProductPage() {
             <div className="inline-flex w-14 h-14 rounded-full items-center justify-center mb-3 ring-1 ring-inset ring-emerald-400/40" style={{ background: 'rgba(16,185,129,0.15)', color: '#6ee7b7' }}>
               <CheckIcon className="w-7 h-7" />
             </div>
-            <h3 className="font-semibold mb-1" style={{ color: 'var(--sf-text)' }}>Merci pour votre avis !</h3>
-            <p className="text-sm mb-5" style={{ color: 'var(--sf-text-muted)' }}>Il sera publié après modération par le vendeur.</p>
-            <button onClick={() => setReviewSent(false)} className="w-full py-2.5 rounded-lg text-sm font-semibold text-white transition" style={{ background: 'var(--sf-primary)' }}>Fermer</button>
+            <h3 className="font-semibold mb-1" style={{ color: 'var(--sf-text)' }}>{t('product.thanks')}</h3>
+            <p className="text-sm mb-5" style={{ color: 'var(--sf-text-muted)' }}>{t('product.moderation')}</p>
+            <button onClick={() => setReviewSent(false)} className="w-full py-2.5 rounded-lg text-sm font-semibold text-white transition" style={{ background: 'var(--sf-primary)' }}>{t('common.close')}</button>
           </div>
         </div>
       )}

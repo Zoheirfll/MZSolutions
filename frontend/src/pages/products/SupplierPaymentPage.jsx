@@ -3,8 +3,10 @@ import DashboardLayout from '../../components/DashboardLayout'
 import Select from '../../components/Select'
 import api from '../../api/axios'
 import { theme } from '../../theme'
+import { useTranslation } from 'react-i18next'
 
 function AddModal({ suppliers, onClose, onSaved }) {
+  const { t, t: tr } = useTranslation('dashboard')
   const [form, setForm]     = useState({ supplier: '', amount: '', note: '', date: new Date().toISOString().slice(0, 10) })
   const [saving, setSaving] = useState(false)
   const [errors, setErrors] = useState({})
@@ -33,17 +35,17 @@ function AddModal({ suppliers, onClose, onSaved }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
       <div className="w-full max-w-md rounded-xl border p-6" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
         <div className="flex items-center justify-between mb-5">
-          <h3 className="font-semibold text-app-primary">Ajouter un versement fournisseur</h3>
+          <h3 className="font-semibold text-app-primary">{t('Ajouter un versement fournisseur')}</h3>
           <button onClick={onClose} className="text-app-muted hover:text-app-primary text-2xl leading-none">×</button>
         </div>
         <form onSubmit={submit} className="space-y-4">
           <div>
-            <label className="block text-xs text-app-muted-light mb-1.5">Fournisseur *</label>
+            <label className="block text-xs text-app-muted-light mb-1.5">{t('Fournisseur *')}</label>
             <Select
               value={form.supplier}
               onChange={v => setForm(f => ({ ...f, supplier: v }))}
               options={suppliers.map(s => ({ value: s.id, label: `${s.first_name} ${s.last_name}` }))}
-              placeholder="Sélectionner un fournisseur"
+              placeholder={t('Sélectionner un fournisseur')}
               className={inputCls}
               style={{ ...bdrStyle, background: theme.dark.sidebar }}
             />
@@ -51,23 +53,23 @@ function AddModal({ suppliers, onClose, onSaved }) {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs text-app-muted-light mb-1.5">Montant * <span className="text-app-muted">DZD</span></label>
+              <label className="block text-xs text-app-muted-light mb-1.5">{t('Montant *')}{' '}<span className="text-app-muted">{t('DZD')}</span></label>
               <input type="number" min="0" step="0.01" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} required className={inputCls} style={bdrStyle} placeholder="0" />
               {errors.amount && <p className="text-red-400 text-xs mt-1">{errors.amount}</p>}
             </div>
             <div>
-              <label className="block text-xs text-app-muted-light mb-1.5">Date</label>
+              <label className="block text-xs text-app-muted-light mb-1.5">{t('Date')}</label>
               <input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} className={inputCls} style={bdrStyle} />
             </div>
           </div>
           <div>
-            <label className="block text-xs text-app-muted-light mb-1.5">Note</label>
-            <textarea value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} rows={3} className={`${inputCls} resize-none`} style={bdrStyle} placeholder="Motif, référence…" />
+            <label className="block text-xs text-app-muted-light mb-1.5">{t('Note')}</label>
+            <textarea value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} rows={3} className={`${inputCls} resize-none`} style={bdrStyle} placeholder={t('Motif, référence…')} />
           </div>
           <div className="flex justify-end gap-3 pt-1">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-app-muted-light hover:text-app-primary">Annuler</button>
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-app-muted-light hover:text-app-primary">{t('Annuler')}</button>
             <button type="submit" disabled={saving} className="px-5 py-2 rounded-lg text-sm font-semibold text-white bg-violet-600 hover:bg-violet-500 disabled:opacity-60">
-              {saving ? '…' : 'Ajouter'}
+              {saving ? '…' : tr('Ajouter')}
             </button>
           </div>
         </form>
@@ -77,6 +79,7 @@ function AddModal({ suppliers, onClose, onSaved }) {
 }
 
 export default function SupplierPaymentPage() {
+  const { t } = useTranslation('dashboard')
   const [payments, setPayments]   = useState([])
   const [suppliers, setSuppliers] = useState([])
   const [filterSup, setFilterSup] = useState('')
@@ -101,14 +104,14 @@ export default function SupplierPaymentPage() {
   useEffect(() => { fetchPayments() }, [fetchPayments])
 
   const handleDelete = async (id) => {
-    if (!confirm('Supprimer ce versement ?')) return
+    if (!confirm(t('Supprimer ce versement ?'))) return
     const payment = payments.find(p => p.id === id)
     await api.delete(`/products/suppliers/${payment.supplier}/payments/${id}/`)
     fetchPayments()
   }
 
   return (
-    <DashboardLayout title="Versement Fournisseur" subtitle="Cette page garde une trace de chaque paiement que vous avez déjà effectué à vos fournisseurs, pour que vous puissiez suivre facilement ce qui a été réglé et ce qu'il vous reste éventuellement à payer.">
+    <DashboardLayout title={t('Versement Fournisseur')} subtitle={t('Cette page garde une trace de chaque paiement que vous avez déjà effectué à vos fournisseurs, pour que vous puissiez suivre facilement ce qui a été réglé et ce qu\'il vous reste éventuellement à payer.')}>
       {modal && (
         <AddModal
           suppliers={suppliers}
@@ -120,8 +123,8 @@ export default function SupplierPaymentPage() {
       {/* Résumé */}
       <div className="grid grid-cols-3 gap-4 mb-5">
         <div className="rounded-xl border px-5 py-4" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-          <p className="text-2xl font-bold text-emerald-400">{totalAmount.toLocaleString('fr-DZ')} DZD</p>
-          <p className="text-xs mt-0.5" style={{ color: theme.dark.muted }}>Total versements ({payments.length})</p>
+          <p className="text-2xl font-bold text-emerald-400">{totalAmount.toLocaleString('fr-DZ')}{' '}{t('DZD')}</p>
+          <p className="text-xs mt-0.5" style={{ color: theme.dark.muted }}>{t('Total versements ({{length}})', { length: payments.length })}</p>
         </div>
       </div>
 
@@ -131,36 +134,34 @@ export default function SupplierPaymentPage() {
           value={filterSup}
           onChange={setFilterSup}
           options={suppliers.map(s => ({ value: s.id, label: `${s.first_name} ${s.last_name}` }))}
-          placeholder="Tous les fournisseurs"
+          placeholder={t('Tous les fournisseurs')}
           className="px-3 py-2 rounded-lg border text-sm text-app-primary outline-none focus:border-violet-500 transition"
           style={{ background: theme.dark.card, borderColor: theme.dark.border, minWidth: 200 }}
         />
-        <button onClick={() => setModal(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white bg-violet-600 hover:bg-violet-500 transition">
-          Ajouter un versement +
-        </button>
+        <button onClick={() => setModal(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white bg-violet-600 hover:bg-violet-500 transition">{t('Ajouter un versement +')}</button>
       </div>
 
       {/* Table */}
       <div className="rounded-xl border overflow-hidden" style={{ borderColor: theme.dark.border }}>
         <table className="w-full text-sm">
           <thead style={{ background: theme.dark.sidebar }}>
-            <tr className="text-left text-xs border-b" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
-              <th className="px-4 py-3 font-medium">FOURNISSEUR</th>
-              <th className="px-4 py-3 font-medium">MONTANT</th>
-              <th className="px-4 py-3 font-medium">NOTE</th>
-              <th className="px-4 py-3 font-medium">DATE</th>
-              <th className="px-4 py-3 font-medium">ACTIONS</th>
+            <tr className="text-start text-xs border-b" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
+              <th className="px-4 py-3 font-medium">{t('FOURNISSEUR')}</th>
+              <th className="px-4 py-3 font-medium">{t('MONTANT')}</th>
+              <th className="px-4 py-3 font-medium">{t('NOTE')}</th>
+              <th className="px-4 py-3 font-medium">{t('DATE')}</th>
+              <th className="px-4 py-3 font-medium">{t('ACTIONS')}</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={5} className="text-center py-12 text-app-muted">Chargement…</td></tr>
+              <tr><td colSpan={5} className="text-center py-12 text-app-muted">{t('Chargement…')}</td></tr>
             ) : payments.length === 0 ? (
-              <tr><td colSpan={5} className="text-center py-12 text-app-muted">Aucun versement enregistré.</td></tr>
+              <tr><td colSpan={5} className="text-center py-12 text-app-muted">{t('Aucun versement enregistré.')}</td></tr>
             ) : payments.map(p => (
               <tr key={p.id} className="border-b hover:bg-violet-500/5 transition" style={{ borderColor: theme.dark.borderRowHover }}>
                 <td className="px-4 py-3 text-app-primary font-medium">{p.supplier_name}</td>
-                <td className="px-4 py-3 text-emerald-400 font-semibold">{Number(p.amount).toLocaleString('fr-DZ')} DZD</td>
+                <td className="px-4 py-3 text-emerald-400 font-semibold">{Number(p.amount).toLocaleString('fr-DZ')}{' '}{t('DZD')}</td>
                 <td className="px-4 py-3 text-app-muted-light max-w-[200px] truncate">{p.note || '—'}</td>
                 <td className="px-4 py-3 text-app-muted-light text-xs">{new Date(p.date).toLocaleDateString('fr-DZ')}</td>
                 <td className="px-4 py-3">

@@ -5,11 +5,13 @@ import Select from '../../components/Select'
 import api from '../../api/axios'
 import { theme } from '../../theme'
 import { suggestReply } from '../../api/aiApi'
+import { tt } from '../../i18n'
+import { useTranslation } from 'react-i18next'
 
 const STATUS_OPTIONS = [
-  { value: 'open',        label: 'Ouverte' },
-  { value: 'in_progress', label: 'En cours' },
-  { value: 'resolved',    label: 'Résolue' },
+  { value: 'open',        label: tt('Ouverte') },
+  { value: 'in_progress', label: tt('En cours') },
+  { value: 'resolved',    label: tt('Résolue') },
 ]
 
 const STATUS_BADGE = {
@@ -19,11 +21,11 @@ const STATUS_BADGE = {
 }
 
 const CHANNEL_FILTERS = [
-  { value: '',           label: 'Tous les canaux' },
-  { value: 'complaint',  label: 'Réclamations' },
-  { value: 'exchange',   label: 'Échanges' },
-  { value: 'messenger',  label: 'Messenger' },
-  { value: 'whatsapp',   label: 'WhatsApp' },
+  { value: '',           label: tt('Tous les canaux') },
+  { value: 'complaint',  label: tt('Réclamations') },
+  { value: 'exchange',   label: tt('Échanges') },
+  { value: 'messenger',  label: tt('Messenger') },
+  { value: 'whatsapp',   label: tt('WhatsApp') },
 ]
 
 function PaperclipIcon(props) {
@@ -35,6 +37,7 @@ function PaperclipIcon(props) {
 }
 
 export default function InboxPage() {
+  const { t, t: tr } = useTranslation('dashboard')
   const { id } = useParams()
   const navigate = useNavigate()
 
@@ -150,14 +153,14 @@ export default function InboxPage() {
   }
 
   return (
-    <DashboardLayout title="Boîte de réception" subtitle="Tout ce qui vient de vos clients arrive ici : réclamations, échanges, et bientôt Messenger/WhatsApp. Un seul endroit pour tout suivre, avec le contexte de la commande à côté de chaque conversation.">
+    <DashboardLayout title={t('Boîte de réception')} subtitle={t('Tout ce qui vient de vos clients arrive ici : réclamations, échanges, et bientôt Messenger/WhatsApp. Un seul endroit pour tout suivre, avec le contexte de la commande à côté de chaque conversation.')}>
       <div className="flex gap-4 items-stretch" style={{ height: 'calc(100vh - 220px)', minHeight: 500 }}>
         {/* Colonne 1 — liste des conversations */}
         <div className="w-72 shrink-0 flex flex-col rounded-xl border overflow-hidden" style={{ borderColor: theme.dark.border, background: theme.dark.card }}>
           <div className="p-3 border-b space-y-2" style={{ borderColor: theme.dark.border }}>
             <input
               value={search} onChange={e => setSearch(e.target.value)}
-              placeholder="Rechercher…"
+              placeholder={t('Rechercher…')}
               className="w-full px-3 py-2 rounded-lg border text-sm text-app-primary bg-transparent outline-none focus:border-violet-500 transition"
               style={{ borderColor: theme.dark.border }}
             />
@@ -166,14 +169,14 @@ export default function InboxPage() {
           </div>
           <div className="flex-1 overflow-y-auto">
             {listLoading ? (
-              <p className="text-center text-xs py-6" style={{ color: theme.dark.muted }}>Chargement…</p>
+              <p className="text-center text-xs py-6" style={{ color: theme.dark.muted }}>{t('Chargement…')}</p>
             ) : list.results.length === 0 ? (
-              <p className="text-center text-xs py-6 px-3" style={{ color: theme.dark.muted }}>Aucune conversation.</p>
+              <p className="text-center text-xs py-6 px-3" style={{ color: theme.dark.muted }}>{t('Aucune conversation.')}</p>
             ) : list.results.map(c => (
               <button
                 key={c.id}
                 onClick={() => navigate(`/dashboard/boite-reception/${c.id}`)}
-                className={`w-full text-left px-3 py-3 border-b transition cursor-pointer ${String(c.id) === id ? 'bg-violet-500/10' : 'hover:bg-white/5'}`}
+                className={`w-full text-start px-3 py-3 border-b transition cursor-pointer ${String(c.id) === id ? 'bg-violet-500/10' : 'hover:bg-white/5'}`}
                 style={{ borderColor: theme.dark.borderRowHover }}
               >
                 <div className="flex items-center justify-between gap-2 mb-1">
@@ -193,11 +196,9 @@ export default function InboxPage() {
         {/* Colonne 2 — fil de discussion */}
         <div className="flex-1 min-w-0 flex flex-col rounded-xl border overflow-hidden" style={{ borderColor: theme.dark.border, background: theme.dark.card }}>
           {!id ? (
-            <div className="flex-1 flex items-center justify-center text-sm" style={{ color: theme.dark.muted }}>
-              Sélectionnez une conversation.
-            </div>
+            <div className="flex-1 flex items-center justify-center text-sm" style={{ color: theme.dark.muted }}>{t('Sélectionnez une conversation.')}</div>
           ) : convLoading || !conv ? (
-            <div className="flex-1 flex items-center justify-center text-sm" style={{ color: theme.dark.muted }}>Chargement…</div>
+            <div className="flex-1 flex items-center justify-center text-sm" style={{ color: theme.dark.muted }}>{t('Chargement…')}</div>
           ) : (
             <>
               <div className="p-4 border-b flex items-center justify-between gap-2 flex-wrap" style={{ borderColor: theme.dark.border }}>
@@ -210,7 +211,7 @@ export default function InboxPage() {
 
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
                 {conv.messages.length === 0 ? (
-                  <p className="text-sm text-center py-6" style={{ color: theme.dark.muted }}>Aucun message.</p>
+                  <p className="text-sm text-center py-6" style={{ color: theme.dark.muted }}>{t('Aucun message.')}</p>
                 ) : conv.messages.map(m => (
                   <div key={m.id} className={`flex ${m.direction === 'inbound' ? 'justify-start' : 'justify-end'}`}>
                     <div className={`max-w-[75%] rounded-xl px-3.5 py-2.5 ${m.direction === 'inbound' ? '' : 'bg-violet-600/15'}`}
@@ -222,7 +223,7 @@ export default function InboxPage() {
                       {m.body && <p className="text-sm text-app-primary whitespace-pre-line">{m.body}</p>}
                       {m.attachment_url && (
                         <a href={m.attachment_url} target="_blank" rel="noreferrer" className="inline-block mt-2">
-                          <img src={m.attachment_url} alt="Pièce jointe" className="w-24 h-24 object-cover rounded-lg border" style={{ borderColor: theme.dark.border }} />
+                          <img src={m.attachment_url} alt={tr('Pièce jointe')} className="w-24 h-24 object-cover rounded-lg border" style={{ borderColor: theme.dark.border }} />
                         </a>
                       )}
                     </div>
@@ -233,17 +234,17 @@ export default function InboxPage() {
               <div className="p-3 border-t space-y-2" style={{ borderColor: theme.dark.border }}>
                 <button type="button" onClick={handleAiSuggest} disabled={aiSuggesting}
                   className={theme.btn.outline + ' text-xs py-1 px-2 disabled:opacity-50'}>
-                  {aiSuggesting ? 'Suggestion…' : '✨ Suggérer une réponse'}
+                  {aiSuggesting ? tr('Suggestion…') : t('✨ Suggérer une réponse')}
                 </button>
-                <textarea value={newMessage} onChange={e => setNewMessage(e.target.value)} rows={2} className={`${inputCls} resize-none`} style={bdrStyle} placeholder="Répondre au client…" />
+                <textarea value={newMessage} onChange={e => setNewMessage(e.target.value)} rows={2} className={`${inputCls} resize-none`} style={bdrStyle} placeholder={t('Répondre au client…')} />
                 <div className="flex items-center justify-between">
                   <label className="inline-flex items-center gap-1.5 text-xs cursor-pointer transition hover:text-app-primary" style={{ color: theme.dark.muted }}>
                     <PaperclipIcon />
-                    {attachment ? attachment.name : 'Joindre une photo'}
+                    {attachment ? attachment.name : t('Joindre une photo')}
                     <input type="file" accept="image/*" className="hidden" onChange={e => setAttachment(e.target.files?.[0] || null)} />
                   </label>
                   <button onClick={addMessage} disabled={savingMessage || (!newMessage.trim() && !attachment)} className={theme.btn.primary + ' text-sm disabled:opacity-50'}>
-                    {savingMessage ? '…' : 'Envoyer'}
+                    {savingMessage ? '…' : tr('Envoyer')}
                   </button>
                 </div>
               </div>
@@ -257,35 +258,35 @@ export default function InboxPage() {
             {order && (
               <div className="rounded-xl border p-4" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
                 <h3 className="text-sm font-semibold text-app-primary mb-3">
-                  <Link to={`/dashboard/commandes/${order.id}`} className="text-violet-300 hover:text-violet-200">Commande #{order.id}</Link>
+                  <Link to={`/dashboard/commandes/${order.id}`} className="text-violet-300 hover:text-violet-200">{t('Commande #{{id}}', { id: order.id })}</Link>
                 </h3>
                 <div className="space-y-1.5 text-xs" style={{ color: theme.dark.muted }}>
-                  <p>Statut : <span className="text-app-primary">{order.status_label}</span></p>
-                  <p>Total : <span className="text-app-primary">{Number(order.total).toLocaleString('fr-DZ')} DZD</span></p>
-                  {order.carrier_tracking_number && <p>Suivi : <span className="text-app-primary font-mono">{order.carrier_tracking_number}</span></p>}
-                  <p>Wilaya : <span className="text-app-primary">{order.wilaya}</span></p>
+                  <p>{t('Statut :')}{' '}<span className="text-app-primary">{order.status_label}</span></p>
+                  <p>{t('Total :')}{' '}<span className="text-app-primary">{Number(order.total).toLocaleString('fr-DZ')}{' '}{t('DZD')}</span></p>
+                  {order.carrier_tracking_number && <p>{t('Suivi :')}{' '}<span className="text-app-primary font-mono">{order.carrier_tracking_number}</span></p>}
+                  <p>{t('Wilaya :')}{' '}<span className="text-app-primary">{order.wilaya}</span></p>
                 </div>
               </div>
             )}
 
             <div className="rounded-xl border p-4" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-              <h3 className="text-sm font-semibold text-app-primary mb-3">Assignation</h3>
-              <p className="text-sm text-app-primary mb-3">{conv.assigned_to_name || 'Non assignée'}</p>
+              <h3 className="text-sm font-semibold text-app-primary mb-3">{t('Assignation')}</h3>
+              <p className="text-sm text-app-primary mb-3">{conv.assigned_to_name || t('Non assignée')}</p>
               <Select
                 value="" onChange={reassign}
                 options={confirmateurs.map(c => ({ value: c.id, label: `${c.first_name} ${c.last_name}` }))}
-                placeholder={assigning ? 'Réassignation…' : 'Réassigner à…'}
+                placeholder={assigning ? t('Réassignation…') : t('Réassigner à…')}
                 disabled={assigning || confirmateurs.length === 0}
                 className={inputCls} style={bdrStyle}
               />
             </div>
 
             <div className="rounded-xl border p-4" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-              <h3 className="text-sm font-semibold text-app-primary mb-3">Changer le statut</h3>
+              <h3 className="text-sm font-semibold text-app-primary mb-3">{t('Changer le statut')}</h3>
               <Select value={newStatus} onChange={setNewStatus} options={STATUS_OPTIONS} className={inputCls + ' mb-2'} style={bdrStyle} />
-              <textarea value={note} onChange={e => setNote(e.target.value)} rows={2} className={`${inputCls} resize-none mb-2`} style={bdrStyle} placeholder="Note (optionnel)" />
+              <textarea value={note} onChange={e => setNote(e.target.value)} rows={2} className={`${inputCls} resize-none mb-2`} style={bdrStyle} placeholder={t('Note (optionnel)')} />
               <button onClick={changeStatus} disabled={savingStatus || newStatus === conv.status} className={theme.btn.primary + ' w-full disabled:opacity-50 text-sm'}>
-                {savingStatus ? '…' : 'Appliquer'}
+                {savingStatus ? '…' : tr('Appliquer')}
               </button>
             </div>
           </div>

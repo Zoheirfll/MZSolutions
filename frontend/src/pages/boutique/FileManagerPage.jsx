@@ -3,6 +3,8 @@ import DashboardLayout from '../../components/DashboardLayout'
 import Select from '../../components/Select'
 import api from '../../api/axios'
 import { theme } from '../../theme'
+import { useTranslation } from 'react-i18next'
+import { sfx } from '../../i18n'
 
 function FolderIcon({ open }) {
   return (
@@ -35,6 +37,7 @@ function formatSize(bytes) {
 }
 
 export default function FileManagerPage() {
+  const { t } = useTranslation('dashboard')
   const [folders,  setFolders]  = useState([])
   const [files,    setFiles]    = useState([])
   const [selected, setSelected] = useState(null) // folder id or null = root
@@ -72,7 +75,7 @@ export default function FileManagerPage() {
 
   const bulkDelete = async () => {
     if (checked.size === 0) return
-    if (!confirm(`Supprimer ${checked.size} fichier(s) ?`)) return
+    if (!confirm(t('Supprimer {{size}} fichier(s) ?', { size: checked.size }))) return
     setBulkBusy(true)
     try {
       await api.post('/media/files/bulk-delete/', { ids: Array.from(checked) })
@@ -104,7 +107,7 @@ export default function FileManagerPage() {
   }
 
   const deleteFolder = async (id) => {
-    if (!confirm('Supprimer ce dossier et tous ses fichiers ?')) return
+    if (!confirm(t('Supprimer ce dossier et tous ses fichiers ?'))) return
     await api.delete(`/media/folders/${id}/`).catch(() => {})
     if (selected === id) setSelected(null)
     loadFolders()
@@ -135,7 +138,7 @@ export default function FileManagerPage() {
   }
 
   const deleteFile = async (id) => {
-    if (!confirm('Supprimer ce fichier ?')) return
+    if (!confirm(t('Supprimer ce fichier ?'))) return
     setDeleting(id)
     await api.delete(`/media/files/${id}/`).catch(() => {})
     setDeleting(null)
@@ -148,30 +151,30 @@ export default function FileManagerPage() {
     navigator.clipboard.writeText(url).then(() => { setCopied(id); setTimeout(() => setCopied(null), 2000) })
   }
 
-  const activeLabel = selected === '__root__' ? 'Racine (sans dossier)'
+  const activeLabel = selected === '__root__' ? t('Racine (sans dossier)')
     : selected ? folders.find(f => f.id === selected)?.name || '…'
-    : 'Tous les fichiers'
+    : t('Tous les fichiers')
 
   return (
-    <DashboardLayout title="Gestionnaire de fichiers" subtitle="Cette page stocke toutes les images et fichiers que vous utilisez pour décorer votre boutique (logo, bannières, images dans vos pages personnalisées). Vous pouvez y déposer un nouveau fichier, copier son adresse (URL) pour la réutiliser ailleurs, le renommer, le déplacer dans un dossier, ou en supprimer plusieurs en même temps. L'espace total déjà utilisé est indiqué en haut de la page.">
+    <DashboardLayout title={t('Gestionnaire de fichiers')} subtitle={t('Cette page stocke toutes les images et fichiers que vous utilisez pour décorer votre boutique (logo, bannières, images dans vos pages personnalisées). Vous pouvez y déposer un nouveau fichier, copier son adresse (URL) pour la réutiliser ailleurs, le renommer, le déplacer dans un dossier, ou en supprimer plusieurs en même temps. L\'espace total déjà utilisé est indiqué en haut de la page.')}>
       <div className="flex gap-4 h-[calc(100vh-10rem)] min-h-[500px]">
 
         {/* Sidebar dossiers */}
         <div className="w-52 shrink-0 flex flex-col gap-1 overflow-y-auto">
-          <p className="text-[10px] font-semibold uppercase tracking-widest mb-1 px-1" style={{ color: theme.dark.muted }}>Dossiers</p>
+          <p className="text-[10px] font-semibold uppercase tracking-widest mb-1 px-1" style={{ color: theme.dark.muted }}>{t('Dossiers')}</p>
           {storage && (
             <p className="text-[11px] mb-2 px-1" style={{ color: theme.dark.muted }}>
-              {formatSize(storage.total_size)} utilisés · {storage.count} fichier{storage.count !== 1 ? 's' : ''}
+              {formatSize(storage.total_size)}{' '}{t('utilisés · {{count}} fichier', { count: storage.count })}{storage.count !== 1 ? sfx('s') : ''}
             </p>
           )}
 
           {/* Tous */}
           {[
-            { id: null,       label: 'Tous les fichiers' },
-            { id: '__root__', label: 'Sans dossier' },
+            { id: null,       label: t('Tous les fichiers') },
+            { id: '__root__', label: t('Sans dossier') },
           ].map(({ id, label }) => (
             <button key={String(id)} type="button" onClick={() => setSelected(id)}
-              className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm transition-all cursor-pointer w-full text-left"
+              className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm transition-all cursor-pointer w-full text-start"
               style={{ background: selected === id ? 'rgba(124,58,237,0.12)' : 'transparent', color: selected === id ? '#a78bfa' : theme.dark.mutedLight }}>
               <FolderIcon open={selected === id} /> {label}
             </button>
@@ -182,11 +185,11 @@ export default function FileManagerPage() {
           {folders.map(f => (
             <div key={f.id} className="flex items-center gap-1 group">
               <button type="button" onClick={() => setSelected(f.id)}
-                className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm transition-all cursor-pointer flex-1 text-left"
+                className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm transition-all cursor-pointer flex-1 text-start"
                 style={{ background: selected === f.id ? 'rgba(124,58,237,0.12)' : 'transparent', color: selected === f.id ? '#a78bfa' : theme.dark.mutedLight }}>
                 <FolderIcon open={selected === f.id} />
                 <span className="truncate">{f.name}</span>
-                <span className="ml-auto text-[10px] opacity-50">{f.file_count}</span>
+                <span className="ms-auto text-[10px] opacity-50">{f.file_count}</span>
               </button>
               <button type="button" onClick={() => deleteFolder(f.id)}
                 className="opacity-0 group-hover:opacity-100 p-1 rounded text-red-400 hover:text-red-300 cursor-pointer transition-all">
@@ -204,7 +207,7 @@ export default function FileManagerPage() {
                 onKeyDown={e => { if (e.key === 'Enter') createFolder(); if (e.key === 'Escape') setAddingFolder(false) }}
                 autoFocus className="flex-1 text-xs px-2 py-1.5 rounded-lg outline-none"
                 style={{ background: theme.dark.card, border: `1px solid ${theme.dark.border}`, color: '#e5e7eb' }}
-                placeholder="Nom du dossier" />
+                placeholder={t('Nom du dossier')} />
               <button type="button" onClick={createFolder} className="text-violet-400 hover:text-violet-300 cursor-pointer px-1">✓</button>
             </div>
           ) : (
@@ -212,9 +215,7 @@ export default function FileManagerPage() {
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs cursor-pointer transition-colors mt-1"
               style={{ color: theme.dark.muted }}
               onMouseEnter={e => e.currentTarget.style.color = '#7c3aed'}
-              onMouseLeave={e => e.currentTarget.style.color = theme.dark.muted}>
-              + Nouveau dossier
-            </button>
+              onMouseLeave={e => e.currentTarget.style.color = theme.dark.muted}>{t('+ Nouveau dossier')}</button>
           )}
         </div>
 
@@ -227,17 +228,17 @@ export default function FileManagerPage() {
               <button type="button" onClick={bulkDelete} disabled={bulkBusy}
                 className="text-xs px-3 py-1.5 rounded-lg text-red-400 border cursor-pointer transition-colors"
                 style={{ borderColor: 'rgba(248,113,113,0.3)' }}>
-                {bulkBusy ? '…' : `Supprimer (${checked.size})`}
+                {bulkBusy ? '…' : t('Supprimer ({{size}})', { size: checked.size })}
               </button>
             )}
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher…"
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('Rechercher…')}
               className="text-sm px-3 py-1.5 rounded-xl outline-none w-48"
               style={{ background: theme.dark.card, border: `1px solid ${theme.dark.border}`, color: '#d1d5db' }} />
             <input ref={fileInput} type="file" multiple accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx"
               onChange={e => uploadFiles(e.target.files)} className="hidden" />
             <button type="button" onClick={() => fileInput.current?.click()} disabled={uploading}
               className={theme.btn.primary}>
-              {uploading ? `${uploadProgress.done}/${uploadProgress.total} uploadé(s)…` : '+ Importer'}
+              {uploading ? t('{{done}}/{{total}} uploadé(s)…', { done: uploadProgress.done, total: uploadProgress.total }) : '+ Importer'}
             </button>
           </div>
 
@@ -248,11 +249,9 @@ export default function FileManagerPage() {
                 <svg className="w-10 h-10 mb-3 opacity-30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                   <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>
                 </svg>
-                <p className="text-sm">Aucun fichier dans ce dossier</p>
+                <p className="text-sm">{t('Aucun fichier dans ce dossier')}</p>
                 <button type="button" onClick={() => fileInput.current?.click()}
-                  className="text-sm mt-2 font-medium" style={{ color: '#7c3aed' }}>
-                  Importer des fichiers
-                </button>
+                  className="text-sm mt-2 font-medium" style={{ color: '#7c3aed' }}>{t('Importer des fichiers')}</button>
               </div>
             ) : (
               <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
@@ -263,7 +262,7 @@ export default function FileManagerPage() {
                     onMouseLeave={e => e.currentTarget.style.borderColor = checked.has(file.id) ? '#7c3aed' : theme.dark.border}>
                     {/* Checkbox */}
                     <input type="checkbox" checked={checked.has(file.id)} onChange={() => toggleCheck(file.id)}
-                      className={`absolute top-1.5 left-1.5 z-10 w-4 h-4 rounded cursor-pointer transition-opacity ${checked.has(file.id) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`} />
+                      className={`absolute top-1.5 start-1.5 z-10 w-4 h-4 rounded cursor-pointer transition-opacity ${checked.has(file.id) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`} />
                     {/* Thumbnail */}
                     <div className="aspect-square flex items-center justify-center overflow-hidden"
                       style={{ background: theme.dark.app }}>
@@ -279,7 +278,7 @@ export default function FileManagerPage() {
                         <button type="button" onClick={() => copyUrl(file.url, file.id)}
                           className="flex-1 text-[10px] py-0.5 rounded text-center cursor-pointer transition-colors"
                           style={{ background: copied === file.id ? 'rgba(124,58,237,0.3)' : 'rgba(124,58,237,0.1)', color: copied === file.id ? '#a78bfa' : 'var(--text-muted-light)' }}>
-                          {copied === file.id ? 'Copié !' : 'Copier URL'}
+                          {copied === file.id ? t('Copié !') : t('Copier URL')}
                         </button>
                         <button type="button" onClick={() => deleteFile(file.id)} disabled={deleting === file.id}
                           className="px-1.5 py-0.5 rounded text-red-400 hover:text-red-300 cursor-pointer text-[10px]"
@@ -291,7 +290,7 @@ export default function FileManagerPage() {
                         <div className="mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           <Select value={file.folder || ''} onChange={v => moveFile(file.id, v)}
                             disabled={movingId === file.id}
-                            options={[{ value: '', label: 'Sans dossier' }, ...folders.map(f => ({ value: f.id, label: f.name }))]}
+                            options={[{ value: '', label: t('Sans dossier') }, ...folders.map(f => ({ value: f.id, label: f.name }))]}
                             variant="dark" className="text-[10px] rounded-lg border px-1.5 py-1 w-full"
                             style={{ background: theme.dark.app, borderColor: theme.dark.border }} />
                         </div>

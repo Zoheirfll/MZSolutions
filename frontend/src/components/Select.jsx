@@ -1,6 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { theme } from '../theme'
+import { useTranslation } from 'react-i18next'
+import { tt } from '../i18n'
 
 // Custom dropdown replacing the native <select>. Windows/Chrome renders
 // native selects with OS chrome that ignores almost all authored CSS
@@ -15,7 +17,8 @@ import { theme } from '../theme'
 // horizontally-scrollable table wrapper), which silently cuts the dropdown
 // off or forces an unwanted inner scrollbar. The portal escapes that clipping
 // entirely, so this Select is always safe to use inside a scrollable table.
-export default function Select({ value, onChange, options, placeholder = 'Sélectionner…', className = '', style, disabled = false, variant = 'dark' }) {
+export default function Select({ value, onChange, options, placeholder = tt('Sélectionner…'), className = '', style, disabled = false, variant = 'dark' }) {
+  const { t } = useTranslation('dashboard')
   const [open, setOpen] = useState(false)
   const [coords, setCoords] = useState(null)
   const ref = useRef(null)
@@ -66,7 +69,7 @@ export default function Select({ value, onChange, options, placeholder = 'Sélec
         disabled={disabled}
         onClick={() => setOpen(o => !o)}
         style={style}
-        className={`${className} flex items-center justify-between gap-2 text-left cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed`}
+        className={`${className} flex items-center justify-between gap-2 text-start cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed`}
       >
         <span className={`truncate ${selected ? '' : 'opacity-50'}`}>{selected ? selected.label : placeholder}</span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
@@ -88,7 +91,7 @@ export default function Select({ value, onChange, options, placeholder = 'Sélec
               key={o.value}
               type="button"
               onClick={() => { onChange(o.value); setOpen(false) }}
-              className={`w-full text-left px-3.5 py-2 text-sm transition-colors duration-100 cursor-pointer ${
+              className={`w-full text-start px-3.5 py-2 text-sm transition-colors duration-100 cursor-pointer ${
                 String(o.value) === String(value)
                   ? (variant === 'light' ? 'bg-violet-50 text-violet-700' : 'bg-violet-600/20 text-violet-300')
                   : (variant === 'light' ? 'text-gray-700 hover:bg-gray-50' : 'text-gray-300 hover:bg-violet-500/5')

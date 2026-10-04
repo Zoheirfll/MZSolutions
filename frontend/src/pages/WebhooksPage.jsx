@@ -2,22 +2,24 @@ import { useEffect, useState } from 'react'
 import DashboardLayout from '../components/DashboardLayout'
 import api from '../api/axios'
 import { theme } from '../theme'
+import { useTranslation } from 'react-i18next'
+import { sfx } from '../i18n'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 function Spinner() {
+  const { t } = useTranslation('dashboard')
   return (
     <div className="flex items-center justify-center gap-2 text-app-muted py-10">
       <svg className="w-5 h-5 animate-spin text-violet-500" viewBox="0 0 24 24" fill="none">
         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-      </svg>
-      Chargement…
-    </div>
+      </svg>{t('Chargement…')}</div>
   )
 }
 
 function EndpointModal({ catalog, onClose, onSaved }) {
+  const { t } = useTranslation('dashboard')
   const [name, setName]     = useState('')
   const [url, setUrl]       = useState('')
   const [events, setEvents] = useState([])
@@ -42,18 +44,18 @@ function EndpointModal({ catalog, onClose, onSaved }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
       <div className="w-full max-w-lg rounded-xl border p-6" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-        <h3 className="font-semibold text-app-primary mb-5">Ajouter un endpoint</h3>
+        <h3 className="font-semibold text-app-primary mb-5">{t('Ajouter un endpoint')}</h3>
         <form onSubmit={submit} className="space-y-4">
           <div>
-            <label className="block text-xs text-app-muted-light mb-1.5">Nom</label>
-            <input value={name} onChange={e => setName(e.target.value)} placeholder="Ex : Mon ERP" className={inputCls} style={bdrStyle} />
+            <label className="block text-xs text-app-muted-light mb-1.5">{t('Nom')}</label>
+            <input value={name} onChange={e => setName(e.target.value)} placeholder={t('Ex : Mon ERP')} className={inputCls} style={bdrStyle} />
           </div>
           <div>
-            <label className="block text-xs text-app-muted-light mb-1.5">URL de l'endpoint *</label>
-            <input value={url} onChange={e => setUrl(e.target.value)} required placeholder="https://votre-app.com/webhooks" className={inputCls} style={bdrStyle} />
+            <label className="block text-xs text-app-muted-light mb-1.5">{t('URL de l\'endpoint *')}</label>
+            <input value={url} onChange={e => setUrl(e.target.value)} required placeholder={t('https://votre-app.com/webhooks')} className={inputCls} style={bdrStyle} />
           </div>
           <div>
-            <label className="block text-xs text-app-muted-light mb-2">Événements ({events.length} sélectionné{events.length !== 1 ? 's' : ''} — aucun = tous)</label>
+            <label className="block text-xs text-app-muted-light mb-2">{t('Événements ({{length}} sélectionné', { length: events.length })}{events.length !== 1 ? sfx('s') : ''}{' '}{t('— aucun = tous)')}</label>
             <div className="flex flex-wrap gap-2">
               {catalog.map(ev => (
                 <button key={ev.key} type="button" onClick={() => toggleEvent(ev.key)}
@@ -67,14 +69,14 @@ function EndpointModal({ catalog, onClose, onSaved }) {
           <div className="flex items-center gap-3">
             <button type="button" onClick={() => setActive(a => !a)}
               className={`w-9 h-5 rounded-full transition-colors duration-150 relative cursor-pointer ${active ? 'bg-violet-600' : 'bg-violet-500/15'}`}>
-              <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-150 ${active ? 'translate-x-4' : 'translate-x-0.5'}`} />
+              <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-150 ${active ? 'translate-x-4 rtl:-translate-x-4' : 'translate-x-0.5 rtl:-translate-x-0.5'}`} />
             </button>
-            <span className="text-sm text-app-primary">Actif</span>
+            <span className="text-sm text-app-primary">{t('Actif')}</span>
           </div>
           <div className="flex justify-end gap-3 pt-1">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-app-muted-light hover:text-app-primary cursor-pointer transition">Fermer</button>
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-app-muted-light hover:text-app-primary cursor-pointer transition">{t('Fermer')}</button>
             <button type="submit" disabled={saving} className={theme.btn.primary + ' text-sm disabled:opacity-60'}>
-              {saving ? '…' : "Créer l'endpoint"}
+              {saving ? '…' : t('Créer l\'endpoint')}
             </button>
           </div>
         </form>
@@ -84,6 +86,7 @@ function EndpointModal({ catalog, onClose, onSaved }) {
 }
 
 export default function WebhooksPage() {
+  const { t, t: tr } = useTranslation('dashboard')
   const [endpoints, setEndpoints] = useState([])
   const [logs, setLogs]           = useState([])
   const [incomingKey, setIncomingKey] = useState(null)
@@ -107,7 +110,7 @@ export default function WebhooksPage() {
   useEffect(() => { fetchAll() }, [])
 
   const handleDelete = async (id) => {
-    if (!confirm('Supprimer cet endpoint ?')) return
+    if (!confirm(t('Supprimer cet endpoint ?'))) return
     await api.delete(`/webhooks/endpoints/${id}/`)
     fetchAll()
   }
@@ -118,7 +121,7 @@ export default function WebhooksPage() {
   }
 
   const regenerateKey = async () => {
-    if (!confirm('Régénérer la clé ? Les intégrations existantes utilisant l\'ancienne URL cesseront de fonctionner.')) return
+    if (!confirm(t('Régénérer la clé ? Les intégrations existantes utilisant l\'ancienne URL cesseront de fonctionner.'))) return
     const { data } = await api.post('/webhooks/incoming-key/')
     setIncomingKey(data)
   }
@@ -129,10 +132,8 @@ export default function WebhooksPage() {
   const incomingUrl = incomingKey ? `${API_BASE}/api/public/webhooks/incoming/${incomingKey.key}/` : ''
 
   return (
-    <DashboardLayout title="Webhooks" subtitle={`Cette page est destinée aux utilisateurs avancés qui veulent connecter MZSolutions à d'autres outils automatiquement, sans intervention manuelle (par exemple via Zapier, Make ou n8n). Section "Sortants" : donnez une adresse web, et MZSolutions lui enverra automatiquement un signal à chaque événement que vous choisissez (nouvelle commande, commande livrée...). Section "Entrants" : vous obtenez une adresse propre à votre boutique où d'autres outils peuvent vous envoyer des informations. Tout ce qui transite est journalisé en bas de page pour vérifier que ça fonctionne. Si vous ne savez pas ce qu'est une "URL" ou un "webhook", vous n'avez probablement pas besoin de cette page.`}>
-      <p className="text-sm mb-2" style={{ color: theme.dark.muted }}>
-        Envoyez les événements de votre boutique vers d'autres systèmes en temps réel — ERP, comptabilité, partenaires logistiques, ou vos propres intégrations (Zapier, Make, n8n...).
-      </p>
+    <DashboardLayout title={t('Webhooks')} subtitle={t('Cette page est destinée aux utilisateurs avancés qui veulent connecter MZSolutions à d\'autres outils automatiquement, sans intervention manuelle (par exemple via Zapier, Make ou n8n). Section "Sortants" : donnez une adresse web, et MZSolutions lui enverra automatiquement un signal à chaque événement que vous choisissez (nouvelle commande, commande livrée...). Section "Entrants" : vous obtenez une adresse propre à votre boutique où d\'autres outils peuvent vous envoyer des informations. Tout ce qui transite est journalisé en bas de page pour vérifier que ça fonctionne. Si vous ne savez pas ce qu\'est une "URL" ou un "webhook", vous n\'avez probablement pas besoin de cette page.')}>
+      <p className="text-sm mb-2" style={{ color: theme.dark.muted }}>{t('Envoyez les événements de votre boutique vers d\'autres systèmes en temps réel — ERP, comptabilité, partenaires logistiques, ou vos propres intégrations (Zapier, Make, n8n...).')}</p>
 
       {loading ? <Spinner /> : (
         <>
@@ -143,44 +144,44 @@ export default function WebhooksPage() {
                 <button key={f} onClick={() => setStatusFilter(f)}
                   className={`px-3.5 py-1.5 rounded-lg text-sm font-medium transition ${statusFilter === f ? 'text-white bg-violet-600' : 'text-app-muted-light hover:text-app-primary hover:bg-violet-500/5'}`}
                   style={statusFilter === f ? undefined : { border: `1px solid ${theme.dark.border}` }}>
-                  {f === 'all' ? 'Tous' : f === 'active' ? 'Actifs' : 'Inactifs'}
+                  {f === 'all' ? tr('Tous') : f === 'active' ? tr('Actifs') : tr('Inactifs')}
                 </button>
               ))}
             </div>
-            <button onClick={() => setModalOpen(true)} className={theme.btn.primary + ' text-sm'}>+ Ajouter un endpoint</button>
+            <button onClick={() => setModalOpen(true)} className={theme.btn.primary + ' text-sm'}>{t('+ Ajouter un endpoint')}</button>
           </div>
 
           <div className="rounded-xl border overflow-x-auto mb-3" style={{ borderColor: theme.dark.border }}>
             <table className="w-full text-sm min-w-180">
               <thead style={{ background: theme.dark.sidebar }}>
-                <tr className="text-left text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
-                  <th className="px-4 py-3 font-medium">ENDPOINT</th>
-                  <th className="px-4 py-3 font-medium">ÉVÉNEMENTS</th>
-                  <th className="px-4 py-3 font-medium">STATUT</th>
-                  <th className="px-4 py-3 font-medium">DERNIER DÉCLENCHEMENT</th>
-                  <th className="px-4 py-3 font-medium">ACTIONS</th>
+                <tr className="text-start text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
+                  <th className="px-4 py-3 font-medium">{t('ENDPOINT')}</th>
+                  <th className="px-4 py-3 font-medium">{t('ÉVÉNEMENTS')}</th>
+                  <th className="px-4 py-3 font-medium">{t('STATUT')}</th>
+                  <th className="px-4 py-3 font-medium">{t('DERNIER DÉCLENCHEMENT')}</th>
+                  <th className="px-4 py-3 font-medium">{t('ACTIONS')}</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredEndpoints.length === 0 ? (
-                  <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-app-muted">Aucun endpoint configuré.</td></tr>
+                  <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-app-muted">{t('Aucun endpoint configuré.')}</td></tr>
                 ) : filteredEndpoints.map(ep => (
                   <tr key={ep.id} className="border-b hover:bg-violet-500/5 transition" style={{ borderColor: theme.dark.borderRowHover }}>
                     <td className="px-4 py-3 text-app-primary">{ep.name || '—'}<br /><span className="text-xs text-app-muted font-mono">{ep.url}</span></td>
-                    <td className="px-4 py-3 text-app-muted-light text-xs max-w-56 truncate" title={ep.events.join(', ') || 'Tous'}>{ep.events.length ? ep.events.join(', ') : 'Tous'}</td>
+                    <td className="px-4 py-3 text-app-muted-light text-xs max-w-56 truncate" title={ep.events.join(', ') || tr('Tous')}>{ep.events.length ? ep.events.join(', ') : tr('Tous')}</td>
                     <td className="px-4 py-3">
-                      <span className={ep.is_active ? theme.badge.success : theme.badge.neutral}>{ep.is_active ? 'Actif' : 'Inactif'}</span>
+                      <span className={ep.is_active ? theme.badge.success : theme.badge.neutral}>{ep.is_active ? tr('Actif') : tr('Inactif')}</span>
                       {ep.consecutive_failures > 0 && (
-                        <span className={`${theme.badge.warning} ml-1.5`}>{ep.consecutive_failures} échec{ep.consecutive_failures !== 1 ? 's' : ''}</span>
+                        <span className={`${theme.badge.warning} ms-1.5`}>{t('{{consecutive_failures}} échec', { consecutive_failures: ep.consecutive_failures })}{ep.consecutive_failures !== 1 ? sfx('s') : ''}</span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-app-muted text-xs">{ep.last_triggered_at ? new Date(ep.last_triggered_at).toLocaleString('fr-DZ') : 'jamais'}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <button onClick={() => handleToggleActive(ep)} className="text-xs text-violet-300 hover:bg-violet-500/5 px-2 py-1 rounded transition cursor-pointer">
-                          {ep.is_active ? 'Désactiver' : 'Activer'}
+                          {ep.is_active ? t('Désactiver') : tr('Activer')}
                         </button>
-                        <button onClick={() => handleDelete(ep.id)} className="text-xs text-red-400 hover:bg-red-900/20 px-2 py-1 rounded transition cursor-pointer">Supprimer</button>
+                        <button onClick={() => handleDelete(ep.id)} className="text-xs text-red-400 hover:bg-red-900/20 px-2 py-1 rounded transition cursor-pointer">{t('Supprimer')}</button>
                       </div>
                     </td>
                   </tr>
@@ -188,47 +189,41 @@ export default function WebhooksPage() {
               </tbody>
             </table>
           </div>
-          <p className="text-xs mb-8" style={{ color: theme.dark.muted }}>
-            Un endpoint désactivé automatiquement après 20 échecs consécutifs — réactivez-le une fois le problème corrigé.
-          </p>
+          <p className="text-xs mb-8" style={{ color: theme.dark.muted }}>{t('Un endpoint désactivé automatiquement après 20 échecs consécutifs — réactivez-le une fois le problème corrigé.')}</p>
 
           {/* Webhooks entrants */}
-          <h2 className="font-semibold text-app-primary mb-3">Webhooks entrants</h2>
+          <h2 className="font-semibold text-app-primary mb-3">{t('Webhooks entrants')}</h2>
           <div className="rounded-xl border p-5 mb-8" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-            <p className="text-xs mb-4" style={{ color: theme.dark.muted }}>
-              Utilisez cette URL dans un outil externe (Zapier, Make, n8n...) pour lui envoyer des données — la clé secrète dans l'URL authentifie la requête.
-            </p>
+            <p className="text-xs mb-4" style={{ color: theme.dark.muted }}>{t('Utilisez cette URL dans un outil externe (Zapier, Make, n8n...) pour lui envoyer des données — la clé secrète dans l\'URL authentifie la requête.')}</p>
             <div className="flex items-center gap-2">
               <input readOnly value={incomingUrl} className="flex-1 px-3.5 py-2.5 rounded-lg border text-sm text-app-primary bg-transparent outline-none font-mono text-xs" style={{ borderColor: theme.dark.border }} />
-              <button onClick={() => navigator.clipboard.writeText(incomingUrl)} className={theme.btn.primary + ' text-sm shrink-0'}>Copier</button>
-              <button onClick={regenerateKey} className="px-4 py-2.5 rounded-lg text-sm font-semibold border text-red-400 hover:bg-red-900/20 transition cursor-pointer shrink-0" style={{ borderColor: theme.dark.border }}>
-                Régénérer
-              </button>
+              <button onClick={() => navigator.clipboard.writeText(incomingUrl)} className={theme.btn.primary + ' text-sm shrink-0'}>{t('Copier')}</button>
+              <button onClick={regenerateKey} className="px-4 py-2.5 rounded-lg text-sm font-semibold border text-red-400 hover:bg-red-900/20 transition cursor-pointer shrink-0" style={{ borderColor: theme.dark.border }}>{t('Régénérer')}</button>
             </div>
           </div>
 
           {/* Journal */}
-          <h2 className="font-semibold text-app-primary mb-3">Journal</h2>
+          <h2 className="font-semibold text-app-primary mb-3">{t('Journal')}</h2>
           <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border }}>
             <table className="w-full text-sm min-w-180">
               <thead style={{ background: theme.dark.sidebar }}>
-                <tr className="text-left text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
-                  <th className="px-4 py-3 font-medium">SENS</th>
-                  <th className="px-4 py-3 font-medium">ÉVÉNEMENT</th>
-                  <th className="px-4 py-3 font-medium">STATUT</th>
-                  <th className="px-4 py-3 font-medium">DÉTAIL</th>
-                  <th className="px-4 py-3 font-medium">DATE</th>
+                <tr className="text-start text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
+                  <th className="px-4 py-3 font-medium">{t('SENS')}</th>
+                  <th className="px-4 py-3 font-medium">{t('ÉVÉNEMENT')}</th>
+                  <th className="px-4 py-3 font-medium">{t('STATUT')}</th>
+                  <th className="px-4 py-3 font-medium">{t('DÉTAIL')}</th>
+                  <th className="px-4 py-3 font-medium">{t('DATE')}</th>
                 </tr>
               </thead>
               <tbody>
                 {logs.length === 0 ? (
-                  <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-app-muted">Aucun événement pour l'instant.</td></tr>
+                  <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-app-muted">{t('Aucun événement pour l\'instant.')}</td></tr>
                 ) : logs.map(l => (
                   <tr key={l.id} className="border-b hover:bg-violet-500/5 transition" style={{ borderColor: theme.dark.borderRowHover }}>
                     <td className="px-4 py-3 text-app-primary">{l.direction_label}{l.endpoint_name && <><br /><span className="text-xs text-app-muted">{l.endpoint_name}</span></>}</td>
                     <td className="px-4 py-3 text-app-muted-light text-xs">{l.event || '—'}</td>
                     <td className="px-4 py-3">
-                      <span className={l.status === 'success' ? theme.badge.success : theme.badge.danger}>{l.status === 'success' ? 'Succès' : 'Erreur'}{l.status_code ? ` (${l.status_code})` : ''}</span>
+                      <span className={l.status === 'success' ? theme.badge.success : theme.badge.danger}>{l.status === 'success' ? t('Succès') : tr('Erreur')}{l.status_code ? ` (${l.status_code})` : ''}</span>
                     </td>
                     <td className="px-4 py-3 text-app-muted-light max-w-56 truncate" title={l.message}>{l.message || '—'}</td>
                     <td className="px-4 py-3 text-app-muted text-xs">{new Date(l.created_at).toLocaleString('fr-DZ')}</td>

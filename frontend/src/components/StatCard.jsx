@@ -27,7 +27,7 @@ export default function StatCard({ label, sub, value, trend, ring, color = 'viol
       style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
       <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded-2xl"
         style={{ background: `radial-gradient(circle at 20% 50%, ${c.hex}22, transparent 70%)` }} />
-      <div className="absolute top-0 left-0 right-0 h-[2px] rounded-t-2xl opacity-70" style={{ background: c.hex }} />
+      <div className="absolute top-0 start-0 end-0 h-[2px] rounded-t-2xl opacity-70" style={{ background: c.hex }} />
 
       <div className="relative flex items-start justify-between mb-3">
         <p className="text-xs font-medium" style={{ color: theme.dark.mutedLight }}>{label}</p>

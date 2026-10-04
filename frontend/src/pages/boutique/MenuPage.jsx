@@ -7,6 +7,7 @@ import Select from '../../components/Select'
 import api from '../../api/axios'
 import { useAuth } from '../../context/AuthContext'
 import { theme } from '../../theme'
+import { useTranslation } from 'react-i18next'
 
 function GripIcon() {
   return (
@@ -31,18 +32,19 @@ const TYPE_LABELS = { internal: 'Interne', external: 'Externe', page: 'Page' }
 const TYPE_COLORS = { internal: theme.badge.info, external: theme.badge.neutral, page: theme.badge.cyan }
 
 function ChildRow({ child, onUpdate, onRemove, pages, slug }) {
+  const { t } = useTranslation('dashboard')
   return (
-    <div className="flex items-center gap-3 px-3 py-2 rounded-lg border ml-8" style={{ borderColor: theme.dark.border, background: theme.dark.app }}>
+    <div className="flex items-center gap-3 px-3 py-2 rounded-lg border ms-8" style={{ borderColor: theme.dark.border, background: theme.dark.app }}>
       <span className={`${TYPE_COLORS[child.type] || theme.badge.neutral} shrink-0 text-[10px]`}>{TYPE_LABELS[child.type]}</span>
       <input value={child.label} onChange={e => onUpdate({ ...child, label: e.target.value })}
         className="flex-1 min-w-0 bg-transparent text-sm text-app-primary outline-none border-b border-transparent focus:border-violet-500 transition-colors py-0.5"
-        placeholder="Libellé" />
+        placeholder={t('Libellé')} />
       {child.type === 'page' ? (
         <Select value={child.page_slug || ''} onChange={v => {
           const pg = pages.find(p => p.slug === v)
           onUpdate({ ...child, page_slug: v, url: `/store/${slug}/pages/${v}`, label: child.label || pg?.title || '' })
         }} options={pages.map(p => ({ value: p.slug, label: p.title }))}
-          placeholder="-- Choisir page --"
+          placeholder={t('-- Choisir page --')}
           className="text-xs rounded-lg border px-2 py-1 outline-none w-32 shrink-0"
           style={{ background: theme.dark.card, borderColor: theme.dark.border, color: 'var(--sf-text-muted, #6b7280)' }} />
       ) : (
@@ -59,6 +61,7 @@ function ChildRow({ child, onUpdate, onRemove, pages, slug }) {
 }
 
 function SortableItem({ item, onUpdate, onRemove, pages, slug }) {
+  const { t } = useTranslation('dashboard')
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id })
   const children = item.children || []
 
@@ -82,7 +85,7 @@ function SortableItem({ item, onUpdate, onRemove, pages, slug }) {
         {/* Label */}
         <input value={item.label} onChange={e => onUpdate({ ...item, label: e.target.value })}
           className="flex-1 min-w-0 bg-transparent text-sm text-app-primary outline-none border-b border-transparent focus:border-violet-500 transition-colors py-0.5"
-          placeholder="Libellé" />
+          placeholder={t('Libellé')} />
 
         {/* URL/target */}
         {item.type === 'page' ? (
@@ -90,7 +93,7 @@ function SortableItem({ item, onUpdate, onRemove, pages, slug }) {
             const pg = pages.find(p => p.slug === v)
             onUpdate({ ...item, page_slug: v, url: `/store/${slug}/pages/${v}`, label: item.label || pg?.title || '' })
           }} options={pages.map(p => ({ value: p.slug, label: p.title }))}
-            placeholder="-- Choisir page --"
+            placeholder={t('-- Choisir page --')}
             className="text-xs rounded-lg border px-2 py-1 outline-none w-36 shrink-0"
             style={{ background: theme.dark.app, borderColor: theme.dark.border, color: 'var(--sf-text-muted, #6b7280)' }} />
         ) : (
@@ -110,12 +113,10 @@ function SortableItem({ item, onUpdate, onRemove, pages, slug }) {
         <ChildRow key={child.id} child={child} onUpdate={updateChild} onRemove={() => removeChild(child.id)} pages={pages} slug={slug} />
       ))}
 
-      <div className="ml-8 flex gap-2">
+      <div className="ms-8 flex gap-2">
         <button type="button" onClick={() => addChild('internal')}
           className="text-[11px] px-2 py-1 rounded-lg border cursor-pointer transition-colors"
-          style={{ borderColor: theme.dark.border, color: theme.dark.muted }}>
-          + Sous-lien
-        </button>
+          style={{ borderColor: theme.dark.border, color: theme.dark.muted }}>{t('+ Sous-lien')}</button>
       </div>
     </div>
   )
@@ -132,6 +133,7 @@ function newItem(type, slug) {
 }
 
 export default function MenuPage() {
+  const { t, t: tr } = useTranslation('dashboard')
   const { user } = useAuth()
   const slug = user?.store_slug || ''
   const [items,   setItems]   = useState([])
@@ -144,8 +146,8 @@ export default function MenuPage() {
   useEffect(() => {
     api.get('/stores/me/settings/').then(({ data }) => {
       setItems(data.menu_items?.length ? data.menu_items : [
-        { id: crypto.randomUUID(), label: 'Accueil',  type: 'internal', url: `/store/${slug}`,          page_slug: '' },
-        { id: crypto.randomUUID(), label: 'Produits', type: 'internal', url: `/store/${slug}/products`, page_slug: '' },
+        { id: crypto.randomUUID(), label: t('Accueil'),  type: 'internal', url: `/store/${slug}`,          page_slug: '' },
+        { id: crypto.randomUUID(), label: t('Produits'), type: 'internal', url: `/store/${slug}/products`, page_slug: '' },
       ])
     }).catch(() => {})
     api.get('/stores/pages/').then(({ data }) => setPages(data.filter(p => p.is_published))).catch(() => {})
@@ -180,11 +182,9 @@ export default function MenuPage() {
   }
 
   return (
-    <DashboardLayout title="Éditeur de menu" subtitle={`Cette page contrôle le menu de navigation que vos clients voient en haut de votre boutique publique. Vous pouvez y ajouter des liens vers vos catégories de produits, vers vos pages personnalisées (comme "À propos"), ou même vers un site externe. Glissez-déposez pour changer l'ordre des liens, et créez des sous-menus si besoin — comme un menu déroulant dans un magasin en ligne classique.`}>
+    <DashboardLayout title={t('Éditeur de menu')} subtitle={t('Cette page contrôle le menu de navigation que vos clients voient en haut de votre boutique publique. Vous pouvez y ajouter des liens vers vos catégories de produits, vers vos pages personnalisées (comme "À propos"), ou même vers un site externe. Glissez-déposez pour changer l\'ordre des liens, et créez des sous-menus si besoin — comme un menu déroulant dans un magasin en ligne classique.')}>
       <div className="max-w-2xl space-y-4">
-        <p className="text-sm mb-4" style={{ color: theme.dark.muted }}>
-          Glissez-déposez pour réorganiser. Les liens apparaîtront dans la navigation de votre boutique.
-        </p>
+        <p className="text-sm mb-4" style={{ color: theme.dark.muted }}>{t('Glissez-déposez pour réorganiser. Les liens apparaîtront dans la navigation de votre boutique.')}</p>
 
         {/* Sortable list */}
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
@@ -200,9 +200,7 @@ export default function MenuPage() {
         </DndContext>
 
         {items.length === 0 && (
-          <div className="text-center py-10 rounded-xl border border-dashed" style={{ borderColor: theme.dark.border, color: theme.dark.muted }}>
-            Aucun lien. Ajoutez des éléments ci-dessous.
-          </div>
+          <div className="text-center py-10 rounded-xl border border-dashed" style={{ borderColor: theme.dark.border, color: theme.dark.muted }}>{t('Aucun lien. Ajoutez des éléments ci-dessous.')}</div>
         )}
 
         {/* Add buttons */}
@@ -211,31 +209,25 @@ export default function MenuPage() {
             className="text-xs px-3 py-1.5 rounded-lg border cursor-pointer transition-colors"
             style={{ borderColor: theme.dark.border, color: theme.dark.mutedLight, background: theme.dark.app }}
             onMouseEnter={e => e.currentTarget.style.borderColor = '#7c3aed'}
-            onMouseLeave={e => e.currentTarget.style.borderColor = theme.dark.border}>
-            + Lien interne
-          </button>
+            onMouseLeave={e => e.currentTarget.style.borderColor = theme.dark.border}>{t('+ Lien interne')}</button>
           <button type="button" onClick={() => addItem('external')}
             className="text-xs px-3 py-1.5 rounded-lg border cursor-pointer transition-colors"
             style={{ borderColor: theme.dark.border, color: theme.dark.mutedLight, background: theme.dark.app }}
             onMouseEnter={e => e.currentTarget.style.borderColor = '#7c3aed'}
-            onMouseLeave={e => e.currentTarget.style.borderColor = theme.dark.border}>
-            + Lien externe
-          </button>
+            onMouseLeave={e => e.currentTarget.style.borderColor = theme.dark.border}>{t('+ Lien externe')}</button>
           {pages.length > 0 && (
             <button type="button" onClick={() => addItem('page')}
               className="text-xs px-3 py-1.5 rounded-lg border cursor-pointer transition-colors"
               style={{ borderColor: theme.dark.border, color: theme.dark.mutedLight, background: theme.dark.app }}
               onMouseEnter={e => e.currentTarget.style.borderColor = '#7c3aed'}
-              onMouseLeave={e => e.currentTarget.style.borderColor = theme.dark.border}>
-              + Lien vers une page
-            </button>
+              onMouseLeave={e => e.currentTarget.style.borderColor = theme.dark.border}>{t('+ Lien vers une page')}</button>
           )}
         </div>
 
         {/* Save */}
         <div className="flex items-center gap-3 pt-2">
           <button onClick={save} disabled={saving} className={theme.btn.primary}>
-            {saving ? 'Enregistrement…' : saved ? '✓ Enregistré' : 'Enregistrer le menu'}
+            {saving ? tr('Enregistrement…') : saved ? t('✓ Enregistré') : t('Enregistrer le menu')}
           </button>
         </div>
       </div>

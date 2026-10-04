@@ -5,6 +5,9 @@ import BlockPhoneModal from '../../components/BlockPhoneModal'
 import ClientOrdersModal from '../../components/ClientOrdersModal'
 import api from '../../api/axios'
 import { theme } from '../../theme'
+import { useTranslation } from 'react-i18next'
+import { sfx } from '../../i18n'
+import { tt } from '../../i18n'
 
 const PER_PAGE_OPTIONS = [10, 25, 50]
 
@@ -54,7 +57,8 @@ function PlusIcon(props) {
   )
 }
 
-function Spinner({ label = 'Chargement…' }) {
+function Spinner({ label = tt('Chargement…') }) {
+  const { t: tr } = useTranslation('dashboard')
   return (
     <div className="flex flex-col items-center justify-center gap-2 py-12 text-app-muted">
       <svg className="animate-spin" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -77,6 +81,7 @@ function EmptyState({ icon, title, subtitle }) {
 }
 
 export default function BlacklistPage() {
+  const { t } = useTranslation('dashboard')
   const [data, setData]         = useState({ results: [], count: 0 })
   const [search, setSearch]     = useState('')
   const [page, setPage]         = useState(1)
@@ -99,7 +104,7 @@ export default function BlacklistPage() {
   useEffect(() => { fetchEntries() }, [fetchEntries])
 
   const handleDelete = async (id) => {
-    if (!confirm('Débloquer ce numéro ?')) return
+    if (!confirm(t('Débloquer ce numéro ?'))) return
     await api.delete(`/orders/blacklist/${id}/`)
     fetchEntries()
   }
@@ -107,7 +112,7 @@ export default function BlacklistPage() {
   const totalPages = Math.max(1, Math.ceil(data.count / perPage))
 
   return (
-    <DashboardLayout title="Liste noire" subtitle="Si un client vous pose problème (fausses commandes, harcèlement, arnaque...), vous pouvez bloquer son numéro de téléphone ici. Dès qu'il essaiera de commander à nouveau sur votre boutique publique avec ce numéro, sa commande sera automatiquement refusée et il verra le message que vous avez écrit. Cette page vous montre aussi combien de fois un numéro bloqué a quand même essayé de commander depuis son blocage. Ce blocage ne concerne que votre boutique — les autres vendeurs sur MZSolutions ne sont pas affectés.">
+    <DashboardLayout title={t('Liste noire')} subtitle={t('Si un client vous pose problème (fausses commandes, harcèlement, arnaque...), vous pouvez bloquer son numéro de téléphone ici. Dès qu\'il essaiera de commander à nouveau sur votre boutique publique avec ce numéro, sa commande sera automatiquement refusée et il verra le message que vous avez écrit. Cette page vous montre aussi combien de fois un numéro bloqué a quand même essayé de commander depuis son blocage. Ce blocage ne concerne que votre boutique — les autres vendeurs sur MZSolutions ne sont pas affectés.')}>
       {modalOpen && (
         <BlockPhoneModal onClose={() => setModalOpen(false)} onSaved={() => { setModalOpen(false); fetchEntries() }} />
       )}
@@ -122,28 +127,27 @@ export default function BlacklistPage() {
         <input
           value={search}
           onChange={e => { setSearch(e.target.value); setPage(1) }}
-          placeholder="Recherche par téléphone"
+          placeholder={t('Recherche par téléphone')}
           className="px-4 py-2 rounded-lg text-sm text-app-primary border outline-none focus:border-violet-500 transition w-full sm:w-72"
           style={{ background: theme.dark.card, borderColor: theme.dark.border }}
         />
         <div className="flex items-center gap-3 shrink-0">
-          <p className="text-sm" style={{ color: theme.dark.muted }}>{data.count} numéro{data.count !== 1 ? 's' : ''} bloqué{data.count !== 1 ? 's' : ''}</p>
+          <p className="text-sm" style={{ color: theme.dark.muted }}>{t('{{count}} numéro', { count: data.count })}{data.count !== 1 ? sfx('s') : ''}{' '}{t('bloqué')}{data.count !== 1 ? sfx('s') : ''}</p>
           <button onClick={() => setModalOpen(true)} className={theme.btn.primary + ' text-sm shrink-0'}>
-            <PlusIcon /> Ajouter
-          </button>
+            <PlusIcon />{' '}{t('Ajouter')}</button>
         </div>
       </div>
 
       <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border }}>
         <table className="w-full text-sm min-w-180">
           <thead style={{ background: theme.dark.sidebar }}>
-            <tr className="text-left text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
-              <th className="px-4 py-3 font-medium">TÉLÉPHONE</th>
-              <th className="px-4 py-3 font-medium">MESSAGE</th>
-              <th className="px-4 py-3 font-medium">TENTATIVES BLOQUÉES</th>
-              <th className="px-4 py-3 font-medium">DERNIÈRE TENTATIVE</th>
-              <th className="px-4 py-3 font-medium">CRÉÉ À</th>
-              <th className="px-4 py-3 font-medium">ACTIONS</th>
+            <tr className="text-start text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
+              <th className="px-4 py-3 font-medium">{t('TÉLÉPHONE')}</th>
+              <th className="px-4 py-3 font-medium">{t('MESSAGE')}</th>
+              <th className="px-4 py-3 font-medium">{t('TENTATIVES BLOQUÉES')}</th>
+              <th className="px-4 py-3 font-medium">{t('DERNIÈRE TENTATIVE')}</th>
+              <th className="px-4 py-3 font-medium">{t('CRÉÉ À')}</th>
+              <th className="px-4 py-3 font-medium">{t('ACTIONS')}</th>
             </tr>
           </thead>
           <tbody>
@@ -151,7 +155,7 @@ export default function BlacklistPage() {
               <tr><td colSpan={6}><Spinner /></td></tr>
             ) : data.results.length === 0 ? (
               <tr><td colSpan={6}>
-                <EmptyState icon={<ShieldIcon />} title="Aucun numéro bloqué" subtitle="Bloquez un client problématique pour empêcher ses futures commandes." />
+                <EmptyState icon={<ShieldIcon />} title={t('Aucun numéro bloqué')} subtitle={t('Bloquez un client problématique pour empêcher ses futures commandes.')} />
               </td></tr>
             ) : data.results.map(e => (
               <tr key={e.id} className="border-b hover:bg-violet-500/5 transition" style={{ borderColor: theme.dark.borderRowHover }}>
@@ -166,9 +170,9 @@ export default function BlacklistPage() {
                 <td className="px-4 py-3 text-app-muted text-xs">{new Date(e.created_at).toLocaleDateString('fr-DZ')}</td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-1">
-                    <button onClick={() => setHistoryEntry(e)} className="p-1.5 rounded text-violet-300 hover:bg-violet-600/20 transition cursor-pointer" title="Historique des commandes"><HistoryIcon /></button>
-                    <button onClick={() => setEditingEntry(e)} className="p-1.5 rounded text-app-primary hover:bg-violet-500/10 transition cursor-pointer" title="Modifier le message"><PencilIcon /></button>
-                    <button onClick={() => handleDelete(e.id)} className="p-1.5 rounded text-red-400 hover:bg-red-900/20 transition cursor-pointer" title="Débloquer"><TrashIcon /></button>
+                    <button onClick={() => setHistoryEntry(e)} className="p-1.5 rounded text-violet-300 hover:bg-violet-600/20 transition cursor-pointer" title={t('Historique des commandes')}><HistoryIcon /></button>
+                    <button onClick={() => setEditingEntry(e)} className="p-1.5 rounded text-app-primary hover:bg-violet-500/10 transition cursor-pointer" title={t('Modifier le message')}><PencilIcon /></button>
+                    <button onClick={() => handleDelete(e.id)} className="p-1.5 rounded text-red-400 hover:bg-red-900/20 transition cursor-pointer" title={t('Débloquer')}><TrashIcon /></button>
                   </div>
                 </td>
               </tr>
@@ -179,17 +183,15 @@ export default function BlacklistPage() {
 
       {data.count > 0 && (
         <div className="flex items-center justify-between mt-4 text-sm" style={{ color: theme.dark.muted }}>
-          <div className="flex items-center gap-2 text-xs">
-            Lignes par page :
-            <Select value={perPage} onChange={v => { setPerPage(Number(v)); setPage(1) }}
+          <div className="flex items-center gap-2 text-xs">{t('Lignes par page :')}<Select value={perPage} onChange={v => { setPerPage(Number(v)); setPage(1) }}
               options={PER_PAGE_OPTIONS.map(n => ({ value: n, label: n }))}
               className="px-2 py-1 rounded-lg border text-app-primary text-xs"
               style={{ background: theme.dark.card, borderColor: theme.dark.border, minWidth: 64 }} />
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">← Précédent</button>
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">{t('← Précédent')}</button>
             <span className={theme.badge.info}>{page}</span>
-            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">Suivant →</button>
+            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">{t('Suivant →')}</button>
           </div>
         </div>
       )}

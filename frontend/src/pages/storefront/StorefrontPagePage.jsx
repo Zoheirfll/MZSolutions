@@ -4,12 +4,14 @@ import StorefrontLayout from './StorefrontLayout'
 import publicApi from '../../api/publicApi'
 import { sanitizeHtml } from '../../lib/sanitize'
 import useDocumentMeta from '../../hooks/useDocumentMeta'
+import { useTranslation } from 'react-i18next'
 
 function stripHtml(html) {
   return (html || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
 }
 
 export default function StorefrontPagePage() {
+  const { t } = useTranslation('storefront')
   const { slug, pageSlug } = useParams()
   const [page,    setPage]    = useState(null)
   const [loading, setLoading] = useState(true)
@@ -38,16 +40,16 @@ export default function StorefrontPagePage() {
           </div>
         ) : error ? (
           <div className="text-center py-20">
-            <p className="text-lg font-semibold mb-2" style={{ color: 'var(--sf-text)' }}>Page introuvable</p>
+            <p className="text-lg font-semibold mb-2" style={{ color: 'var(--sf-text)' }}>{t('page.notFound')}</p>
             <Link to={`/store/${slug}`} className="text-sm font-medium" style={{ color: 'var(--sf-primary)' }}>
-              ← Retour à l'accueil
+              {t('page.backHome')}
             </Link>
           </div>
         ) : (
           <>
             <Link to={`/store/${slug}`} className="text-sm font-medium mb-6 inline-block transition-opacity hover:opacity-70"
               style={{ color: 'var(--sf-primary)' }}>
-              ← Retour
+              {t('page.back')}
             </Link>
             <h1 className="text-3xl sm:text-4xl font-bold mb-8 leading-tight" style={{ color: 'var(--sf-text)' }}>
               {page.title}

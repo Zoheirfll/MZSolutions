@@ -3,8 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import DashboardLayout from '../../components/DashboardLayout'
 import api from '../../api/axios'
 import { theme } from '../../theme'
+import { useTranslation } from 'react-i18next'
 
 function EditDateModal({ order, onClose, onSaved }) {
+  const { t, t: tr } = useTranslation('dashboard')
   const [value, setValue] = useState(order.scheduled_at ? order.scheduled_at.slice(0, 16) : '')
   const [saving, setSaving] = useState(false)
   const minValue = new Date(Date.now() + 5 * 60000).toISOString().slice(0, 16)
@@ -21,7 +23,7 @@ function EditDateModal({ order, onClose, onSaved }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
       <div className="w-full max-w-sm rounded-xl border p-5 sm:p-6" style={{ background: theme.dark.card, borderColor: theme.dark.border }} onClick={e => e.stopPropagation()}>
-        <h2 className="text-lg font-semibold text-app-primary mb-4">Modifier la date d'envoi</h2>
+        <h2 className="text-lg font-semibold text-app-primary mb-4">{t('Modifier la date d\'envoi')}</h2>
         <input
           type="datetime-local"
           value={value}
@@ -31,9 +33,9 @@ function EditDateModal({ order, onClose, onSaved }) {
           style={{ borderColor: theme.dark.border }}
         />
         <div className="flex justify-end gap-3 mt-5">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-red-400 hover:text-red-300 transition">Fermer</button>
+          <button onClick={onClose} className="px-4 py-2 text-sm text-red-400 hover:text-red-300 transition">{t('Fermer')}</button>
           <button onClick={handleSave} disabled={saving || !value} className={theme.btn.primary}>
-            {saving ? '…' : 'Enregistrer'}
+            {saving ? '…' : tr('Enregistrer')}
           </button>
         </div>
       </div>
@@ -42,6 +44,7 @@ function EditDateModal({ order, onClose, onSaved }) {
 }
 
 export default function ScheduledOrdersPage() {
+  const { t } = useTranslation('dashboard')
   const navigate = useNavigate()
   const [orders,  setOrders]  = useState([])
   const [loading, setLoading] = useState(true)
@@ -59,7 +62,7 @@ export default function ScheduledOrdersPage() {
   useEffect(() => { fetchOrders() }, [fetchOrders])
 
   const handleSendNow = async (order) => {
-    if (!confirm(`Envoyer maintenant la commande #${order.id} ?`)) return
+    if (!confirm(t('Envoyer maintenant la commande #{{id}} ?', { id: order.id }))) return
     setBusyId(order.id)
     try {
       await api.post(`/orders/${order.id}/status/`, { status: 'pending' })
@@ -68,7 +71,7 @@ export default function ScheduledOrdersPage() {
   }
 
   const handleCancel = async (order) => {
-    if (!confirm(`Annuler la programmation de la commande #${order.id} ? Elle sera supprimée.`)) return
+    if (!confirm(t('Annuler la programmation de la commande #{{id}} ? Elle sera supprimée.', { id: order.id }))) return
     setBusyId(order.id)
     try {
       await api.delete(`/orders/${order.id}/`)
@@ -77,22 +80,20 @@ export default function ScheduledOrdersPage() {
   }
 
   return (
-    <DashboardLayout title="Commandes programmées" subtitle={`Ce sont les commandes que vous avez préparées à l'avance pour un envoi futur (via le bouton "Programmer l'envoi" lors de la création). Tant qu'elles n'ont pas atteint leur date prévue, elles n'utilisent ni votre stock ni votre quota de commandes — elles s'activent automatiquement au bon moment. Depuis cette page, vous pouvez aussi les envoyer tout de suite avant la date prévue, changer la date programmée, ou les annuler si le client se rétracte.`}>
-      <p className="text-sm mb-5" style={{ color: theme.dark.muted }}>
-        Ces commandes ont été préparées à l'avance et s'activeront automatiquement à la date prévue (stock, quota et assignation appliqués à ce moment-là).
-      </p>
+    <DashboardLayout title={t('Commandes programmées')} subtitle={t('Ce sont les commandes que vous avez préparées à l\'avance pour un envoi futur (via le bouton "Programmer l\'envoi" lors de la création). Tant qu\'elles n\'ont pas atteint leur date prévue, elles n\'utilisent ni votre stock ni votre quota de commandes — elles s\'activent automatiquement au bon moment. Depuis cette page, vous pouvez aussi les envoyer tout de suite avant la date prévue, changer la date programmée, ou les annuler si le client se rétracte.')}>
+      <p className="text-sm mb-5" style={{ color: theme.dark.muted }}>{t('Ces commandes ont été préparées à l\'avance et s\'activeront automatiquement à la date prévue (stock, quota et assignation appliqués à ce moment-là).')}</p>
 
       <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border }}>
         <table className="w-full text-sm min-w-180">
           <thead style={{ background: theme.dark.sidebar }}>
-            <tr className="text-left text-xs border-b" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
-              <th className="px-4 py-3 font-medium">ID</th>
-              <th className="px-4 py-3 font-medium">NOM</th>
-              <th className="px-4 py-3 font-medium">TÉLÉPHONE</th>
-              <th className="px-4 py-3 font-medium">WILAYA</th>
-              <th className="px-4 py-3 font-medium">TOTAL</th>
-              <th className="px-4 py-3 font-medium">ENVOI PRÉVU</th>
-              <th className="px-4 py-3 font-medium w-56">ACTIONS</th>
+            <tr className="text-start text-xs border-b" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
+              <th className="px-4 py-3 font-medium">{t('ID')}</th>
+              <th className="px-4 py-3 font-medium">{t('NOM')}</th>
+              <th className="px-4 py-3 font-medium">{t('TÉLÉPHONE')}</th>
+              <th className="px-4 py-3 font-medium">{t('WILAYA')}</th>
+              <th className="px-4 py-3 font-medium">{t('TOTAL')}</th>
+              <th className="px-4 py-3 font-medium">{t('ENVOI PRÉVU')}</th>
+              <th className="px-4 py-3 font-medium w-56">{t('ACTIONS')}</th>
             </tr>
           </thead>
           <tbody>
@@ -102,9 +103,7 @@ export default function ScheduledOrdersPage() {
                   <svg className="w-5 h-5 animate-spin text-violet-500" viewBox="0 0 24 24" fill="none">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-                  </svg>
-                  Chargement…
-                </div>
+                  </svg>{t('Chargement…')}</div>
               </td></tr>
             ) : orders.length === 0 ? (
               <tr><td colSpan={7}>
@@ -113,7 +112,7 @@ export default function ScheduledOrdersPage() {
                     <rect x="3" y="4" width="18" height="18" rx="2" />
                     <path d="M3 10h18M8 2v4M16 2v4" />
                   </svg>
-                  <p>Aucune commande programmée</p>
+                  <p>{t('Aucune commande programmée')}</p>
                 </div>
               </td></tr>
             ) : orders.map(o => (
@@ -122,21 +121,15 @@ export default function ScheduledOrdersPage() {
                 <td className="px-4 py-3 text-app-primary font-medium cursor-pointer" onClick={() => navigate(`/dashboard/commandes/${o.id}`)}>{o.first_name} {o.last_name}</td>
                 <td className="px-4 py-3 text-app-primary">{o.phone}</td>
                 <td className="px-4 py-3 text-app-primary">{o.wilaya}</td>
-                <td className="px-4 py-3 text-app-primary font-semibold">{Number(o.total).toLocaleString('fr-DZ')} DZD</td>
+                <td className="px-4 py-3 text-app-primary font-semibold">{Number(o.total).toLocaleString('fr-DZ')}{' '}{t('DZD')}</td>
                 <td className="px-4 py-3 text-app-primary whitespace-nowrap">
                   {o.scheduled_at ? new Date(o.scheduled_at).toLocaleString('fr-DZ', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
-                    <button onClick={() => handleSendNow(o)} disabled={busyId === o.id} className={theme.btn.primary + ' px-2.5! py-1! text-xs'}>
-                      Envoyer maintenant
-                    </button>
-                    <button onClick={() => setEditing(o)} disabled={busyId === o.id} className={theme.btn.secondary + ' px-2.5! py-1! text-xs'}>
-                      Modifier
-                    </button>
-                    <button onClick={() => handleCancel(o)} disabled={busyId === o.id} className={theme.btn.danger + ' px-2.5! py-1! text-xs'}>
-                      Annuler
-                    </button>
+                    <button onClick={() => handleSendNow(o)} disabled={busyId === o.id} className={theme.btn.primary + ' px-2.5! py-1! text-xs'}>{t('Envoyer maintenant')}</button>
+                    <button onClick={() => setEditing(o)} disabled={busyId === o.id} className={theme.btn.secondary + ' px-2.5! py-1! text-xs'}>{t('Modifier')}</button>
+                    <button onClick={() => handleCancel(o)} disabled={busyId === o.id} className={theme.btn.danger + ' px-2.5! py-1! text-xs'}>{t('Annuler')}</button>
                   </div>
                 </td>
               </tr>

@@ -4,11 +4,13 @@ import DashboardLayout from '../../components/DashboardLayout'
 import Select from '../../components/Select'
 import api from '../../api/axios'
 import { theme } from '../../theme'
+import { tt } from '../../i18n'
+import { useTranslation } from 'react-i18next'
 
 const STATUS_OPTIONS = [
-  { value: 'open',     label: 'En attente' },
-  { value: 'approved', label: 'Approuvé' },
-  { value: 'rejected', label: 'Refusé' },
+  { value: 'open',     label: tt('En attente') },
+  { value: 'approved', label: tt('Approuvé') },
+  { value: 'rejected', label: tt('Refusé') },
 ]
 
 const STATUS_BADGE = {
@@ -26,6 +28,7 @@ function BackIcon(props) {
 }
 
 export default function ExchangeDetailPage() {
+  const { t, t: tr } = useTranslation('dashboard')
   const { id } = useParams()
   const navigate = useNavigate()
   const [exchange, setExchange] = useState(null)
@@ -56,7 +59,7 @@ export default function ExchangeDetailPage() {
       setExchange(data)
       fetchExchange()
     } catch (err) {
-      setError(err.response?.data?.detail || 'Une erreur est survenue.')
+      setError(err.response?.data?.detail || t('Une erreur est survenue.'))
     } finally {
       setSaving(false)
     }
@@ -64,26 +67,25 @@ export default function ExchangeDetailPage() {
 
   if (loading) {
     return (
-      <DashboardLayout title="Échange">
-        <p className="text-center text-app-muted py-12">Chargement…</p>
+      <DashboardLayout title={t('Échange')}>
+        <p className="text-center text-app-muted py-12">{t('Chargement…')}</p>
       </DashboardLayout>
     )
   }
 
   if (!exchange) {
     return (
-      <DashboardLayout title="Échange">
-        <p className="text-center text-app-muted py-12">Échange introuvable.</p>
+      <DashboardLayout title={t('Échange')}>
+        <p className="text-center text-app-muted py-12">{t('Échange introuvable.')}</p>
       </DashboardLayout>
     )
   }
 
   return (
-    <DashboardLayout title={`Échange #${exchange.id}`} subtitle="Cette page vous montre le détail complet d'une demande d'échange précise : quel article le client veut renvoyer, quelle variante il souhaite recevoir à la place, et pourquoi. Vous décidez ici d'approuver ou de refuser la demande. Si vous approuvez, le stock est automatiquement corrigé des deux côtés (article rendu remis en stock, nouvelle variante déduite), sans manipulation supplémentaire de votre part.">
+    <DashboardLayout title={t('Échange #{{id}}', { id: exchange.id })} subtitle={t('Cette page vous montre le détail complet d\'une demande d\'échange précise : quel article le client veut renvoyer, quelle variante il souhaite recevoir à la place, et pourquoi. Vous décidez ici d\'approuver ou de refuser la demande. Si vous approuvez, le stock est automatiquement corrigé des deux côtés (article rendu remis en stock, nouvelle variante déduite), sans manipulation supplémentaire de votre part.')}>
       <button onClick={() => navigate('/dashboard/echanges')}
         className="inline-flex items-center gap-1.5 text-sm text-app-muted-light hover:text-app-primary transition mb-5">
-        <BackIcon /> Retour aux échanges
-      </button>
+        <BackIcon />{' '}{t('Retour aux échanges')}</button>
 
       <div className="flex flex-col lg:flex-row gap-5 items-start">
         {/* Colonne principale */}
@@ -91,8 +93,7 @@ export default function ExchangeDetailPage() {
           <div className="rounded-xl border p-5" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
             <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
               <div>
-                <p className="text-xs" style={{ color: theme.dark.muted }}>
-                  Commande <Link to={`/dashboard/commandes/${exchange.order}`} className="text-violet-300 hover:text-violet-200">{exchange.order_display}</Link> · {exchange.order_phone}
+                <p className="text-xs" style={{ color: theme.dark.muted }}>{t('Commande')}{' '}<Link to={`/dashboard/commandes/${exchange.order}`} className="text-violet-300 hover:text-violet-200">{exchange.order_display}</Link> · {exchange.order_phone}
                 </p>
                 <h2 className="text-lg font-semibold text-app-primary mt-1">{exchange.original_product}</h2>
               </div>
@@ -100,30 +101,28 @@ export default function ExchangeDetailPage() {
             </div>
 
             <div className="flex items-center gap-3 mb-4 text-sm">
-              <span className="text-app-muted-light">Variante demandée en échange :</span>
+              <span className="text-app-muted-light">{t('Variante demandée en échange :')}</span>
               <span className={theme.badge.info}>{exchange.replacement_value}</span>
             </div>
 
-            <p className="text-xs mb-1.5" style={{ color: theme.dark.muted }}>Motif du client</p>
+            <p className="text-xs mb-1.5" style={{ color: theme.dark.muted }}>{t('Motif du client')}</p>
             <p className="text-sm text-app-primary whitespace-pre-line">{exchange.reason}</p>
 
             {exchange.vendor_note && (
               <>
-                <p className="text-xs mt-4 mb-1.5" style={{ color: theme.dark.muted }}>Note vendeur</p>
+                <p className="text-xs mt-4 mb-1.5" style={{ color: theme.dark.muted }}>{t('Note vendeur')}</p>
                 <p className="text-sm text-app-primary whitespace-pre-line">{exchange.vendor_note}</p>
               </>
             )}
 
-            <p className="text-xs mt-4" style={{ color: theme.dark.muted }}>Déposée le {new Date(exchange.created_at).toLocaleString('fr-DZ')}</p>
+            <p className="text-xs mt-4" style={{ color: theme.dark.muted }}>{t('Déposée le')}{' '}{new Date(exchange.created_at).toLocaleString('fr-DZ')}</p>
           </div>
 
           {/* Mouvements de stock */}
           <div className="rounded-xl border p-5" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-            <h3 className="text-sm font-semibold text-app-primary mb-4">Mouvements de stock</h3>
+            <h3 className="text-sm font-semibold text-app-primary mb-4">{t('Mouvements de stock')}</h3>
             {exchange.stock_movements.length === 0 ? (
-              <p className="text-sm text-center py-6" style={{ color: theme.dark.muted }}>
-                Aucun mouvement pour l'instant — généré automatiquement une fois l'échange approuvé.
-              </p>
+              <p className="text-sm text-center py-6" style={{ color: theme.dark.muted }}>{t('Aucun mouvement pour l\'instant — généré automatiquement une fois l\'échange approuvé.')}</p>
             ) : (
               <div className="space-y-2">
                 {exchange.stock_movements.map(m => (
@@ -147,21 +146,19 @@ export default function ExchangeDetailPage() {
         {/* Colonne droite */}
         <div className="w-full lg:w-72 shrink-0 space-y-4 lg:sticky lg:top-4">
           <div className="rounded-xl border p-4" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-            <h3 className="text-sm font-semibold text-app-primary mb-3">Traiter la demande</h3>
+            <h3 className="text-sm font-semibold text-app-primary mb-3">{t('Traiter la demande')}</h3>
             {exchange.status !== 'open' ? (
-              <p className="text-xs" style={{ color: theme.dark.muted }}>Cette demande a déjà été traitée.</p>
+              <p className="text-xs" style={{ color: theme.dark.muted }}>{t('Cette demande a déjà été traitée.')}</p>
             ) : (
               <>
                 <Select value={newStatus} onChange={setNewStatus} options={STATUS_OPTIONS} className={inputCls + ' mb-2'} style={bdrStyle} />
-                <textarea value={note} onChange={e => setNote(e.target.value)} rows={2} className={`${inputCls} resize-none mb-3`} style={bdrStyle} placeholder="Note (optionnel)" />
+                <textarea value={note} onChange={e => setNote(e.target.value)} rows={2} className={`${inputCls} resize-none mb-3`} style={bdrStyle} placeholder={t('Note (optionnel)')} />
                 {error && <p className="text-red-400 text-xs mb-2">{error}</p>}
                 <button onClick={changeStatus} disabled={saving || newStatus === exchange.status} className={theme.btn.primary + ' w-full disabled:opacity-50'}>
-                  {saving ? '…' : 'Appliquer'}
+                  {saving ? '…' : tr('Appliquer')}
                 </button>
                 {newStatus === 'approved' && (
-                  <p className="text-[10px] mt-2" style={{ color: theme.dark.muted }}>
-                    Approuver déclenche automatiquement les mouvements de stock (retour + sortie).
-                  </p>
+                  <p className="text-[10px] mt-2" style={{ color: theme.dark.muted }}>{t('Approuver déclenche automatiquement les mouvements de stock (retour + sortie).')}</p>
                 )}
               </>
             )}

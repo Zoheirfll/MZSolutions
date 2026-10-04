@@ -12,27 +12,30 @@ import api from '../../api/axios'
 import { theme } from '../../theme'
 import { WILAYAS, getWilayaIdByName } from '../../data/wilayas'
 import { getCommunesForWilaya } from '../../data/communes'
+import { tt } from '../../i18n'
+import { useTranslation } from 'react-i18next'
+import { sfx } from '../../i18n'
 
 const STATUS_OPTIONS = [
-  { value: '',                 label: 'Tous les statuts' },
-  { value: 'scheduled',        label: 'Programmée' },
-  { value: 'pending',          label: 'En attente de confirmation' },
-  { value: 'no_answer_1',      label: 'Non joignable — 1ère tentative' },
-  { value: 'no_answer_2',      label: 'Non joignable — 2ème tentative' },
-  { value: 'no_answer_3',      label: 'Non joignable — 3ème tentative' },
-  { value: 'no_answer',        label: 'Sans réponse' },
-  { value: 'confirmed',        label: 'Confirmée' },
-  { value: 'preparing',        label: 'Préparation de commande' },
-  { value: 'prepared',         label: 'Préparée' },
-  { value: 'in_progress',      label: 'En cours' },
-  { value: 'shipped',          label: 'Expédiée' },
-  { value: 'out_for_delivery', label: 'Sorti en livraison' },
-  { value: 'delivered',        label: 'Livrée' },
-  { value: 'returned',         label: 'Retournée' },
-  { value: 'cancel_requested', label: "Demande d'annulation" },
-  { value: 'cancelled',        label: 'Annulée' },
-  { value: 'duplicate',        label: 'Commande double' },
-  { value: 'fake',             label: 'Commande fictive' },
+  { value: '',                 label: tt('Tous les statuts') },
+  { value: 'scheduled',        label: tt('Programmée') },
+  { value: 'pending',          label: tt('En attente de confirmation') },
+  { value: 'no_answer_1',      label: tt('Non joignable — 1ère tentative') },
+  { value: 'no_answer_2',      label: tt('Non joignable — 2ème tentative') },
+  { value: 'no_answer_3',      label: tt('Non joignable — 3ème tentative') },
+  { value: 'no_answer',        label: tt('Sans réponse') },
+  { value: 'confirmed',        label: tt('Confirmée') },
+  { value: 'preparing',        label: tt('Préparation de commande') },
+  { value: 'prepared',         label: tt('Préparée') },
+  { value: 'in_progress',      label: tt('En cours') },
+  { value: 'shipped',          label: tt('Expédiée') },
+  { value: 'out_for_delivery', label: tt('Sorti en livraison') },
+  { value: 'delivered',        label: tt('Livrée') },
+  { value: 'returned',         label: tt('Retournée') },
+  { value: 'cancel_requested', label: tt('Demande d\'annulation') },
+  { value: 'cancelled',        label: tt('Annulée') },
+  { value: 'duplicate',        label: tt('Commande double') },
+  { value: 'fake',             label: tt('Commande fictive') },
 ]
 
 const PER_PAGE_OPTIONS = [10, 25, 50]
@@ -178,7 +181,7 @@ function IconMenu({ icon, title, children, panelClassName = 'w-56', panelAlign =
       </button>
       {open && (
         <div
-          className={`absolute ${panelAlign === 'left' ? 'left-0' : 'right-0'} z-50 mt-1.5 rounded-lg border shadow-xl py-1 ${panelClassName}`}
+          className={`absolute ${panelAlign === 'left' ? 'start-0' : 'end-0'} z-50 mt-1.5 rounded-lg border shadow-xl py-1 ${panelClassName}`}
           style={{ background: theme.dark.sidebar, borderColor: theme.dark.border }}
         >
           {typeof children === 'function' ? children(() => setOpen(false)) : children}
@@ -194,7 +197,7 @@ function MenuItem({ onClick, children, active }) {
     <button
       type="button"
       onClick={onClick}
-      className={`w-full flex items-center justify-between gap-2 text-left px-3.5 py-2 text-sm transition-colors duration-100 cursor-pointer ${
+      className={`w-full flex items-center justify-between gap-2 text-start px-3.5 py-2 text-sm transition-colors duration-100 cursor-pointer ${
         active ? 'bg-violet-600/20 text-violet-300' : 'text-app-primary hover:bg-violet-500/5'
       }`}
     >
@@ -212,7 +215,7 @@ function CheckMenuItem({ onClick, children, checked }) {
     <button
       type="button"
       onClick={onClick}
-      className="w-full flex items-center gap-2.5 text-left px-3.5 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition-colors duration-100 cursor-pointer"
+      className="w-full flex items-center gap-2.5 text-start px-3.5 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition-colors duration-100 cursor-pointer"
     >
       <span
         className={`shrink-0 w-4 h-4 rounded flex items-center justify-center ring-1 ring-inset transition-colors ${
@@ -227,38 +230,38 @@ function CheckMenuItem({ onClick, children, checked }) {
 }
 
 const SORT_OPTIONS = [
-  { field: 'created_at', dir: 'desc', label: 'Créé le — plus récent' },
-  { field: 'created_at', dir: 'asc',  label: 'Créé le — plus ancien' },
-  { field: 'updated_at', dir: 'desc', label: 'Mis à jour le — plus récent' },
-  { field: 'updated_at', dir: 'asc',  label: 'Mis à jour le — plus ancien' },
+  { field: 'created_at', dir: 'desc', label: tt('Créé le — plus récent') },
+  { field: 'created_at', dir: 'asc',  label: tt('Créé le — plus ancien') },
+  { field: 'updated_at', dir: 'desc', label: tt('Mis à jour le — plus récent') },
+  { field: 'updated_at', dir: 'asc',  label: tt('Mis à jour le — plus ancien') },
 ]
 
 const ORDER_EXPORT_COLUMNS = [
-  { header: 'ID',        get: o => o.id },
-  { header: 'Nom',       get: o => `${o.first_name} ${o.last_name}` },
-  { header: 'Téléphone', get: o => o.phone },
-  { header: 'Wilaya',    get: o => o.wilaya },
-  { header: 'Commune',   get: o => o.commune || '' },
-  { header: 'Total (DZD)', get: o => Number(o.total) },
-  { header: 'Statut',    get: o => o.status_label },
-  { header: 'Suivi',     get: o => o.carrier_tracking_number || '' },
-  { header: 'Note',      get: o => o.note || '' },
+  { header: tt('ID'),        get: o => o.id },
+  { header: tt('Nom'),       get: o => `${o.first_name} ${o.last_name}` },
+  { header: tt('Téléphone'), get: o => o.phone },
+  { header: tt('Wilaya'),    get: o => o.wilaya },
+  { header: tt('Commune'),   get: o => o.commune || '' },
+  { header: tt('Total (DZD)'), get: o => Number(o.total) },
+  { header: tt('Statut'),    get: o => o.status_label },
+  { header: tt('Suivi'),     get: o => o.carrier_tracking_number || '' },
+  { header: tt('Note'),      get: o => o.note || '' },
 ]
 
 const ALL_COLUMNS = [
-  { key: 'id',           label: 'ID' },
-  { key: 'name',         label: 'NOM' },
-  { key: 'phone',        label: 'NUMÉRO DE TÉLÉPHONE' },
-  { key: 'wilaya',       label: 'EMPLACEMENT' },
-  { key: 'total',        label: 'PRIX TOTAL' },
-  { key: 'status',       label: 'STATUT' },
-  { key: 'tracking',     label: 'SUIVI' },
-  { key: 'risk',         label: 'RISQUE' },
-  { key: 'commune',      label: 'COMMUNE' },
-  { key: 'note',         label: 'NOTE' },
-  { key: 'date',         label: 'DATE' },
-  { key: 'carrier',      label: 'TRANSPORTEUR' },
-  { key: 'confirmateur', label: 'CONFIRMATEUR' },
+  { key: 'id',           label: tt('ID') },
+  { key: 'name',         label: tt('NOM') },
+  { key: 'phone',        label: tt('NUMÉRO DE TÉLÉPHONE') },
+  { key: 'wilaya',       label: tt('EMPLACEMENT') },
+  { key: 'total',        label: tt('PRIX TOTAL') },
+  { key: 'status',       label: tt('STATUT') },
+  { key: 'tracking',     label: tt('SUIVI') },
+  { key: 'risk',         label: tt('RISQUE') },
+  { key: 'commune',      label: tt('COMMUNE') },
+  { key: 'note',         label: tt('NOTE') },
+  { key: 'date',         label: tt('DATE') },
+  { key: 'carrier',      label: tt('TRANSPORTEUR') },
+  { key: 'confirmateur', label: tt('CONFIRMATEUR') },
 ]
 
 const DEFAULT_VISIBLE_COLUMNS = new Set(ALL_COLUMNS.map(c => c.key))
@@ -291,6 +294,7 @@ const EMPTY_FILTERS = {
 }
 
 function FilterModal({ filters, onClose, onApply }) {
+  const { t } = useTranslation('dashboard')
   const [form, setForm] = useState(filters)
   const [confirmateurs, setConfirmateurs] = useState([])
   const [carriers, setCarriers] = useState([])
@@ -311,10 +315,10 @@ function FilterModal({ filters, onClose, onApply }) {
         style={{ background: theme.dark.card, borderColor: theme.dark.border }}
         onClick={e => e.stopPropagation()}
       >
-        <h2 className="text-lg font-semibold text-app-primary mb-5">Filtrage</h2>
+        <h2 className="text-lg font-semibold text-app-primary mb-5">{t('Filtrage')}</h2>
 
         <div className="mb-4">
-          <label className="block text-xs mb-1.5" style={{ color: theme.dark.muted }}>Sélectionner la date</label>
+          <label className="block text-xs mb-1.5" style={{ color: theme.dark.muted }}>{t('Sélectionner la date')}</label>
           <div className="flex items-center gap-2">
             <input type="date" value={form.date_from} onChange={e => set('date_from')(e.target.value)} className={inputCls} style={bdrStyle} />
             <span style={{ color: theme.dark.muted }}>→</span>
@@ -324,43 +328,43 @@ function FilterModal({ filters, onClose, onApply }) {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           <div>
-            <label className="block text-xs mb-1.5" style={{ color: theme.dark.muted }}>ID de commande</label>
-            <input value={form.order_id} onChange={e => set('order_id')(e.target.value)} className={inputCls} style={bdrStyle} placeholder="ID de commande" />
+            <label className="block text-xs mb-1.5" style={{ color: theme.dark.muted }}>{t('ID de commande')}</label>
+            <input value={form.order_id} onChange={e => set('order_id')(e.target.value)} className={inputCls} style={bdrStyle} placeholder={t('ID de commande')} />
           </div>
           <div>
-            <label className="block text-xs mb-1.5" style={{ color: theme.dark.muted }}>Recherche par produit</label>
-            <input value={form.product} onChange={e => set('product')(e.target.value)} className={inputCls} style={bdrStyle} placeholder="Recherche par produit" />
+            <label className="block text-xs mb-1.5" style={{ color: theme.dark.muted }}>{t('Recherche par produit')}</label>
+            <input value={form.product} onChange={e => set('product')(e.target.value)} className={inputCls} style={bdrStyle} placeholder={t('Recherche par produit')} />
           </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           <div>
-            <label className="block text-xs mb-1.5" style={{ color: theme.dark.muted }}>Agent de confirmation</label>
+            <label className="block text-xs mb-1.5" style={{ color: theme.dark.muted }}>{t('Agent de confirmation')}</label>
             <Select
               value={form.confirmateur}
               onChange={set('confirmateur')}
-              options={[{ value: '', label: 'Tous' }, ...confirmateurs.map(c => ({ value: c.id, label: `${c.first_name} ${c.last_name}` }))]}
+              options={[{ value: '', label: t('Tous') }, ...confirmateurs.map(c => ({ value: c.id, label: `${c.first_name} ${c.last_name}` }))]}
               className={inputCls}
               style={bdrStyle}
             />
           </div>
           <div>
-            <label className="block text-xs mb-1.5" style={{ color: theme.dark.muted }}>Recherche par catégorie</label>
-            <input value={form.category} onChange={e => set('category')(e.target.value)} className={inputCls} style={bdrStyle} placeholder="Recherche par catégorie" />
+            <label className="block text-xs mb-1.5" style={{ color: theme.dark.muted }}>{t('Recherche par catégorie')}</label>
+            <input value={form.category} onChange={e => set('category')(e.target.value)} className={inputCls} style={bdrStyle} placeholder={t('Recherche par catégorie')} />
           </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           <div>
-            <label className="block text-xs mb-1.5" style={{ color: theme.dark.muted }}>Numéro de téléphone</label>
-            <input value={form.phone} onChange={e => set('phone')(e.target.value)} className={inputCls} style={bdrStyle} placeholder="Numéro de téléphone" />
+            <label className="block text-xs mb-1.5" style={{ color: theme.dark.muted }}>{t('Numéro de téléphone')}</label>
+            <input value={form.phone} onChange={e => set('phone')(e.target.value)} className={inputCls} style={bdrStyle} placeholder={t('Numéro de téléphone')} />
           </div>
           <div>
-            <label className="block text-xs mb-1.5" style={{ color: theme.dark.muted }}>Nom de la wilaya</label>
+            <label className="block text-xs mb-1.5" style={{ color: theme.dark.muted }}>{t('Nom de la wilaya')}</label>
             <Select
               value={form.wilaya}
               onChange={set('wilaya')}
-              options={[{ value: '', label: 'Toutes' }, ...WILAYAS.map(w => ({ value: w.name, label: `${w.id} — ${w.name}` }))]}
+              options={[{ value: '', label: t('Toutes') }, ...WILAYAS.map(w => ({ value: w.name, label: `${w.id} — ${w.name}` }))]}
               className={inputCls}
               style={bdrStyle}
             />
@@ -368,11 +372,11 @@ function FilterModal({ filters, onClose, onApply }) {
         </div>
 
         <div className="mb-5">
-          <label className="block text-xs mb-1.5" style={{ color: theme.dark.muted }}>Entreprise de livraison</label>
+          <label className="block text-xs mb-1.5" style={{ color: theme.dark.muted }}>{t('Entreprise de livraison')}</label>
           <Select
             value={form.carrier}
             onChange={set('carrier')}
-            options={[{ value: '', label: 'Toutes' }, ...carriers.map(c => ({ value: c.id, label: c.name }))]}
+            options={[{ value: '', label: t('Toutes') }, ...carriers.map(c => ({ value: c.id, label: c.name }))]}
             className={inputCls}
             style={bdrStyle}
           />
@@ -389,14 +393,14 @@ function FilterModal({ filters, onClose, onApply }) {
           >
             <span className="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform" style={{ transform: form.duplicates_only ? 'translateX(18px)' : 'translateX(2px)' }} />
           </button>
-          <span className="text-sm text-app-primary">Afficher les doubles commandes</span>
+          <span className="text-sm text-app-primary">{t('Afficher les doubles commandes')}</span>
         </label>
 
         <div className="flex justify-between gap-3">
-          <button onClick={() => setForm(EMPTY_FILTERS)} className="px-4 py-2 text-sm text-app-muted-light hover:text-app-primary transition">Réinitialiser</button>
+          <button onClick={() => setForm(EMPTY_FILTERS)} className="px-4 py-2 text-sm text-app-muted-light hover:text-app-primary transition">{t('Réinitialiser')}</button>
           <div className="flex gap-3">
-            <button onClick={onClose} className="px-4 py-2 text-sm text-red-400 hover:text-red-300 transition">Fermer</button>
-            <button onClick={() => onApply(form)} className={theme.btn.primary}>Appliquer</button>
+            <button onClick={onClose} className="px-4 py-2 text-sm text-red-400 hover:text-red-300 transition">{t('Fermer')}</button>
+            <button onClick={() => onApply(form)} className={theme.btn.primary}>{t('Appliquer')}</button>
           </div>
         </div>
       </div>
@@ -407,6 +411,7 @@ function FilterModal({ filters, onClose, onApply }) {
 const NO_ANSWER_STATUSES = ['no_answer_1', 'no_answer_2', 'no_answer_3']
 
 function QuickEditModal({ order, onClose, onSaved }) {
+  const { t, t: tr } = useTranslation('dashboard')
   const [status,  setStatus]  = useState('')
   const [note,    setNote]    = useState(order.note || '')
   const [wilaya,  setWilaya]  = useState(order.wilaya || '')
@@ -446,20 +451,20 @@ function QuickEditModal({ order, onClose, onSaved }) {
         style={{ background: theme.dark.card, borderColor: theme.dark.border }}
         onClick={e => e.stopPropagation()}
       >
-        <h2 className="text-lg font-semibold text-app-primary mb-5">État de la commande</h2>
+        <h2 className="text-lg font-semibold text-app-primary mb-5">{t('État de la commande')}</h2>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           <div>
-            <label className="block text-xs mb-1.5" style={{ color: theme.dark.muted }}>Statut actuel</label>
+            <label className="block text-xs mb-1.5" style={{ color: theme.dark.muted }}>{t('Statut actuel')}</label>
             <p className="text-sm text-app-primary font-medium py-2">{order.status_label}</p>
           </div>
           <div>
-            <label className="block text-xs mb-1.5" style={{ color: theme.dark.muted }}>Sélectionner un nouveau statut</label>
+            <label className="block text-xs mb-1.5" style={{ color: theme.dark.muted }}>{t('Sélectionner un nouveau statut')}</label>
             <Select
               value={status}
               onChange={setStatus}
               options={STATUS_OPTIONS.filter(s => s.value && s.value !== 'scheduled')}
-              placeholder="— Choisir —"
+              placeholder={t('— Choisir —')}
               className={inputCls}
               style={bdrStyle}
             />
@@ -468,12 +473,12 @@ function QuickEditModal({ order, onClose, onSaved }) {
 
         {showFailureReason && (
           <div className="mb-4">
-            <label className="block text-xs mb-1.5" style={{ color: theme.dark.muted }}>Raison (optionnel)</label>
+            <label className="block text-xs mb-1.5" style={{ color: theme.dark.muted }}>{t('Raison (optionnel)')}</label>
             <Select
               value={failureReason}
               onChange={setFailureReason}
               options={failureReasons.map(r => ({ value: r.id, label: r.label }))}
-              placeholder={failureReasons.length ? '— Choisir —' : 'Aucune raison configurée'}
+              placeholder={failureReasons.length ? '— Choisir —' : t('Aucune raison configurée')}
               disabled={failureReasons.length === 0}
               className={inputCls}
               style={bdrStyle}
@@ -482,29 +487,29 @@ function QuickEditModal({ order, onClose, onSaved }) {
         )}
 
         <div className="mb-4">
-          <label className="block text-xs mb-1.5" style={{ color: theme.dark.muted }}>Commentaire interne</label>
-          <textarea value={note} onChange={e => setNote(e.target.value)} rows={2} className={`${inputCls} resize-none`} style={bdrStyle} placeholder="Note libre…" />
+          <label className="block text-xs mb-1.5" style={{ color: theme.dark.muted }}>{t('Commentaire interne')}</label>
+          <textarea value={note} onChange={e => setNote(e.target.value)} rows={2} className={`${inputCls} resize-none`} style={bdrStyle} placeholder={t('Note libre…')} />
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
           <div>
-            <label className="block text-xs mb-1.5" style={{ color: theme.dark.muted }}>Wilaya</label>
+            <label className="block text-xs mb-1.5" style={{ color: theme.dark.muted }}>{t('Wilaya')}</label>
             <Select
               value={wilaya}
               onChange={v => { setWilaya(v); setCommune('') }}
               options={WILAYAS.map(w => ({ value: w.name, label: `${w.id} — ${w.name}` }))}
-              placeholder="Choisissez une Wilaya"
+              placeholder={t('Choisissez une Wilaya')}
               className={inputCls}
               style={bdrStyle}
             />
           </div>
           <div>
-            <label className="block text-xs mb-1.5" style={{ color: theme.dark.muted }}>Commune</label>
+            <label className="block text-xs mb-1.5" style={{ color: theme.dark.muted }}>{t('Commune')}</label>
             <Select
               value={commune}
               onChange={setCommune}
               options={getCommunesForWilaya(getWilayaIdByName(wilaya)).map(name => ({ value: name, label: name }))}
-              placeholder={wilaya ? 'Choisissez une commune' : "Choisissez d'abord une wilaya"}
+              placeholder={wilaya ? t('Choisissez une commune') : t('Choisissez d\'abord une wilaya')}
               disabled={!wilaya}
               className={inputCls}
               style={bdrStyle}
@@ -513,9 +518,9 @@ function QuickEditModal({ order, onClose, onSaved }) {
         </div>
 
         <div className="flex justify-end gap-3">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-red-400 hover:text-red-300 transition">Fermer</button>
+          <button onClick={onClose} className="px-4 py-2 text-sm text-red-400 hover:text-red-300 transition">{t('Fermer')}</button>
           <button onClick={handleSave} disabled={saving} className="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50">
-            {saving ? '…' : 'Sauvegarder'}
+            {saving ? '…' : tr('Sauvegarder')}
           </button>
         </div>
       </div>
@@ -524,6 +529,7 @@ function QuickEditModal({ order, onClose, onSaved }) {
 }
 
 function HistoryModal({ orderId, onClose }) {
+  const { t } = useTranslation('dashboard')
   const [order,   setOrder]   = useState(null)
   const [loading, setLoading] = useState(true)
 
@@ -538,19 +544,19 @@ function HistoryModal({ orderId, onClose }) {
         style={{ background: theme.dark.card, borderColor: theme.dark.border }}
         onClick={e => e.stopPropagation()}
       >
-        <h2 className="text-lg font-semibold text-app-primary mb-5">Historique de la commande N° {orderId}</h2>
+        <h2 className="text-lg font-semibold text-app-primary mb-5">{t('Historique de la commande N° {{orderId}}', { orderId })}</h2>
 
         {loading ? (
-          <p className="text-center text-app-muted py-8">Chargement…</p>
+          <p className="text-center text-app-muted py-8">{t('Chargement…')}</p>
         ) : (
           <>
             {order?.note && (
-              <p className="text-center text-sm text-violet-300 font-medium mb-5">Note : {order.note}</p>
+              <p className="text-center text-sm text-violet-300 font-medium mb-5">{t('Note : {{note}}', { note: order.note })}</p>
             )}
             {!order?.history?.length ? (
-              <p className="text-center text-app-muted py-4">Aucun historique</p>
+              <p className="text-center text-app-muted py-4">{t('Aucun historique')}</p>
             ) : (
-              <div className="space-y-4 border-l pl-4" style={{ borderColor: theme.dark.border }}>
+              <div className="space-y-4 border-s ps-4" style={{ borderColor: theme.dark.border }}>
                 {order.history.map(h => (
                   <div key={h.id}>
                     <p className="text-xs" style={{ color: theme.dark.muted }}>{new Date(h.changed_at).toLocaleString('fr-DZ')}</p>
@@ -566,7 +572,7 @@ function HistoryModal({ orderId, onClose }) {
         )}
 
         <div className="flex justify-end mt-6">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-red-400 hover:text-red-300 transition">Fermer</button>
+          <button onClick={onClose} className="px-4 py-2 text-sm text-red-400 hover:text-red-300 transition">{t('Fermer')}</button>
         </div>
       </div>
     </div>
@@ -574,6 +580,7 @@ function HistoryModal({ orderId, onClose }) {
 }
 
 export default function OrdersPage() {
+  const { t } = useTranslation('dashboard')
   const navigate = useNavigate()
   const location = useLocation()
   const [data,     setData]     = useState({ results: [], count: 0 })
@@ -667,7 +674,7 @@ export default function OrdersPage() {
   })
 
   const handleDelete = async id => {
-    if (!confirm('Supprimer cette commande ?')) return
+    if (!confirm(t('Supprimer cette commande ?'))) return
     await api.delete(`/orders/${id}/`)
     fetchOrders()
   }
@@ -687,7 +694,7 @@ export default function OrdersPage() {
   }
 
   const handleBulkDelete = async () => {
-    if (!confirm(`Supprimer ${selected.size} commande(s) ?`)) return
+    if (!confirm(t('Supprimer {{size}} commande(s) ?', { size: selected.size }))) return
     setBulkBusy(true)
     try {
       await Promise.all([...selected].map(id => api.delete(`/orders/${id}/`)))
@@ -697,22 +704,22 @@ export default function OrdersPage() {
   }
 
   return (
-    <DashboardLayout title="Commandes" subtitle="C'est le cœur de votre activité : la liste de toutes les commandes reçues par votre boutique. Filtrez par statut (en attente, confirmée, livrée...) ou recherchez un client précis. Vous pouvez changer le statut d'une commande directement depuis cette liste sans l'ouvrir (avec une note et la wilaya/commune si besoin), voir l'historique de ses changements via l'icône dédiée, ou cliquer dessus pour ouvrir tous les détails.">
+    <DashboardLayout title={t('Commandes')} subtitle={t('C\'est le cœur de votre activité : la liste de toutes les commandes reçues par votre boutique. Filtrez par statut (en attente, confirmée, livrée...) ou recherchez un client précis. Vous pouvez changer le statut d\'une commande directement depuis cette liste sans l\'ouvrir (avec une note et la wilaya/commune si besoin), voir l\'historique de ses changements via l\'icône dédiée, ou cliquer dessus pour ouvrir tous les détails.')}>
       {/* Header */}
       <div className="flex items-center justify-between mb-5 gap-3 flex-wrap">
         {selected.size > 0 ? (
           <div className="flex items-center gap-2.5 flex-wrap">
-            <span className={theme.badge.info}>{selected.size} sélectionné{selected.size > 1 ? 's' : ''}</span>
+            <span className={theme.badge.info}>{t('{{size}} sélectionné', { size: selected.size })}{selected.size > 1 ? sfx('s') : ''}</span>
 
             <IconMenu
-              icon={<><AssignIcon className="shrink-0" /> Assigner à</>}
-              title="Assigner à un confirmateur"
+              icon={<><AssignIcon className="shrink-0" />{' '}{t('Assigner à')}</>}
+              title={t('Assigner à un confirmateur')}
               panelClassName="w-52"
               panelAlign="left"
               triggerClassName={theme.btn.secondary}
             >
               {(close) => confirmateurs.length === 0 ? (
-                <p className="px-3.5 py-2 text-sm text-app-muted">Aucun confirmateur actif</p>
+                <p className="px-3.5 py-2 text-sm text-app-muted">{t('Aucun confirmateur actif')}</p>
               ) : confirmateurs.map(c => (
                 <MenuItem key={c.id} onClick={() => { close(); handleBulkAssign(c.id) }}>
                   {c.first_name} {c.last_name}
@@ -720,11 +727,9 @@ export default function OrdersPage() {
               ))}
             </IconMenu>
             <button onClick={handleBulkPrint} disabled={bulkBusy} className={theme.btn.secondary}>
-              <PrintIcon /> Imprimer
-            </button>
+              <PrintIcon />{' '}{t('Imprimer')}</button>
             <button onClick={handleBulkDelete} disabled={bulkBusy} className={theme.btn.danger}>
-              <TrashIcon /> Supprimer
-            </button>
+              <TrashIcon />{' '}{t('Supprimer')}</button>
           </div>
         ) : (
         <div className="flex items-center gap-3 flex-wrap w-full sm:w-auto">
@@ -738,18 +743,18 @@ export default function OrdersPage() {
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Recherche nom, téléphone…"
+            placeholder={t('Recherche nom, téléphone…')}
             className="px-3 py-2 rounded-lg border text-sm text-app-primary outline-none focus:border-violet-500 transition w-full sm:w-55"
             style={{ background: theme.dark.card, borderColor: theme.dark.border }}
           />
         </div>
         )}
         <div className="flex items-center gap-2">
-          <button onClick={fetchOrders} className="w-9 h-9 rounded-lg border flex items-center justify-center text-app-muted-light hover:text-app-primary hover:bg-violet-500/5 transition" style={{ borderColor: theme.dark.border }} title="Actualiser">
+          <button onClick={fetchOrders} className="w-9 h-9 rounded-lg border flex items-center justify-center text-app-muted-light hover:text-app-primary hover:bg-violet-500/5 transition" style={{ borderColor: theme.dark.border }} title={t('Actualiser')}>
             <RefreshIcon />
           </button>
 
-          <IconMenu icon={<SortIcon />} title="Trier">
+          <IconMenu icon={<SortIcon />} title={t('Trier')}>
             {(close) => SORT_OPTIONS.map(opt => (
               <MenuItem
                 key={`${opt.field}-${opt.dir}`}
@@ -761,11 +766,11 @@ export default function OrdersPage() {
             ))}
           </IconMenu>
 
-          <IconMenu icon={exporting ? <RefreshIcon className="animate-spin" /> : <DownloadIcon />} title="Exporter">
+          <IconMenu icon={exporting ? <RefreshIcon className="animate-spin" /> : <DownloadIcon />} title={t('Exporter')}>
             {(close) => (
               <>
-                <MenuItem onClick={() => { close(); handleExport('xlsx') }}>Exporter la vue actuelle en XLSX</MenuItem>
-                <MenuItem onClick={() => { close(); handleExport('pdf') }}>Exporter la vue actuelle en PDF</MenuItem>
+                <MenuItem onClick={() => { close(); handleExport('xlsx') }}>{t('Exporter la vue actuelle en XLSX')}</MenuItem>
+                <MenuItem onClick={() => { close(); handleExport('pdf') }}>{t('Exporter la vue actuelle en PDF')}</MenuItem>
               </>
             )}
           </IconMenu>
@@ -774,18 +779,18 @@ export default function OrdersPage() {
             onClick={() => setShowFilterModal(true)}
             className="h-9 px-3 rounded-lg border flex items-center gap-2 text-app-muted-light hover:text-app-primary hover:bg-violet-500/5 transition relative"
             style={{ borderColor: theme.dark.border }}
-            title="Filtrage"
+            title={t('Filtrage')}
           >
             <FilterIcon />
-            <span className="text-sm hidden sm:inline">Filtrage</span>
+            <span className="text-sm hidden sm:inline">{t('Filtrage')}</span>
             {activeFilterCount > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 w-4.5 h-4.5 rounded-full bg-violet-600 text-white text-[10px] flex items-center justify-center font-semibold">
+              <span className="absolute -top-1.5 -end-1.5 w-4.5 h-4.5 rounded-full bg-violet-600 text-white text-[10px] flex items-center justify-center font-semibold">
                 {activeFilterCount}
               </span>
             )}
           </button>
 
-          <IconMenu icon={<ColumnsIcon />} title="Colonnes">
+          <IconMenu icon={<ColumnsIcon />} title={t('Colonnes')}>
             {() => ALL_COLUMNS.map(col => (
               <CheckMenuItem
                 key={col.key}
@@ -800,7 +805,7 @@ export default function OrdersPage() {
           <button
             onClick={() => navigate('/dashboard/commandes/nouvelle')}
             className="w-9 h-9 rounded-lg flex items-center justify-center text-white bg-violet-600 hover:bg-violet-500 transition"
-            title="Nouvelle commande"
+            title={t('Nouvelle commande')}
           >
             <PlusIcon />
           </button>
@@ -836,7 +841,7 @@ export default function OrdersPage() {
       <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border }}>
         <table className="w-full text-sm min-w-225">
           <thead style={{ background: theme.dark.sidebar }}>
-            <tr className="text-left text-xs border-b" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
+            <tr className="text-start text-xs border-b" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
               <th className="px-4 py-3"><input type="checkbox" checked={allChecked} onChange={toggleAll} className="accent-violet-600" /></th>
               {ALL_COLUMNS.filter(c => visibleCols.has(c.key)).map(c => (
                 <th key={c.key} className="px-4 py-3 font-medium whitespace-nowrap">{c.label}</th>
@@ -851,9 +856,7 @@ export default function OrdersPage() {
                   <svg className="w-5 h-5 animate-spin text-violet-500" viewBox="0 0 24 24" fill="none">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-                  </svg>
-                  Chargement…
-                </div>
+                  </svg>{t('Chargement…')}</div>
               </td></tr>
             ) : orders.length === 0 ? (
               <tr><td colSpan={visibleCols.size + 2}>
@@ -862,7 +865,7 @@ export default function OrdersPage() {
                     <rect x="3" y="7" width="18" height="14" rx="2" />
                     <path d="M8 7V5a4 4 0 018 0v2" />
                   </svg>
-                  <p>Aucune commande trouvée</p>
+                  <p>{t('Aucune commande trouvée')}</p>
                 </div>
               </td></tr>
             ) : orders.map(o => (
@@ -879,7 +882,7 @@ export default function OrdersPage() {
                 {visibleCols.has('name') && <td className="px-4 py-3 text-app-primary font-medium">{o.first_name} {o.last_name}</td>}
                 {visibleCols.has('phone') && <td className="px-4 py-3 text-app-primary">{o.phone}</td>}
                 {visibleCols.has('wilaya') && <td className="px-4 py-3 text-app-primary">{o.wilaya}</td>}
-                {visibleCols.has('total') && <td className="px-4 py-3 text-app-primary font-semibold">{Number(o.total).toLocaleString('fr-DZ')} DZD</td>}
+                {visibleCols.has('total') && <td className="px-4 py-3 text-app-primary font-semibold">{Number(o.total).toLocaleString('fr-DZ')}{' '}{t('DZD')}</td>}
                 {visibleCols.has('status') && (
                   <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                     <button onClick={() => setQuickEdit(o)} className="hover:opacity-80 transition">
@@ -903,7 +906,7 @@ export default function OrdersPage() {
                 {visibleCols.has('carrier') && <td className="px-4 py-3 text-app-muted-light">{o.carrier_label || '—'}</td>}
                 {visibleCols.has('confirmateur') && <td className="px-4 py-3 text-app-muted-light">{o.confirmateur_name || '—'}</td>}
                 <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
-                  <button onClick={() => setHistoryId(o.id)} className="text-app-muted-light hover:text-violet-400 transition" title="Historique">
+                  <button onClick={() => setHistoryId(o.id)} className="text-app-muted-light hover:text-violet-400 transition" title={t('Historique')}>
                     <HistoryIcon />
                   </button>
                 </td>
@@ -915,11 +918,9 @@ export default function OrdersPage() {
 
       {/* Footer */}
       <div className="flex items-center justify-between mt-4 text-sm" style={{ color: theme.dark.muted }}>
-        <p>{selected.size} de {data.count} sélectionné</p>
+        <p>{t('{{size}} de {{count}} sélectionné', { size: selected.size, count: data.count })}</p>
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 text-xs">
-            Lignes par page :
-            <Select value={perPage} onChange={v => { setPerPage(Number(v)); setPage(1) }}
+          <div className="flex items-center gap-2 text-xs">{t('Lignes par page :')}<Select value={perPage} onChange={v => { setPerPage(Number(v)); setPage(1) }}
               options={PER_PAGE_OPTIONS.map(n => ({ value: n, label: n }))}
               className="px-2 py-1 rounded-lg border text-app-primary text-xs"
               style={{ background: theme.dark.card, borderColor: theme.dark.border, minWidth: 64 }} />

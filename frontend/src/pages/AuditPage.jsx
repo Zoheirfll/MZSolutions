@@ -4,9 +4,12 @@ import EmptyState from '../components/EmptyState'
 import Select from '../components/Select'
 import api from '../api/axios'
 import { theme } from '../theme'
+import { tt } from '../i18n'
+import { useTranslation } from 'react-i18next'
+import { sfx } from '../i18n'
 
 const ROLE_LABELS = {
-  owner: 'Propriétaire',
+  owner: tt('Propriétaire'),
   admin: 'Admin',
   confirmateur: 'Confirmateur',
   dropshipper: 'Dropshipper',
@@ -18,6 +21,7 @@ function ActorBadge({ role }) {
 }
 
 export default function AuditPage() {
+  const { t } = useTranslation('dashboard')
   const [data, setData] = useState({ results: [], count: 0 })
   const [meta, setMeta] = useState({ actions: [], actors: [] })
   const [search, setSearch] = useState('')
@@ -54,19 +58,19 @@ export default function AuditPage() {
   const inputCls = 'px-3 py-2 rounded-lg border text-sm text-app-primary bg-transparent outline-none focus:border-violet-500 transition [color-scheme:dark]'
   const bdrStyle = { borderColor: theme.dark.border }
 
-  const actorOptions = [{ value: '', label: 'Tous les membres' }, ...meta.actors.map(a => ({ value: String(a.id), label: `${a.name} (${ROLE_LABELS[a.role] || a.role})` }))]
-  const actionOptions = [{ value: '', label: 'Toutes les actions' }, ...meta.actions.map(a => ({ value: a.key, label: a.label }))]
+  const actorOptions = [{ value: '', label: t('Tous les membres') }, ...meta.actors.map(a => ({ value: String(a.id), label: `${a.name} (${ROLE_LABELS[a.role] || a.role})` }))]
+  const actionOptions = [{ value: '', label: t('Toutes les actions') }, ...meta.actions.map(a => ({ value: a.key, label: a.label }))]
 
   return (
     <DashboardLayout
-      title="Audit"
-      subtitle="Journal de toutes les actions effectuées par l'équipe (admins et confirmateurs) : changements de statut de commande, notes/commentaires, appels, échanges, disponibilité en ligne, gestion d'équipe, liste noire, clients à risque... Lecture seule, jamais modifiable."
+      title={t('Audit')}
+      subtitle={t('Journal de toutes les actions effectuées par l\'équipe (admins et confirmateurs) : changements de statut de commande, notes/commentaires, appels, échanges, disponibilité en ligne, gestion d\'équipe, liste noire, clients à risque... Lecture seule, jamais modifiable.')}
     >
       <div className="flex flex-wrap items-center gap-2 mb-5">
         <input
           value={search}
           onChange={e => setSearch(e.target.value)}
-          placeholder="Rechercher (acteur, description, cible)…"
+          placeholder={t('Rechercher (acteur, description, cible)…')}
           className={inputCls} style={{ ...bdrStyle, width: 260 }}
         />
         <div style={{ width: 220 }}>
@@ -81,23 +85,21 @@ export default function AuditPage() {
         <span className="self-center text-app-muted text-sm">→</span>
         <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className={inputCls} style={bdrStyle} />
         {(search || actor || action || dateFrom || dateTo) && (
-          <button onClick={() => { setSearch(''); setActor(''); setAction(''); setDateFrom(''); setDateTo('') }} className="text-xs px-3 py-2 text-app-muted-light hover:text-app-primary transition">
-            Réinitialiser
-          </button>
+          <button onClick={() => { setSearch(''); setActor(''); setAction(''); setDateFrom(''); setDateTo('') }} className="text-xs px-3 py-2 text-app-muted-light hover:text-app-primary transition">{t('Réinitialiser')}</button>
         )}
       </div>
 
-      <p className="text-sm mb-3" style={{ color: theme.dark.muted }}>{data.count} action{data.count !== 1 ? 's' : ''}.</p>
+      <p className="text-sm mb-3" style={{ color: theme.dark.muted }}>{t('{{count}} action', { count: data.count })}{data.count !== 1 ? sfx('s') : ''}.</p>
 
       <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border }}>
         <table className="w-full text-sm min-w-220">
           <thead style={{ background: theme.dark.sidebar }}>
-            <tr className="text-left text-xs border-b" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
-              <th className="px-4 py-3 font-medium">DATE</th>
-              <th className="px-4 py-3 font-medium">ACTEUR</th>
-              <th className="px-4 py-3 font-medium">RÔLE</th>
-              <th className="px-4 py-3 font-medium">CIBLE</th>
-              <th className="px-4 py-3 font-medium">DESCRIPTION</th>
+            <tr className="text-start text-xs border-b" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
+              <th className="px-4 py-3 font-medium">{t('DATE')}</th>
+              <th className="px-4 py-3 font-medium">{t('ACTEUR')}</th>
+              <th className="px-4 py-3 font-medium">{t('RÔLE')}</th>
+              <th className="px-4 py-3 font-medium">{t('CIBLE')}</th>
+              <th className="px-4 py-3 font-medium">{t('DESCRIPTION')}</th>
             </tr>
           </thead>
           <tbody>
@@ -107,13 +109,11 @@ export default function AuditPage() {
                   <svg className="w-5 h-5 animate-spin text-violet-500" viewBox="0 0 24 24" fill="none">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-                  </svg>
-                  Chargement…
-                </div>
+                  </svg>{t('Chargement…')}</div>
               </td></tr>
             ) : data.results.length === 0 ? (
               <tr><td colSpan={5}>
-                <EmptyState title="Aucune action" description="Aucune action ne correspond à ces filtres." />
+                <EmptyState title={t('Aucune action')} description={t('Aucune action ne correspond à ces filtres.')} />
               </td></tr>
             ) : data.results.map(entry => (
               <tr key={entry.id} className="border-b last:border-0 hover:bg-violet-500/5 transition" style={{ borderColor: theme.dark.borderRowHover }}>
@@ -130,9 +130,9 @@ export default function AuditPage() {
 
       {data.count > perPage && (
         <div className="flex items-center justify-end gap-2 mt-4 text-sm" style={{ color: theme.dark.muted }}>
-          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">← Précédent</button>
+          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">{t('← Précédent')}</button>
           <span className={theme.badge.info}>{page}/{totalPages}</span>
-          <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">Suivant →</button>
+          <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">{t('Suivant →')}</button>
         </div>
       )}
     </DashboardLayout>

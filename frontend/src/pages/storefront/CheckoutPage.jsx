@@ -8,6 +8,7 @@ import { trackEvent } from '../../lib/pixels'
 import { WILAYAS, getWilayaIdByName } from '../../data/wilayas'
 import { getCommunesForWilaya } from '../../data/communes'
 import ProductCard from '../../components/storefront/ProductCard'
+import { useTranslation } from 'react-i18next'
 
 function CheckIcon(props) {
   return (
@@ -91,6 +92,7 @@ function radioLabelStyle(active) {
 }
 
 export default function CheckoutPage() {
+  const { t } = useTranslation('storefront')
   const { slug } = useParams()
   const { getItems, updateQuantity, removeItem, clearCart, getSubtotal } = useCart()
   const cartItems = getItems(slug)
@@ -197,7 +199,7 @@ export default function CheckoutPage() {
       setAppliedPromo(data)
     } catch (err) {
       setAppliedPromo(null)
-      setPromoError(err.response?.data?.detail || 'Code promo invalide.')
+      setPromoError(err.response?.data?.detail || t('checkout.promoInvalid'))
     } finally {
       setCheckingPromo(false)
     }
@@ -235,11 +237,11 @@ export default function CheckoutPage() {
   const handleSubmit = async e => {
     e.preventDefault()
     if (storePaused) {
-      setError('Cette boutique est en pause et ne peut pas accepter de commande pour le moment.')
+      setError(t('checkout.pausedError'))
       return
     }
     if (shippingOption === 'stopdesk' && desks.length > 0 && !stationCode) {
-      setError('Choisissez un bureau de retrait.')
+      setError(t('checkout.chooseDesk'))
       return
     }
     setSaving(true)
@@ -270,7 +272,7 @@ export default function CheckoutPage() {
       publicApi.post('/abandoned-carts/recover/', { store_slug: slug, phone: client.phone }).catch(() => {})
       setConfirmedId(data.id)
     } catch (err) {
-      setError(err.response?.data?.detail || "Une erreur est survenue lors de la commande.")
+      setError(err.response?.data?.detail || t('checkout.orderError'))
     } finally {
       setSaving(false)
     }
@@ -278,16 +280,16 @@ export default function CheckoutPage() {
 
   if (paymentReturn && !confirmedId) {
     const texts = {
-      checking: 'Vérification de votre paiement…',
-      pending: `Votre paiement n'est pas encore confirmé. La commande #${returnOrderId} est enregistrée ; si vous avez payé, elle sera confirmée automatiquement sous quelques minutes.`,
-      failed: `Le paiement a échoué ou a été annulé. La commande #${returnOrderId} n'a pas été confirmée — le vendeur pourra vous contacter.`,
+      checking: t('checkout.payChecking'),
+      pending: t('checkout.payPending', { id: returnOrderId }),
+      failed: t('checkout.payFailed', { id: returnOrderId }),
     }
     return (
       <StorefrontLayout>
         <div className="max-w-lg mx-auto px-4 py-20 text-center">
           <p style={{ color: 'var(--sf-text-muted)' }}>{texts[paymentReturn]}</p>
           <Link to={`/store/${slug}/products`} className="inline-flex mt-6 px-6 py-3 rounded-xl text-sm font-semibold text-white transition" style={{ background: 'var(--sf-primary)' }}>
-            Continuer mes achats
+            {t('checkout.continueShopping')}
           </Link>
         </div>
       </StorefrontLayout>
@@ -301,13 +303,13 @@ export default function CheckoutPage() {
           <div className="inline-flex w-16 h-16 rounded-full items-center justify-center mb-4 ring-1 ring-inset ring-emerald-400/40" style={{ background: 'rgba(16,185,129,0.15)', color: '#6ee7b7' }}>
             <CheckIcon className="w-8 h-8" />
           </div>
-          <h1 className="text-2xl font-bold mb-2" style={{ color: 'var(--sf-text)' }}>Merci pour votre commande !</h1>
-          <p className="mb-6" style={{ color: 'var(--sf-text-muted)' }}>Commande #{confirmedId} reçue. Nous vous contacterons bientôt.</p>
+          <h1 className="text-2xl font-bold mb-2" style={{ color: 'var(--sf-text)' }}>{t('checkout.thanks')}</h1>
+          <p className="mb-6" style={{ color: 'var(--sf-text-muted)' }}>{t('checkout.received', { id: confirmedId })}</p>
           <Link to={`/store/${slug}/products`} className="inline-flex px-6 py-3 rounded-xl text-sm font-semibold text-white transition" style={{ background: 'var(--sf-primary)' }}>
-            Continuer mes achats
+            {t('checkout.continueShopping')}
           </Link>
           <p className="text-xs mt-6" style={{ color: 'var(--sf-text-muted)' }}>
-            Un problème avec votre commande ? <Link to={`/store/${slug}/reclamation?order=${confirmedId}`} className="hover:underline" style={{ color: 'var(--sf-primary)' }}>Déposer une réclamation</Link>
+            {t('checkout.problem')} <Link to={`/store/${slug}/reclamation?order=${confirmedId}`} className="hover:underline" style={{ color: 'var(--sf-primary)' }}>{t('layout.complaint')}</Link>
           </p>
         </div>
       </StorefrontLayout>
@@ -319,9 +321,9 @@ export default function CheckoutPage() {
       <StorefrontLayout>
         <div className="flex flex-col items-center justify-center text-center py-20 px-6" style={{ color: 'var(--sf-text-muted)' }}>
           <CartIcon className="w-12 h-12 mb-3 opacity-30" />
-          <p className="mb-4">Votre panier est vide.</p>
+          <p className="mb-4">{t('checkout.emptyCart')}</p>
           <Link to={`/store/${slug}/products`} className="px-5 py-2.5 rounded-lg text-sm font-medium transition" style={{ border: '1px solid var(--sf-header-border)', color: 'var(--sf-text)' }}>
-            Voir les produits
+            {t('checkout.viewProducts')}
           </Link>
         </div>
       </StorefrontLayout>
@@ -338,13 +340,13 @@ export default function CheckoutPage() {
   return (
     <StorefrontLayout>
       <div className="max-w-4xl mx-auto px-4 py-8 sm:py-10">
-        <h1 className="text-2xl font-bold mb-8" style={{ color: 'var(--sf-text)' }}>Finaliser la commande</h1>
+        <h1 className="text-2xl font-bold mb-8" style={{ color: 'var(--sf-text)' }}>{t('checkout.title')}</h1>
 
         <form onSubmit={handleSubmit} className="flex flex-col lg:flex-row gap-6 lg:gap-8 items-start">
           <div className="flex-1 min-w-0 w-full space-y-6">
             {/* Étape 1 — Articles */}
             <div className={panelCls} style={panelStyle}>
-              {sectionTitle(1, 'Panier')}
+              {sectionTitle(1, t('layout.cart'))}
               <div className="space-y-3">
                 {cartItems.map(item => (
                   <div key={item._key} className="flex items-center gap-3">
@@ -354,9 +356,9 @@ export default function CheckoutPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate" style={{ color: 'var(--sf-text)' }}>{item.product_name}</p>
-                      <p className="text-xs" style={{ color: 'var(--sf-text-muted)' }}>Prix unitaire : {Number(item.price).toLocaleString('fr-DZ')} DZD</p>
+                      <p className="text-xs" style={{ color: 'var(--sf-text-muted)' }}>{t('checkout.unitPrice')} : {Number(item.price).toLocaleString('fr-DZ')} {t('common.currency')}</p>
                       {item.offer_enabled && item.offer_quantity && item.quantity >= item.offer_quantity && (
-                        <p className="text-xs font-medium" style={{ color: '#6ee7b7' }}>Offre appliquée : {item.offer_quantity} pour {Number(item.offer_price).toLocaleString('fr-DZ')} DZD</p>
+                        <p className="text-xs font-medium" style={{ color: '#6ee7b7' }}>{t('checkout.offerApplied', { qty: item.offer_quantity })} {Number(item.offer_price).toLocaleString('fr-DZ')} {t('common.currency')}</p>
                       )}
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
@@ -370,7 +372,7 @@ export default function CheckoutPage() {
                         <PlusIcon className="w-3.5 h-3.5" />
                       </button>
                     </div>
-                    <p className="w-20 text-right text-sm font-semibold hidden sm:block" style={{ color: 'var(--sf-text)' }}>
+                    <p className="w-20 text-end text-sm font-semibold hidden sm:block" style={{ color: 'var(--sf-text)' }}>
                       {itemLineTotal(item).toLocaleString('fr-DZ')}
                     </p>
                     <button type="button" onClick={() => removeItem(slug, item._key)} className="shrink-0 transition" style={{ color: '#f87171' }}>
@@ -383,7 +385,7 @@ export default function CheckoutPage() {
 
             {cartRecommendations.length > 0 && (
               <div className={panelCls} style={panelStyle}>
-                <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--sf-text)' }}>Souvent achetés ensemble</h3>
+                <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--sf-text)' }}>{t('checkout.boughtTogether')}</h3>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {cartRecommendations.map(p => <ProductCard key={p.id} product={p} slug={slug} />)}
                 </div>
@@ -392,29 +394,29 @@ export default function CheckoutPage() {
 
             {/* Étape 2 — Infos client */}
             <div className={panelCls} style={panelStyle}>
-              {sectionTitle(2, 'Informations client')}
+              {sectionTitle(2, t('checkout.customerInfo'))}
               <div className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs mb-1.5" style={{ color: 'var(--sf-text-muted)' }}>Prénom *</label>
+                    <label className="block text-xs mb-1.5" style={{ color: 'var(--sf-text-muted)' }}>{t('product.firstName')}</label>
                     <input value={client.first_name} onChange={e => setClient(c => ({ ...c, first_name: e.target.value }))} required className={inputCls} style={inputStyle} />
                   </div>
                   <div>
-                    <label className="block text-xs mb-1.5" style={{ color: 'var(--sf-text-muted)' }}>Nom</label>
+                    <label className="block text-xs mb-1.5" style={{ color: 'var(--sf-text-muted)' }}>{t('product.lastName')}</label>
                     <input value={client.last_name} onChange={e => setClient(c => ({ ...c, last_name: e.target.value }))} className={inputCls} style={inputStyle} />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs mb-1.5" style={{ color: 'var(--sf-text-muted)' }}>Téléphone *</label>
+                  <label className="block text-xs mb-1.5" style={{ color: 'var(--sf-text-muted)' }}>{t('checkout.phone')}</label>
                   <input type="tel" value={client.phone} onChange={e => setClient(c => ({ ...c, phone: e.target.value }))} required className={inputCls} style={inputStyle} placeholder="06xx xxx xxx" />
                 </div>
                 <div>
-                  <label className="block text-xs mb-1.5" style={{ color: 'var(--sf-text-muted)' }}>Email <span className="font-normal" style={{ color: 'var(--sf-text-muted)' }}>(optionnel — pour recevoir un rappel)</span></label>
-                  <input type="email" value={client.email} onChange={e => setClient(c => ({ ...c, email: e.target.value }))} className={inputCls} style={inputStyle} placeholder="votre@email.com" />
+                  <label className="block text-xs mb-1.5" style={{ color: 'var(--sf-text-muted)' }}>{t('checkout.email')} <span className="font-normal" style={{ color: 'var(--sf-text-muted)' }}>{t('checkout.emailHint')}</span></label>
+                  <input type="email" value={client.email} onChange={e => setClient(c => ({ ...c, email: e.target.value }))} className={inputCls} style={inputStyle} placeholder={t("checkout.emailPlaceholder")} />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs mb-1.5" style={{ color: 'var(--sf-text-muted)' }}>Wilaya *</label>
+                    <label className="block text-xs mb-1.5" style={{ color: 'var(--sf-text-muted)' }}>{t('checkout.wilaya')}</label>
                     <Select
                       value={client.wilaya}
                       onChange={v => setClient(c => ({ ...c, wilaya: v, commune: '' }))}
@@ -425,12 +427,12 @@ export default function CheckoutPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs mb-1.5" style={{ color: 'var(--sf-text-muted)' }}>Commune</label>
+                    <label className="block text-xs mb-1.5" style={{ color: 'var(--sf-text-muted)' }}>{t('checkout.commune')}</label>
                     <Select
                       value={client.commune}
                       onChange={v => setClient(c => ({ ...c, commune: v }))}
                       options={getCommunesForWilaya(getWilayaIdByName(client.wilaya)).map(name => ({ value: name, label: name }))}
-                      placeholder={client.wilaya ? 'Choisissez une commune' : "Choisissez d'abord une wilaya"}
+                      placeholder={client.wilaya ? t('checkout.chooseCommune') : t('checkout.chooseWilayaFirst')}
                       disabled={!client.wilaya}
                       className={inputCls}
                       style={inputStyle}
@@ -439,11 +441,11 @@ export default function CheckoutPage() {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs mb-1.5" style={{ color: 'var(--sf-text-muted)' }}>Adresse</label>
+                  <label className="block text-xs mb-1.5" style={{ color: 'var(--sf-text-muted)' }}>{t('checkout.address')}</label>
                   <textarea value={client.address} onChange={e => setClient(c => ({ ...c, address: e.target.value }))} rows={2} className={`${inputCls} resize-none`} style={inputStyle} />
                 </div>
                 <div>
-                  <label className="block text-xs mb-1.5" style={{ color: 'var(--sf-text-muted)' }}>Note (optionnel)</label>
+                  <label className="block text-xs mb-1.5" style={{ color: 'var(--sf-text-muted)' }}>{t('checkout.note')}</label>
                   <textarea value={note} onChange={e => setNote(e.target.value)} rows={2} className={`${inputCls} resize-none`} style={inputStyle} />
                 </div>
               </div>
@@ -451,15 +453,15 @@ export default function CheckoutPage() {
 
             {/* Étape 3 — Paiement */}
             <div className={panelCls} style={panelStyle}>
-              {sectionTitle(3, 'Paiement')}
+              {sectionTitle(3, t('checkout.payment'))}
               <div className="space-y-3">
                 <label className="flex items-center gap-3 cursor-pointer rounded-xl p-3.5 transition" style={radioLabelStyle(paymentMethod === 'cod')}>
                   <input type="radio" name="payment_method" checked={paymentMethod === 'cod'} onChange={() => setPaymentMethod('cod')} className="accent-violet-600 w-4 h-4" />
-                  <span className="text-sm" style={{ color: 'inherit' }}>Paiement à la livraison</span>
+                  <span className="text-sm" style={{ color: 'inherit' }}>{t('checkout.cod')}</span>
                 </label>
                 <label className="flex items-center gap-3 cursor-pointer rounded-xl p-3.5 transition" style={radioLabelStyle(paymentMethod === 'sofizpay')}>
                   <input type="radio" name="payment_method" checked={paymentMethod === 'sofizpay'} onChange={() => setPaymentMethod('sofizpay')} className="accent-violet-600 w-4 h-4" />
-                  <span className="text-sm" style={{ color: 'inherit' }}>Paiement en ligne (SofizPay)</span>
+                  <span className="text-sm" style={{ color: 'inherit' }}>{t('checkout.online')}</span>
                 </label>
               </div>
             </div>
@@ -468,27 +470,27 @@ export default function CheckoutPage() {
           {/* Résumé */}
           <div className="w-full lg:w-72 shrink-0 lg:sticky lg:top-24">
             <div className={panelCls} style={panelStyle}>
-              <h2 className="font-semibold mb-4 text-center" style={{ color: 'var(--sf-text)' }}>Résumé</h2>
+              <h2 className="font-semibold mb-4 text-center" style={{ color: 'var(--sf-text)' }}>{t('checkout.summary')}</h2>
 
               {/* Code promo */}
               <div className="mb-4">
                 {appliedPromo ? (
                   <div className="flex items-center justify-between px-3 py-2 rounded-lg ring-1 ring-inset ring-emerald-400/40" style={{ background: 'rgba(16,185,129,0.12)' }}>
-                    <span className="text-sm font-medium" style={{ color: '#6ee7b7' }}>Code {appliedPromo.code} appliqué</span>
-                    <button type="button" onClick={removePromo} className="text-xs underline cursor-pointer" style={{ color: '#6ee7b7' }}>Retirer</button>
+                    <span className="text-sm font-medium" style={{ color: '#6ee7b7' }}>{t('checkout.promoApplied', { code: appliedPromo.code })}</span>
+                    <button type="button" onClick={removePromo} className="text-xs underline cursor-pointer" style={{ color: '#6ee7b7' }}>{t('checkout.remove')}</button>
                   </div>
                 ) : (
                   <div className="flex gap-2">
                     <input
                       value={promoCode}
                       onChange={e => setPromoCode(e.target.value.toUpperCase())}
-                      placeholder="Code promo"
+                      placeholder={t("checkout.promoCode")}
                       className={`${inputCls} flex-1`}
                       style={inputStyle}
                     />
                     <button type="button" onClick={applyPromo} disabled={checkingPromo || !promoCode.trim()} className="shrink-0 disabled:opacity-50 px-4 py-2.5 rounded-lg text-sm font-medium transition"
                       style={{ border: '1px solid var(--sf-header-border)', color: 'var(--sf-text)' }}>
-                      {checkingPromo ? '…' : 'Appliquer'}
+                      {checkingPromo ? '…' : t('checkout.apply')}
                     </button>
                   </div>
                 )}
@@ -500,28 +502,28 @@ export default function CheckoutPage() {
                   <label className="flex items-center justify-between gap-3 cursor-pointer rounded-xl p-3 transition" style={radioLabelStyle(shippingOption === 'domicile')}>
                     <span className="flex items-center gap-2.5 text-sm" style={{ color: 'inherit' }}>
                       <input type="radio" name="shipping_option" checked={shippingOption === 'domicile'} onChange={() => setShippingOption('domicile')} className="accent-violet-600 w-4 h-4" />
-                      Livraison à domicile
+                      {t('checkout.home')}
                     </span>
-                    <span className="text-sm font-medium" style={{ color: 'inherit' }}>{Number(shippingRate.tarif).toLocaleString('fr-DZ')} DZD</span>
+                    <span className="text-sm font-medium" style={{ color: 'inherit' }}>{Number(shippingRate.tarif).toLocaleString('fr-DZ')} {t('common.currency')}</span>
                   </label>
                   <label className="flex items-center justify-between gap-3 cursor-pointer rounded-xl p-3 transition" style={radioLabelStyle(shippingOption === 'stopdesk')}>
                     <span className="flex items-center gap-2.5 text-sm" style={{ color: 'inherit' }}>
                       <input type="radio" name="shipping_option" checked={shippingOption === 'stopdesk'} onChange={() => setShippingOption('stopdesk')} className="accent-violet-600 w-4 h-4" />
-                      Retrait en point relais
+                      {t('checkout.desk')}
                     </span>
-                    <span className="text-sm font-medium" style={{ color: 'inherit' }}>{Number(shippingRate.tarif_stopdesk).toLocaleString('fr-DZ')} DZD</span>
+                    <span className="text-sm font-medium" style={{ color: 'inherit' }}>{Number(shippingRate.tarif_stopdesk).toLocaleString('fr-DZ')} {t('common.currency')}</span>
                   </label>
                 </div>
               )}
 
               {shippingOption === 'stopdesk' && (
                 <div className="mb-4">
-                  <label className="block text-xs mb-1.5" style={{ color: 'var(--sf-text-muted)' }}>Bureau de retrait</label>
+                  <label className="block text-xs mb-1.5" style={{ color: 'var(--sf-text-muted)' }}>{t('checkout.deskLabel')}</label>
                   <Select
                     value={stationCode}
                     onChange={setStationCode}
                     options={desks.map(d => ({ value: d.code, label: `${d.name} — ${d.address}` }))}
-                    placeholder={desksLoading ? 'Chargement des bureaux…' : desks.length ? 'Choisissez un bureau' : 'Aucun bureau disponible pour cette wilaya'}
+                    placeholder={desksLoading ? t('checkout.desksLoading') : desks.length ? t('checkout.chooseDeskPh') : t('checkout.noDesk')}
                     disabled={desksLoading || desks.length === 0}
                     className={inputCls}
                     style={inputStyle}
@@ -532,28 +534,28 @@ export default function CheckoutPage() {
 
               <div className="space-y-2 mb-4 text-sm">
                 <div className="flex justify-between">
-                  <span style={{ color: 'var(--sf-text-muted)' }}>Sous-total</span>
-                  <span style={{ color: 'var(--sf-text)' }}>{subtotal.toLocaleString('fr-DZ')} DZD</span>
+                  <span style={{ color: 'var(--sf-text-muted)' }}>{t('checkout.subtotal')}</span>
+                  <span style={{ color: 'var(--sf-text)' }}>{subtotal.toLocaleString('fr-DZ')} {t('common.currency')}</span>
                 </div>
                 {discountAmount > 0 && (
                   <div className="flex justify-between" style={{ color: '#6ee7b7' }}>
-                    <span>Réduction</span>
-                    <span>-{discountAmount.toLocaleString('fr-DZ')} DZD</span>
+                    <span>{t('checkout.discount')}</span>
+                    <span>-{discountAmount.toLocaleString('fr-DZ')} {t('common.currency')}</span>
                   </div>
                 )}
                 <div className="flex justify-between">
                   <span style={{ color: 'var(--sf-text-muted)' }}>
-                    Frais de livraison
-                    {shippingRate?.source === 'free_shipping' && <span className="block text-xs mt-0.5" style={{ color: '#6ee7b7' }}>Livraison gratuite ({shippingRate.source_product || 'article du panier'})</span>}
-                    {shippingRate?.source === 'specific_shipping' && <span className="block text-xs mt-0.5" style={{ color: 'var(--sf-primary)' }}>Tarif spécifique ({shippingRate.source_product})</span>}
+                    {t('checkout.shippingFee')}
+                    {shippingRate?.source === 'free_shipping' && <span className="block text-xs mt-0.5" style={{ color: '#6ee7b7' }}>{t('product.freeShipping')} ({shippingRate.source_product || t('checkout.cartItem')})</span>}
+                    {shippingRate?.source === 'specific_shipping' && <span className="block text-xs mt-0.5" style={{ color: 'var(--sf-primary)' }}>{t('checkout.specificRate')} ({shippingRate.source_product})</span>}
                   </span>
                   <span style={{ color: 'var(--sf-text)' }}>
                     {shippingLoading ? '…' : `${shippingCost.toLocaleString('fr-DZ')} DZD`}
                   </span>
                 </div>
                 <div className="pt-2 mt-2 flex justify-between font-semibold" style={{ borderTop: '1px solid var(--sf-header-border)' }}>
-                  <span style={{ color: 'var(--sf-text)' }}>Total</span>
-                  <span style={{ color: 'var(--sf-primary)' }}>{total.toLocaleString('fr-DZ')} DZD</span>
+                  <span style={{ color: 'var(--sf-text)' }}>{t('checkout.total')}</span>
+                  <span style={{ color: 'var(--sf-primary)' }}>{total.toLocaleString('fr-DZ')} {t('common.currency')}</span>
                 </div>
               </div>
 
@@ -561,7 +563,7 @@ export default function CheckoutPage() {
 
               {storePaused && (
                 <p className="text-sm mb-2" style={{ color: '#fbbf24' }}>
-                  Cette boutique est en pause — les commandes sont temporairement indisponibles.
+                  {t('checkout.pausedNotice')}
                 </p>
               )}
 
@@ -571,7 +573,7 @@ export default function CheckoutPage() {
                 className="w-full mt-1 py-3 rounded-lg text-sm font-semibold text-white transition disabled:opacity-60"
                 style={{ background: 'var(--sf-primary)' }}
               >
-                {saving ? 'Envoi…' : 'Confirmer la commande'}
+                {saving ? t('common.sending') : t('checkout.confirm')}
               </button>
             </div>
           </div>

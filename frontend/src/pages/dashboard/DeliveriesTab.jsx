@@ -7,14 +7,16 @@ import { Spinner } from '../orders/stats/statsShared'
 import api from '../../api/axios'
 import { theme } from '../../theme'
 import AISummaryCard from '../../components/AISummaryCard'
+import { tt } from '../../i18n'
+import { useTranslation } from 'react-i18next'
 
 const SERIES = [
-  { key: 'total',     label: 'Toutes',     color: '#60a5fa' },
-  { key: 'real',      label: 'Réelles',    color: '#22c55e' },
-  { key: 'confirmed', label: 'Confirmées', color: '#a855f7' },
-  { key: 'shipped',   label: 'Expédiées',  color: '#eab308' },
-  { key: 'delivered', label: 'Livrées',    color: '#14b8a6' },
-  { key: 'returned',  label: 'Retour',     color: '#ef4444' },
+  { key: 'total',     label: tt('Toutes'),     color: '#60a5fa' },
+  { key: 'real',      label: tt('Réelles'),    color: '#22c55e' },
+  { key: 'confirmed', label: tt('Confirmées'), color: '#a855f7' },
+  { key: 'shipped',   label: tt('Expédiées'),  color: '#eab308' },
+  { key: 'delivered', label: tt('Livrées'),    color: '#14b8a6' },
+  { key: 'returned',  label: tt('Retour'),     color: '#ef4444' },
 ]
 
 function SecondaryCard({ label, count, pct, color }) {
@@ -34,6 +36,7 @@ function SecondaryCard({ label, count, pct, color }) {
 }
 
 export default function DeliveriesTab({ queryString, onFilterWilaya }) {
+  const { t } = useTranslation('dashboard')
   const navigate = useNavigate()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -49,7 +52,7 @@ export default function DeliveriesTab({ queryString, onFilterWilaya }) {
   useEffect(() => { fetchData() }, [fetchData])
 
   if (loading) return <Spinner />
-  if (!data) return <p className="text-sm" style={{ color: theme.dark.muted }}>Impossible de charger les statistiques.</p>
+  if (!data) return <p className="text-sm" style={{ color: theme.dark.muted }}>{t('Impossible de charger les statistiques.')}</p>
 
   const { funnel, secondary, timeseries, by_wilaya, by_source, by_status, deltas } = data
   const goToStatus = (status) => navigate(`/dashboard/commandes?status=${status}`)
@@ -59,25 +62,25 @@ export default function DeliveriesTab({ queryString, onFilterWilaya }) {
       <AISummaryCard tab="deliveries" queryString={queryString} />
       {/* Entonnoir */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-        <StatCard label="Commandes réelles" sub={`sur ${funnel.total} total`} color="violet" ring={100}
+        <StatCard label={t('Commandes réelles')} sub={`sur ${funnel.total} total`} color="violet" ring={100}
           value={funnel.real} trend={deltas.total} />
-        <StatCard label="Confirmé" sub={`sur ${funnel.real} réelles`} color="green" ring={funnel.confirmed_pct}
+        <StatCard label={t('Confirmé')} sub={`sur ${funnel.real} réelles`} color="green" ring={funnel.confirmed_pct}
           value={funnel.confirmed} />
-        <StatCard label="Expédié" sub={`sur ${funnel.confirmed} confirmées`} color="blue" ring={funnel.shipped_pct}
+        <StatCard label={t('Expédié')} sub={`sur ${funnel.confirmed} confirmées`} color="blue" ring={funnel.shipped_pct}
           value={funnel.shipped} />
       </div>
 
       {/* Secondaires */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-5">
-        <SecondaryCard label="En cours d'acheminement" count={secondary.in_transit.count} pct={secondary.in_transit.pct} color="orange" />
-        <SecondaryCard label="Livré" count={secondary.delivered.count} pct={secondary.delivered.pct} color="green" />
-        <SecondaryCard label="Retour" count={secondary.returned.count} pct={secondary.returned.pct} color="red" />
-        <SecondaryCard label="Annulé" count={secondary.cancelled.count} pct={secondary.cancelled.pct} color="red" />
+        <SecondaryCard label={t('En cours d\'acheminement')} count={secondary.in_transit.count} pct={secondary.in_transit.pct} color="orange" />
+        <SecondaryCard label={t('Livré')} count={secondary.delivered.count} pct={secondary.delivered.pct} color="green" />
+        <SecondaryCard label={t('Retour')} count={secondary.returned.count} pct={secondary.returned.pct} color="red" />
+        <SecondaryCard label={t('Annulé')} count={secondary.cancelled.count} pct={secondary.cancelled.pct} color="red" />
       </div>
 
       {/* Graphe 6 séries */}
       <div className="rounded-2xl border p-5 sm:p-6" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-        <p className="text-sm font-semibold text-app-primary mb-4">Évolution des commandes</p>
+        <p className="text-sm font-semibold text-app-primary mb-4">{t('Évolution des commandes')}</p>
         <ResponsiveContainer width="100%" height={280}>
           <AreaChart data={timeseries.map(d => ({ ...d, date: new Date(d.date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }) }))}
             margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
@@ -97,37 +100,37 @@ export default function DeliveriesTab({ queryString, onFilterWilaya }) {
       {/* Carte + sources */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <div className="rounded-2xl border p-5 sm:p-6" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-          <p className="text-sm font-semibold text-app-primary mb-4">Commandes par wilaya</p>
+          <p className="text-sm font-semibold text-app-primary mb-4">{t('Commandes par wilaya')}</p>
           <AlgeriaMap data={by_wilaya} onWilayaClick={onFilterWilaya} />
         </div>
 
         <div className="rounded-2xl border p-5 sm:p-6" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-          <p className="text-sm font-semibold text-app-primary mb-4">Statistiques par source de commande</p>
-          <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
+          <p className="text-sm font-semibold text-app-primary mb-4">{t('Statistiques par source de commande')}</p>
+          <div className="space-y-3 max-h-96 overflow-y-auto pe-1">
             {by_source.length === 0 ? (
-              <p className="text-sm" style={{ color: theme.dark.muted }}>Aucune donnée sur cette période.</p>
+              <p className="text-sm" style={{ color: theme.dark.muted }}>{t('Aucune donnée sur cette période.')}</p>
             ) : by_source.map(s => (
               <div key={s.source} className="rounded-xl border p-3.5" style={{ borderColor: theme.dark.border }}>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-app-primary truncate pr-2">{s.source}</span>
-                  <span className="text-xs shrink-0" style={{ color: theme.dark.muted }}>Total : {s.total} · Réelles : {s.real}</span>
+                  <span className="text-sm font-medium text-app-primary truncate pe-2">{s.source}</span>
+                  <span className="text-xs shrink-0" style={{ color: theme.dark.muted }}>{t('Total : {{total}} · Réelles : {{real}}', { total: s.total, real: s.real })}</span>
                 </div>
                 <div className="grid grid-cols-4 gap-2 text-center">
                   <div className="rounded-lg py-1.5" style={{ background: theme.dark.sidebar }}>
                     <p className="text-emerald-400 text-sm font-semibold">{s.confirmed_pct}%</p>
-                    <p className="text-[10px]" style={{ color: theme.dark.muted }}>Confirmé</p>
+                    <p className="text-[10px]" style={{ color: theme.dark.muted }}>{t('Confirmé')}</p>
                   </div>
                   <div className="rounded-lg py-1.5" style={{ background: theme.dark.sidebar }}>
                     <p className="text-violet-300 text-sm font-semibold">{s.delivered_pct}%</p>
-                    <p className="text-[10px]" style={{ color: theme.dark.muted }}>Livré</p>
+                    <p className="text-[10px]" style={{ color: theme.dark.muted }}>{t('Livré')}</p>
                   </div>
                   <div className="rounded-lg py-1.5" style={{ background: theme.dark.sidebar }}>
                     <p className="text-red-400 text-sm font-semibold">{s.returned}</p>
-                    <p className="text-[10px]" style={{ color: theme.dark.muted }}>En retour</p>
+                    <p className="text-[10px]" style={{ color: theme.dark.muted }}>{t('En retour')}</p>
                   </div>
                   <div className="rounded-lg py-1.5" style={{ background: theme.dark.sidebar }}>
                     <p className="text-red-400 text-sm font-semibold">{s.cancelled}</p>
-                    <p className="text-[10px]" style={{ color: theme.dark.muted }}>Annulé</p>
+                    <p className="text-[10px]" style={{ color: theme.dark.muted }}>{t('Annulé')}</p>
                   </div>
                 </div>
               </div>
@@ -138,13 +141,13 @@ export default function DeliveriesTab({ queryString, onFilterWilaya }) {
 
       {/* Tuiles de statut — cliquables, contrairement au concurrent */}
       <div>
-        <p className="text-sm font-semibold text-app-primary mb-4">Répartition par statut</p>
+        <p className="text-sm font-semibold text-app-primary mb-4">{t('Répartition par statut')}</p>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           {by_status.map(s => (
             <button
               key={s.status}
               onClick={() => goToStatus(s.status)}
-              className="rounded-xl border p-4 text-left transition hover:border-violet-500/40 hover:bg-violet-500/5 cursor-pointer"
+              className="rounded-xl border p-4 text-start transition hover:border-violet-500/40 hover:bg-violet-500/5 cursor-pointer"
               style={{ background: theme.dark.card, borderColor: theme.dark.border }}
             >
               <p className="text-2xl font-bold text-app-primary">{s.count}</p>

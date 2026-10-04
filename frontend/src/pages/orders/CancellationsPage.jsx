@@ -5,6 +5,8 @@ import Select from '../../components/Select'
 import api from '../../api/axios'
 import { theme } from '../../theme'
 import TrackingBadge from '../../components/TrackingBadge'
+import { useTranslation } from 'react-i18next'
+import { sfx } from '../../i18n'
 
 const PER_PAGE_OPTIONS = [10, 25, 50]
 
@@ -41,6 +43,7 @@ function ChevronRightIcon(props) {
 }
 
 function ActionModal({ order, action, onClose, onDone }) {
+  const { t } = useTranslation('dashboard')
   const [note, setNote] = useState('')
   const [saving, setSaving] = useState(false)
   const isConfirm = action === 'confirm'
@@ -61,30 +64,26 @@ function ActionModal({ order, action, onClose, onDone }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
       <div className="w-full max-w-md rounded-xl border p-5 sm:p-6" style={{ background: theme.dark.card, borderColor: theme.dark.border }} onClick={e => e.stopPropagation()}>
         <h2 className="text-lg font-semibold text-app-primary mb-1">
-          {isConfirm ? "Confirmer l'annulation" : "Rejeter la demande d'annulation"}
+          {isConfirm ? t('Confirmer l\'annulation') : t('Rejeter la demande d\'annulation')}
         </h2>
-        <p className="text-sm mb-4" style={{ color: theme.dark.muted }}>
-          Commande #{order.id} — {order.first_name} {order.last_name}
-          {!isConfirm && ' — la commande reviendra à son statut précédent.'}
+        <p className="text-sm mb-4" style={{ color: theme.dark.muted }}>{t('Commande #{{id}} — {{first_name}} {{last_name}}', { id: order.id, first_name: order.first_name, last_name: order.last_name })}{!isConfirm && t('— la commande reviendra à son statut précédent.')}
         </p>
         {order.cancellation_note && (
-          <p className="text-xs mb-4 px-3 py-2 rounded-lg" style={{ background: theme.dark.sidebar, color: theme.dark.mutedLight }}>
-            Motif de la demande : {order.cancellation_note}
-          </p>
+          <p className="text-xs mb-4 px-3 py-2 rounded-lg" style={{ background: theme.dark.sidebar, color: theme.dark.mutedLight }}>{t('Motif de la demande : {{cancellation_note}}', { cancellation_note: order.cancellation_note })}</p>
         )}
-        <label className="block text-xs mb-1.5" style={{ color: theme.dark.muted }}>Note (optionnel)</label>
+        <label className="block text-xs mb-1.5" style={{ color: theme.dark.muted }}>{t('Note (optionnel)')}</label>
         <textarea
           value={note}
           onChange={e => setNote(e.target.value)}
           rows={3}
           className="w-full px-3 py-2 rounded-lg border text-sm text-app-primary bg-transparent outline-none focus:border-violet-500 transition resize-none"
           style={{ borderColor: theme.dark.border }}
-          placeholder={isConfirm ? "Ex: remboursement effectué…" : "Ex: client injoignable pour confirmer sa demande…"}
+          placeholder={isConfirm ? t('Ex: remboursement effectué…') : t('Ex: client injoignable pour confirmer sa demande…')}
         />
         <div className="flex justify-end gap-3 mt-5">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-app-muted-light hover:text-app-primary transition">Annuler</button>
+          <button onClick={onClose} className="px-4 py-2 text-sm text-app-muted-light hover:text-app-primary transition">{t('Annuler')}</button>
           <button onClick={submit} disabled={saving} className={isConfirm ? theme.btn.danger : theme.btn.primary}>
-            {saving ? '…' : isConfirm ? "Confirmer l'annulation" : 'Rejeter la demande'}
+            {saving ? '…' : isConfirm ? t('Confirmer l\'annulation') : t('Rejeter la demande')}
           </button>
         </div>
       </div>
@@ -93,6 +92,7 @@ function ActionModal({ order, action, onClose, onDone }) {
 }
 
 export default function CancellationsPage({ mode }) {
+  const { t } = useTranslation('dashboard')
   const navigate   = useNavigate()
   const isRequests = mode === 'requests'
 
@@ -123,13 +123,13 @@ export default function CancellationsPage({ mode }) {
   const colCount   = isRequests ? 10 : 9
 
   return (
-    <DashboardLayout title={isRequests ? "Demande d'annulation" : 'Annulation confirmée'} subtitle="Cette page regroupe tout ce qui touche aux annulations de commande : d'un côté les demandes d'annulation qui attendent votre décision, de l'autre l'historique des commandes déjà annulées définitivement. Basculez entre les deux onglets selon ce que vous cherchez.">
+    <DashboardLayout title={isRequests ? t('Demande d\'annulation') : t('Annulation confirmée')} subtitle={t('Cette page regroupe tout ce qui touche aux annulations de commande : d\'un côté les demandes d\'annulation qui attendent votre décision, de l\'autre l\'historique des commandes déjà annulées définitivement. Basculez entre les deux onglets selon ce que vous cherchez.')}>
 
       <div className="mb-4">
         <input
           value={search}
           onChange={e => setSearch(e.target.value)}
-          placeholder="Recherche nom, téléphone…"
+          placeholder={t('Recherche nom, téléphone…')}
           className="px-3 py-2 rounded-lg border text-sm text-app-primary outline-none focus:border-violet-500 transition w-full sm:w-64"
           style={{ background: theme.dark.card, borderColor: theme.dark.border }}
         />
@@ -138,17 +138,17 @@ export default function CancellationsPage({ mode }) {
       <div className="rounded-xl border overflow-x-auto mb-4" style={{ borderColor: theme.dark.border }}>
         <table className="w-full text-sm min-w-180">
           <thead style={{ background: theme.dark.sidebar }}>
-            <tr className="text-left text-xs border-b" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
-              <th className="px-4 py-3 font-medium">ID</th>
-              <th className="px-4 py-3 font-medium">NOM</th>
-              <th className="px-4 py-3 font-medium">NUMÉRO DE TÉLÉPHONE</th>
-              <th className="px-4 py-3 font-medium">EMPLACEMENT</th>
-              <th className="px-4 py-3 font-medium">COMMUNE</th>
-              <th className="px-4 py-3 font-medium">PRIX TOTAL</th>
-              <th className="px-4 py-3 font-medium">MOTIF</th>
-              <th className="px-4 py-3 font-medium">SUIVI</th>
-              <th className="px-4 py-3 font-medium">DATE</th>
-              {isRequests && <th className="px-4 py-3 font-medium">ACTIONS</th>}
+            <tr className="text-start text-xs border-b" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
+              <th className="px-4 py-3 font-medium">{t('ID')}</th>
+              <th className="px-4 py-3 font-medium">{t('NOM')}</th>
+              <th className="px-4 py-3 font-medium">{t('NUMÉRO DE TÉLÉPHONE')}</th>
+              <th className="px-4 py-3 font-medium">{t('EMPLACEMENT')}</th>
+              <th className="px-4 py-3 font-medium">{t('COMMUNE')}</th>
+              <th className="px-4 py-3 font-medium">{t('PRIX TOTAL')}</th>
+              <th className="px-4 py-3 font-medium">{t('MOTIF')}</th>
+              <th className="px-4 py-3 font-medium">{t('SUIVI')}</th>
+              <th className="px-4 py-3 font-medium">{t('DATE')}</th>
+              {isRequests && <th className="px-4 py-3 font-medium">{t('ACTIONS')}</th>}
             </tr>
           </thead>
           <tbody>
@@ -158,9 +158,7 @@ export default function CancellationsPage({ mode }) {
                   <svg className="w-5 h-5 animate-spin text-violet-500" viewBox="0 0 24 24" fill="none">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-                  </svg>
-                  Chargement…
-                </div>
+                  </svg>{t('Chargement…')}</div>
               </td></tr>
             ) : orders.length === 0 ? (
               <tr><td colSpan={colCount}>
@@ -168,7 +166,7 @@ export default function CancellationsPage({ mode }) {
                   <svg className="w-12 h-12 mb-3 opacity-40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M9 12l2 2 4-4M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  <p>Aucune commande trouvée</p>
+                  <p>{t('Aucune commande trouvée')}</p>
                 </div>
               </td></tr>
             ) : orders.map(o => (
@@ -183,7 +181,7 @@ export default function CancellationsPage({ mode }) {
                 <td className="px-4 py-3 text-app-primary">{o.phone}</td>
                 <td className="px-4 py-3 text-app-primary">{o.wilaya}</td>
                 <td className="px-4 py-3 text-app-muted-light">{o.commune || '—'}</td>
-                <td className="px-4 py-3 text-app-primary font-semibold">{Number(o.total).toLocaleString('fr-DZ')} DZD</td>
+                <td className="px-4 py-3 text-app-primary font-semibold">{Number(o.total).toLocaleString('fr-DZ')}{' '}{t('DZD')}</td>
                 <td className="px-4 py-3 text-app-muted-light max-w-48 truncate" title={o.cancellation_note}>{o.cancellation_note || '—'}</td>
                 <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                   <TrackingBadge trackingNumber={o.carrier_tracking_number} carrierLabel={o.carrier_label} />
@@ -198,14 +196,12 @@ export default function CancellationsPage({ mode }) {
                         onClick={() => setAction({ order: o, action: 'confirm' })}
                         className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded text-red-400 border border-red-800 hover:bg-red-900/20 transition"
                       >
-                        <CheckIcon /> Confirmer
-                      </button>
+                        <CheckIcon />{' '}{t('Confirmer')}</button>
                       <button
                         onClick={() => setAction({ order: o, action: 'reject' })}
                         className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded text-emerald-400 border border-emerald-800 hover:bg-emerald-900/20 transition"
                       >
-                        <XIcon /> Rejeter
-                      </button>
+                        <XIcon />{' '}{t('Rejeter')}</button>
                     </div>
                   </td>
                 )}
@@ -217,11 +213,9 @@ export default function CancellationsPage({ mode }) {
 
       {/* Pagination */}
       <div className="flex items-center justify-between text-sm" style={{ color: theme.dark.muted }}>
-        <p>{data.count} commande{data.count !== 1 ? 's' : ''}</p>
+        <p>{t('{{count}} commande', { count: data.count })}{data.count !== 1 ? sfx('s') : ''}</p>
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 text-xs">
-            Lignes par page :
-            <Select value={perPage} onChange={v => { setPerPage(Number(v)); setPage(1) }}
+          <div className="flex items-center gap-2 text-xs">{t('Lignes par page :')}<Select value={perPage} onChange={v => { setPerPage(Number(v)); setPage(1) }}
               options={PER_PAGE_OPTIONS.map(n => ({ value: n, label: n }))}
               className="px-2 py-1 rounded-lg border text-app-primary text-xs"
               style={{ background: theme.dark.card, borderColor: theme.dark.border, minWidth: 64 }} />

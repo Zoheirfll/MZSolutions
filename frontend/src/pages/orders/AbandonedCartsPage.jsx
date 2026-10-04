@@ -2,17 +2,20 @@ import { useEffect, useState, useRef } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
 import api from '../../api/axios'
 import { theme } from '../../theme'
+import { tt } from '../../i18n'
+import { useTranslation } from 'react-i18next'
 
 const TABS = [
-  { key: '',  label: 'Tous' },
-  { key: '0', label: 'Non récupérés' },
-  { key: '1', label: 'Récupérés' },
+  { key: '',  label: tt('Tous') },
+  { key: '0', label: tt('Non récupérés') },
+  { key: '1', label: tt('Récupérés') },
 ]
 
 function StatusBadge({ cart }) {
-  if (cart.is_recovered)   return <span className={theme.badge.success + ' whitespace-nowrap'}>Récupéré</span>
-  if (cart.reminder_sent)  return <span className={theme.badge.warning + ' whitespace-nowrap'}>Relance envoyée</span>
-  return <span className={theme.badge.neutral + ' whitespace-nowrap'}>En attente</span>
+  const { t: tr } = useTranslation('dashboard')
+  if (cart.is_recovered)   return <span className={theme.badge.success + ' whitespace-nowrap'}>{tr('Récupéré')}</span>
+  if (cart.reminder_sent)  return <span className={theme.badge.warning + ' whitespace-nowrap'}>{tr('Relance envoyée')}</span>
+  return <span className={theme.badge.neutral + ' whitespace-nowrap'}>{tr('En attente')}</span>
 }
 
 // Lien WhatsApp attend un numéro international sans le 0 initial ni espaces —
@@ -28,6 +31,7 @@ function reminderMessage(cart) {
 }
 
 function RemindMenu({ cart, busy, onWhatsapp, onEmail }) {
+  const { t: tr } = useTranslation('dashboard')
   const [open, setOpen] = useState(false)
   const [pos, setPos] = useState(null)
   const btnRef = useRef(null)
@@ -45,9 +49,7 @@ function RemindMenu({ cart, busy, onWhatsapp, onEmail }) {
   // Pas d'email enregistré : un seul canal possible, pas besoin de menu.
   if (!cart.email) {
     return (
-      <button onClick={onWhatsapp} disabled={busy} className={theme.btn.secondary + ' text-xs px-2.5! py-1! whitespace-nowrap'} title="Relancer par WhatsApp">
-        Relancer
-      </button>
+      <button onClick={onWhatsapp} disabled={busy} className={theme.btn.secondary + ' text-xs px-2.5! py-1! whitespace-nowrap'} title={tr('Relancer par WhatsApp')}>{tr('Relancer')}</button>
     )
   }
 
@@ -63,9 +65,7 @@ function RemindMenu({ cart, busy, onWhatsapp, onEmail }) {
 
   return (
     <>
-      <button ref={btnRef} onClick={toggleOpen} disabled={busy} className={theme.btn.secondary + ' text-xs px-2.5! py-1! whitespace-nowrap inline-flex items-center gap-1'}>
-        Relancer
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="12" height="12" className={`shrink-0 transition-transform duration-150 ${open ? 'rotate-180' : ''}`}>
+      <button ref={btnRef} onClick={toggleOpen} disabled={busy} className={theme.btn.secondary + ' text-xs px-2.5! py-1! whitespace-nowrap inline-flex items-center gap-1'}>{tr('Relancer')}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="12" height="12" className={`shrink-0 transition-transform duration-150 ${open ? 'rotate-180' : ''}`}>
           <path d="M6 9l6 6 6-6" />
         </svg>
       </button>
@@ -79,16 +79,12 @@ function RemindMenu({ cart, busy, onWhatsapp, onEmail }) {
         >
           <button
             onClick={() => { setOpen(false); onWhatsapp() }}
-            className="w-full text-left px-3.5 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition-colors duration-100 cursor-pointer"
-          >
-            Par WhatsApp
-          </button>
+            className="w-full text-start px-3.5 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition-colors duration-100 cursor-pointer"
+          >{tr('Par WhatsApp')}</button>
           <button
             onClick={() => { setOpen(false); onEmail() }}
-            className="w-full text-left px-3.5 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition-colors duration-100 cursor-pointer"
-          >
-            Par email
-          </button>
+            className="w-full text-start px-3.5 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition-colors duration-100 cursor-pointer"
+          >{tr('Par email')}</button>
         </div>
       )}
     </>
@@ -96,6 +92,7 @@ function RemindMenu({ cart, busy, onWhatsapp, onEmail }) {
 }
 
 function ItemsModal({ cart, onClose }) {
+  const { t: tr } = useTranslation('dashboard')
   const items = cart.items || []
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
@@ -104,32 +101,32 @@ function ItemsModal({ cart, onClose }) {
         style={{ background: theme.dark.card, borderColor: theme.dark.border }}
         onClick={e => e.stopPropagation()}
       >
-        <h2 className="text-lg font-semibold text-app-primary mb-1">Panier de {cart.first_name} {cart.last_name}</h2>
+        <h2 className="text-lg font-semibold text-app-primary mb-1">{tr('Panier de {{first_name}} {{last_name}}', { first_name: cart.first_name, last_name: cart.last_name })}</h2>
         <p className="text-xs mb-4" style={{ color: theme.dark.muted }}>{cart.phone}</p>
 
         {items.length === 0 ? (
-          <p className="text-sm text-app-muted py-6 text-center">Aucun détail d'article enregistré.</p>
+          <p className="text-sm text-app-muted py-6 text-center">{tr('Aucun détail d\'article enregistré.')}</p>
         ) : (
           <div className="space-y-2 mb-4">
             {items.map((item, i) => (
               <div key={i} className="flex items-center justify-between text-sm rounded-lg px-3 py-2" style={{ background: theme.dark.sidebar }}>
                 <div>
-                  <p className="text-app-primary">{item.product_name || 'Article'}</p>
-                  <p className="text-xs" style={{ color: theme.dark.muted }}>Qté : {item.quantity}</p>
+                  <p className="text-app-primary">{item.product_name || tr('Article')}</p>
+                  <p className="text-xs" style={{ color: theme.dark.muted }}>{tr('Qté : {{quantity}}', { quantity: item.quantity })}</p>
                 </div>
-                <p className="text-violet-300 font-medium">{Number((item.price || 0) * (item.quantity || 1)).toLocaleString('fr-DZ')} DA</p>
+                <p className="text-violet-300 font-medium">{Number((item.price || 0) * (item.quantity || 1)).toLocaleString('fr-DZ')}{' '}{tr('DA')}</p>
               </div>
             ))}
           </div>
         )}
 
         <div className="border-t pt-3 flex justify-between text-sm font-semibold" style={{ borderColor: theme.dark.border }}>
-          <span className="text-app-primary">Total</span>
-          <span className="text-white">{Number(cart.total).toLocaleString('fr-DZ')} DA</span>
+          <span className="text-app-primary">{tr('Total')}</span>
+          <span className="text-white">{Number(cart.total).toLocaleString('fr-DZ')}{' '}{tr('DA')}</span>
         </div>
 
         <div className="flex justify-end mt-5">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-red-400 hover:text-red-300 transition">Fermer</button>
+          <button onClick={onClose} className="px-4 py-2 text-sm text-red-400 hover:text-red-300 transition">{tr('Fermer')}</button>
         </div>
       </div>
     </div>
@@ -137,6 +134,7 @@ function ItemsModal({ cart, onClose }) {
 }
 
 export default function AbandonedCartsPage() {
+  const { t: tr } = useTranslation('dashboard')
   const [carts,   setCarts]   = useState([])
   const [loading, setLoading] = useState(true)
   const [tab,     setTab]     = useState('')
@@ -192,13 +190,12 @@ export default function AbandonedCartsPage() {
   }
 
   return (
-    <DashboardLayout title="Paniers abandonnés" subtitle="Un panier abandonné, c'est un client qui a mis des produits dans son panier sur votre boutique en ligne mais qui est parti sans finaliser sa commande. Cette page les liste pour que vous puissiez les recontacter vous-même (par téléphone si le client l'a renseigné) et essayer de récupérer la vente.">
+    <DashboardLayout title={tr('Paniers abandonnés')} subtitle={tr('Un panier abandonné, c\'est un client qui a mis des produits dans son panier sur votre boutique en ligne mais qui est parti sans finaliser sa commande. Cette page les liste pour que vous puissiez les recontacter vous-même (par téléphone si le client l\'a renseigné) et essayer de récupérer la vente.')}>
       {/* Réglage délai de relance automatique */}
       <div className="rounded-xl border p-5 mb-5 flex items-center gap-4 flex-wrap" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
         <div className="flex-1 min-w-60">
-          <p className="text-sm font-medium text-app-primary mb-0.5">Relance automatique par email</p>
-          <p className="text-xs" style={{ color: theme.dark.muted }}>
-            Un email de relance est envoyé automatiquement (paniers avec email renseigné) après ce délai sans finalisation — nécessite la tâche planifiée <code>send_abandoned_cart_reminders</code>.
+          <p className="text-sm font-medium text-app-primary mb-0.5">{tr('Relance automatique par email')}</p>
+          <p className="text-xs" style={{ color: theme.dark.muted }}>{tr('Un email de relance est envoyé automatiquement (paniers avec email renseigné) après ce délai sans finalisation — nécessite la tâche planifiée')}{' '}<code>{'send_abandoned_cart_reminders'}</code>.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -209,9 +206,9 @@ export default function AbandonedCartsPage() {
             className="w-20 px-3 py-2 rounded-lg border text-sm text-app-primary bg-transparent outline-none focus:border-violet-500 text-center"
             style={{ borderColor: theme.dark.border }}
           />
-          <span className="text-xs" style={{ color: theme.dark.muted }}>heure(s)</span>
+          <span className="text-xs" style={{ color: theme.dark.muted }}>{tr('heure(s)')}</span>
           <button onClick={saveDelay} disabled={savingDelay} className={theme.btn.primary + ' text-sm px-4 py-2'}>
-            {savingDelay ? 'Enregistrement…' : 'Enregistrer'}
+            {savingDelay ? tr('Enregistrement…') : tr('Enregistrer')}
           </button>
         </div>
       </div>
@@ -237,7 +234,7 @@ export default function AbandonedCartsPage() {
             <thead>
               <tr style={{ background: theme.dark.card, borderBottom: `1px solid ${theme.dark.border}` }}>
                 {['Date', 'Client', 'Email', 'Wilaya', 'Articles', 'Total', 'Statut', ''].map(h => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-app-muted">{h}</th>
+                  <th key={h} className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wide text-app-muted">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -258,9 +255,7 @@ export default function AbandonedCartsPage() {
                     <svg className="w-10 h-10 mx-auto mb-3 text-app-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                       <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/>
-                    </svg>
-                    Aucun panier abandonné
-                  </td>
+                    </svg>{tr('Aucun panier abandonné')}</td>
                 </tr>
               ) : carts.map(cart => (
                 <tr key={cart.id}
@@ -278,13 +273,10 @@ export default function AbandonedCartsPage() {
                   <td className="px-4 py-3 text-app-muted-light">{cart.email || <span className="text-app-muted">—</span>}</td>
                   <td className="px-4 py-3 text-app-muted-light">{cart.wilaya || '—'}</td>
                   <td className="px-4 py-3 text-app-muted-light">
-                    <button onClick={() => setViewing(cart)} className="text-violet-300 hover:text-violet-200 underline decoration-dotted transition">
-                      {(cart.items || []).length} article(s)
-                    </button>
+                    <button onClick={() => setViewing(cart)} className="text-violet-300 hover:text-violet-200 underline decoration-dotted transition">{tr('{{length}} article(s)', { length: (cart.items || []).length })}</button>
                   </td>
                   <td className="px-4 py-3 text-violet-400 font-semibold">
-                    {Number(cart.total).toLocaleString('fr-DZ')} DA
-                  </td>
+                    {Number(cart.total).toLocaleString('fr-DZ')}{' '}{tr('DA')}</td>
                   <td className="px-4 py-3 whitespace-nowrap"><StatusBadge cart={cart} /></td>
                   <td className="px-4 py-3 whitespace-nowrap">
                     {!cart.is_recovered && (
@@ -306,7 +298,7 @@ export default function AbandonedCartsPage() {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between mt-4">
-          <p className="text-xs text-app-muted">{total} panier(s) au total</p>
+          <p className="text-xs text-app-muted">{tr('{{total}} panier(s) au total', { total })}</p>
           <div className="flex gap-1">
             {[...Array(totalPages)].map((_, i) => (
               <button key={i} onClick={() => setPage(i + 1)}

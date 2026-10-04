@@ -6,13 +6,16 @@ import Select from '../../components/Select'
 import EmptyState from '../../components/EmptyState'
 import api from '../../api/axios'
 import { theme } from '../../theme'
+import { tt } from '../../i18n'
+import { useTranslation } from 'react-i18next'
+import { sfx } from '../../i18n'
 
 const STATUS_OPTIONS = [
-  { value: '',          label: 'Tous les statuts' },
-  { value: 'confirmed', label: 'Confirmée' },
-  { value: 'shipped',   label: 'Expédiée' },
-  { value: 'delivered', label: 'Livrée' },
-  { value: 'returned',  label: 'Retournée' },
+  { value: '',          label: tt('Tous les statuts') },
+  { value: 'confirmed', label: tt('Confirmée') },
+  { value: 'shipped',   label: tt('Expédiée') },
+  { value: 'delivered', label: tt('Livrée') },
+  { value: 'returned',  label: tt('Retournée') },
 ]
 
 const PER_PAGE_OPTIONS = [10, 25, 50]
@@ -62,6 +65,7 @@ function TruckIcon(props) {
 }
 
 export default function ShipmentsPage() {
+  const { t, t: tr } = useTranslation('dashboard')
   const navigate = useNavigate()
 
   const [data,       setData]       = useState({ results: [], count: 0 })
@@ -110,7 +114,7 @@ export default function ShipmentsPage() {
       a.remove()
       URL.revokeObjectURL(url)
     } catch (err) {
-      let detail = "Impossible de récupérer l'étiquette."
+      let detail = t('Impossible de récupérer l\'étiquette.')
       if (err.response?.data instanceof Blob) {
         try {
           const text = await err.response.data.text()
@@ -119,7 +123,7 @@ export default function ShipmentsPage() {
       } else if (err.response?.data?.detail) {
         detail = err.response.data.detail
       }
-      setLabelError(`Commande #${order.id} — ${detail}`)
+      setLabelError(t('Commande #{{id}} — {{detail}}', { id: order.id, detail }))
     } finally {
       setDownloadingId(null)
     }
@@ -132,7 +136,7 @@ export default function ShipmentsPage() {
       await api.post(`/orders/${order.id}/retry-shipment/`)
       fetchShipments()
     } catch (err) {
-      setLabelError(`Commande #${order.id} — ${err.response?.data?.detail || "Impossible de créer l'expédition."}`)
+      setLabelError(`Commande #${order.id} — ${err.response?.data?.detail || t('Impossible de créer l\'expédition.')}`)
     } finally {
       setRetryingId(null)
     }
@@ -145,7 +149,7 @@ export default function ShipmentsPage() {
       await api.post(`/orders/${order.id}/sync-tracking/`)
       fetchShipments()
     } catch (err) {
-      setLabelError(`Commande #${order.id} — ${err.response?.data?.detail || 'Impossible de rafraîchir le statut.'}`)
+      setLabelError(`Commande #${order.id} — ${err.response?.data?.detail || t('Impossible de rafraîchir le statut.')}`)
     } finally {
       setSyncingId(null)
     }
@@ -153,16 +157,16 @@ export default function ShipmentsPage() {
 
   const shipments  = data.results || []
   const totalPages = Math.max(1, Math.ceil(data.count / perPage))
-  const carrierOptions = [{ value: '', label: 'Tous les transporteurs' }, ...carriers.map(c => ({ value: c.id, label: c.name || c.carrier }))]
+  const carrierOptions = [{ value: '', label: t('Tous les transporteurs') }, ...carriers.map(c => ({ value: c.id, label: c.name || c.carrier }))]
 
   return (
-    <DashboardLayout title="Expéditions" subtitle={`Cette page suit vos commandes déjà expédiées chez le transporteur : où en est la livraison, si elle a été remise au livreur, livrée ou retournée. Vous pouvez rafraîchir le statut manuellement ("synchroniser") ou télécharger l'étiquette de livraison en PDF à coller sur le colis avant l'enlèvement.`}>
+    <DashboardLayout title={t('Expéditions')} subtitle={t('Cette page suit vos commandes déjà expédiées chez le transporteur : où en est la livraison, si elle a été remise au livreur, livrée ou retournée. Vous pouvez rafraîchir le statut manuellement ("synchroniser") ou télécharger l\'étiquette de livraison en PDF à coller sur le colis avant l\'enlèvement.')}>
 
       <div className="flex flex-wrap gap-3 mb-4">
         <input
           value={search}
           onChange={e => setSearch(e.target.value)}
-          placeholder="Recherche nom, téléphone, tracking"
+          placeholder={t('Recherche nom, téléphone, tracking')}
           className="px-3 py-2 rounded-lg border text-sm text-app-primary outline-none focus:border-violet-500 transition w-full sm:w-64"
           style={{ background: theme.dark.card, borderColor: theme.dark.border }}
         />
@@ -183,15 +187,15 @@ export default function ShipmentsPage() {
       <div className="rounded-xl border overflow-x-auto mb-4" style={{ borderColor: theme.dark.border }}>
         <table className="w-full text-sm min-w-180">
           <thead style={{ background: theme.dark.sidebar }}>
-            <tr className="text-left text-xs border-b" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
-              <th className="px-4 py-3 font-medium">COMMANDE</th>
-              <th className="px-4 py-3 font-medium">CLIENT</th>
-              <th className="px-4 py-3 font-medium">WILAYA</th>
-              <th className="px-4 py-3 font-medium">TRANSPORTEUR</th>
-              <th className="px-4 py-3 font-medium">TRACKING</th>
-              <th className="px-4 py-3 font-medium">STATUT</th>
-              <th className="px-4 py-3 font-medium">ÉTIQUETTE</th>
-              <th className="px-4 py-3 font-medium">ACTIONS</th>
+            <tr className="text-start text-xs border-b" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
+              <th className="px-4 py-3 font-medium">{t('COMMANDE')}</th>
+              <th className="px-4 py-3 font-medium">{t('CLIENT')}</th>
+              <th className="px-4 py-3 font-medium">{t('WILAYA')}</th>
+              <th className="px-4 py-3 font-medium">{t('TRANSPORTEUR')}</th>
+              <th className="px-4 py-3 font-medium">{t('TRACKING')}</th>
+              <th className="px-4 py-3 font-medium">{t('STATUT')}</th>
+              <th className="px-4 py-3 font-medium">{t('ÉTIQUETTE')}</th>
+              <th className="px-4 py-3 font-medium">{t('ACTIONS')}</th>
             </tr>
           </thead>
           <tbody>
@@ -201,13 +205,11 @@ export default function ShipmentsPage() {
                   <svg className="w-5 h-5 animate-spin text-violet-500" viewBox="0 0 24 24" fill="none">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-                  </svg>
-                  Chargement…
-                </div>
+                  </svg>{t('Chargement…')}</div>
               </td></tr>
             ) : shipments.length === 0 ? (
               <tr><td colSpan={8}>
-                <EmptyState title="Aucune expédition trouvée" description="Les commandes confirmées, expédiées, livrées ou retournées apparaîtront ici." />
+                <EmptyState title={t('Aucune expédition trouvée')} description={t('Les commandes confirmées, expédiées, livrées ou retournées apparaîtront ici.')} />
               </td></tr>
             ) : shipments.map(o => (
               <tr
@@ -234,7 +236,7 @@ export default function ShipmentsPage() {
                       disabled={downloadingId === o.id}
                       className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded text-violet-400 border border-violet-800 hover:bg-violet-900/20 transition disabled:opacity-50"
                     >
-                      <DownloadIcon /> {downloadingId === o.id ? '…' : 'Étiquette'}
+                      <DownloadIcon /> {downloadingId === o.id ? '…' : t('Étiquette')}
                     </button>
                   ) : (
                     <span className="text-app-muted text-xs">—</span>
@@ -247,7 +249,7 @@ export default function ShipmentsPage() {
                       disabled={retryingId === o.id}
                       className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded text-emerald-400 border border-emerald-800 hover:bg-emerald-900/20 transition disabled:opacity-50"
                     >
-                      <TruckIcon /> {retryingId === o.id ? '…' : 'Créer l’expédition'}
+                      <TruckIcon /> {retryingId === o.id ? '…' : t('Créer l’expédition')}
                     </button>
                   ) : o.carrier_tracking_number ? (
                     <button
@@ -256,7 +258,7 @@ export default function ShipmentsPage() {
                       className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded text-app-primary border hover:bg-violet-500/5 transition disabled:opacity-50"
                       style={{ borderColor: theme.dark.border }}
                     >
-                      <RefreshIcon /> {syncingId === o.id ? '…' : 'Actualiser'}
+                      <RefreshIcon /> {syncingId === o.id ? '…' : tr('Actualiser')}
                     </button>
                   ) : (
                     <span className="text-app-muted text-xs">—</span>
@@ -269,11 +271,9 @@ export default function ShipmentsPage() {
       </div>
 
       <div className="flex items-center justify-between text-sm" style={{ color: theme.dark.muted }}>
-        <p>{data.count} expédition{data.count !== 1 ? 's' : ''}</p>
+        <p>{t('{{count}} expédition', { count: data.count })}{data.count !== 1 ? sfx('s') : ''}</p>
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 text-xs">
-            Lignes par page :
-            <Select value={perPage} onChange={v => { setPerPage(Number(v)); setPage(1) }}
+          <div className="flex items-center gap-2 text-xs">{t('Lignes par page :')}<Select value={perPage} onChange={v => { setPerPage(Number(v)); setPage(1) }}
               options={PER_PAGE_OPTIONS.map(n => ({ value: n, label: n }))}
               className="px-2 py-1 rounded-lg border text-app-primary text-xs"
               style={{ background: theme.dark.card, borderColor: theme.dark.border, minWidth: 64 }} />

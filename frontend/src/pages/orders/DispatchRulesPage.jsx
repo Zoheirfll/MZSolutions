@@ -6,6 +6,7 @@ import EmptyState from '../../components/EmptyState'
 import api from '../../api/axios'
 import { theme } from '../../theme'
 import { WILAYAS } from '../../data/wilayas'
+import { useTranslation } from 'react-i18next'
 
 // Règles de dispatch automatique (équivalent RiseCart "Dispatch Commandes") —
 // à la création d'une commande, une règle correspondante (produit ou wilaya)
@@ -14,6 +15,7 @@ import { WILAYAS } from '../../data/wilayas'
 // les 3 pages (par confirmateur / par société de livraison / par wilaya),
 // paramétré par `matchType` et les cibles autorisées.
 export default function DispatchRulesPage({ title, subtitle, matchType, allowConfirmateur, allowCarrier, matchLabel }) {
+  const { t, t: tr } = useTranslation('dashboard')
   const [rules, setRules] = useState([])
   const [loading, setLoading] = useState(true)
   const [confirmateurs, setConfirmateurs] = useState([])
@@ -81,9 +83,9 @@ export default function DispatchRulesPage({ title, subtitle, matchType, allowCon
       })
       setModalOpen(false)
       fetchRules()
-      setToast({ type: 'success', message: 'Règle ajoutée.' })
+      setToast({ type: 'success', message: t('Règle ajoutée.') })
     } catch (err) {
-      setToast({ type: 'error', message: err.response?.data?.detail || Object.values(err.response?.data || {})[0] || "Échec de l'ajout." })
+      setToast({ type: 'error', message: err.response?.data?.detail || Object.values(err.response?.data || {})[0] || t('Échec de l\'ajout.') })
     } finally { setSaving(false) }
   }
 
@@ -95,7 +97,7 @@ export default function DispatchRulesPage({ title, subtitle, matchType, allowCon
   }
 
   const remove = async (rule) => {
-    if (!confirm('Supprimer cette règle ?')) return
+    if (!confirm(t('Supprimer cette règle ?'))) return
     await api.delete(`/stores/me/dispatch-rules/${rule.id}/`)
     fetchRules()
   }
@@ -106,26 +108,26 @@ export default function DispatchRulesPage({ title, subtitle, matchType, allowCon
   return (
     <DashboardLayout title={title} subtitle={subtitle}>
       <div className="flex justify-end mb-5">
-        <button onClick={openModal} className={theme.btn.primary + ' cursor-pointer'}>Ajouter</button>
+        <button onClick={openModal} className={theme.btn.primary + ' cursor-pointer'}>{t('Ajouter')}</button>
       </div>
 
       <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border }}>
         <table className="w-full text-sm min-w-160">
           <thead style={{ background: theme.dark.sidebar }}>
-            <tr className="text-left text-xs border-b" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
-              <th className="px-4 py-3 font-medium">ID</th>
+            <tr className="text-start text-xs border-b" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
+              <th className="px-4 py-3 font-medium">{t('ID')}</th>
               <th className="px-4 py-3 font-medium">{matchLabel.toUpperCase()}</th>
-              {allowConfirmateur && <th className="px-4 py-3 font-medium">CONFIRMATEUR</th>}
-              {allowCarrier && <th className="px-4 py-3 font-medium">TRANSPORTEUR</th>}
-              <th className="px-4 py-3 font-medium">ACTIF</th>
-              <th className="px-4 py-3 font-medium text-right">ACTIONS</th>
+              {allowConfirmateur && <th className="px-4 py-3 font-medium">{t('CONFIRMATEUR')}</th>}
+              {allowCarrier && <th className="px-4 py-3 font-medium">{t('TRANSPORTEUR')}</th>}
+              <th className="px-4 py-3 font-medium">{t('ACTIF')}</th>
+              <th className="px-4 py-3 font-medium text-end">{t('ACTIONS')}</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={6} className="text-center py-12 text-app-muted">Chargement…</td></tr>
+              <tr><td colSpan={6} className="text-center py-12 text-app-muted">{t('Chargement…')}</td></tr>
             ) : rules.length === 0 ? (
-              <tr><td colSpan={6}><EmptyState title="Aucune donnée trouvée" description="Ajoutez une règle pour router automatiquement les commandes correspondantes." /></td></tr>
+              <tr><td colSpan={6}><EmptyState title={t('Aucune donnée trouvée')} description={t('Ajoutez une règle pour router automatiquement les commandes correspondantes.')} /></td></tr>
             ) : rules.map(r => (
               <tr key={r.id} className="border-b last:border-0 hover:bg-violet-500/5 transition" style={{ borderColor: theme.dark.borderRowHover }}>
                 <td className="px-4 py-3 text-app-muted">#{r.id}</td>
@@ -139,8 +141,8 @@ export default function DispatchRulesPage({ title, subtitle, matchType, allowCon
                     <span className="inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform" style={{ transform: r.is_active ? 'translateX(18px)' : 'translateX(3px)' }} />
                   </button>
                 </td>
-                <td className="px-4 py-3 text-right">
-                  <button onClick={() => remove(r)} className={theme.btn.icon + ' hover:text-red-400 hover:bg-red-500/10'} title="Supprimer">
+                <td className="px-4 py-3 text-end">
+                  <button onClick={() => remove(r)} className={theme.btn.icon + ' hover:text-red-400 hover:bg-red-500/10'} title={t('Supprimer')}>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="16" height="16">
                       <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0-1 14a2 2 0 01-2 2H7a2 2 0 01-2-2L4 6" />
                     </svg>
@@ -159,28 +161,28 @@ export default function DispatchRulesPage({ title, subtitle, matchType, allowCon
 
             {matchType === 'product' ? (
               <div className="mb-3">
-                <label className={theme.labelDark}>Recherche de produit</label>
+                <label className={theme.labelDark}>{t('Recherche de produit')}</label>
                 {matchValue ? (
                   <div className="flex items-center justify-between px-3.5 py-2.5 rounded-lg border text-sm text-app-primary" style={bdrStyle}>
                     <span className="truncate">{matchValue}</span>
-                    <button type="button" onClick={() => { setMatchValue(''); setProductSearch('') }} className="text-app-muted-light hover:text-app-primary transition cursor-pointer shrink-0 ml-2">✕</button>
+                    <button type="button" onClick={() => { setMatchValue(''); setProductSearch('') }} className="text-app-muted-light hover:text-app-primary transition cursor-pointer shrink-0 ms-2">✕</button>
                   </div>
                 ) : (
                   <div className="relative">
                     <input
                       value={productSearch}
                       onChange={e => setProductSearch(e.target.value)}
-                      placeholder="Tapez le nom d'un produit…"
+                      placeholder={t('Tapez le nom d\'un produit…')}
                       className={inputCls} style={bdrStyle}
                     />
                     {(productResults.length > 0 || productSearching) && (
-                      <div className="absolute z-20 left-0 right-0 top-full mt-1 rounded-lg border overflow-hidden shadow-xl max-h-48 overflow-y-auto"
+                      <div className="absolute z-20 start-0 end-0 top-full mt-1 rounded-lg border overflow-hidden shadow-xl max-h-48 overflow-y-auto"
                         style={{ background: theme.dark.sidebar, borderColor: theme.dark.border }}>
-                        {productSearching && <p className="px-3.5 py-2 text-xs text-app-muted">Recherche…</p>}
+                        {productSearching && <p className="px-3.5 py-2 text-xs text-app-muted">{t('Recherche…')}</p>}
                         {productResults.map(p => (
                           <button key={p.id} type="button"
                             onClick={() => { setMatchValue(p.name); setProductResults([]) }}
-                            className="w-full text-left px-3.5 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition">
+                            className="w-full text-start px-3.5 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition">
                             {p.name}
                           </button>
                         ))}
@@ -191,33 +193,33 @@ export default function DispatchRulesPage({ title, subtitle, matchType, allowCon
               </div>
             ) : (
               <>
-                <label className={theme.labelDark}>Wilaya</label>
+                <label className={theme.labelDark}>{t('Wilaya')}</label>
                 <Select value={matchValue} onChange={setMatchValue} options={WILAYAS.map(w => ({ value: w.name, label: `${w.id} — ${w.name}` }))}
-                  placeholder="Choisissez une wilaya" className={inputCls + ' mb-3'} style={{ ...bdrStyle, background: theme.dark.sidebar }} />
+                  placeholder={t('Choisissez une wilaya')} className={inputCls + ' mb-3'} style={{ ...bdrStyle, background: theme.dark.sidebar }} />
               </>
             )}
 
             {allowConfirmateur && (
               <>
-                <label className={theme.labelDark}>Confirmateur</label>
+                <label className={theme.labelDark}>{t('Confirmateur')}</label>
                 <Select value={confirmateurId} onChange={setConfirmateurId}
-                  options={[{ value: '', label: 'Aucun' }, ...confirmateurs.map(c => ({ value: c.id, label: `${c.first_name} ${c.last_name}` }))]}
+                  options={[{ value: '', label: t('Aucun') }, ...confirmateurs.map(c => ({ value: c.id, label: `${c.first_name} ${c.last_name}` }))]}
                   className={inputCls + ' mb-3'} style={{ ...bdrStyle, background: theme.dark.sidebar }} />
               </>
             )}
             {allowCarrier && (
               <>
-                <label className={theme.labelDark}>Entreprise de livraison</label>
+                <label className={theme.labelDark}>{t('Entreprise de livraison')}</label>
                 <Select value={carrierId} onChange={setCarrierId}
-                  options={[{ value: '', label: 'Aucune' }, ...carriers.map(c => ({ value: c.id, label: c.carrier_label }))]}
+                  options={[{ value: '', label: t('Aucune') }, ...carriers.map(c => ({ value: c.id, label: c.carrier_label }))]}
                   className={inputCls + ' mb-4'} style={{ ...bdrStyle, background: theme.dark.sidebar }} />
               </>
             )}
 
             <div className="flex gap-2">
-              <button onClick={() => setModalOpen(false)} className={theme.btn.secondary + ' flex-1 cursor-pointer'}>Fermer</button>
+              <button onClick={() => setModalOpen(false)} className={theme.btn.secondary + ' flex-1 cursor-pointer'}>{t('Fermer')}</button>
               <button onClick={save} disabled={saving || !matchValue || (!confirmateurId && !carrierId)} className={theme.btn.primary + ' flex-1 cursor-pointer disabled:opacity-50'}>
-                {saving ? '…' : 'Ajouter'}
+                {saving ? '…' : tr('Ajouter')}
               </button>
             </div>
           </div>

@@ -67,4 +67,14 @@ api.interceptors.response.use(
   }
 )
 
+
+// Langue de l'interface -> l'API traduit ses messages (core.i18n_middleware).
+function currentLang() {
+  try { return localStorage.getItem('mz-lang') || document.documentElement.lang || 'fr' } catch { return 'fr' }
+}
+api.interceptors.request.use((config) => {
+  config.headers['Accept-Language'] = currentLang()
+  return config
+})
+
 export default api

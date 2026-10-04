@@ -11,39 +11,41 @@ import { theme } from '../../theme'
 import { useAuth } from '../../context/AuthContext'
 import { WILAYAS, getWilayaIdByName } from '../../data/wilayas'
 import { getCommunesForWilaya } from '../../data/communes'
+import { tt } from '../../i18n'
+import { useTranslation } from 'react-i18next'
 
 const RISK_SIGNAL_LABELS_FR = {
-  cancel_return_rate: "Taux d'annulation/retour élevé",
-  unusual_frequency: 'Fréquence de commande anormale',
-  unusual_amount: 'Montant inhabituel',
-  location_mismatch: "Localisation incohérente avec l'historique",
+  cancel_return_rate: tt('Taux d\'annulation/retour élevé'),
+  unusual_frequency: tt('Fréquence de commande anormale'),
+  unusual_amount: tt('Montant inhabituel'),
+  location_mismatch: tt('Localisation incohérente avec l\'historique'),
 }
 
 const DELIVERY_TYPE_LABELS = {
-  store:     'Vendu depuis le magasin',
+  store:     tt('Vendu depuis le magasin'),
   insurance: 'Assurance',
-  free:      'Livraison gratuite',
-  exchange:  'Échange',
+  free:      tt('Livraison gratuite'),
+  exchange:  tt('Échange'),
 }
 
 const STATUS_CHOICES = [
-  { value: 'pending',          label: 'En attente de confirmation' },
-  { value: 'no_answer_1',      label: 'Non joignable — 1ère tentative' },
-  { value: 'no_answer_2',      label: 'Non joignable — 2ème tentative' },
-  { value: 'no_answer_3',      label: 'Non joignable — 3ème tentative' },
-  { value: 'no_answer',        label: 'Sans réponse' },
-  { value: 'confirmed',        label: 'Confirmée' },
-  { value: 'preparing',        label: 'Préparation de commande' },
-  { value: 'prepared',         label: 'Préparée' },
-  { value: 'in_progress',      label: 'En cours' },
-  { value: 'shipped',          label: 'Expédiée' },
-  { value: 'out_for_delivery', label: 'Sorti en livraison' },
-  { value: 'delivered',        label: 'Livrée' },
-  { value: 'returned',         label: 'Retournée' },
-  { value: 'cancel_requested', label: "Demande d'annulation" },
-  { value: 'cancelled',        label: 'Annulée' },
-  { value: 'duplicate',        label: 'Commande double' },
-  { value: 'fake',             label: 'Commande fictive' },
+  { value: 'pending',          label: tt('En attente de confirmation') },
+  { value: 'no_answer_1',      label: tt('Non joignable — 1ère tentative') },
+  { value: 'no_answer_2',      label: tt('Non joignable — 2ème tentative') },
+  { value: 'no_answer_3',      label: tt('Non joignable — 3ème tentative') },
+  { value: 'no_answer',        label: tt('Sans réponse') },
+  { value: 'confirmed',        label: tt('Confirmée') },
+  { value: 'preparing',        label: tt('Préparation de commande') },
+  { value: 'prepared',         label: tt('Préparée') },
+  { value: 'in_progress',      label: tt('En cours') },
+  { value: 'shipped',          label: tt('Expédiée') },
+  { value: 'out_for_delivery', label: tt('Sorti en livraison') },
+  { value: 'delivered',        label: tt('Livrée') },
+  { value: 'returned',         label: tt('Retournée') },
+  { value: 'cancel_requested', label: tt('Demande d\'annulation') },
+  { value: 'cancelled',        label: tt('Annulée') },
+  { value: 'duplicate',        label: tt('Commande double') },
+  { value: 'fake',             label: tt('Commande fictive') },
 ]
 
 // Mapping statut → badge (aligné sur OrdersPage.jsx) :
@@ -135,6 +137,7 @@ function SectionCard({ icon, title, right, children }) {
 }
 
 export default function OrderDetailPage() {
+  const { t: tr } = useTranslation('dashboard')
   const { id } = useParams()
   const navigate = useNavigate()
   const { user } = useAuth()
@@ -204,7 +207,7 @@ export default function OrderDetailPage() {
       await api.put(`/orders/${id}/`, { items: payload })
       fetchOrder(true)
     } catch (err) {
-      setItemsError(err.response?.data?.detail || "Impossible d'enregistrer les articles.")
+      setItemsError(err.response?.data?.detail || tr('Impossible d\'enregistrer les articles.'))
     } finally { setSavingItems(false) }
   }
 
@@ -274,7 +277,7 @@ export default function OrderDetailPage() {
       if (data.carrier_warning) setAssignCarrierError(data.carrier_warning)
       fetchOrder(true)
     } catch (err) {
-      setAssignCarrierError(err.response?.data?.detail || "Impossible d'attribuer ce transporteur.")
+      setAssignCarrierError(err.response?.data?.detail || tr('Impossible d\'attribuer ce transporteur.'))
     } finally { setSavingCarrier(false) }
   }
 
@@ -292,7 +295,7 @@ export default function OrderDetailPage() {
       a.remove()
       URL.revokeObjectURL(url)
     } catch (err) {
-      let detail = "Impossible de récupérer l'étiquette."
+      let detail = tr('Impossible de récupérer l\'étiquette.')
       if (err.response?.data instanceof Blob) {
         try {
           const text = await err.response.data.text()
@@ -371,7 +374,7 @@ export default function OrderDetailPage() {
       await api.put(`/orders/${id}/`, fields)
       fetchOrder(true)
     } catch (err) {
-      setShippingError(err.response?.data?.detail || "Impossible d'enregistrer.")
+      setShippingError(err.response?.data?.detail || tr('Impossible d\'enregistrer.'))
     } finally { setSavingEdit(false) }
   }
 
@@ -499,14 +502,12 @@ export default function OrderDetailPage() {
   }, [order, handleGenerateExplanation])
 
   if (loading) return (
-    <DashboardLayout title="Commande">
+    <DashboardLayout title={tr('Commande')}>
       <div className="flex items-center justify-center gap-2 text-app-muted py-24">
         <svg className="w-5 h-5 animate-spin text-violet-500" viewBox="0 0 24 24" fill="none">
           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-        </svg>
-        Chargement…
-      </div>
+        </svg>{tr('Chargement…')}</div>
     </DashboardLayout>
   )
   if (!order)  return null
@@ -514,14 +515,12 @@ export default function OrderDetailPage() {
   const initials = `${order.first_name?.[0] ?? ''}${order.last_name?.[0] ?? ''}`.toUpperCase() || '?'
 
   return (
-    <DashboardLayout title={`Commande #${order.id}`} subtitle={`C'est la fiche complète d'une commande précise. Vous pouvez y changer son statut étape par étape (en attente → confirmée → expédiée → livrée...) — dès qu'elle passe à "Confirmée", l'expédition est créée automatiquement chez votre transporteur par défaut. Vous voyez aussi le numéro de suivi transporteur, pouvez réassigner un autre confirmateur si besoin, et consulter en bas une frise chronologique de tout ce qui s'est passé sur cette commande depuis sa création.`}>
+    <DashboardLayout title={tr('Commande #{{id}}', { id: order.id })} subtitle={tr('C\'est la fiche complète d\'une commande précise. Vous pouvez y changer son statut étape par étape (en attente → confirmée → expédiée → livrée...) — dès qu\'elle passe à "Confirmée", l\'expédition est créée automatiquement chez votre transporteur par défaut. Vous voyez aussi le numéro de suivi transporteur, pouvez réassigner un autre confirmateur si besoin, et consulter en bas une frise chronologique de tout ce qui s\'est passé sur cette commande depuis sa création.')}>
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3 mb-5">
         <button onClick={() => navigate('/dashboard/commandes')}
           className="inline-flex items-center gap-1.5 text-sm text-app-muted-light hover:text-app-primary transition">
-          <Icon path={ICONS.back} className="w-4 h-4" />
-          Retour aux commandes
-        </button>
+          <Icon path={ICONS.back} className="w-4 h-4" />{tr('Retour aux commandes')}</button>
         <StatusBadge status={order.status} label={order.status_label} />
       </div>
 
@@ -529,34 +528,34 @@ export default function OrderDetailPage() {
         <div className="rounded-xl border p-4 mb-5" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-1.5">
-              <span className="text-sm font-medium text-app-primary">Score de risque</span>
-              <HelpTooltip title="COMMENT CE SCORE EST CALCULÉ">
-                {"Score de 0 à 100, calculé automatiquement à la création de la commande — jamais par l'IA (qui pourrait inventer un chiffre différent à chaque fois), toujours par une règle fixe et vérifiable :\n\n"}
-                {"• Taux d'annulation/retour élevé — 40 pts\n"}
-                {"• Fréquence de commande anormale (≥3 commandes du même téléphone en 24h) — 20 pts\n"}
-                {"• Montant inhabituel (≥3× la moyenne habituelle) — 20 pts\n"}
-                {"• Localisation incohérente avec l'historique du client — 20 pts\n\n"}
-                {"Faible < 34, Moyen 34-66, Élevé ≥ 67. Ce score ne bloque jamais une commande automatiquement — c'est un signalement, à vous de décider."}
+              <span className="text-sm font-medium text-app-primary">{tr('Score de risque')}</span>
+              <HelpTooltip title={tr('COMMENT CE SCORE EST CALCULÉ')}>
+                {tr('Score de 0 à 100, calculé automatiquement à la création de la commande — jamais par l\'IA (qui pourrait inventer un chiffre différent à chaque fois), toujours par une règle fixe et vérifiable :')}
+                {tr('• Taux d\'annulation/retour élevé — 40 pts')}
+                {tr('• Fréquence de commande anormale (≥3 commandes du même téléphone en 24h) — 20 pts')}
+                {tr('• Montant inhabituel (≥3× la moyenne habituelle) — 20 pts')}
+                {tr('• Localisation incohérente avec l\'historique du client — 20 pts')}
+                {tr('Faible < 34, Moyen 34-66, Élevé ≥ 67. Ce score ne bloque jamais une commande automatiquement — c\'est un signalement, à vous de décider.')}
               </HelpTooltip>
             </div>
             <RiskScoreBadge score={order.risk_score} />
           </div>
           {order.risk_signals?.length > 0 && (
-            <ul className="text-xs text-app-muted-light list-disc pl-4 mb-2">
+            <ul className="text-xs text-app-muted-light list-disc ps-4 mb-2">
               {order.risk_signals.map(s => <li key={s}>{RISK_SIGNAL_LABELS_FR[s] || s}</li>)}
             </ul>
           )}
           {order.risk_explanation ? (
             <div className="flex items-start gap-1.5">
               <p className="text-xs text-app-muted-light flex-1">{order.risk_explanation}</p>
-              <HelpTooltip title="D'OÙ VIENT CE TEXTE">
-                {"Résumé généré par l'IA à partir UNIQUEMENT du score et des signaux ci-dessus — jamais d'autres informations sur le client. Généré une seule fois par commande et mis en cache, il ne change plus ensuite."}
+              <HelpTooltip title={tr('D\'OÙ VIENT CE TEXTE')}>
+                {tr('Résumé généré par l\'IA à partir UNIQUEMENT du score et des signaux ci-dessus — jamais d\'autres informations sur le client. Généré une seule fois par commande et mis en cache, il ne change plus ensuite.')}
               </HelpTooltip>
             </div>
           ) : (
             <button type="button" onClick={handleGenerateExplanation} disabled={loadingExplanation}
               className={theme.btn.outline + ' text-xs disabled:opacity-50'}>
-              {loadingExplanation ? 'Génération…' : 'Réessayer de générer une explication'}
+              {loadingExplanation ? tr('Génération…') : tr('Réessayer de générer une explication')}
             </button>
           )}
         </div>
@@ -576,34 +575,34 @@ export default function OrderDetailPage() {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="font-semibold text-app-primary truncate">{order.first_name} {order.last_name}</p>
-                <p className="text-xs" style={{ color: theme.dark.muted }}>Commande #{order.id} · {new Date(order.created_at).toLocaleDateString('fr-DZ')}</p>
+                <p className="text-xs" style={{ color: theme.dark.muted }}>{tr('Commande #{{id}} ·', { id: order.id })}{' '}{new Date(order.created_at).toLocaleDateString('fr-DZ')}</p>
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-4 gap-x-4">
-              <InfoTile icon={ICONS.phone} label="Téléphone" value={order.phone} />
-              <InfoTile icon={ICONS.pin} label="Wilaya / Commune" value={`${order.wilaya}${order.commune ? ' · ' + order.commune : ''}`} />
+              <InfoTile icon={ICONS.phone} label={tr('Téléphone')} value={order.phone} />
+              <InfoTile icon={ICONS.pin} label={tr('Wilaya / Commune')} value={`${order.wilaya}${order.commune ? ' · ' + order.commune : ''}`} />
               <InfoTile
                 icon={ICONS.truck}
-                label="Livraison"
+                label={tr('Livraison')}
                 value={
                   order.carrier_label
                     ? order.carrier_label
                     : defaultCarrier
-                      ? `${defaultCarrier.carrier_label} (par défaut)`
-                      : (order.delivery_types || []).map(t => DELIVERY_TYPE_LABELS[t] || t).join(' + ') || 'Aucun transporteur configuré'
+                      ? tr('{{carrier_label}} (par défaut)', { carrier_label: defaultCarrier.carrier_label })
+                      : (order.delivery_types || []).map(t => DELIVERY_TYPE_LABELS[t] || t).join(' + ') || tr('Aucun transporteur configuré')
                 }
               />
-              <InfoTile icon={ICONS.cash} label="Paiement" value={order.payment_method_label || '—'} />
+              <InfoTile icon={ICONS.cash} label={tr('Paiement')} value={order.payment_method_label || '—'} />
               {order.carrier_tracking_number && (
-                <InfoTile icon={ICONS.shipping} label="Société de livraison" value={`${order.carrier_label} — ${order.carrier_tracking_number}`} highlight />
+                <InfoTile icon={ICONS.shipping} label={tr('Société de livraison')} value={`${order.carrier_label} — ${order.carrier_tracking_number}`} highlight />
               )}
             </div>
 
             {order.carrier_tracking_number && (
               <div className="mt-4 pt-4 border-t" style={{ borderColor: theme.dark.border }}>
                 <button onClick={downloadLabel} disabled={downloadingLabel} className={theme.btn.outline + ' text-sm disabled:opacity-60'}>
-                  {downloadingLabel ? 'Téléchargement…' : 'Télécharger l\'étiquette'}
+                  {downloadingLabel ? tr('Téléchargement…') : tr('Télécharger l\'étiquette')}
                 </button>
                 {labelError && <p className="text-red-400 text-xs mt-2">{labelError}</p>}
               </div>
@@ -615,7 +614,7 @@ export default function OrderDetailPage() {
                   <Icon path={ICONS.note} className="w-4 h-4" />
                 </div>
                 <div>
-                  <p className="text-[11px] uppercase tracking-wide" style={{ color: theme.dark.muted }}>Note</p>
+                  <p className="text-[11px] uppercase tracking-wide" style={{ color: theme.dark.muted }}>{tr('Note')}</p>
                   <p className="text-sm text-app-primary">{order.note}</p>
                 </div>
               </div>
@@ -624,33 +623,33 @@ export default function OrderDetailPage() {
 
           {/* Articles — toujours modifiables directement (produit, variante,
               quantité, ajout/suppression), indépendamment de "Modifier". */}
-          <SectionCard icon={ICONS.package} title={`Articles (${localItems.filter(i => !i._delete).length})`}>
+          <SectionCard icon={ICONS.package} title={tr('Articles ({{length}})', { length: localItems.filter(i => !i._delete).length })}>
             {canEditOrder && (
               <div className="relative mb-3">
                 <input
                   value={itemSearch}
                   onChange={e => { setItemSearch(e.target.value); setChangingRowKey(null) }}
-                  placeholder="Rechercher un produit à ajouter…"
+                  placeholder={tr('Rechercher un produit à ajouter…')}
                   className="w-full px-3.5 py-2.5 rounded-lg border text-sm text-app-primary bg-transparent outline-none focus:border-violet-500 transition"
                   style={{ borderColor: theme.dark.border }}
                 />
                 {(itemResults.length > 0 || itemSearching) && !changingRowKey && (
-                  <div className="absolute z-20 left-0 right-0 top-full mt-1 rounded-lg border overflow-hidden shadow-xl max-h-72 overflow-y-auto" style={{ background: theme.dark.sidebar, borderColor: theme.dark.border }}>
-                    {itemSearching && <p className="px-4 py-3 text-xs text-app-muted">Recherche…</p>}
+                  <div className="absolute z-20 start-0 end-0 top-full mt-1 rounded-lg border overflow-hidden shadow-xl max-h-72 overflow-y-auto" style={{ background: theme.dark.sidebar, borderColor: theme.dark.border }}>
+                    {itemSearching && <p className="px-4 py-3 text-xs text-app-muted">{tr('Recherche…')}</p>}
                     {itemResults.map(p => {
                       const options = (p.variants || []).flatMap(v => v.options || [])
                       return (
                         <div key={p.id} className="border-b last:border-0" style={{ borderColor: theme.dark.border }}>
                           {options.length === 0 && (
-                            <button onClick={() => addProductToOrder(p)} className="w-full text-left px-4 py-2.5 text-sm text-app-primary hover:bg-violet-500/5 transition flex items-center justify-between">
+                            <button onClick={() => addProductToOrder(p)} className="w-full text-start px-4 py-2.5 text-sm text-app-primary hover:bg-violet-500/5 transition flex items-center justify-between">
                               <span>{p.name}</span>
-                              <span className="text-violet-300 text-xs">{Number(p.price).toLocaleString('fr-DZ')} DZD</span>
+                              <span className="text-violet-300 text-xs">{Number(p.price).toLocaleString('fr-DZ')}{' '}{tr('DZD')}</span>
                             </button>
                           )}
                           {options.map(opt => (
-                            <button key={opt.id} onClick={() => addProductToOrder(p, opt)} className="w-full text-left px-4 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition flex items-center justify-between">
+                            <button key={opt.id} onClick={() => addProductToOrder(p, opt)} className="w-full text-start px-4 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition flex items-center justify-between">
                               <span>{p.name} — {opt.value}</span>
-                              <span className="text-violet-300 text-xs">{Number(opt.price ?? p.price).toLocaleString('fr-DZ')} DZD</span>
+                              <span className="text-violet-300 text-xs">{Number(opt.price ?? p.price).toLocaleString('fr-DZ')}{' '}{tr('DZD')}</span>
                             </button>
                           ))}
                         </div>
@@ -663,11 +662,11 @@ export default function OrderDetailPage() {
             <div className="overflow-x-auto -mx-1">
               <table className="w-full text-sm min-w-120">
                 <thead>
-                  <tr className="text-[11px] uppercase tracking-wide border-b text-left" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
-                    <th className="pb-2.5 px-1 font-medium">Produit</th>
-                    <th className="pb-2.5 px-1 font-medium text-right">Prix</th>
-                    <th className="pb-2.5 px-1 font-medium text-center">Qté</th>
-                    <th className="pb-2.5 px-1 font-medium text-right">Total</th>
+                  <tr className="text-[11px] uppercase tracking-wide border-b text-start" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
+                    <th className="pb-2.5 px-1 font-medium">{tr('Produit')}</th>
+                    <th className="pb-2.5 px-1 font-medium text-end">{tr('Prix')}</th>
+                    <th className="pb-2.5 px-1 font-medium text-center">{tr('Qté')}</th>
+                    <th className="pb-2.5 px-1 font-medium text-end">{tr('Total')}</th>
                     {canEditOrder && <th className="pb-2.5 px-1 w-16"></th>}
                   </tr>
                 </thead>
@@ -678,12 +677,12 @@ export default function OrderDetailPage() {
                         <td className="py-3 px-1 text-app-primary font-medium">
                           {item.product_name}
                           {canEditOrder && (
-                            <button onClick={() => { setChangingRowKey(k => k === item._key ? null : item._key); setItemSearch(''); setItemResults([]) }} className="ml-2 text-xs text-violet-400 hover:text-violet-300 transition cursor-pointer">
-                              {changingRowKey === item._key ? 'Annuler' : 'Changer'}
+                            <button onClick={() => { setChangingRowKey(k => k === item._key ? null : item._key); setItemSearch(''); setItemResults([]) }} className="ms-2 text-xs text-violet-400 hover:text-violet-300 transition cursor-pointer">
+                              {changingRowKey === item._key ? tr('Annuler') : tr('Changer')}
                             </button>
                           )}
                         </td>
-                        <td className="py-3 px-1 text-right text-app-muted-light">{Number(item.price).toLocaleString('fr-DZ')} DZD</td>
+                        <td className="py-3 px-1 text-end text-app-muted-light">{Number(item.price).toLocaleString('fr-DZ')}{' '}{tr('DZD')}</td>
                         <td className="py-3 px-1 text-center">
                           {canEditOrder ? (
                             <div className="flex items-center justify-center gap-1">
@@ -699,12 +698,11 @@ export default function OrderDetailPage() {
                             </span>
                           )}
                         </td>
-                        <td className="py-3 px-1 text-right text-app-primary font-semibold">
-                          {(item.price * item.quantity).toLocaleString('fr-DZ')} DZD
-                        </td>
+                        <td className="py-3 px-1 text-end text-app-primary font-semibold">
+                          {(item.price * item.quantity).toLocaleString('fr-DZ')}{' '}{tr('DZD')}</td>
                         {canEditOrder && (
                           <td className="py-3 px-1 text-center">
-                            <button onClick={() => removeLocalItem(item._key)} className="text-red-400 hover:text-red-300 transition cursor-pointer" title="Retirer">
+                            <button onClick={() => removeLocalItem(item._key)} className="text-red-400 hover:text-red-300 transition cursor-pointer" title={tr('Retirer')}>
                               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
                                 <path d="M18 6L6 18M6 6l12 12" />
                               </svg>
@@ -719,28 +717,28 @@ export default function OrderDetailPage() {
                               <input
                                 value={itemSearch}
                                 onChange={e => setItemSearch(e.target.value)}
-                                placeholder="Rechercher le nouveau produit/variante…"
+                                placeholder={tr('Rechercher le nouveau produit/variante…')}
                                 autoFocus
                                 className="w-full px-3.5 py-2 rounded-lg border text-sm text-app-primary bg-transparent outline-none focus:border-violet-500 transition"
                                 style={{ borderColor: theme.dark.border }}
                               />
                               {(itemResults.length > 0 || itemSearching) && (
                                 <div className="relative z-20 mt-1 rounded-lg border overflow-hidden shadow-xl max-h-60 overflow-y-auto" style={{ background: theme.dark.sidebar, borderColor: theme.dark.border }}>
-                                  {itemSearching && <p className="px-4 py-3 text-xs text-app-muted">Recherche…</p>}
+                                  {itemSearching && <p className="px-4 py-3 text-xs text-app-muted">{tr('Recherche…')}</p>}
                                   {itemResults.map(p => {
                                     const options = (p.variants || []).flatMap(v => v.options || [])
                                     return (
                                       <div key={p.id} className="border-b last:border-0" style={{ borderColor: theme.dark.border }}>
                                         {options.length === 0 && (
-                                          <button onClick={() => changeRowProduct(item._key, p)} className="w-full text-left px-4 py-2.5 text-sm text-app-primary hover:bg-violet-500/5 transition flex items-center justify-between">
+                                          <button onClick={() => changeRowProduct(item._key, p)} className="w-full text-start px-4 py-2.5 text-sm text-app-primary hover:bg-violet-500/5 transition flex items-center justify-between">
                                             <span>{p.name}</span>
-                                            <span className="text-violet-300 text-xs">{Number(p.price).toLocaleString('fr-DZ')} DZD</span>
+                                            <span className="text-violet-300 text-xs">{Number(p.price).toLocaleString('fr-DZ')}{' '}{tr('DZD')}</span>
                                           </button>
                                         )}
                                         {options.map(opt => (
-                                          <button key={opt.id} onClick={() => changeRowProduct(item._key, p, opt)} className="w-full text-left px-4 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition flex items-center justify-between">
+                                          <button key={opt.id} onClick={() => changeRowProduct(item._key, p, opt)} className="w-full text-start px-4 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition flex items-center justify-between">
                                             <span>{p.name} — {opt.value}</span>
-                                            <span className="text-violet-300 text-xs">{Number(opt.price ?? p.price).toLocaleString('fr-DZ')} DZD</span>
+                                            <span className="text-violet-300 text-xs">{Number(opt.price ?? p.price).toLocaleString('fr-DZ')}{' '}{tr('DZD')}</span>
                                           </button>
                                         ))}
                                       </div>
@@ -758,17 +756,17 @@ export default function OrderDetailPage() {
               </table>
             </div>
 
-            {savingItems && <p className="mt-2 text-xs text-right" style={{ color: theme.dark.muted }}>Enregistrement…</p>}
-            {itemsError && <p className="text-red-400 text-xs mt-2 text-right">{itemsError}</p>}
+            {savingItems && <p className="mt-2 text-xs text-end" style={{ color: theme.dark.muted }}>{tr('Enregistrement…')}</p>}
+            {itemsError && <p className="text-red-400 text-xs mt-2 text-end">{itemsError}</p>}
           </SectionCard>
 
           {/* Livraison — ville/commune/domicile-point relais/frais, toujours
               modifiables ici (pas dans un mode "Modifier" séparé). */}
           {canEditOrder && (
-            <SectionCard icon={ICONS.truck} title="Livraison">
+            <SectionCard icon={ICONS.truck} title={tr('Livraison')}>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs text-app-muted-light mb-1.5">Wilaya</label>
+                  <label className="block text-xs text-app-muted-light mb-1.5">{tr('Wilaya')}</label>
                   <Select
                     value={editWilaya}
                     onChange={chooseWilaya}
@@ -778,12 +776,12 @@ export default function OrderDetailPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-app-muted-light mb-1.5">Commune</label>
+                  <label className="block text-xs text-app-muted-light mb-1.5">{tr('Commune')}</label>
                   <Select
                     value={editCommune}
                     onChange={chooseCommune}
                     options={getCommunesForWilaya(getWilayaIdByName(editWilaya)).map(name => ({ value: name, label: name }))}
-                    placeholder={editWilaya ? 'Choisissez une commune' : "Choisissez d'abord une wilaya"}
+                    placeholder={editWilaya ? tr('Choisissez une commune') : tr('Choisissez d\'abord une wilaya')}
                     disabled={!editWilaya}
                     className={inputCls}
                     style={{ ...bdrStyle, background: theme.dark.sidebar }}
@@ -793,28 +791,24 @@ export default function OrderDetailPage() {
                   <div className="sm:col-span-2 grid grid-cols-2 gap-2">
                     <label className={`flex items-center justify-between gap-2 cursor-pointer rounded-lg border px-3 py-2 text-xs transition ${!editStopDesk ? 'border-violet-500 bg-violet-500/10' : ''}`} style={{ borderColor: !editStopDesk ? undefined : theme.dark.border }}>
                       <span className="flex items-center gap-2 text-app-primary">
-                        <input type="radio" name="edit_stop_desk" checked={!editStopDesk} onChange={() => chooseStopDesk(false)} className="accent-violet-600 w-3.5 h-3.5" />
-                        À domicile
-                      </span>
-                      <span className="text-app-muted-light">{Number(editRate.tarif).toLocaleString('fr-DZ')} DZD</span>
+                        <input type="radio" name="edit_stop_desk" checked={!editStopDesk} onChange={() => chooseStopDesk(false)} className="accent-violet-600 w-3.5 h-3.5" />{tr('À domicile')}</span>
+                      <span className="text-app-muted-light">{Number(editRate.tarif).toLocaleString('fr-DZ')}{' '}{tr('DZD')}</span>
                     </label>
                     <label className={`flex items-center justify-between gap-2 cursor-pointer rounded-lg border px-3 py-2 text-xs transition ${editStopDesk ? 'border-violet-500 bg-violet-500/10' : ''}`} style={{ borderColor: editStopDesk ? undefined : theme.dark.border }}>
                       <span className="flex items-center gap-2 text-app-primary">
-                        <input type="radio" name="edit_stop_desk" checked={editStopDesk} onChange={() => chooseStopDesk(true)} className="accent-violet-600 w-3.5 h-3.5" />
-                        Point relais
-                      </span>
-                      <span className="text-app-muted-light">{Number(editRate.tarif_stopdesk).toLocaleString('fr-DZ')} DZD</span>
+                        <input type="radio" name="edit_stop_desk" checked={editStopDesk} onChange={() => chooseStopDesk(true)} className="accent-violet-600 w-3.5 h-3.5" />{tr('Point relais')}</span>
+                      <span className="text-app-muted-light">{Number(editRate.tarif_stopdesk).toLocaleString('fr-DZ')}{' '}{tr('DZD')}</span>
                     </label>
                   </div>
                 )}
                 {editStopDesk && (
                   <div className="sm:col-span-2">
-                    <label className="block text-xs text-app-muted-light mb-1.5">Bureau de retrait</label>
+                    <label className="block text-xs text-app-muted-light mb-1.5">{tr('Bureau de retrait')}</label>
                     <Select
                       value={editStationCode}
                       onChange={chooseStationCode}
                       options={editDesks.map(d => ({ value: d.code, label: `${d.name} — ${d.address}` }))}
-                      placeholder={editDesksLoading ? 'Chargement des bureaux…' : editDesks.length ? 'Choisir un bureau' : 'Aucun bureau trouvé pour cette wilaya'}
+                      placeholder={editDesksLoading ? tr('Chargement des bureaux…') : editDesks.length ? tr('Choisir un bureau') : tr('Aucun bureau trouvé pour cette wilaya')}
                       disabled={editDesksLoading || editDesks.length === 0}
                       className={inputCls}
                       style={{ ...bdrStyle, background: theme.dark.sidebar }}
@@ -826,7 +820,7 @@ export default function OrderDetailPage() {
                   </div>
                 )}
                 <div className="sm:col-span-2">
-                  <label className="block text-xs text-app-muted-light mb-1.5">Frais de livraison</label>
+                  <label className="block text-xs text-app-muted-light mb-1.5">{tr('Frais de livraison')}</label>
                   <input
                     type="number"
                     min="0"
@@ -835,63 +829,59 @@ export default function OrderDetailPage() {
                     className={inputCls}
                     style={bdrStyle}
                   />
-                  {editShippingLoading && <p className="text-xs mt-1" style={{ color: theme.dark.muted }}>Récupération du tarif réel…</p>}
+                  {editShippingLoading && <p className="text-xs mt-1" style={{ color: theme.dark.muted }}>{tr('Récupération du tarif réel…')}</p>}
                   {!editShippingLoading && defaultCarrier && !editShippingEdited && (
-                    <p className="text-xs mt-1 text-emerald-400">Tarif réel {defaultCarrier.carrier_label} pour {editWilaya}{editRate?.tarif_stopdesk != null ? (editStopDesk ? ' (point relais)' : ' (domicile)') : ''}</p>
+                    <p className="text-xs mt-1 text-emerald-400">{tr('Tarif réel {{carrier_label}} pour {{editWilaya}}', { carrier_label: defaultCarrier.carrier_label, editWilaya })}{editRate?.tarif_stopdesk != null ? (editStopDesk ? ' (point relais)' : ' (domicile)') : ''}</p>
                   )}
                   {editShippingEdited && (
-                    <button type="button" onClick={() => setEditShippingEdited(false)} className="text-xs text-violet-400 hover:text-violet-300 transition cursor-pointer mt-1">
-                      Revenir au tarif réel
-                    </button>
+                    <button type="button" onClick={() => setEditShippingEdited(false)} className="text-xs text-violet-400 hover:text-violet-300 transition cursor-pointer mt-1">{tr('Revenir au tarif réel')}</button>
                   )}
                   {editStopDesk && defaultCarrier?.carrier === 'noest' && !editStationCode && !editDesksLoading && editDesks.length > 0 && (
-                    <p className="text-xs mt-1.5 text-amber-400">
-                      ⚠️ Choisissez un bureau ci-dessus — Noest exige un bureau précis pour une livraison en point relais.
-                    </p>
+                    <p className="text-xs mt-1.5 text-amber-400">{tr('⚠️ Choisissez un bureau ci-dessus — Noest exige un bureau précis pour une livraison en point relais.')}</p>
                   )}
                 </div>
               </div>
 
-              {savingEdit && <p className="text-xs mt-3" style={{ color: theme.dark.muted }}>Enregistrement…</p>}
+              {savingEdit && <p className="text-xs mt-3" style={{ color: theme.dark.muted }}>{tr('Enregistrement…')}</p>}
               {shippingError && <p className="text-xs mt-3 text-red-400">{shippingError}</p>}
             </SectionCard>
           )}
 
           {/* Total — placé après Livraison pour refléter le frais de livraison à jour */}
-          <SectionCard icon={ICONS.cash} title="Total">
+          <SectionCard icon={ICONS.cash} title={tr('Total')}>
             <div className="flex flex-col items-end gap-1.5 text-sm">
               <div className="flex justify-between w-full max-w-56">
-                <span style={{ color: theme.dark.muted }}>Sous-total</span>
-                <span className="text-app-primary">{localSubtotal.toLocaleString('fr-DZ')} DZD</span>
+                <span style={{ color: theme.dark.muted }}>{tr('Sous-total')}</span>
+                <span className="text-app-primary">{localSubtotal.toLocaleString('fr-DZ')}{' '}{tr('DZD')}</span>
               </div>
               <div className="flex justify-between w-full max-w-56">
-                <span style={{ color: theme.dark.muted }}>Livraison</span>
-                <span className="text-app-primary">{Number(order.shipping_cost).toLocaleString('fr-DZ')} DZD</span>
+                <span style={{ color: theme.dark.muted }}>{tr('Livraison')}</span>
+                <span className="text-app-primary">{Number(order.shipping_cost).toLocaleString('fr-DZ')}{' '}{tr('DZD')}</span>
               </div>
               <div className="flex justify-between w-full max-w-56 pt-1.5 mt-1 border-t" style={{ borderColor: theme.dark.border }}>
-                <span className="text-app-primary font-medium">Total</span>
-                <span className="text-white font-bold text-base">{(localSubtotal + Number(order.shipping_cost)).toLocaleString('fr-DZ')} DZD</span>
+                <span className="text-app-primary font-medium">{tr('Total')}</span>
+                <span className="text-white font-bold text-base">{(localSubtotal + Number(order.shipping_cost)).toLocaleString('fr-DZ')}{' '}{tr('DZD')}</span>
               </div>
             </div>
           </SectionCard>
 
           {/* Historique statuts */}
-          <SectionCard icon={ICONS.status} title="Historique des statuts">
+          <SectionCard icon={ICONS.status} title={tr('Historique des statuts')}>
             {!order.history?.length ? (
-              <p className="text-sm text-center py-6" style={{ color: theme.dark.muted }}>Aucun historique</p>
+              <p className="text-sm text-center py-6" style={{ color: theme.dark.muted }}>{tr('Aucun historique')}</p>
             ) : (
-              <div className="relative space-y-5 pl-1">
-                <div className="absolute left-1.75 top-2 bottom-2 w-px" style={{ background: theme.dark.border }} />
+              <div className="relative space-y-5 ps-1">
+                <div className="absolute start-1.75 top-2 bottom-2 w-px" style={{ background: theme.dark.border }} />
                 {order.history.map(h => (
-                  <div key={h.id} className="relative flex items-start gap-3 pl-6">
-                    <div className={`absolute left-0 top-1 w-3.5 h-3.5 rounded-full ring-4 ${STATUS_DOT[h.status] || 'bg-(--text-muted)'}`}
+                  <div key={h.id} className="relative flex items-start gap-3 ps-6">
+                    <div className={`absolute start-0 top-1 w-3.5 h-3.5 rounded-full ring-4 ${STATUS_DOT[h.status] || 'bg-(--text-muted)'}`}
                       style={{ boxShadow: `0 0 0 4px ${theme.dark.card}` }} />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between flex-wrap gap-1">
                         <span className={`text-sm font-medium ${STATUS_COLORS[h.status]?.split(' ')[1] || 'text-app-primary'}`}>{h.status_label}</span>
                         <span className="text-xs" style={{ color: theme.dark.muted }}>{new Date(h.changed_at).toLocaleString('fr-DZ')}</span>
                       </div>
-                      <p className="text-xs mt-0.5" style={{ color: theme.dark.muted }}>par {h.changed_by_name}{h.note ? ` · ${h.note}` : ''}</p>
+                      <p className="text-xs mt-0.5" style={{ color: theme.dark.muted }}>{tr('par {{changed_by_name}}', { changed_by_name: h.changed_by_name })}{h.note ? ` · ${h.note}` : ''}</p>
                     </div>
                   </div>
                 ))}
@@ -909,7 +899,7 @@ export default function OrderDetailPage() {
               <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(124,58,237,0.1)', color: '#8b5cf6' }}>
                 <Icon path={ICONS.status} className="w-3.5 h-3.5" />
               </div>
-              <h3 className="text-sm font-semibold text-app-primary">Changer le statut</h3>
+              <h3 className="text-sm font-semibold text-app-primary">{tr('Changer le statut')}</h3>
             </div>
             <Select value={newStatus} onChange={setNewStatus} options={STATUS_CHOICES} className={inputCls + ' mb-2'} style={{ ...bdrStyle, background: theme.dark.sidebar }} />
             {showFailureReason && (
@@ -917,15 +907,15 @@ export default function OrderDetailPage() {
                 value={failureReason}
                 onChange={setFailureReason}
                 options={failureReasons.map(r => ({ value: r.id, label: r.label }))}
-                placeholder={failureReasons.length ? 'Raison (optionnel)' : 'Aucune raison configurée'}
+                placeholder={failureReasons.length ? tr('Raison (optionnel)') : tr('Aucune raison configurée')}
                 disabled={failureReasons.length === 0}
                 className={inputCls + ' mb-2'}
                 style={{ ...bdrStyle, background: theme.dark.sidebar }}
               />
             )}
-            <textarea value={statusNote} onChange={e => setStatusNote(e.target.value)} rows={2} className={`${inputCls} resize-none mb-3`} style={bdrStyle} placeholder="Note (optionnel)" />
+            <textarea value={statusNote} onChange={e => setStatusNote(e.target.value)} rows={2} className={`${inputCls} resize-none mb-3`} style={bdrStyle} placeholder={tr('Note (optionnel)')} />
             <button onClick={changeStatus} disabled={savingStatus || newStatus === order.status} className={theme.btn.primary + ' w-full'}>
-              {savingStatus ? '…' : 'Appliquer'}
+              {savingStatus ? '…' : tr('Appliquer')}
             </button>
             {carrierWarning && (
               <p className="mt-2.5 text-xs text-amber-400 flex items-start gap-1.5">
@@ -945,27 +935,27 @@ export default function OrderDetailPage() {
                 <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(124,58,237,0.1)', color: '#8b5cf6' }}>
                   <Icon path={ICONS.shipping} className="w-3.5 h-3.5" />
                 </div>
-                <h3 className="text-sm font-semibold text-app-primary">Société de livraison</h3>
+                <h3 className="text-sm font-semibold text-app-primary">{tr('Société de livraison')}</h3>
               </div>
               <div className="mb-3 px-3 py-2 rounded-lg" style={{ background: theme.dark.sidebar }}>
                 <p className="text-sm text-violet-300 font-medium">
-                  {order.carrier_label || <span style={{ color: theme.dark.muted }}>Non attribuée</span>}
+                  {order.carrier_label || <span style={{ color: theme.dark.muted }}>{tr('Non attribuée')}</span>}
                 </p>
-                {order.carrier_tracking_number && <p className="text-xs mt-0.5" style={{ color: theme.dark.muted }}>Tracking : {order.carrier_tracking_number}</p>}
+                {order.carrier_tracking_number && <p className="text-xs mt-0.5" style={{ color: theme.dark.muted }}>{tr('Tracking : {{carrier_tracking_number}}', { carrier_tracking_number: order.carrier_tracking_number })}</p>}
                 {order.carrier_status && order.carrier_status !== 'created' && (
-                  <p className="text-xs mt-1 text-emerald-400">Dernier statut transporteur : {order.carrier_status}</p>
+                  <p className="text-xs mt-1 text-emerald-400">{tr('Dernier statut transporteur : {{carrier_status}}', { carrier_status: order.carrier_status })}</p>
                 )}
               </div>
               <Select
                 value={selectedCarrierId}
                 onChange={setSelectedCarrierId}
                 options={carrierAccounts.map(a => ({ value: a.id, label: a.carrier_label }))}
-                placeholder="Choisir une société de livraison"
+                placeholder={tr('Choisir une société de livraison')}
                 className={inputCls + ' mb-2'}
                 style={{ ...bdrStyle, background: theme.dark.sidebar }}
               />
               <button onClick={assignCarrier} disabled={savingCarrier || !selectedCarrierId} className={theme.btn.primary + ' w-full'}>
-                {savingCarrier ? '…' : order.carrier_tracking_number ? 'Réattribuer' : 'Attribuer'}
+                {savingCarrier ? '…' : order.carrier_tracking_number ? tr('Réattribuer') : tr('Attribuer')}
               </button>
               {assignCarrierError && <p className="mt-2 text-xs text-red-400">{assignCarrierError}</p>}
             </div>
@@ -977,11 +967,11 @@ export default function OrderDetailPage() {
               <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(124,58,237,0.1)', color: '#8b5cf6' }}>
                 <Icon path={ICONS.team} className="w-3.5 h-3.5" />
               </div>
-              <h3 className="text-sm font-semibold text-app-primary">Confirmateur assigné</h3>
+              <h3 className="text-sm font-semibold text-app-primary">{tr('Confirmateur assigné')}</h3>
             </div>
             <div className="mb-3 px-3 py-2 rounded-lg" style={{ background: theme.dark.sidebar }}>
               <p className="text-sm text-violet-300 font-medium">
-                {order.assignment?.confirmateur_name || <span style={{ color: theme.dark.muted }}>Non assigné</span>}
+                {order.assignment?.confirmateur_name || <span style={{ color: theme.dark.muted }}>{tr('Non assigné')}</span>}
               </p>
             </div>
             {!isConfirmateur && (
@@ -990,12 +980,12 @@ export default function OrderDetailPage() {
                   value={newConfirmateur}
                   onChange={setNewConfirmateur}
                   options={confirmateurs.map(c => ({ value: c.id, label: `${c.first_name} ${c.last_name}` }))}
-                  placeholder="Choisir un confirmateur"
+                  placeholder={tr('Choisir un confirmateur')}
                   className={inputCls + ' mb-2'}
                   style={{ ...bdrStyle, background: theme.dark.sidebar }}
                 />
                 <button onClick={saveAssignment} disabled={savingAssign || !newConfirmateur} className={theme.btn.primary + ' w-full'}>
-                  {savingAssign ? '…' : 'Assigner'}
+                  {savingAssign ? '…' : tr('Assigner')}
                 </button>
               </>
             )}

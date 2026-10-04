@@ -4,8 +4,10 @@ import DashboardLayout from '../../../components/DashboardLayout'
 import api from '../../../api/axios'
 import { theme } from '../../../theme'
 import { usePeriod, PeriodFilter, Spinner, money, PIE_COLORS, StatsToolbar, TrendBadge, downloadCsv } from './statsShared'
+import { useTranslation } from 'react-i18next'
 
 export default function SourceStatsPage() {
+  const { t } = useTranslation('dashboard')
   const { period, setPeriod, dateFrom, setDateFrom, dateTo, setDateTo, queryString, ready } = usePeriod()
   const [results, setResults] = useState([])
   const [loading, setLoading] = useState(true)
@@ -29,7 +31,7 @@ export default function SourceStatsPage() {
   }
 
   return (
-    <DashboardLayout title="Statistiques des sources" subtitle="Cette page compare vos différents canaux de vente : les commandes passées directement sur votre boutique en ligne, celles que vous avez saisies vous-même manuellement, et celles apportées par vos dropshippers. MZSolutions détecte automatiquement la source de chaque commande, vous n'avez rien à indiquer vous-même. Utile pour savoir quel canal vous rapporte le plus.">
+    <DashboardLayout title={t('Statistiques des sources')} subtitle={t('Cette page compare vos différents canaux de vente : les commandes passées directement sur votre boutique en ligne, celles que vous avez saisies vous-même manuellement, et celles apportées par vos dropshippers. MZSolutions détecte automatiquement la source de chaque commande, vous n\'avez rien à indiquer vous-même. Utile pour savoir quel canal vous rapporte le plus.')}>
       <div className="flex items-center justify-between gap-3 mb-6 flex-wrap">
         <PeriodFilter period={period} setPeriod={setPeriod} dateFrom={dateFrom} setDateFrom={setDateFrom} dateTo={dateTo} setDateTo={setDateTo} />
         <StatsToolbar onRefresh={fetchData} onExport={handleExport} exporting={exporting} exportDisabled={results.length === 0} />
@@ -37,9 +39,9 @@ export default function SourceStatsPage() {
       {loading ? <Spinner /> : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="rounded-xl border p-5" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-            <p className="text-sm font-medium text-app-primary mb-4">Répartition des commandes par source</p>
+            <p className="text-sm font-medium text-app-primary mb-4">{t('Répartition des commandes par source')}</p>
             {results.length === 0 ? (
-              <p className="text-sm text-app-muted py-16 text-center">Aucune commande sur cette période.</p>
+              <p className="text-sm text-app-muted py-16 text-center">{t('Aucune commande sur cette période.')}</p>
             ) : (
               <ResponsiveContainer width="100%" height={260}>
                 <PieChart>
@@ -55,13 +57,13 @@ export default function SourceStatsPage() {
           <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border }}>
             <table className="w-full text-sm">
               <thead style={{ background: theme.dark.sidebar }}>
-                <tr className="text-left text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
-                  <th className="px-4 py-3 font-medium">SOURCE</th>
-                  <th className="px-4 py-3 font-medium">COMMANDES</th>
-                  <th className="px-4 py-3 font-medium">CONFIRMÉES</th>
-                  <th className="px-4 py-3 font-medium">REVENU</th>
-                  <th className="px-4 py-3 font-medium">MEILLEUR PRODUIT</th>
-                  <th className="px-4 py-3 font-medium">MEILLEURE WILAYA</th>
+                <tr className="text-start text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
+                  <th className="px-4 py-3 font-medium">{t('SOURCE')}</th>
+                  <th className="px-4 py-3 font-medium">{t('COMMANDES')}</th>
+                  <th className="px-4 py-3 font-medium">{t('CONFIRMÉES')}</th>
+                  <th className="px-4 py-3 font-medium">{t('REVENU')}</th>
+                  <th className="px-4 py-3 font-medium">{t('MEILLEUR PRODUIT')}</th>
+                  <th className="px-4 py-3 font-medium">{t('MEILLEURE WILAYA')}</th>
                 </tr>
               </thead>
               <tbody>
