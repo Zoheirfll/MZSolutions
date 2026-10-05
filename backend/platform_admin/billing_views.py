@@ -21,6 +21,7 @@ from rest_framework.views import APIView
 from core.pagination import parse_pagination
 from stores.models import Store, SubscriptionPayment, SubscriptionPlan
 
+from ai_assistant.quotas import clean_quotas, quota_rows
 from .account_views import MAX_REASON, MIN_REASON, log_platform_audit
 from .permissions import is_platform_admin, is_platform_superadmin
 
@@ -48,6 +49,7 @@ def _plan_row(plan, subscribers=None):
         'price_monthly': plan.price_monthly, 'price_yearly': plan.price_yearly,
         'features': plan.features, 'is_active': plan.is_active, 'order': plan.order,
         'ai_daily_limit': plan.ai_daily_limit, 'ai_weekly_limit': plan.ai_weekly_limit,
+        'ai_quotas': quota_rows(plan.ai_quotas),
         'subscribers': subscribers if subscribers is not None else plan.subscribers.count(),
     }
 
@@ -102,6 +104,13 @@ def _validate_plan(data, partial=False):
                 out[field] = value
             except (TypeError, ValueError):
                 errors.append(f'Limite IA {label} invalide (0 = illimité).')
+
+    if 'ai_quotas' in data:
+        cleaned, err = clean_quotas(data.get('ai_quotas'))
+        if err:
+            errors.append(err)
+        else:
+            out['ai_quotas'] = cleaned
 
     if 'is_active' in data:
         out['is_active'] = bool(data.get('is_active'))

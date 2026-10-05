@@ -48,7 +48,7 @@ class GenerateProductView(APIView):
     def post(self, request):
         if (err := _check_access(request)):
             return err
-        if (blocked := ai_gate(get_store(request))):
+        if (blocked := ai_gate(get_store(request), 'product_gen')):
             return blocked
         name = (request.data.get('name') or '').strip()
         if not name:
@@ -91,7 +91,7 @@ class SuggestReplyView(APIView):
         store = _inbox_get_store(request)
         if not store or not _can_view_inbox(request):
             return Response({'detail': 'Accès refusé.'}, status=403)
-        if (blocked := ai_gate(store)):
+        if (blocked := ai_gate(store, 'reply')):
             return blocked
         try:
             inbox_conversation = store.conversations.select_related('order').prefetch_related('messages').get(pk=conversation_id)
@@ -130,7 +130,7 @@ class DashboardSummaryView(APIView):
     def get(self, request):
         if (err := _check_access(request)):
             return err
-        if (blocked := ai_gate(get_store(request))):
+        if (blocked := ai_gate(get_store(request), 'summary')):
             return blocked
         tab = request.query_params.get('tab')
         view_cls = _DASHBOARD_TAB_VIEWS.get(tab)
@@ -195,7 +195,7 @@ class ChatView(APIView):
         store = get_store(request)
         if not store:
             return Response({'detail': 'Accès refusé.'}, status=403)
-        if (blocked := ai_gate(store)):
+        if (blocked := ai_gate(store, 'chat')):
             return blocked
         message = (request.data.get('message') or '').strip()
         if not message:
@@ -287,7 +287,7 @@ class ScanProductView(APIView):
         store = get_store(request)
         if not store:
             return Response({'detail': 'Accès refusé.'}, status=403)
-        if (blocked := ai_gate(store)):
+        if (blocked := ai_gate(store, 'scan')):
             return blocked
 
         image_file = request.FILES.get('image')

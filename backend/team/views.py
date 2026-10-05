@@ -14,6 +14,7 @@ from accounts.serializers import get_tokens, UserSerializer
 from core.permissions import IsOwnerOrAdminForWrites, is_owner_or_admin, has_permission, get_store as _get_store
 from audit.utils import log_audit
 from ai_assistant import ollama_client
+from ai_assistant.gate import ai_gate
 from ai_assistant.ollama_client import OllamaUnavailableError
 
 logger = logging.getLogger(__name__)
@@ -446,6 +447,8 @@ class ConfirmateurMonitoringExplainView(APIView):
             "Explique en 2-3 phrases, en français, la performance de ce confirmateur — base-toi UNIQUEMENT "
             "sur les chiffres fournis, n'invente aucune autre information."
         )
+        if (blocked := ai_gate(store, 'team')):
+            return blocked
         try:
             explanation = ollama_client.generate(prompt)
         except OllamaUnavailableError:
@@ -478,6 +481,8 @@ class ConfirmateurMonitoringTeamExplainView(APIView):
         )
         prompt = '\n'.join(lines)
 
+        if (blocked := ai_gate(store, 'team')):
+            return blocked
         try:
             explanation = ollama_client.generate(prompt)
         except OllamaUnavailableError:

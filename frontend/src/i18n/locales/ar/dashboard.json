@@ -2006,5 +2006,17 @@
  "Généré le": "تم الإنشاء في",
  "Assistant IA illimité": "مساعد الذكاء الاصطناعي غير محدود",
  "{{n}} appels IA par jour": "{{n}} طلب ذكاء اصطناعي يوميًا",
- "{{n}} appels IA par semaine": "{{n}} طلب ذكاء اصطناعي أسبوعيًا"
+ "{{n}} appels IA par semaine": "{{n}} طلب ذكاء اصطناعي أسبوعيًا",
+ "{{n}} par jour": "{{n}} يوميًا",
+ "{{n}} par semaine": "{{n}} أسبوعيًا",
+ "Assistant IA (chat)": "مساعد الذكاء الاصطناعي (محادثة)",
+ "Génération de fiche produit": "إنشاء بطاقة منتج",
+ "Suggestion de réponse (boîte de réception)": "اقتراح رد (صندوق الوارد)",
+ "Résumé IA du tableau de bord": "ملخص لوحة التحكم",
+ "Scan de produit (vision)": "مسح منتج (رؤية)",
+ "Chatbot de la boutique": "روبوت محادثة المتجر",
+ "Explication du risque d’une commande": "شرح مخاطر الطلب",
+ "Explications des recommandations produit": "شرح توصيات المنتجات",
+ "Audit global de la boutique": "تدقيق شامل للمتجر",
+ "Suivi IA des confirmateurs": "متابعة المؤكِّدين بالذكاء الاصطناعي"
 }

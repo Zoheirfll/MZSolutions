@@ -48,7 +48,7 @@ class PublicChatView(APIView):
         if store_is_paused(store):
             return Response({'detail': 'Cette boutique est en pause.'}, status=403)
 
-        if (blocked := ai_gate(store)):
+        if (blocked := ai_gate(store, 'storefront_chat')):
             return blocked
 
         session_id = (request.data.get('session_id') or '').strip()

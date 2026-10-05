@@ -196,3 +196,51 @@ class PlanAiLimitsTests(ModulesBase):
         r = self.super_c.put(url, {'ai_daily_limit': 5, 'ai_weekly_limit': 20}, format='json')
         self.assertEqual((r.data['ai_daily_limit'], r.data['ai_weekly_limit']), (5, 20))
         self.assertEqual(self.super_c.put(f'{BASE}/settings/', {'ai_weekly_limit': 30}, format='json').data['ai_weekly_limit'], 30)
+
+
+class FeatureQuotaTests(ModulesBase):
+    def _plan(self, quotas):
+        from stores.models import SubscriptionPlan
+        plan = SubscriptionPlan.objects.create(name='F', price_monthly=1, price_yearly=1, ai_quotas=quotas)
+        q = self.store.quota
+        q.plan = plan
+        q.save()
+
+    def test_each_feature_has_its_own_quota(self):
+        self._plan({'chat': {'daily': 1, 'weekly': 0}})
+        self.assertEqual(self._ai_chat().status_code, 200)
+        blocked = self._ai_chat()
+        self.assertEqual((blocked.status_code, blocked.data['period']), (429, 'daily'))
+        self.assertIn('Assistant IA', blocked.data['feature'])
+        # une autre fonctionnalité n'est pas touchée par le quota du chat
+        with patch('ai_assistant.ollama_client.generate', return_value='Titre'):
+            r = self.owner_c.post('/api/ai/generate-product/', {'name': 'Sac'}, format='json')
+        self.assertNotEqual(r.status_code, 429)
+
+    def test_feature_weekly_quota(self):
+        self._plan({'chat': {'daily': 0, 'weekly': 2}})
+        today = timezone.localdate()
+        AIUsageDay.objects.create(store=self.store, day=today - timedelta(days=2), calls=1, feature='chat')
+        self.assertEqual(self._ai_chat().status_code, 200)
+        self.assertEqual(self._ai_chat().data['period'], 'weekly')
+
+    def test_admin_validates_and_saves_feature_quotas(self):
+        from stores.models import SubscriptionPlan
+        plan = SubscriptionPlan.objects.create(name='Q', price_monthly=1, price_yearly=1)
+        url = f'{BASE}/plans/{plan.id}/'
+        self.assertEqual(self.super_c.put(url, {'ai_quotas': {'ghost': {'daily': 1}}}, format='json').status_code, 400)
+        self.assertEqual(self.super_c.put(url, {'ai_quotas': {'chat': {'daily': -1}}}, format='json').status_code, 400)
+        r = self.super_c.put(url, {'ai_quotas': {'chat': {'daily': 3, 'weekly': 9}}}, format='json')
+        row = next(x for x in r.data['ai_quotas'] if x['key'] == 'chat')
+        self.assertEqual((row['daily'], row['weekly']), (3, 9))
+        self.assertEqual(len(r.data['ai_quotas']), 10)  # catalogue complet côté admin
+        public = self.owner_c.get('/api/stores/plans/').data
+        mine = next(p for p in public if p['id'] == plan.id)
+        self.assertEqual([q['key'] for q in mine['ai_quotas']], ['chat'])  # seulement les limitées côté vendeur
+
+    def test_trial_uses_global_feature_quotas_and_usage_breaks_down_by_feature(self):
+        self.super_c.put(f'{BASE}/settings/', {'ai_quotas': {'chat': {'daily': 1}}}, format='json')
+        cache.clear()
+        self.assertEqual(self._ai_chat().status_code, 200)
+        self.assertEqual(self._ai_chat().status_code, 429)
+        self.assertEqual(self.admin_c.get(f'{BASE}/ai-usage/').data['today_by_feature'], {'chat': 1})

@@ -41,6 +41,7 @@ class PlatformSettings(models.Model):
     disabled_features = models.JSONField(default=list, blank=True)
     ai_daily_limit = models.PositiveIntegerField(default=0)
     ai_weekly_limit = models.PositiveIntegerField(default=0)  # boutiques sans palier (essai)
+    ai_quotas = models.JSONField(default=dict, blank=True)  # idem, par fonctionnalité
     updated_at = models.DateTimeField(auto_now=True)
 
     @classmethod

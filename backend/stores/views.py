@@ -12,6 +12,7 @@ from .serializers import (StoreSerializer, SubscriptionQuotaSerializer, StoreSet
 from core.permissions import IsOwnerOrAdminForWrites, is_owner_or_admin, has_permission
 from audit.utils import log_audit
 from ai_assistant import ollama_client
+from ai_assistant.gate import ai_gate
 from ai_assistant.ollama_client import OllamaUnavailableError
 
 
@@ -594,11 +595,14 @@ class StoreAuditView(APIView):
         prompt = '\n'.join(prompt_lines)
 
         ai_unavailable = False
-        try:
-            synthesis = ollama_client.generate(prompt).strip()
-        except OllamaUnavailableError:
-            synthesis = ''
-            ai_unavailable = True
+        synthesis = ''
+        if ai_gate(store, 'audit') is None:
+            try:
+                synthesis = ollama_client.generate(prompt).strip()
+            except OllamaUnavailableError:
+                ai_unavailable = True
+        else:
+            ai_unavailable = True  # quota atteint ou module coupé : les scores restent calculés et sauvegardés
 
         audit, _ = StoreAudit.objects.update_or_create(store=store, defaults={
             'global_score': result['global_score'],

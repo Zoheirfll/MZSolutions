@@ -19,6 +19,7 @@ from core.pagination import parse_pagination
 from .stock import record_stock_movement, log_stock_change_if_needed
 from audit.utils import log_audit
 from ai_assistant import ollama_client
+from ai_assistant.gate import ai_gate
 from ai_assistant.ollama_client import OllamaUnavailableError
 
 
@@ -1711,6 +1712,8 @@ class RecommendationExplainView(APIView):
         else:
             return Response({'detail': "Paramètre 'type' invalide (attendu : promote ou trending)."}, status=400)
 
+        if (blocked := ai_gate(store, 'reco')):
+            return blocked
         try:
             explanation = ollama_client.generate(prompt)
         except OllamaUnavailableError:
@@ -1744,6 +1747,8 @@ class RecommendationBundleExplainView(APIView):
             "Explique en 2-3 phrases, en français, pourquoi proposer ces deux produits en offre groupée "
             "(bundle) — base-toi UNIQUEMENT sur ce chiffre, n'invente rien d'autre."
         )
+        if (blocked := ai_gate(store, 'reco')):
+            return blocked
         try:
             explanation = ollama_client.generate(prompt)
         except OllamaUnavailableError:

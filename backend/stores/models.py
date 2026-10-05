@@ -76,6 +76,8 @@ class SubscriptionPlan(models.Model):
     # Plafonds d'appels IA du PALIER, pour la boutique entière (jamais par compte). 0 = illimité.
     ai_daily_limit  = models.PositiveIntegerField(default=0)
     ai_weekly_limit = models.PositiveIntegerField(default=0)
+    # Quotas PAR fonctionnalité IA : {clé: {'daily': n, 'weekly': n}} (voir ai_assistant/quotas.py)
+    ai_quotas       = models.JSONField(default=dict, blank=True)
 
     class Meta:
         ordering = ['order']

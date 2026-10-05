@@ -21,6 +21,7 @@ from .serializers import OrderSerializer, OrderDetailSerializer, OrderAssignment
 from .utils import assign_order_round_robin, assign_complaint_round_robin, send_abandoned_cart_email, dispatch_confirmateur_for_order, dispatch_confirmateur_for_order_with_platform, dispatch_carrier_for_order
 from .risk_scoring import compute_risk_score
 from ai_assistant import ollama_client
+from ai_assistant.gate import ai_gate
 from ai_assistant.ollama_client import OllamaUnavailableError
 from . import sofizpay, payments
 from .carriers import get_carrier_client
@@ -3885,6 +3886,8 @@ class OrderRiskExplanationView(APIView):
             "Explique en 2-3 phrases, en français, pourquoi ce score est ce qu'il est — base-toi "
             "UNIQUEMENT sur les signaux fournis, n'invente aucune autre information."
         )
+        if (blocked := ai_gate(store, 'risk')):
+            return blocked
         try:
             explanation = ollama_client.generate(prompt)
         except OllamaUnavailableError:

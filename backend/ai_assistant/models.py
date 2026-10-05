@@ -100,7 +100,8 @@ class AIUsageDay(models.Model):
     store = models.ForeignKey('stores.Store', on_delete=models.CASCADE, related_name='ai_usage')
     day = models.DateField()
     calls = models.PositiveIntegerField(default=0)
+    feature = models.CharField(max_length=30, blank=True, default='')  # clé de quotas.AI_FEATURES
 
     class Meta:
-        unique_together = [('store', 'day')]
+        unique_together = [('store', 'day', 'feature')]
 

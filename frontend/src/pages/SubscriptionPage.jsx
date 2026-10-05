@@ -143,6 +143,13 @@ export default function SubscriptionPage() {
                       ? t('Assistant IA illimité')
                       : [plan.ai_daily_limit ? t('{{n}} appels IA par jour', { n: plan.ai_daily_limit }) : '', plan.ai_weekly_limit ? t('{{n}} appels IA par semaine', { n: plan.ai_weekly_limit }) : ''].filter(Boolean).join(' · ')}
                   </p>
+                  {(plan.ai_quotas || []).length > 0 && (
+                    <ul className="text-xs mb-5 space-y-0.5" style={{ color: theme.dark.muted }}>
+                      {plan.ai_quotas.map((q) => (
+                        <li key={q.key}>{t(q.label)} : {[q.daily ? t('{{n}} par jour', { n: q.daily }) : '', q.weekly ? t('{{n}} par semaine', { n: q.weekly }) : ''].filter(Boolean).join(' · ')}</li>
+                      ))}
+                    </ul>
+                  )}
                   <button onClick={() => subscribe(plan)} disabled={subscribing === plan.id || isCurrent}
                     className={`${theme.btn.primary} justify-center mb-5 disabled:opacity-60`}>
                     {isCurrent ? t('Palier actuel') : subscribing === plan.id ? '…' : tr('Commencer')}

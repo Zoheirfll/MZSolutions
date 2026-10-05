@@ -4,9 +4,15 @@ from .models import (Store, SubscriptionQuota, SubscriptionPlan, StoreSettings, 
 
 
 class SubscriptionPlanSerializer(serializers.ModelSerializer):
+    ai_quotas = serializers.SerializerMethodField()
+
+    def get_ai_quotas(self, plan):
+        from ai_assistant.quotas import quota_rows
+        return quota_rows(plan.ai_quotas, only_limited=True)
+
     class Meta:
         model  = SubscriptionPlan
-        fields = ['id', 'name', 'orders_limit', 'price_monthly', 'price_yearly', 'features', 'order', 'ai_daily_limit', 'ai_weekly_limit']
+        fields = ['id', 'name', 'orders_limit', 'price_monthly', 'price_yearly', 'features', 'order', 'ai_daily_limit', 'ai_weekly_limit', 'ai_quotas']
 
 
 class PixelConfigSerializer(serializers.ModelSerializer):

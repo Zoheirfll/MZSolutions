@@ -5,6 +5,7 @@ import { theme } from '../../theme'
 import Toast from '../../components/Toast'
 import AdminPageHeader from '../../components/admin/AdminPageHeader'
 import { AdminError } from '../../components/admin/AdminState'
+import AiQuotaGrid from '../../components/admin/AiQuotaGrid'
 
 // Réglages globaux (superadmin). Les secrets (clés API, SECRET_KEY) restent dans
 // le .env du serveur : ils ne sont jamais stockés ni affichés ici.
@@ -14,6 +15,7 @@ export default function PlatformAdminSettingsPage() {
   const [trialDays, setTrialDays] = useState('')
   const [aiLimit, setAiLimit] = useState('')
   const [aiWeekly, setAiWeekly] = useState('')
+  const [quotaRows, setQuotaRows] = useState([])
   const [usage, setUsage] = useState(null)
   const [error, setError] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -21,7 +23,7 @@ export default function PlatformAdminSettingsPage() {
 
   const load = useCallback(() => (
     api.get('/platform-admin/settings/')
-      .then(({ data: d }) => { setData(d); setTrialDays(String(d.trial_days)); setAiLimit(String(d.ai_daily_limit ?? 0)); setAiWeekly(String(d.ai_weekly_limit ?? 0)); setError(false) })
+      .then(({ data: d }) => { setData(d); setTrialDays(String(d.trial_days)); setAiLimit(String(d.ai_daily_limit ?? 0)); setAiWeekly(String(d.ai_weekly_limit ?? 0)); setQuotaRows(d.ai_quotas || []); setError(false) })
       .catch(() => setError(true))
   ), [])
 
@@ -43,6 +45,7 @@ export default function PlatformAdminSettingsPage() {
       setTrialDays(String(d.trial_days))
       setAiLimit(String(d.ai_daily_limit ?? 0))
       setAiWeekly(String(d.ai_weekly_limit ?? 0))
+      setQuotaRows(d.ai_quotas || [])
       setToast({ type: 'success', message: okMessage })
     } catch (err) {
       setToast({ type: 'error', message: err.response?.data?.detail || t('Action impossible.') })
@@ -112,6 +115,15 @@ export default function PlatformAdminSettingsPage() {
             <label className="text-sm text-app-primary" htmlFor="ai-weekly">{t('Par semaine')}</label>
             <input id="ai-weekly" type="number" min={0} max={1000000} value={aiWeekly} onChange={(e) => setAiWeekly(e.target.value)} className={`${theme.inputDark} w-32`} />
             <button disabled={busy || aiWeekly === '' || Number(aiWeekly) === (data.ai_weekly_limit ?? 0)} onClick={() => save({ ai_weekly_limit: Number(aiWeekly) }, t('Limite IA hebdomadaire mise à jour.'))} className={theme.btn.primary}>{t('Enregistrer')}</button>
+          </div>
+          <div className="mt-4">
+            <AiQuotaGrid rows={quotaRows} onChange={setQuotaRows} />
+            {quotaRows.length > 0 && (
+              <button disabled={busy} className={`${theme.btn.primary} mt-3`}
+                onClick={() => save({ ai_quotas: Object.fromEntries(quotaRows.map((r) => [r.key, { daily: r.daily, weekly: r.weekly }])) }, t('Quotas IA par fonctionnalité mis à jour.'))}>
+                {t('Enregistrer les quotas par fonctionnalité')}
+              </button>
+            )}
           </div>
           {usage && (
             <div className="mt-4 text-xs text-app-muted-light">

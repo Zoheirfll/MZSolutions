@@ -56,9 +56,11 @@ class AIUsageView(APIView):
         week_ago = today - timedelta(days=6)
         per_day = {r['day']: r['n'] for r in AIUsageDay.objects.filter(day__gte=week_ago).values('day').annotate(n=Sum('calls'))}
         days = [{'day': (week_ago + timedelta(days=i)).isoformat(), 'calls': per_day.get(week_ago + timedelta(days=i), 0)} for i in range(7)]
-        top = (AIUsageDay.objects.filter(day=today).select_related('store').order_by('-calls')[:5])
+        top = (AIUsageDay.objects.filter(day=today).values('store_id', 'store__name').annotate(n=Sum('calls')).order_by('-n')[:5])
+        by_feature = {r['feature']: r['n'] for r in AIUsageDay.objects.filter(day=today).values('feature').annotate(n=Sum('calls'))}
         return Response({
             'today': per_day.get(today, 0),
             'last_7_days': days,
-            'top_stores_today': [{'store_id': u.store_id, 'store_name': u.store.name, 'calls': u.calls} for u in top],
+            'top_stores_today': [{'store_id': u['store_id'], 'store_name': u['store__name'], 'calls': u['n']} for u in top],
+            'today_by_feature': by_feature,
         })

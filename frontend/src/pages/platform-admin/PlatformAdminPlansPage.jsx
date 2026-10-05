@@ -6,6 +6,7 @@ import Toast from '../../components/Toast'
 import AdminPageHeader from '../../components/admin/AdminPageHeader'
 import AdminList from '../../components/admin/AdminList'
 import AdminConfirmModal from '../../components/admin/AdminConfirmModal'
+import AiQuotaGrid from '../../components/admin/AiQuotaGrid'
 
 const money = (v) => `${Number(v || 0).toLocaleString('fr-DZ')} DA`
 const EMPTY = { name: '', orders_limit: '', price_monthly: '', price_yearly: '', features: '', order: 0, ai_daily_limit: 0, ai_weekly_limit: 0 }
@@ -18,6 +19,7 @@ export default function PlatformAdminPlansPage() {
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [catalogue, setCatalogue] = useState([])
   const [form, setForm] = useState(null) // { id?, ...champs }
   const [busy, setBusy] = useState(false)
   const [toast, setToast] = useState(null)
@@ -31,10 +33,17 @@ export default function PlatformAdminPlansPage() {
 
   useEffect(() => { load() }, [load])
 
+  // Catalogue des fonctionnalités IA (dynamique) pour un nouveau palier
+  useEffect(() => {
+    Promise.resolve().then(() => api.get('/platform-admin/settings/'))
+      .then((res) => { if (Array.isArray(res?.data?.ai_quotas)) setCatalogue(res.data.ai_quotas.map((r) => ({ ...r, daily: 0, weekly: 0 }))) }).catch(() => {})
+  }, [])
+
   const payload = (f) => ({
     name: f.name, orders_limit: f.orders_limit === '' ? null : Number(f.orders_limit),
     price_monthly: f.price_monthly, price_yearly: f.price_yearly, order: Number(f.order || 0),
     ai_daily_limit: Number(f.ai_daily_limit || 0), ai_weekly_limit: Number(f.ai_weekly_limit || 0),
+    ai_quotas: Object.fromEntries((f.ai_quotas || []).map((r) => [r.key, { daily: r.daily, weekly: r.weekly }])),
     features: String(f.features).split('\n').map((s) => s.trim()).filter(Boolean),
   })
 
@@ -72,7 +81,7 @@ export default function PlatformAdminPlansPage() {
 
   const columns = [
     { key: 'name', label: t('Palier'), render: (r) => <span className="font-medium">{r.name}</span> },
-    { key: 'ai', label: t('IA (jour / semaine)'), render: (r) => `${r.ai_daily_limit || '∞'} / ${r.ai_weekly_limit || '∞'}` },
+    { key: 'ai', label: t('IA (jour / semaine)'), render: (r) => `${r.ai_daily_limit || '∞'} / ${r.ai_weekly_limit || '∞'}${(r.ai_quotas || []).some((q) => q.daily || q.weekly) ? ' + ' + t('par fonction') : ''}` },
     { key: 'orders_limit', label: t('Commandes'), render: (r) => (r.orders_limit == null ? t('Illimité') : r.orders_limit) },
     { key: 'price_monthly', label: t('Mensuel'), render: (r) => money(r.price_monthly) },
     { key: 'price_yearly', label: t('Annuel'), render: (r) => money(r.price_yearly) },
@@ -105,7 +114,8 @@ export default function PlatformAdminPlansPage() {
               {field('ai_daily_limit', t('Appels IA par jour (0 = illimité)'), { type: 'number', min: 0 })}
               {field('ai_weekly_limit', t('Appels IA par semaine (0 = illimité)'), { type: 'number', min: 0 })}
             </div>
-            <p className="text-xs text-app-muted">{t('Limites pour la boutique entière, tous comptes confondus.')}</p>
+            <p className="text-xs text-app-muted">{t('Limites totales pour la boutique entière, tous comptes confondus.')}</p>
+            <AiQuotaGrid rows={form.ai_quotas?.length ? form.ai_quotas : catalogue} onChange={(rows) => setForm({ ...form, ai_quotas: rows })} />
             <div className="grid grid-cols-2 gap-3">
               {field('price_monthly', t('Prix mensuel (DA)'), { type: 'number', min: 0 })}
               {field('price_yearly', t('Prix annuel (DA)'), { type: 'number', min: 0 })}
