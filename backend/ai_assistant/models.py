@@ -92,3 +92,15 @@ class AIMessage(models.Model):
 
     class Meta:
         ordering = ['created_at']
+
+
+class AIUsageDay(models.Model):
+    """Nombre d'appels IA d'une boutique sur une journee (suivi de consommation et plafond
+    quotidien reglable par l'admin plateforme). Aucun contenu, seulement un compteur."""
+    store = models.ForeignKey('stores.Store', on_delete=models.CASCADE, related_name='ai_usage')
+    day = models.DateField()
+    calls = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        unique_together = [('store', 'day')]
+

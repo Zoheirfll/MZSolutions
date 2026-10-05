@@ -79,6 +79,16 @@ def run_health_checks():
     except Exception:
         checks.append(_check('disk', 'Disque', 'warning', 'Mesure impossible'))
 
+    # Sauvegardes de la base : récentes (< 26 h), à surveiller (< 72 h) ou absentes/trop anciennes.
+    from .tasks_views import backup_state, list_backups
+    files = list_backups()
+    state = backup_state(files)
+    if state == 'unconfigured':
+        checks.append(_check('backups', 'Sauvegardes', 'warning', 'Dossier de sauvegardes non configuré'))
+    else:
+        detail = f'{len(files)} fichier(s)' if files else 'Aucune sauvegarde trouvée'
+        checks.append(_check('backups', 'Sauvegardes', state, detail))
+
     return checks
 
 
@@ -137,7 +147,10 @@ class PlatformErrorResolveView(APIView):
 # ─── Réglages globaux ──────────────────────────────────────────────────────
 
 def _settings_row(s):
-    return {'trial_days': s.trial_days, 'allow_registration': s.allow_registration, 'updated_at': s.updated_at}
+    from core.features import FEATURES
+    return {'trial_days': s.trial_days, 'allow_registration': s.allow_registration, 'updated_at': s.updated_at,
+            'disabled_features': [k for k in s.disabled_features if k in FEATURES], 'ai_daily_limit': s.ai_daily_limit,
+            'features': [{'key': k, 'label': v} for k, v in FEATURES.items()]}
 
 
 class PlatformSettingsView(APIView):
@@ -166,10 +179,27 @@ class PlatformSettingsView(APIView):
                 errors.append("Durée d'essai invalide (0 à 365 jours).")
         if 'allow_registration' in request.data:
             s.allow_registration = bool(request.data['allow_registration'])
+        if 'disabled_features' in request.data:
+            from core.features import FEATURES
+            wanted = request.data['disabled_features']
+            if not isinstance(wanted, list) or any(k not in FEATURES for k in wanted):
+                errors.append('Modules inconnus.')
+            else:
+                s.disabled_features = sorted(set(wanted))
+        if 'ai_daily_limit' in request.data:
+            try:
+                limit = int(request.data['ai_daily_limit'])
+                if not 0 <= limit <= 100000:
+                    raise ValueError
+                s.ai_daily_limit = limit
+            except (TypeError, ValueError):
+                errors.append("Limite IA invalide (0 = illimite, maximum 100000).")
         if errors:
             return Response({'detail': ' '.join(errors)}, status=400)
         s.save()
+        from core.features import clear_cache
+        clear_cache()
         after = _settings_row(s)
-        changes = {k: {'before': str(before[k]), 'after': str(after[k])} for k in ('trial_days', 'allow_registration') if before[k] != after[k]}
+        changes = {k: {'before': str(before[k]), 'after': str(after[k])} for k in ('trial_days', 'allow_registration', 'disabled_features', 'ai_daily_limit') if before[k] != after[k]}
         log_platform_audit(request, 'platform.settings_updated', target=s, description='Réglages de la plateforme modifiés', metadata={'changes': changes})
         return Response(after)

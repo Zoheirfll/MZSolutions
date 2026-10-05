@@ -29,7 +29,7 @@ def clear_impersonation_cookie(response):
     response.delete_cookie(IMPERSONATION_COOKIE, path='/')
 
 
-def resolve_impersonation(request):
+def _resolve_management(request):
     """Renvoie {'store': Store, 'is_admin': bool, 'assignment': PlatformConfirmateurAssignment|None}
     si une session de gestion valide est en cours, sinon None. Jamais
     d'exception remontée — un cookie invalide/expiré/orphelin est traité
@@ -72,3 +72,59 @@ def resolve_impersonation(request):
     if not assignment:
         return None
     return {'store': store, 'is_admin': False, 'assignment': assignment}
+
+
+# ─── Consultation en LECTURE SEULE (administration de la plateforme) ────────
+# Cookie distinct du mode « Gérer cette boutique » (réservé au service de confirmation) :
+# un admin/superadmin de la plateforme ouvre le vrai dashboard d'une boutique pour dépanner,
+# mais le serveur REFUSE toute écriture tant que ce mode est actif (voir
+# accounts.cookie_auth.CookieJWTAuthentication) — jamais un simple masquage côté interface.
+VIEW_COOKIE = 'mz_view_store'
+VIEW_MAX_AGE = 60 * 60  # 1 h : à ré-affirmer, jamais une session longue
+
+_view_signer = TimestampSigner(salt='platform_admin.view_only')
+
+
+def set_view_cookie(response, store_id):
+    response.set_cookie(
+        VIEW_COOKIE, _view_signer.sign(str(store_id)), max_age=VIEW_MAX_AGE, httponly=True,
+        secure=settings.AUTH_COOKIE_SECURE, samesite=settings.AUTH_COOKIE_SAMESITE, path='/',
+    )
+
+
+def clear_view_cookie(response):
+    response.delete_cookie(VIEW_COOKIE, path='/')
+
+
+def view_store_id(request):
+    """store_id d'une consultation en lecture seule valide, sinon None (jamais d'exception)."""
+    raw = getattr(request, 'COOKIES', {}).get(VIEW_COOKIE)
+    if not raw:
+        return None
+    try:
+        return int(_view_signer.unsign(raw, max_age=VIEW_MAX_AGE))
+    except (BadSignature, SignatureExpired, ValueError, TypeError):
+        return None
+
+
+def _resolve_readonly(request):
+    user = getattr(request, 'user', None)
+    if not (user and getattr(user, 'is_authenticated', False)):
+        return None
+    if not (getattr(user, 'is_platform_admin', False) or getattr(user, 'is_platform_superadmin', False)):
+        return None
+    store_id = view_store_id(request)
+    if store_id is None:
+        return None
+    from stores.models import Store
+    store = Store.objects.filter(pk=store_id).first()
+    if not store:
+        return None
+    return {'store': store, 'is_admin': True, 'assignment': None, 'read_only': True}
+
+
+def resolve_impersonation(request):
+    """Contexte de gestion (service de confirmation) OU, à défaut, de consultation en lecture seule
+    (administration de la plateforme). None si aucun cookie valide."""
+    return _resolve_management(request) or _resolve_readonly(request)
+

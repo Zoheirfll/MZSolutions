@@ -12,6 +12,9 @@ def fire_event(store, event, payload):
     l'endpoint a un secret. Best-effort par endpoint — un échec n'empêche pas
     les autres endpoints d'être notifiés, et ne doit jamais remonter d'
     exception à l'appelant (déclenché depuis le flux de commande)."""
+    from core.features import feature_enabled
+    if not feature_enabled(store, 'webhooks'):
+        return
     try:
         endpoints = WebhookEndpoint.objects.filter(store=store, is_active=True)
     except Exception:

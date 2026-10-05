@@ -301,6 +301,9 @@ def _sync_stock_to_channels(store, product):
     """Pousse le stock mis à jour vers les canaux de vente externes connectés
     (Epic 8.2 US-8.2.1) — pour éviter la survente sur Shopify/Google Sheets.
     Best-effort : ne doit jamais faire échouer la création de commande."""
+    from core.features import feature_enabled
+    if not feature_enabled(store, 'channels'):
+        return
     try:
         from channels.models import ChannelConnection, ChannelSyncLog
         from channels.clients import get_channel_client

@@ -80,3 +80,19 @@ class LoginHistory(models.Model):
 
     def __str__(self):
         return f"{self.status} — {self.user.email} — {self.created_at}"
+
+
+class FailedLoginAttempt(models.Model):
+    """Tentative de connexion ÉCHOUÉE (mauvais identifiants, email non vérifié, boutique
+    suspendue). Sert à repérer une attaque par force brute. Conserve l'email saisi et
+    l'IP — jamais le mot de passe. Purgée après 90 jours (`purge_old_login_data`)."""
+    REASON_CHOICES = [('bad_credentials', 'Identifiants incorrects'), ('unverified', 'Email non vérifié'), ('suspended', 'Boutique suspendue')]
+
+    email = models.CharField(max_length=254, blank=True, db_index=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    reason = models.CharField(max_length=20, choices=REASON_CHOICES, default='bad_credentials')
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ['-created_at']
+

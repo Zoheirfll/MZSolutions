@@ -1,3 +1,4 @@
+from platform_admin.tasks import track_task
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 from orders.models import Order
@@ -7,6 +8,7 @@ from orders.views import activate_scheduled_order
 class Command(BaseCommand):
     help = "Active automatiquement les commandes programmées ('scheduled') dont l'échéance est passée."
 
+    @track_task('activate_scheduled_orders')
     def handle(self, *args, **options):
         due_orders = Order.objects.filter(status='scheduled', scheduled_at__lte=timezone.now()).select_related('store')
         activated_count = 0

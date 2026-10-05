@@ -54,7 +54,7 @@ describe('PlatformAdminSettingsPage', () => {
     api.put.mockResolvedValue({ data: { ...SETTINGS, trial_days: 14 } })
     wrap(<PlatformAdminSettingsPage />)
     await waitFor(() => expect(screen.getByLabelText(/durée de l.essai/i)).toBeInTheDocument())
-    const save = screen.getByRole('button', { name: 'Enregistrer' })
+    const save = screen.getAllByRole('button', { name: 'Enregistrer' })[0]
     expect(save).toBeDisabled() // inchangé
     fireEvent.change(screen.getByLabelText(/durée de l.essai/i), { target: { value: '14' } })
     fireEvent.click(save)

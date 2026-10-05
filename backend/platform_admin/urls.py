@@ -4,6 +4,11 @@ from .views_overview import PlatformOverviewView
 from . import account_views as av
 from . import billing_views as bv
 from . import system_views as sv
+from . import user_views as uv
+from . import store_admin_views as sa
+from . import inspect_views as iv
+from . import tasks_views as tv
+from . import modules_views as mv
 from . import communication_views as cv
 
 urlpatterns = [
@@ -15,14 +20,31 @@ urlpatterns = [
     path('accounts/<int:store_id>/reactivate/',        av.PlatformAccountReactivateView.as_view()),
     path('accounts/<int:store_id>/force-logout/',      av.PlatformAccountForceLogoutView.as_view()),
     path('accounts/<int:store_id>/reset-password/',    av.PlatformAccountResetPasswordView.as_view()),
+    path('tasks/',                                     tv.PlatformTaskListView.as_view()),
+    path('tasks/<str:name>/run/',                      tv.PlatformTaskRunView.as_view()),
+    path('backups/',                                   tv.PlatformBackupListView.as_view()),
+    path('ai-usage/',                                  mv.AIUsageView.as_view()),
+    path('accounts/<int:store_id>/features/',          mv.StoreFeaturesView.as_view()),
+    path('search/',                                    iv.PlatformSearchView.as_view()),
+    path('accounts/<int:store_id>/view-as/',           iv.PlatformViewAsView.as_view()),
+    path('view-as/leave/',                             iv.PlatformViewAsLeaveView.as_view()),
+    path('accounts/<int:store_id>/edit/',              sa.StoreEditView.as_view()),
+    path('accounts/<int:store_id>/transfer/',          sa.StoreTransferView.as_view()),
+    path('accounts/<int:store_id>/export/',            sa.StoreExportView.as_view()),
+    path('accounts/<int:store_id>/anonymize/',         sa.StoreAnonymizeView.as_view()),
     path('accounts/<int:store_id>/grant/',             bv.PlatformAccountGrantView.as_view()),
 
     path('plans/',                                     bv.PlatformPlanListCreateView.as_view()),
     path('plans/<int:pk>/',                            bv.PlatformPlanDetailView.as_view()),
     path('payments/',                                  bv.PlatformPaymentListView.as_view()),
     path('payments/export/',                           bv.PlatformPaymentExportView.as_view()),
+    path('payments/<int:pk>/invoice/', __import__('stores.invoice_views', fromlist=['x']).PlatformPaymentInvoiceView.as_view()),
     path('payments/<int:pk>/refund/',                  bv.PlatformPaymentRefundView.as_view()),
 
+    path('faq/',                                       __import__('platform_admin.content_views', fromlist=['x']).PlatformFaqListCreateView.as_view()),
+    path('faq/<int:pk>/',                              __import__('platform_admin.content_views', fromlist=['x']).PlatformFaqDetailView.as_view()),
+    path('legal-pages/',                               __import__('platform_admin.content_views', fromlist=['x']).PlatformLegalPagesView.as_view()),
+    path('legal-pages/<str:slug>/',                    __import__('platform_admin.content_views', fromlist=['x']).PlatformLegalPageUpdateView.as_view()),
     path('announcements/',                             cv.PlatformAnnouncementListCreateView.as_view()),
     path('announcements/preview/',                     cv.PlatformAnnouncementPreviewView.as_view()),
     path('announcements/<int:pk>/',                    cv.PlatformAnnouncementDetailView.as_view()),
@@ -30,6 +52,12 @@ urlpatterns = [
     path('contact/<int:pk>/',                          cv.PlatformContactDetailView.as_view()),
     path('integrations/',                              cv.PlatformIntegrationsOverviewView.as_view()),
     path('accounts/<int:store_id>/integrations/',      cv.PlatformAccountIntegrationsView.as_view()),
+
+    path('users/',                                     uv.PlatformUserListView.as_view()),
+    path('users/<int:pk>/',                            uv.PlatformUserDetailView.as_view()),
+    path('users/<int:pk>/deactivate/',                 uv.PlatformUserDeactivateView.as_view()),
+    path('users/<int:pk>/reactivate/',                 uv.PlatformUserReactivateView.as_view()),
+    path('login-attempts/',                            uv.PlatformLoginAttemptListView.as_view()),
 
     path('health/',                                    sv.PlatformHealthView.as_view()),
     path('errors/',                                    sv.PlatformErrorListView.as_view()),

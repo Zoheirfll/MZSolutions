@@ -1,3 +1,4 @@
+from platform_admin.tasks import track_task
 from datetime import timedelta
 
 from django.core.management.base import BaseCommand
@@ -13,6 +14,7 @@ class Command(BaseCommand):
         "(SofizPay n'a pas de webhook). À planifier toutes les ~10 min."
     )
 
+    @track_task('check_pending_payments')
     def handle(self, *args, **options):
         from stores.models import SubscriptionPayment
 

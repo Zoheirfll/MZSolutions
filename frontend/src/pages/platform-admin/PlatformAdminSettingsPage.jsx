@@ -12,17 +12,27 @@ export default function PlatformAdminSettingsPage() {
   const { t } = useTranslation()
   const [data, setData] = useState(null)
   const [trialDays, setTrialDays] = useState('')
+  const [aiLimit, setAiLimit] = useState('')
+  const [usage, setUsage] = useState(null)
   const [error, setError] = useState(false)
   const [busy, setBusy] = useState(false)
   const [toast, setToast] = useState(null)
 
   const load = useCallback(() => (
     api.get('/platform-admin/settings/')
-      .then(({ data: d }) => { setData(d); setTrialDays(String(d.trial_days)); setError(false) })
+      .then(({ data: d }) => { setData(d); setTrialDays(String(d.trial_days)); setAiLimit(String(d.ai_daily_limit ?? 0)); setError(false) })
       .catch(() => setError(true))
   ), [])
 
   useEffect(() => { load() }, [load])
+
+  // Consommation IA : secondaire, jamais bloquante.
+  useEffect(() => {
+    let alive = true
+    Promise.resolve().then(() => api.get('/platform-admin/ai-usage/'))
+      .then((res) => { if (alive && Array.isArray(res?.data?.last_7_days)) setUsage(res.data) }).catch(() => {})
+    return () => { alive = false }
+  }, [])
 
   const save = async (patch, okMessage) => {
     setBusy(true)
@@ -30,6 +40,7 @@ export default function PlatformAdminSettingsPage() {
       const { data: d } = await api.put('/platform-admin/settings/', patch)
       setData(d)
       setTrialDays(String(d.trial_days))
+      setAiLimit(String(d.ai_daily_limit ?? 0))
       setToast({ type: 'success', message: okMessage })
     } catch (err) {
       setToast({ type: 'error', message: err.response?.data?.detail || t('Action impossible.') })
@@ -68,6 +79,39 @@ export default function PlatformAdminSettingsPage() {
             className={data.allow_registration ? theme.btn.danger : theme.btn.primary}>
             {data.allow_registration ? t('Fermer les inscriptions') : t('Rouvrir les inscriptions')}
           </button>
+        </div>
+
+        <div className="rounded-xl border p-5" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
+          <p className="text-sm font-medium text-app-primary mb-1">{t('Modules de la plateforme')}</p>
+          <p className="text-xs text-app-muted mb-3">{t('Couper un module le désactive pour TOUTES les boutiques (il peut aussi être coupé boutique par boutique depuis sa fiche).')}</p>
+          <div className="space-y-2">
+            {(data.features || []).map((f) => {
+              const off = (data.disabled_features || []).includes(f.key)
+              return (
+                <label key={f.key} className="flex items-center justify-between gap-3 text-sm text-app-primary">
+                  <span>{t(f.label)} <span className={off ? 'text-red-400' : 'text-emerald-400'}>— {off ? t('désactivé') : t('actif')}</span></span>
+                  <input type="checkbox" aria-label={t(f.label)} checked={!off} disabled={busy} className="accent-violet-600"
+                    onChange={() => save({ disabled_features: off ? data.disabled_features.filter((k) => k !== f.key) : [...data.disabled_features, f.key] },
+                      off ? t('Module réactivé.') : t('Module désactivé.'))} />
+                </label>
+              )
+            })}
+          </div>
+        </div>
+
+        <div className="rounded-xl border p-5" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
+          <label className="block text-sm font-medium text-app-primary mb-1" htmlFor="ai-limit">{t('Limite d’appels IA par boutique et par jour')}</label>
+          <p className="text-xs text-app-muted mb-3">{t('0 = illimité. Au-delà, l’assistant répond que la limite du jour est atteinte.')}</p>
+          <div className="flex items-center gap-3">
+            <input id="ai-limit" type="number" min={0} max={100000} value={aiLimit} onChange={(e) => setAiLimit(e.target.value)} className={`${theme.inputDark} w-32`} />
+            <button disabled={busy || aiLimit === '' || Number(aiLimit) === data.ai_daily_limit} onClick={() => save({ ai_daily_limit: Number(aiLimit) }, t('Limite IA mise à jour.'))} className={theme.btn.primary}>{t('Enregistrer')}</button>
+          </div>
+          {usage && (
+            <div className="mt-4 text-xs text-app-muted-light">
+              <p>{t('Aujourd’hui')} : <strong className="text-app-primary">{usage.today}</strong> {t('appel(s)')} — {t('7 derniers jours')} : <strong className="text-app-primary">{usage.last_7_days.reduce((n, d) => n + d.calls, 0)}</strong></p>
+              {usage.top_stores_today.map((s) => <p key={s.store_id}>{s.store_name} — {s.calls}</p>)}
+            </div>
+          )}
         </div>
       </div>
     </div>

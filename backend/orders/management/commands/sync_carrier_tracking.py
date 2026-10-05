@@ -1,3 +1,4 @@
+from platform_admin.tasks import track_task
 from django.core.management.base import BaseCommand
 from orders.models import Order
 from orders.views import sync_order_from_carrier
@@ -12,6 +13,7 @@ class Command(BaseCommand):
         "Planificateur de tâches Windows / cron, comme cancel_stale_calls."
     )
 
+    @track_task('sync_carrier_tracking')
     def handle(self, *args, **options):
         orders = Order.objects.exclude(status__in=['delivered', 'returned', 'cancelled']) \
             .exclude(carrier_tracking_number='') \

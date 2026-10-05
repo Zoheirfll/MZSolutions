@@ -153,6 +153,19 @@ def _log_login_event(user, request, event_status):
     )
 
 
+def _record_failed_login(request, code):
+    """Journalise une tentative échouée (best-effort : ne doit jamais faire échouer la réponse)."""
+    try:
+        from .models import FailedLoginAttempt
+        reason = {'email_not_verified': 'unverified', 'store_suspended': 'suspended'}.get(code, 'bad_credentials')
+        FailedLoginAttempt.objects.create(
+            email=str(request.data.get('email', ''))[:254].strip().lower(),
+            ip_address=_client_ip(request), reason=reason,
+        )
+    except Exception:
+        pass
+
+
 class LoginView(APIView):
     permission_classes = [AllowAny]
     throttle_scope = 'login'
@@ -162,6 +175,7 @@ class LoginView(APIView):
         if not serializer.is_valid():
             errors = serializer.errors.get('non_field_errors', [])
             code = errors[0].code if errors else None
+            _record_failed_login(request, code)
             if code == 'email_not_verified':
                 return Response(
                     {'detail': str(errors[0]), 'code': 'email_not_verified', 'email': request.data.get('email')},

@@ -145,7 +145,7 @@ class UserSerializer(serializers.ModelSerializer):
         ctx = resolve_impersonation(request)
         if not ctx:
             return None
-        return {'store_id': ctx['store'].id, 'store_name': ctx['store'].name, 'is_admin': ctx['is_admin']}
+        return {'store_id': ctx['store'].id, 'store_name': ctx['store'].name, 'is_admin': ctx['is_admin'], 'read_only': bool(ctx.get('read_only'))}
 
 
 class RegisterSerializer(serializers.Serializer):

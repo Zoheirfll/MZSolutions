@@ -96,6 +96,9 @@ class ChannelSyncView(APIView):
         store = _get_store(request)
         if not store:
             return Response({'detail': 'Accès refusé.'}, status=403)
+        from core.features import feature_enabled
+        if not feature_enabled(store, 'channels'):
+            return Response({'detail': 'Les canaux de vente sont désactivés pour cette boutique.', 'code': 'feature_disabled'}, status=403)
         try:
             connection = store.channel_connections.get(pk=pk, is_active=True)
         except ChannelConnection.DoesNotExist:

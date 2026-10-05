@@ -25,3 +25,6 @@ graphify-out/
 
 # Logs des tâches planifiées (machine-spécifique)
 backend/scheduled_tasks/logs/
+# Sauvegardes de la base (données personnelles : jamais dans Git)
+backups/
+backup_*.sql

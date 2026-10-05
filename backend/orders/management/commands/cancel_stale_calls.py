@@ -1,3 +1,4 @@
+from platform_admin.tasks import track_task
 from datetime import timedelta
 from django.core.management.base import BaseCommand
 from django.utils import timezone
@@ -9,6 +10,7 @@ STALE_DAYS = 3
 class Command(BaseCommand):
     help = "Annule automatiquement les commandes bloquées sur 'Non joignable - 3ème tentative' depuis plus de 3 jours."
 
+    @track_task('cancel_stale_calls')
     def handle(self, *args, **options):
         cutoff = timezone.now() - timedelta(days=STALE_DAYS)
         cancelled_count = 0

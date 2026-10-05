@@ -534,6 +534,9 @@ class PlatformAuditLogListViewTests(TestCase):
     def test_lists_entries_across_stores_with_store_name(self):
         from audit.models import AuditLog
         other_owner, other_store = make_owner()
+        # L'opérateur du service ne voit que les boutiques dont le service est actif.
+        for st in (self.store, other_store):
+            PlatformConfirmationAccount.objects.create(store=st, is_active=True)
         AuditLog.objects.create(store=self.store, actor=self.owner, actor_name='Owner1', actor_role='owner', action='order.created', description='Test 1')
         AuditLog.objects.create(store=other_store, actor=other_owner, actor_name='Owner2', actor_role='owner', action='order.created', description='Test 2')
 
@@ -546,6 +549,9 @@ class PlatformAuditLogListViewTests(TestCase):
     def test_filter_by_store(self):
         from audit.models import AuditLog
         other_owner, other_store = make_owner()
+        # L'opérateur du service ne voit que les boutiques dont le service est actif.
+        for st in (self.store, other_store):
+            PlatformConfirmationAccount.objects.create(store=st, is_active=True)
         AuditLog.objects.create(store=self.store, actor=self.owner, actor_name='Owner1', actor_role='owner', action='order.created', description='Test 1')
         AuditLog.objects.create(store=other_store, actor=other_owner, actor_name='Owner2', actor_role='owner', action='order.created', description='Test 2')
 

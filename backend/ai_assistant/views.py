@@ -1,5 +1,6 @@
 import json
 
+from .gate import ai_gate
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -47,6 +48,8 @@ class GenerateProductView(APIView):
     def post(self, request):
         if (err := _check_access(request)):
             return err
+        if (blocked := ai_gate(get_store(request))):
+            return blocked
         name = (request.data.get('name') or '').strip()
         if not name:
             return Response({'detail': 'Le nom du produit est requis.'}, status=400)
@@ -88,6 +91,8 @@ class SuggestReplyView(APIView):
         store = _inbox_get_store(request)
         if not store or not _can_view_inbox(request):
             return Response({'detail': 'Accès refusé.'}, status=403)
+        if (blocked := ai_gate(store)):
+            return blocked
         try:
             inbox_conversation = store.conversations.select_related('order').prefetch_related('messages').get(pk=conversation_id)
         except Conversation.DoesNotExist:
@@ -125,6 +130,8 @@ class DashboardSummaryView(APIView):
     def get(self, request):
         if (err := _check_access(request)):
             return err
+        if (blocked := ai_gate(get_store(request))):
+            return blocked
         tab = request.query_params.get('tab')
         view_cls = _DASHBOARD_TAB_VIEWS.get(tab)
         if not view_cls:
@@ -188,6 +195,8 @@ class ChatView(APIView):
         store = get_store(request)
         if not store:
             return Response({'detail': 'Accès refusé.'}, status=403)
+        if (blocked := ai_gate(store)):
+            return blocked
         message = (request.data.get('message') or '').strip()
         if not message:
             return Response({'detail': 'Le message est requis.'}, status=400)
@@ -278,6 +287,8 @@ class ScanProductView(APIView):
         store = get_store(request)
         if not store:
             return Response({'detail': 'Accès refusé.'}, status=403)
+        if (blocked := ai_gate(store)):
+            return blocked
 
         image_file = request.FILES.get('image')
         if not image_file:

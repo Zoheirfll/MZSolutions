@@ -97,6 +97,12 @@ def verify_subscription_payment(payment_id):
             quota.save(update_fields=['plan', 'billing_cycle', 'orders_limit', 'orders_used', 'period_end'])
             locked.status = 'success'
             locked.save(update_fields=['status'])
+            try:
+                from stores.invoicing import issue_invoice
+                issue_invoice(locked)
+            except Exception:  # une facture ne doit jamais faire échouer un paiement confirmé
+                import logging
+                logging.getLogger(__name__).exception('Émission de facture impossible')
         elif result == 'failed':
             locked.status = 'failed'
             locked.save(update_fields=['status'])

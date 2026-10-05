@@ -18,6 +18,10 @@ class StoreSuspended(PermissionDenied):
     default_code = 'store_suspended'
 
 
+class ReadOnlyViewing(PermissionDenied):
+    default_code = 'read_only'
+
+
 class CookieJWTAuthentication(JWTAuthentication):
     def authenticate(self, request):
         result = self._authenticate(request)
@@ -29,7 +33,26 @@ class CookieJWTAuthentication(JWTAuthentication):
             store = suspended_store_for_user(result[0])
             if store is not None:
                 raise StoreSuspended(detail=suspension_message(store), code='store_suspended')
+            self._enforce_read_only(request, result[0])
         return result
+
+    # Chemins qui restent utilisables pendant une consultation en lecture seule : l'administration
+    # elle-même (quitter la consultation, actions d'admin) et l'authentification.
+    READ_ONLY_ALLOWED_PREFIXES = ('/api/platform-admin/', '/api/auth/', '/api/token/')
+
+    @classmethod
+    def _enforce_read_only(cls, request, user):
+        """Pendant une consultation en lecture seule (administration plateforme), toute écriture
+        sur le dashboard d'une boutique est REFUSÉE par le serveur (403 `read_only`)."""
+        if request.method in ('GET', 'HEAD', 'OPTIONS'):
+            return
+        if not (getattr(user, 'is_platform_admin', False) or getattr(user, 'is_platform_superadmin', False)):
+            return
+        if request.path.startswith(cls.READ_ONLY_ALLOWED_PREFIXES):
+            return
+        from platform_admin.impersonation import view_store_id
+        if view_store_id(request) is not None:
+            raise ReadOnlyViewing(detail='Mode lecture seule : modification impossible.', code='read_only')
 
     def _authenticate(self, request):
         header = self.get_header(request)

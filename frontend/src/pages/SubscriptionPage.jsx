@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import DashboardLayout from '../components/DashboardLayout'
 import api from '../api/axios'
+import { downloadFile } from '../lib/downloadFile'
 import { theme } from '../theme'
 import { useTranslation } from 'react-i18next'
 
@@ -26,6 +27,12 @@ export default function SubscriptionPage() {
   const [subscribing, setSubscribing] = useState(null)
   const [error, setError]   = useState('')
   const [payNotice, setPayNotice] = useState('')
+  const [invoices, setInvoices] = useState([])
+
+  useEffect(() => {
+    Promise.resolve().then(() => api.get('/support/invoices/'))
+      .then((res) => { if (Array.isArray(res?.data)) setInvoices(res.data) }).catch(() => {})
+  }, [])
 
   // Retour de SofizPay (?payment=return&ref=ID) : pas de webhook, on fait vérifier
   // le paiement côté serveur avant de relire le quota.
@@ -147,6 +154,21 @@ export default function SubscriptionPage() {
             })}
           </div>
         </>
+      )}
+
+      {invoices.length > 0 && (
+        <div className="mt-8 rounded-xl border p-5" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
+          <h2 className="text-sm font-semibold text-app-primary mb-3">{t('Mes factures')}</h2>
+          <ul className="divide-y" style={{ borderColor: theme.dark.border }}>
+            {invoices.map((i) => (
+              <li key={i.id} className="flex items-center justify-between gap-3 py-2 text-sm text-app-primary">
+                <span>{i.number} — {i.description} — {i.total_ttc} DA</span>
+                <button onClick={() => downloadFile(`/support/invoices/${i.id}/pdf/`, `facture-${i.number}.pdf`).catch(() => {})}
+                  className="text-violet-400 hover:text-violet-300 text-xs font-medium">{t('Télécharger')}</button>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
     </DashboardLayout>
   )

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { downloadFile } from '../../lib/downloadFile'
 import api from '../../api/axios'
 import { theme } from '../../theme'
 import { useAuth } from '../../context/AuthContext'
@@ -133,9 +134,15 @@ export default function PlatformAdminPaymentsPage() {
 
       <AdminList columns={columns} rows={data.results} total={data.count} page={page} perPage={PER_PAGE}
         onPage={(p) => update({ page: p > 1 ? String(p) : '' })} loading={loading} error={error} onRetry={load}
-        rowActions={isSuper ? (r) => (r.status === 'success' ? (
-          <button onClick={() => setRefund(r)} className="text-red-400 hover:text-red-300 text-xs font-medium">{t('Rembourser')}</button>
-        ) : null) : undefined} />
+        rowActions={(r) => (['success', 'refunded'].includes(r.status) ? (
+          <span className="flex gap-3">
+            <button onClick={() => downloadFile(`/platform-admin/payments/${r.id}/invoice/`, `facture-${r.id}.pdf`).catch(() => setToast({ type: 'error', message: t('Téléchargement impossible.') }))}
+              className="text-violet-400 hover:text-violet-300 text-xs font-medium">{t('Facture')}</button>
+            {isSuper && r.status === 'success' && (
+              <button onClick={() => setRefund(r)} className="text-red-400 hover:text-red-300 text-xs font-medium">{t('Rembourser')}</button>
+            )}
+          </span>
+        ) : null)} />
 
       <AdminConfirmModal open={!!refund} title={t('Enregistrer un remboursement')} danger confirmLabel={t('Enregistrer')} busy={busy}
         confirmDisabled={reason.trim().length < MIN_REASON} onConfirm={doRefund} onCancel={closeRefund}

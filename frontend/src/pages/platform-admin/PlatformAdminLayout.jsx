@@ -10,6 +10,8 @@ const ICON = {
   overview: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6',
   stores: 'M3 9l1.5-5h15L21 9M3 9v10a1 1 0 001 1h4a1 1 0 001-1v-4a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 001 1h4a1 1 0 001-1V9M3 9h18',
   team: 'M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1.13a4 4 0 100-8 4 4 0 000 8zm6 0a4 4 0 10-8 0',
+  tasks: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4',
+  search: 'M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z',
   plugs: 'M13 10V3L4 14h7v7l9-11h-7z',
   mail: 'M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z',
   megaphone: 'M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z',
@@ -25,13 +27,18 @@ const ICON = {
 // Groupes du menu — `superOnly` : lien visible uniquement pour un superadmin
 // (le contrôle réel reste côté serveur, le front masque seulement).
 const GROUPS = [
-  { group: 'Principal', items: [{ to: '/plateforme/apercu', label: tt('Vue d’ensemble'), icon: ICON.overview, badge: true }] },
+  { group: 'Principal', items: [
+    { to: '/plateforme/apercu', label: tt('Vue d’ensemble'), icon: ICON.overview, badge: true },
+    { to: '/plateforme/recherche', label: tt('Recherche globale'), icon: ICON.search },
+  ] },
   { group: 'Vendeurs', items: [
     { to: '/plateforme/comptes', label: tt('Comptes'), icon: ICON.accounts },
+    { to: '/plateforme/utilisateurs', label: tt('Utilisateurs'), icon: ICON.team },
     { to: '/plateforme/integrations', label: tt('Intégrations'), icon: ICON.plugs },
   ] },
   { group: tt('Communication'), items: [
     { to: '/plateforme/messages', label: tt('Messages'), icon: ICON.mail },
+    { to: '/plateforme/contenu', label: tt('Contenu du site'), icon: ICON.mail },
     { to: '/plateforme/annonces', label: tt('Annonces'), icon: ICON.megaphone, superOnly: true },
   ] },
   { group: tt('Finances'), items: [
@@ -39,6 +46,8 @@ const GROUPS = [
     { to: '/plateforme/paliers', label: tt('Paliers'), icon: ICON.plans, superOnly: true },
   ] },
   { group: tt('Système'), items: [
+    { to: '/plateforme/connexions', label: tt('Connexions'), icon: ICON.shield },
+    { to: '/plateforme/taches', label: tt('Tâches et sauvegardes'), icon: ICON.tasks },
     { to: '/plateforme/systeme', label: tt('Santé et erreurs'), icon: ICON.health },
     { to: '/plateforme/reglages', label: tt('Réglages'), icon: ICON.settings, superOnly: true },
     { to: '/plateforme/administrateurs', label: tt('Administrateurs'), icon: ICON.shield, superOnly: true },

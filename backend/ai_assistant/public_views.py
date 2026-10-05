@@ -1,4 +1,5 @@
 from rest_framework.views import APIView
+from .gate import ai_gate
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
@@ -46,6 +47,9 @@ class PublicChatView(APIView):
         from stores.models import store_is_paused
         if store_is_paused(store):
             return Response({'detail': 'Cette boutique est en pause.'}, status=403)
+
+        if (blocked := ai_gate(store)):
+            return blocked
 
         session_id = (request.data.get('session_id') or '').strip()
         message = (request.data.get('message') or '').strip()

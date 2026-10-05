@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import api from '../../api/axios'
 import { theme } from '../../theme'
@@ -8,6 +8,8 @@ import Select from '../../components/Select'
 import { useAuth } from '../../context/AuthContext'
 import AdminPageHeader from '../../components/admin/AdminPageHeader'
 import AdminConfirmModal from '../../components/admin/AdminConfirmModal'
+import AccountAdvancedPanel from '../../components/admin/AccountAdvancedPanel'
+import StoreModulesPanel from '../../components/admin/StoreModulesPanel'
 import { AdminError } from '../../components/admin/AdminState'
 import StoreStateBadge from '../../components/admin/StoreStateBadge'
 
@@ -38,7 +40,8 @@ function Panel({ title, children }) {
 export default function PlatformAdminAccountDetailPage() {
   const { t } = useTranslation()
   const { storeId } = useParams()
-  const { user } = useAuth()
+  const { user, refresh } = useAuth()
+  const navigate = useNavigate()
   const isSuper = user?.platform_level === 'superadmin'
   const [grant, setGrant] = useState({ action: 'add_orders', value: '', plan_id: '' })
   const [plans, setPlans] = useState([])
@@ -92,7 +95,23 @@ export default function PlatformAdminAccountDetailPage() {
   if (!data) return <div className="py-16 text-center text-sm text-app-muted">{t('Chargement…')}</div>
 
   const suspended = data.state === 'suspended'
+  // Consultation en LECTURE SEULE : ouvre le vrai dashboard de la boutique, le serveur refuse toute écriture.
+  const startViewAs = async () => {
+    setBusy(true)
+    try {
+      await api.post(`/platform-admin/accounts/${storeId}/view-as/`, { reason: reason.trim() })
+      await refresh()
+      navigate('/dashboard')
+    } catch (err) {
+      setToast({ type: 'error', message: err.response?.data?.detail || t('Action impossible.') })
+      setBusy(false)
+    }
+  }
+
   const modals = {
+    viewas: { title: t('Voir le dashboard en lecture seule'), confirmLabel: t('Ouvrir'),
+      message: t('Vous consultez le vrai dashboard de cette boutique pendant 1 heure, sans pouvoir rien modifier. Le motif est enregistré dans le journal d\'audit.'),
+      onConfirm: startViewAs, disabled: reason.trim().length < MIN_REASON },
     suspend: { title: t('Suspendre cette boutique'), confirmLabel: t('Suspendre'), danger: true,
       message: t('Le vendeur et son équipe ne pourront plus se connecter, la vitrine sera indisponible. Les données sont conservées.'),
       onConfirm: () => run('suspend', { reason: reason.trim() }, t('Boutique suspendue.')), disabled: reason.trim().length < MIN_REASON },
@@ -114,6 +133,7 @@ export default function PlatformAdminAccountDetailPage() {
 
   const actions = (
     <>
+      <button onClick={() => setModal('viewas')} className={theme.btn.outline}>{t('Voir le dashboard (lecture seule)')}</button>
       {isSuper && <button onClick={() => setModal('grant')} className={theme.btn.outline}>{t('Geste commercial')}</button>}
       <button onClick={() => setModal('reset')} className={theme.btn.outline}>{t('Réinitialiser le mot de passe')}</button>
       <button onClick={() => setModal('logout')} className={theme.btn.outline}>{t('Forcer la déconnexion')}</button>
@@ -174,6 +194,9 @@ export default function PlatformAdminAccountDetailPage() {
         </Panel>
       </div>
 
+      {isSuper && <StoreModulesPanel storeId={data.id} disabled={data.disabled_features || []} onChanged={load} />}
+      {isSuper && <AccountAdvancedPanel data={data} onChanged={load} />}
+
       {integrations && (
         <div className="mt-4">
           <Panel title={t('Intégrations')}>
@@ -218,6 +241,10 @@ export default function PlatformAdminAccountDetailPage() {
 
       <AdminConfirmModal open={!!m} title={m?.title} message={m?.message} confirmLabel={m?.confirmLabel} danger={m?.danger}
         busy={busy} confirmDisabled={m?.disabled} onConfirm={m?.onConfirm} onCancel={close}>
+        {modal === 'viewas' && (
+          <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={2} maxLength={300}
+            placeholder={t('Motif (obligatoire)')} className={`${theme.inputDark} w-full`} />
+        )}
         {modal === 'suspend' && (
           <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={3} maxLength={300}
             placeholder={t('Motif de la suspension (obligatoire)')} className={`${theme.inputDark} w-full`} />

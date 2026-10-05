@@ -126,6 +126,7 @@ REST_FRAMEWORK = {
         'promo':            '20/min',
         'payment_verify':   '30/min',
         'contact':          '5/hour',
+        'platform_search':  '60/min',
         'incoming_webhook': '30/min',
         'order':            '10/min',
         'exchange':         '10/min',
@@ -247,6 +248,8 @@ GOOGLE_CLIENT_ID = config('GOOGLE_CLIENT_ID', default='')
 # SOFIZPAY_SANDBOX=False explicitement en production.
 SOFIZPAY_ACCOUNT = config('SOFIZPAY_ACCOUNT', default='')
 SOFIZPAY_SANDBOX = config('SOFIZPAY_SANDBOX', default=True, cast=bool)
+# Dossier des sauvegardes de la base (monte en lecture seule dans le conteneur, voir docker-compose.yml)
+BACKUP_DIR = config('BACKUP_DIR', default='/backups')
 BACKEND_URL         = config('BACKEND_URL', default='http://localhost:8000')
 
 # Assistant IA (2026-09) — jamais figés en dur, voir ai_assistant/ollama_client.py
@@ -265,3 +268,9 @@ SHOPIFY_CLIENT_ID     = config('SHOPIFY_CLIENT_ID', default='')
 SHOPIFY_CLIENT_SECRET = config('SHOPIFY_CLIENT_SECRET', default='')
 SHOPIFY_SCOPES        = config('SHOPIFY_SCOPES', default='read_orders,write_orders,read_products,write_products,read_inventory,write_inventory')
 SHOPIFY_API_VERSION   = config('SHOPIFY_API_VERSION', default='2025-01')
+
+# Facturation des abonnements (stores/invoicing.py)
+INVOICE_ISSUER_NAME = config("INVOICE_ISSUER_NAME", default="MZSolutions")
+INVOICE_ISSUER_ADDRESS = config("INVOICE_ISSUER_ADDRESS", default="")
+INVOICE_ISSUER_TAX_ID = config("INVOICE_ISSUER_TAX_ID", default="")
+INVOICE_VAT_RATE = config("INVOICE_VAT_RATE", default=19, cast=int)

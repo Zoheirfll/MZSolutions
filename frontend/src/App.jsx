@@ -28,10 +28,15 @@ import PlatformAdminAdminsPage from './pages/platform-admin/PlatformAdminAdminsP
 import PlatformAdminPaymentsPage from './pages/platform-admin/PlatformAdminPaymentsPage'
 import PlatformAdminPlansPage from './pages/platform-admin/PlatformAdminPlansPage'
 import PlatformAdminSystemPage from './pages/platform-admin/PlatformAdminSystemPage'
+import PlatformAdminContentPage from './pages/platform-admin/PlatformAdminContentPage'
 import PlatformAdminAnnouncementsPage from './pages/platform-admin/PlatformAdminAnnouncementsPage'
 import PlatformAdminMessagesPage from './pages/platform-admin/PlatformAdminMessagesPage'
 import PlatformAdminIntegrationsPage from './pages/platform-admin/PlatformAdminIntegrationsPage'
 import PlatformAdminSettingsPage from './pages/platform-admin/PlatformAdminSettingsPage'
+import PlatformAdminUsersPage from './pages/platform-admin/PlatformAdminUsersPage'
+import PlatformAdminLoginsPage from './pages/platform-admin/PlatformAdminLoginsPage'
+import PlatformAdminSearchPage from './pages/platform-admin/PlatformAdminSearchPage'
+import PlatformAdminTasksPage from './pages/platform-admin/PlatformAdminTasksPage'
 import PlatformAdminStoresPage from './pages/platform-admin/PlatformAdminStoresPage'
 import PlatformAdminStoreOrdersPage from './pages/platform-admin/PlatformAdminStoreOrdersPage'
 import PlatformAdminStoreProductsPage from './pages/platform-admin/PlatformAdminStoreProductsPage'
@@ -178,12 +183,17 @@ function App() {
             <Route path="apercu" element={<PlatformAdminOverviewPage />} />
             <Route path="comptes" element={<PlatformAdminAccountsPage />} />
             <Route path="comptes/:storeId" element={<PlatformAdminAccountDetailPage />} />
+            <Route path="recherche" element={<PlatformAdminSearchPage />} />
+            <Route path="utilisateurs" element={<PlatformAdminUsersPage />} />
+            <Route path="connexions" element={<PlatformAdminLoginsPage />} />
             <Route path="integrations" element={<PlatformAdminIntegrationsPage />} />
             <Route path="messages" element={<PlatformAdminMessagesPage />} />
+            <Route path="contenu" element={<PA><PlatformAdminContentPage /></PA>} />
             <Route path="annonces" element={<PSA><PlatformAdminAnnouncementsPage /></PSA>} />
             <Route path="paiements" element={<PlatformAdminPaymentsPage />} />
             <Route path="paliers" element={<PSA><PlatformAdminPlansPage /></PSA>} />
             <Route path="systeme" element={<PlatformAdminSystemPage />} />
+            <Route path="taches" element={<PlatformAdminTasksPage />} />
             <Route path="reglages" element={<PSA><PlatformAdminSettingsPage /></PSA>} />
             <Route path="administrateurs" element={<PSA><PlatformAdminAdminsPage /></PSA>} />
             <Route path="journal" element={<PlatformAdminAuditPage />} />

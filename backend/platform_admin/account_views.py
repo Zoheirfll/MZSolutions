@@ -142,7 +142,7 @@ class PlatformAccountDetailView(APIView):
         quota = getattr(store, 'quota', None)
         data = _row(store, timezone.now())
         data.update({
-            'phone': store.phone, 'email': store.email,
+            'phone': store.phone, 'email': store.email, 'disabled_features': store.disabled_features or [],
             'suspended_at': store.suspended_at, 'suspension_reason': store.suspension_reason,
             'owner': {
                 'id': owner.id, 'email': owner.email, 'first_name': owner.first_name, 'last_name': owner.last_name,

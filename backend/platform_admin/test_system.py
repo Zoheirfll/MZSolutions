@@ -170,7 +170,8 @@ class SettingsTests(SystemBase):
 
     def test_no_secrets_in_settings_payload(self):
         body = str(self.super_c.get(f'{BASE}/settings/').data)
-        self.assertNotIn('KEY', body.upper().replace('ALLOW', ''))
+        for word in ('SECRET', 'TOKEN', 'PASSWORD', 'API_KEY', 'APIKEY', 'SMTP'):
+            self.assertNotIn(word, body.upper())
 
 
 class AdminLoginThrottleTests(TestCase):

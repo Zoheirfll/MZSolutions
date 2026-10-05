@@ -36,6 +36,10 @@ class PlatformSettings(models.Model):
     le `.env`."""
     trial_days = models.PositiveIntegerField(default=30, help_text="Durée de l'essai gratuit des NOUVELLES boutiques")
     allow_registration = models.BooleanField(default=True, help_text="False = inscriptions fermées (incident, maintenance)")
+    # Modules coupes pour TOUTE la plateforme (cles de core.features.FEATURES) et plafond d'appels IA
+    # par boutique et par jour (0 = illimite)
+    disabled_features = models.JSONField(default=list, blank=True)
+    ai_daily_limit = models.PositiveIntegerField(default=0)
     updated_at = models.DateTimeField(auto_now=True)
 
     @classmethod
@@ -45,3 +49,19 @@ class PlatformSettings(models.Model):
 
     def __str__(self):
         return 'Réglages de la plateforme'
+
+
+class TaskRun(models.Model):
+    """Dernier passage d'une tâche planifiée (commande de management), alimenté par le
+    décorateur `platform_admin.tasks.track_task`. Une seule ligne par tâche."""
+    STATUS_CHOICES = [('running', 'En cours'), ('ok', 'Réussie'), ('error', 'En erreur')]
+
+    name = models.CharField(max_length=60, unique=True)
+    last_started_at = models.DateTimeField(null=True, blank=True)
+    last_finished_at = models.DateTimeField(null=True, blank=True)
+    last_status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='ok')
+    last_message = models.CharField(max_length=300, blank=True)  # type d'exception seulement, jamais de données
+    runs_count = models.PositiveIntegerField(default=0)
+
+    def __str__(self):
+        return self.name

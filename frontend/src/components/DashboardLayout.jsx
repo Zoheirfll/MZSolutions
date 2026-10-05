@@ -218,6 +218,14 @@ export default function DashboardLayout({ children, title, subtitle }) {
   const handleLeaveImpersonation = async () => {
     // Best-effort : même si l'appel échoue, on rafraîchit /auth/me/ pour
     // refléter l'état réel plutôt que de laisser l'UI dans un état incertain.
+    // Consultation en LECTURE SEULE (administration de la plateforme) : cookie et endpoint distincts
+    // du mode « Gérer cette boutique » du service de confirmation.
+    if (user?.impersonating?.read_only) {
+      try { await api.post('/platform-admin/view-as/leave/') } catch {}
+      await refresh()
+      navigate('/plateforme/comptes')
+      return
+    }
     try { await api.post('/platform-admin/leave/') } catch {}
     const fresh = await refresh()
     navigate(fresh?.is_service_admin ? '/platform-admin/boutiques' : '/platform-admin/ma-file')
@@ -950,7 +958,7 @@ export default function DashboardLayout({ children, title, subtitle }) {
         {user?.impersonating && (
           <div className="flex items-center justify-between gap-3 px-5 sm:px-8 py-2 shrink-0 text-sm"
             style={{ background: 'rgba(139,92,246,0.15)', borderBottom: '1px solid rgba(139,92,246,0.3)' }}>
-            <span className="text-violet-200 font-medium truncate">{tr('Vous gérez')}{' '}<strong>{user.impersonating.store_name}</strong> {user.impersonating.is_admin ? 'en tant que superadmin' : 'via le service de confirmation'}.
+            <span className="text-violet-200 font-medium truncate">{user.impersonating.read_only ? (<>{tr('Lecture seule — vous consultez')}{' '}<strong>{user.impersonating.store_name}</strong>. {tr('Aucune modification n’est possible.')}</>) : (<>{tr('Vous gérez')}{' '}<strong>{user.impersonating.store_name}</strong> {user.impersonating.is_admin ? 'en tant que superadmin' : 'via le service de confirmation'}.</>)}
             </span>
             <button onClick={handleLeaveImpersonation}
               className="shrink-0 px-3 py-1 rounded-lg text-xs font-semibold bg-violet-600 text-white hover:bg-violet-500 transition cursor-pointer">{tr('Quitter')}</button>

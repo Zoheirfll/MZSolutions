@@ -1,3 +1,4 @@
+from platform_admin.tasks import track_task
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 from datetime import timedelta
@@ -10,6 +11,7 @@ from stores.models import Store
 class Command(BaseCommand):
     help = "Envoie des relances email pour les paniers abandonnés non récupérés."
 
+    @track_task('send_abandoned_cart_reminders')
     def handle(self, *args, **options):
         now = timezone.now()
         sent = 0

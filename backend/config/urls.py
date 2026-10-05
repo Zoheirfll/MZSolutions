@@ -18,6 +18,10 @@ def robots_txt(request):
 
 
 def privacy_policy(request):
+    from platform_admin.content_views import render_legal_page
+    edited = render_legal_page('privacy-policy')
+    if edited:
+        return edited
     return HttpResponse("""<!doctype html><html lang="fr"><head><meta charset="utf-8">
 <title>Politique de confidentialité — MZSolutions</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -58,6 +62,8 @@ urlpatterns = [
     path('api/public/exchanges/', __import__('orders.views', fromlist=['PublicExchangeCreateView']).PublicExchangeCreateView.as_view()),
     path('api/public/orders/<int:pk>/verify-payment/', __import__('orders.views', fromlist=['PublicOrderPaymentVerifyView']).PublicOrderPaymentVerifyView.as_view()),
     path('api/support/announcements/', __import__('platform_admin.communication_views', fromlist=['VendorAnnouncementListView']).VendorAnnouncementListView.as_view()),
+    path('api/support/invoices/', __import__('stores.invoice_views', fromlist=['x']).VendorInvoiceListView.as_view()),
+    path('api/support/invoices/<int:pk>/pdf/', __import__('stores.invoice_views', fromlist=['x']).VendorInvoiceDownloadView.as_view()),
     path('api/support/contact/', __import__('platform_admin.communication_views', fromlist=['VendorContactView']).VendorContactView.as_view()),
     path('api/public/webhooks/yalidine/', __import__('orders.views', fromlist=['YalidineWebhookView']).YalidineWebhookView.as_view()),
     path('api/public/webhooks/incoming/<str:key>/', __import__('webhooks.views', fromlist=['PublicIncomingWebhookView']).PublicIncomingWebhookView.as_view()),
@@ -70,6 +76,8 @@ urlpatterns = [
     path('api/public/channels/shopify/webhooks/customers-redact/', __import__('channels.views', fromlist=['ShopifyCustomersRedactView']).ShopifyCustomersRedactView.as_view()),
     path('api/public/channels/shopify/webhooks/shop-redact/', __import__('channels.views', fromlist=['ShopifyShopRedactView']).ShopifyShopRedactView.as_view()),
     path('legal/privacy-policy/', privacy_policy),
+    path('legal/terms/', lambda r: __import__('platform_admin.content_views', fromlist=['x']).render_legal_page('terms') or HttpResponse('Page non disponible.', status=404)),
+    path('api/support/faq/', __import__('platform_admin.content_views', fromlist=['x']).VendorFaqView.as_view()),
     path('robots.txt', robots_txt),
 ]
 

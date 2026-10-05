@@ -32,6 +32,8 @@ class Store(models.Model):
     is_active = models.BooleanField(default=True)
     suspended_at = models.DateTimeField(null=True, blank=True)
     suspension_reason = models.TextField(blank=True)
+    # Modules coupes pour CETTE boutique par l'admin plateforme (cles de core.features.FEATURES)
+    disabled_features = models.JSONField(default=list, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -300,3 +302,26 @@ class SubscriptionPayment(models.Model):
     # SofizPay — aucune API de remboursement n'est utilisée).
     refunded_at = models.DateTimeField(null=True, blank=True)
     refund_reason = models.CharField(max_length=300, blank=True)
+
+
+class InvoiceCounter(models.Model):
+    """Dernier numéro de facture émis pour une année (numérotation continue YYYY-NNNN)."""
+    year = models.PositiveIntegerField(unique=True)
+    last = models.PositiveIntegerField(default=0)
+
+
+class Invoice(models.Model):
+    """Facture d'un paiement d'abonnement confirmé. Le contenu est un instantané
+    figé à l'émission : modifier ensuite le palier, le prix ou l'identité de
+    l'émetteur ne change jamais une facture déjà émise."""
+    payment = models.OneToOneField(SubscriptionPayment, on_delete=models.PROTECT, related_name='invoice')
+    store = models.ForeignKey(Store, on_delete=models.PROTECT, related_name='invoices')
+    number = models.CharField(max_length=20, unique=True)
+    issued_at = models.DateTimeField(auto_now_add=True)
+    snapshot = models.JSONField(default=dict)
+
+    class Meta:
+        ordering = ['-issued_at']
+
+    def __str__(self):
+        return self.number
