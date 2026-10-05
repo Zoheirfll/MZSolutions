@@ -429,7 +429,7 @@ export default function DashboardLayout({ children, title, subtitle }) {
         ref={sidebarRef}
         className={`w-72 sm:w-64 shrink-0 flex flex-col border-e overflow-y-auto fixed lg:static inset-y-0 start-0 z-40
           transition-transform duration-300 ease-in-out
-          ${mobileNavOpen ? 'translate-x-0' : '-translate-x-full rtl:translate-x-full lg:translate-x-0'}`}
+          ${mobileNavOpen ? 'translate-x-0' : '-translate-x-full rtl:translate-x-full lg:translate-x-0 rtl:lg:translate-x-0'}`}
         style={{ background: theme.dark.sidebar, borderColor: theme.dark.border }}>
 
         {/* Logo */}
