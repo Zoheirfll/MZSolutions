@@ -112,4 +112,17 @@ describe('PlatformAdminAdminsPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Créer' }))
     await waitFor(() => expect(api.post).toHaveBeenCalledWith('/platform-admin/admins/', expect.objectContaining({ email: 'new@mz.dz', level: 'admin' })))
   })
+
+  it('shows the one-time activation link after creating an admin', async () => {
+    api.get.mockResolvedValue({ data: ADMINS })
+    api.post.mockResolvedValue({ data: { email: 'new@mz.dz', activation_link: 'https://mzsol.online/reset-password?uid=XX&token=YY' } })
+    render(<MemoryRouter><PlatformAdminAdminsPage /></MemoryRouter>)
+    await waitFor(() => expect(screen.getByText('other@mz.dz')).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: 'Ajouter un administrateur' }))
+    fireEvent.change(screen.getByPlaceholderText('Email'), { target: { value: 'new@mz.dz' } })
+    fireEvent.change(screen.getByPlaceholderText('Prénom'), { target: { value: 'Nina' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Créer' }))
+    await waitFor(() => expect(screen.getByLabelText("Lien d'activation")).toHaveValue('https://mzsol.online/reset-password?uid=XX&token=YY'))
+    expect(screen.getByRole('button', { name: 'Copier' })).toBeInTheDocument()
+  })
 })

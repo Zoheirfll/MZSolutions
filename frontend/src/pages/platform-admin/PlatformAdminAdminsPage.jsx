@@ -24,6 +24,7 @@ export default function PlatformAdminAdminsPage() {
   const [toast, setToast] = useState(null)
   const [form, setForm] = useState(null) // null = fermé
   const [revoke, setRevoke] = useState(null)
+  const [created, setCreated] = useState(null) // { email, link } juste après une création
   const [busy, setBusy] = useState(false)
 
   const levelOptions = [{ value: 'admin', label: t('Admin') }, { value: 'superadmin', label: t('Superadmin') }]
@@ -51,7 +52,26 @@ export default function PlatformAdminAdminsPage() {
     }
   }
 
-  const create = () => call(() => api.post('/platform-admin/admins/', form), t('Administrateur créé, un lien d\'activation lui a été envoyé.'), () => setForm(null))
+  // Après création : on affiche le lien d'activation (usage unique) au superadmin, au cas où
+  // l'adresse saisie ne recevrait pas l'email.
+  const create = async () => {
+    setBusy(true)
+    try {
+      const { data } = await api.post('/platform-admin/admins/', form)
+      setCreated({ email: data.email, link: data.activation_link })
+      setForm(null)
+      await load()
+    } catch (err) {
+      setToast({ type: 'error', message: err.response?.data?.detail || t('Action impossible.') })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const copyLink = async () => {
+    try { await navigator.clipboard.writeText(created.link); setToast({ type: 'success', message: t('Lien copié.') }) }
+    catch { setToast({ type: 'error', message: t('Copie impossible, sélectionnez le lien à la main.') }) }
+  }
   const changeLevel = (row, level) => call(() => api.put(`/platform-admin/admins/${row.id}/`, { level }), t('Niveau mis à jour.'))
   const doRevoke = () => call(() => api.delete(`/platform-admin/admins/${revoke.id}/`), t('Accès retiré.'), () => setRevoke(null))
 
@@ -89,6 +109,17 @@ export default function PlatformAdminAdminsPage() {
               <input value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} placeholder={t('Nom')} className={`${theme.inputDark} w-full`} />
             </div>
             <Select value={form.level} onChange={(v) => setForm({ ...form, level: v })} options={levelOptions} className={`${theme.inputDark} w-full`} />
+          </div>
+        )}
+      </AdminConfirmModal>
+
+      <AdminConfirmModal open={!!created} title={t('Administrateur créé')} confirmLabel={t('Fermer')}
+        message={created ? t('{{email}} a reçu un email d\'activation. Si l\'adresse ne reçoit pas de courrier, transmettez-lui ce lien (usage unique, durée limitée, à ne pas partager).', { email: created.email }) : ''}
+        onConfirm={() => setCreated(null)} onCancel={() => setCreated(null)}>
+        {created && (
+          <div className="flex items-center gap-2">
+            <input readOnly value={created.link} onFocus={(e) => e.target.select()} aria-label={t('Lien d\'activation')} className={`${theme.inputDark} w-full text-xs`} />
+            <button onClick={copyLink} className={theme.btn.outline}>{t('Copier')}</button>
           </div>
         )}
       </AdminConfirmModal>

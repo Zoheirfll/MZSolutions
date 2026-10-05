@@ -21,6 +21,7 @@ class UserSerializer(serializers.ModelSerializer):
     is_platform_confirmateur = serializers.SerializerMethodField()
     platform_level = serializers.SerializerMethodField()
     is_platform_admin = serializers.SerializerMethodField()
+    is_django_admin = serializers.SerializerMethodField()
     impersonating  = serializers.SerializerMethodField()
 
     class Meta:
@@ -28,7 +29,7 @@ class UserSerializer(serializers.ModelSerializer):
         fields = ['id', 'email', 'first_name', 'last_name', 'phone', 'avatar',
                   'store_slug', 'store_name', 'team_role', 'team_member_id', 'permissions',
                   'is_email_verified', 'is_online', 'store_is_paused',
-                  'is_platform_admin', 'platform_level', 'is_platform_confirmateur', 'impersonating']
+                  'is_platform_admin', 'is_django_admin', 'platform_level', 'is_platform_confirmateur', 'impersonating']
 
     def _request_context_for(self, obj):
         """Le contexte de requête n'est fiable que pour SE décrire soi-même
@@ -96,6 +97,10 @@ class UserSerializer(serializers.ModelSerializer):
             return obj.team_membership.is_online
         except Exception:
             return None
+
+    def get_is_django_admin(self, obj):
+        # Accès à l'admin Django (/admin/) : le frontend y envoie un compte sans boutique.
+        return bool(obj.is_staff and obj.is_active)
 
     def get_is_platform_admin(self, obj):
         # Vrai pour les deux niveaux (admin et superadmin) — les contrôles frontend

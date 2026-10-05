@@ -242,10 +242,14 @@ class PlatformAccountForceLogoutView(APIView):
         return Response({'detail': 'Sessions révoquées.', 'revoked': revoked})
 
 
-def _send_password_link(user, subject, intro):
+def _password_link(user):
+    """Lien à usage unique pour définir/réinitialiser le mot de passe."""
     uid = urlsafe_base64_encode(force_bytes(user.pk))
-    token = token_generator.make_token(user)
-    link = f"{settings.FRONTEND_URL}/reset-password?uid={uid}&token={token}"
+    return f"{settings.FRONTEND_URL}/reset-password?uid={uid}&token={token_generator.make_token(user)}"
+
+
+def _send_password_link(user, subject, intro):
+    link = _password_link(user)
     send_mail(
         subject=subject,
         message=f"Bonjour {user.first_name},\n\n{intro}\n{link}\n\nCe lien expire dans 1 heure.\n\nL'équipe MZSolutions",
@@ -315,7 +319,9 @@ class PlatformAdminListCreateView(APIView):
                             "Vous avez été ajouté(e) comme administrateur de la plateforme. Définissez votre mot de passe :")
         log_platform_audit(request, 'platform.admin_created', target=user, description=f'Administrateur créé ({level})',
                            metadata={'email': email, 'level': level})
-        return Response(_admin_row(user), status=201)
+        # Le lien est AUSSI renvoyé au superadmin (seul à atteindre cette route) : si l'adresse
+        # saisie ne reçoit pas de courrier, il peut le transmettre lui-même. Usage unique.
+        return Response({**_admin_row(user), 'activation_link': _password_link(user)}, status=201)
 
 
 class PlatformAdminDetailView(APIView):

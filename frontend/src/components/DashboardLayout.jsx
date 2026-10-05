@@ -1087,6 +1087,12 @@ export default function DashboardLayout({ children, title, subtitle }) {
                       )}
                     </>
                   )}
+                  {user?.is_django_admin && (
+                    <>
+                      <div className="my-1.5 border-t" style={{ borderColor: theme.dark.border }} />
+                      <a href="/admin/" className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-violet-400 hover:bg-violet-500/10 transition-colors duration-100 text-start cursor-pointer">{tr('Admin Django')}</a>
+                    </>
+                  )}
                   <div className="my-1.5 border-t" style={{ borderColor: theme.dark.border }} />
                   <button onClick={() => { setProfileOpen(false); navigate('/dashboard/contact') }}
                     className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition-colors duration-100 text-start cursor-pointer">

@@ -181,6 +181,18 @@ class AdminManagementTests(AccountsBase):
         self.assertFalse(user.is_platform_superadmin)
         self.assertFalse(user.has_usable_password())
         self.assertEqual(len(mail.outbox), 1)
+        # Le lien est aussi renvoyé au superadmin (au cas où l'adresse ne reçoit pas de courrier)
+        self.assertIn('/reset-password?uid=', resp.data['activation_link'])
+        self.assertIn(resp.data['activation_link'].split('&token=')[1], mail.outbox[0].body)
+
+    def test_activation_link_lets_the_new_admin_set_a_password(self):
+        resp = self.super_c.post(f'{BASE}/admins/', {'email': 'link@test.com', 'first_name': 'L', 'last_name': 'K', 'level': 'admin'}, format='json')
+        link = resp.data['activation_link']
+        uid = link.split('uid=')[1].split('&')[0]
+        token = link.split('token=')[1]
+        done = self.client.post('/api/auth/password-reset/confirm/', {'uid': uid, 'token': token, 'new_password': 'Nouveau-Mdp-123!'}, content_type='application/json')
+        self.assertEqual(done.status_code, 200)
+        self.assertTrue(User.objects.get(email='link@test.com').check_password('Nouveau-Mdp-123!'))
 
     def test_create_with_existing_email_conflicts(self):
         resp = self.super_c.post(f'{BASE}/admins/', {'email': self.owner.email, 'first_name': 'N', 'last_name': 'A', 'level': 'admin'}, format='json')
@@ -214,3 +226,11 @@ class AdminManagementTests(AccountsBase):
     def test_admin_actions_are_audited_without_store(self):
         self.super_c.post(f'{BASE}/admins/', {'email': 'aud@test.com', 'first_name': 'A', 'last_name': 'B', 'level': 'admin'}, format='json')
         self.assertTrue(AuditLog.objects.filter(action='platform.admin_created', store__isnull=True).exists())
+
+
+class DjangoAdminFlagTests(TestCase):
+    def test_me_exposes_is_django_admin_only_for_staff(self):
+        staff = make_user('staff@test.com', is_staff=True)
+        regular = make_user('regular@test.com')
+        self.assertTrue(auth_client(staff).get('/api/auth/me/').data['is_django_admin'])
+        self.assertFalse(auth_client(regular).get('/api/auth/me/').data['is_django_admin'])

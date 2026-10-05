@@ -63,6 +63,17 @@ function landingPathFor(user) {
   return '/dashboard'
 }
 
+// Après connexion : un compte superuser de l'admin Django SANS boutique ni rôle plateforme
+// (ex. le compte technique) arrive sur /admin/ (page serveur, hors du routeur React) au
+// lieu d'un dashboard vendeur vide. Tous les autres cas gardent leur page d'arrivée.
+function goAfterAuth(navigate, user) {
+  if (user?.is_django_admin && !user.store_slug && !user.team_role && !user.platform_level && !user.is_platform_confirmateur) {
+    window.location.assign('/admin/')
+    return
+  }
+  navigate(landingPathFor(user))
+}
+
 function StepIndicator({ step, total, label }) {
   return (
     <div className="flex items-center gap-2 self-start mb-1">
@@ -233,7 +244,7 @@ export default function Auth() {
   const handleLogin = async (e) => {
     e.preventDefault(); setErrors({}); setLoading(true)
     try {
-      const { user } = await login(loginForm.email, loginForm.password); navigate(landingPathFor(user))
+      const { user } = await login(loginForm.email, loginForm.password); goAfterAuth(navigate, user)
     } catch (err) {
       const data = err.response?.data
       if (data?.code === 'email_not_verified') {
@@ -272,7 +283,7 @@ export default function Auth() {
         })
         const userInfo = await userInfoRes.json()
         const { data } = await api.post('/auth/google/login/', { access_token: tokenResp.access_token })
-        setUser(data.user); navigate(landingPathFor(data.user))
+        setUser(data.user); goAfterAuth(navigate, data.user)
       } catch (err) {
         if (err.response?.status === 404) {
           setErrors({ general: tr('Aucun compte Google associé. Veuillez vous inscrire d\'abord.') })
@@ -300,8 +311,8 @@ export default function Auth() {
     onError: () => setErrors({ general: tr('Inscription Google annulée.') }),
   })
 
-  const onVerified = (user) => { setUser(user); navigate(landingPathFor(user)) }
-  const onGoogleDone = (user) => { setUser(user); navigate(landingPathFor(user)) }
+  const onVerified = (user) => { setUser(user); goAfterAuth(navigate, user) }
+  const onGoogleDone = (user) => { setUser(user); goAfterAuth(navigate, user) }
 
   return (
     <div className="flex min-h-dvh font-sans">
