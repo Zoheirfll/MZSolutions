@@ -18,7 +18,8 @@ def make_platform_admin():
         first_name='Super', last_name='Admin', is_active=True, is_email_verified=True,
     )
     user.is_platform_admin = True
-    user.save(update_fields=['is_platform_admin'])
+    user.is_platform_superadmin = True
+    user.save(update_fields=['is_platform_admin', 'is_platform_superadmin'])
     return user
 
 
@@ -567,3 +568,77 @@ class PlatformAuditLogListViewTests(TestCase):
         from audit.models import AuditLog
         entry = AuditLog.objects.filter(store=self.store, action='team.member_invited').first()
         self.assertIsNotNone(entry)
+
+
+# ─── Niveaux d'accès admin / superadmin (admin plateforme, phase 1) ─────────
+
+from django.test import RequestFactory
+from .permissions import is_platform_admin, is_platform_superadmin
+
+
+def make_user(email, **flags):
+    u = User.objects.create_user(email=email, password='TestPass123', first_name='A', last_name='B',
+                                 is_active=True, is_email_verified=True)
+    for k, v in flags.items():
+        setattr(u, k, v)
+    u.save()
+    return u
+
+
+class PlatformLevelTests(TestCase):
+    def _req(self, user):
+        req = RequestFactory().get('/')
+        req.user = user
+        return req
+
+    def test_admin_level_is_not_superadmin(self):
+        u = make_user('a1@test.com', is_platform_admin=True)
+        self.assertTrue(is_platform_admin(self._req(u)))
+        self.assertFalse(is_platform_superadmin(self._req(u)))
+
+    def test_superadmin_implies_admin(self):
+        u = make_user('a2@test.com', is_platform_superadmin=True)
+        self.assertTrue(is_platform_admin(self._req(u)))
+        self.assertTrue(is_platform_superadmin(self._req(u)))
+
+    def test_regular_user_has_neither(self):
+        u = make_user('a3@test.com')
+        self.assertFalse(is_platform_admin(self._req(u)))
+        self.assertFalse(is_platform_superadmin(self._req(u)))
+
+    def test_me_exposes_platform_level(self):
+        for i, (flags, expected) in enumerate([({'is_platform_superadmin': True}, 'superadmin'),
+                                               ({'is_platform_admin': True}, 'admin'), ({}, None)]):
+            u = make_user(f'lv{i}@test.com', **flags)
+            resp = auth_client(u).get('/api/auth/me/')
+            self.assertEqual(resp.data['platform_level'], expected)
+
+
+class SuperadminOnlyRoutesTests(TestCase):
+    def setUp(self):
+        clear_throttle_cache()
+        self.owner, self.store = make_owner()
+        self.admin = make_user('lvl-admin@test.com', is_platform_admin=True)
+        self.superadmin = make_user('lvl-super@test.com', is_platform_superadmin=True)
+
+    def test_admin_can_read_stores(self):
+        self.assertEqual(auth_client(self.admin).get('/api/platform-admin/stores/').status_code, 200)
+
+    def test_admin_cannot_toggle_service(self):
+        resp = auth_client(self.admin).post(f'/api/platform-admin/stores/{self.store.id}/toggle/', {'is_active': True}, format='json')
+        self.assertEqual(resp.status_code, 403)
+
+    def test_superadmin_can_toggle_service(self):
+        resp = auth_client(self.superadmin).post(f'/api/platform-admin/stores/{self.store.id}/toggle/', {'is_active': True}, format='json')
+        self.assertEqual(resp.status_code, 200)
+
+    def test_admin_cannot_bulk_toggle(self):
+        resp = auth_client(self.admin).post('/api/platform-admin/stores/bulk-toggle/', {'store_ids': [self.store.id], 'is_active': True}, format='json')
+        self.assertEqual(resp.status_code, 403)
+
+    def test_admin_cannot_invite_confirmateur(self):
+        resp = auth_client(self.admin).post('/api/platform-admin/confirmateurs/', {'first_name': 'X', 'last_name': 'Y', 'email': 'x@test.com'}, format='json')
+        self.assertEqual(resp.status_code, 403)
+
+    def test_admin_can_list_confirmateurs(self):
+        self.assertEqual(auth_client(self.admin).get('/api/platform-admin/confirmateurs/').status_code, 200)

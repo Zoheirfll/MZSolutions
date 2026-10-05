@@ -5,20 +5,23 @@ import Select from '../../components/Select'
 import api from '../../api/axios'
 import { theme } from '../../theme'
 import TrackingBadge from '../../components/TrackingBadge'
+import { tt } from '../../i18n'
+import { useTranslation } from 'react-i18next'
+import { sfx } from '../../i18n'
 
 const EMPTY = { label: '', is_active: true, order: 0 }
 
 const COMMON_REASONS = [
-  'Numéro invalide', 'Injoignable après plusieurs tentatives', "Pas de réponse",
-  'Client ne se souvient pas de la commande', 'Prix trop élevé', 'Délai de livraison trop long',
-  'Adresse incorrecte ou incomplète', 'Commande en double', 'A commandé ailleurs',
-  'Changement d\'avis', 'Produit indisponible en réalité',
+  tt('Numéro invalide'), tt('Injoignable après plusieurs tentatives'), tt('Pas de réponse'),
+  tt('Client ne se souvient pas de la commande'), tt('Prix trop élevé'), tt('Délai de livraison trop long'),
+  tt('Adresse incorrecte ou incomplète'), tt('Commande en double'), tt('A commandé ailleurs'),
+  tt('Changement d\'avis'), tt('Produit indisponible en réalité'),
 ]
 
 const TABS = [
-  { key: 'raisons',   label: 'Raisons' },
-  { key: 'historique', label: 'Historique des échecs' },
-  { key: 'suivi_transporteur', label: 'Suivi transporteur' },
+  { key: 'raisons',   label: tt('Raisons') },
+  { key: 'historique', label: tt('Historique des échecs') },
+  { key: 'suivi_transporteur', label: tt('Suivi transporteur') },
 ]
 
 function CloseIcon(props) {
@@ -70,6 +73,7 @@ function ArrowDownIcon(props) {
 }
 
 function ReasonModal({ reason, onClose, onSaved }) {
+  const { t: tr } = useTranslation('dashboard')
   const [form, setForm] = useState(reason?.id ? { label: reason.label, is_active: reason.is_active, order: reason.order } : EMPTY)
   const [saving, setSaving] = useState(false)
   const [errors, setErrors] = useState({})
@@ -94,33 +98,33 @@ function ReasonModal({ reason, onClose, onSaved }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: 'rgba(0,0,0,0.7)' }} onClick={onClose}>
       <div className="w-full max-w-md rounded-xl border p-6 max-h-[90vh] overflow-y-auto" style={{ background: theme.dark.card, borderColor: theme.dark.border }} onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
-          <h3 className="font-semibold text-app-primary">{reason?.id ? 'Modifier la raison' : 'Nouvelle raison d\'échec'}</h3>
+          <h3 className="font-semibold text-app-primary">{reason?.id ? tr('Modifier la raison') : tr('Nouvelle raison d\'échec')}</h3>
           <button onClick={onClose} className="text-app-muted hover:text-app-primary transition">
             <CloseIcon />
           </button>
         </div>
         <form onSubmit={submit} className="space-y-4">
           <div>
-            <label className="block text-xs text-app-muted-light mb-1.5">Libellé *</label>
-            <input value={form.label} onChange={e => setForm(f => ({ ...f, label: e.target.value }))} required className={inputCls} style={bdrStyle} placeholder="ex: Numéro invalide" />
+            <label className="block text-xs text-app-muted-light mb-1.5">{tr('Libellé *')}</label>
+            <input value={form.label} onChange={e => setForm(f => ({ ...f, label: e.target.value }))} required className={inputCls} style={bdrStyle} placeholder={tr('ex: Numéro invalide')} />
             {errors.label && <p className="text-red-400 text-xs mt-1">{errors.label}</p>}
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs text-app-muted-light mb-1.5">Ordre d'affichage</label>
+              <label className="block text-xs text-app-muted-light mb-1.5">{tr('Ordre d\'affichage')}</label>
               <input type="number" min="0" value={form.order} onChange={e => setForm(f => ({ ...f, order: e.target.value }))} className={inputCls} style={bdrStyle} />
             </div>
             <div className="flex items-end pb-1">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" checked={form.is_active} onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} className="accent-violet-600 w-4 h-4" />
-                <span className="text-sm text-app-primary">Active</span>
+                <span className="text-sm text-app-primary">{tr('Active')}</span>
               </label>
             </div>
           </div>
           <div className="flex justify-end gap-3 pt-1">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-app-muted-light hover:text-app-primary">Annuler</button>
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-app-muted-light hover:text-app-primary">{tr('Annuler')}</button>
             <button type="submit" disabled={saving} className="px-5 py-2 rounded-lg text-sm font-semibold text-white bg-violet-600 hover:bg-violet-500 disabled:opacity-60">
-              {saving ? '…' : reason?.id ? 'Mettre à jour' : 'Créer'}
+              {saving ? '…' : reason?.id ? tr('Mettre à jour') : tr('Créer')}
             </button>
           </div>
         </form>
@@ -130,32 +134,31 @@ function ReasonModal({ reason, onClose, onSaved }) {
 }
 
 function ReasonsTab({ reasons, loading, seeding, onEdit, onDelete, onToggleActive, onSeed, onMove, onFilterHistory }) {
+  const { t: tr } = useTranslation('dashboard')
   return (
     <>
       <div className="flex items-center justify-between mb-5 gap-3 flex-wrap">
-        <p className="text-sm" style={{ color: theme.dark.muted }}>{reasons.length} raison{reasons.length !== 1 ? 's' : ''}</p>
+        <p className="text-sm" style={{ color: theme.dark.muted }}>{tr('{{length}} raison', { length: reasons.length })}{reasons.length !== 1 ? sfx('s') : ''}</p>
         <div className="flex items-center gap-2">
           {reasons.length === 0 && (
             <button onClick={onSeed} disabled={seeding} className={theme.btn.secondary}>
-              {seeding ? 'Ajout…' : 'Ajouter les raisons courantes'}
+              {seeding ? tr('Ajout…') : tr('Ajouter les raisons courantes')}
             </button>
           )}
           <button onClick={() => onEdit({})} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white bg-violet-600 hover:bg-violet-500 transition">
-            <PlusIcon />
-            Ajouter une raison
-          </button>
+            <PlusIcon />{tr('Ajouter une raison')}</button>
         </div>
       </div>
 
       <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border }}>
         <table className="w-full text-sm min-w-125">
           <thead style={{ background: theme.dark.sidebar }}>
-            <tr className="text-left text-xs border-b" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
-              <th className="px-4 py-3 font-medium">LIBELLÉ</th>
-              <th className="px-4 py-3 font-medium">ORDRE</th>
-              <th className="px-4 py-3 font-medium">UTILISATIONS</th>
-              <th className="px-4 py-3 font-medium">STATUT</th>
-              <th className="px-4 py-3 font-medium">ACTIONS</th>
+            <tr className="text-start text-xs border-b" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
+              <th className="px-4 py-3 font-medium">{tr('LIBELLÉ')}</th>
+              <th className="px-4 py-3 font-medium">{tr('ORDRE')}</th>
+              <th className="px-4 py-3 font-medium">{tr('UTILISATIONS')}</th>
+              <th className="px-4 py-3 font-medium">{tr('STATUT')}</th>
+              <th className="px-4 py-3 font-medium">{tr('ACTIONS')}</th>
             </tr>
           </thead>
           <tbody>
@@ -165,9 +168,7 @@ function ReasonsTab({ reasons, loading, seeding, onEdit, onDelete, onToggleActiv
                   <svg className="w-5 h-5 animate-spin text-violet-500" viewBox="0 0 24 24" fill="none">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-                  </svg>
-                  Chargement…
-                </div>
+                  </svg>{tr('Chargement…')}</div>
               </td></tr>
             ) : reasons.length === 0 ? (
               <tr><td colSpan={5}>
@@ -175,7 +176,7 @@ function ReasonsTab({ reasons, loading, seeding, onEdit, onDelete, onToggleActiv
                   <svg className="w-12 h-12 mb-3 opacity-40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
                   </svg>
-                  <p>Aucune raison définie</p>
+                  <p>{tr('Aucune raison définie')}</p>
                 </div>
               </td></tr>
             ) : reasons.map((r, i) => (
@@ -184,19 +185,17 @@ function ReasonsTab({ reasons, loading, seeding, onEdit, onDelete, onToggleActiv
                 <td className="px-4 py-3 text-app-muted-light">
                   <div className="flex items-center gap-1.5">
                     <span className="w-4 text-center">{r.order}</span>
-                    <button onClick={() => onMove(i, -1)} disabled={i === 0} className="p-0.5 rounded text-app-muted hover:text-app-primary hover:bg-violet-500/5 transition disabled:opacity-20 disabled:pointer-events-none" title="Monter">
+                    <button onClick={() => onMove(i, -1)} disabled={i === 0} className="p-0.5 rounded text-app-muted hover:text-app-primary hover:bg-violet-500/5 transition disabled:opacity-20 disabled:pointer-events-none" title={tr('Monter')}>
                       <ArrowUpIcon />
                     </button>
-                    <button onClick={() => onMove(i, 1)} disabled={i === reasons.length - 1} className="p-0.5 rounded text-app-muted hover:text-app-primary hover:bg-violet-500/5 transition disabled:opacity-20 disabled:pointer-events-none" title="Descendre">
+                    <button onClick={() => onMove(i, 1)} disabled={i === reasons.length - 1} className="p-0.5 rounded text-app-muted hover:text-app-primary hover:bg-violet-500/5 transition disabled:opacity-20 disabled:pointer-events-none" title={tr('Descendre')}>
                       <ArrowDownIcon />
                     </button>
                   </div>
                 </td>
                 <td className="px-4 py-3 text-app-muted-light">
                   {r.usage_count > 0 ? (
-                    <button onClick={() => onFilterHistory(r)} className={theme.badge.info + ' cursor-pointer hover:opacity-80 transition'}>
-                      {r.usage_count} fois
-                    </button>
+                    <button onClick={() => onFilterHistory(r)} className={theme.badge.info + ' cursor-pointer hover:opacity-80 transition'}>{tr('{{usage_count}} fois', { usage_count: r.usage_count })}</button>
                   ) : (
                     <span style={{ color: theme.dark.muted }}>—</span>
                   )}
@@ -204,15 +203,15 @@ function ReasonsTab({ reasons, loading, seeding, onEdit, onDelete, onToggleActiv
                 <td className="px-4 py-3">
                   <button onClick={() => onToggleActive(r)} className={`px-2.5 py-0.5 rounded-full text-xs font-medium transition ${r.is_active ? 'bg-emerald-900/30 text-emerald-400 hover:bg-emerald-900/50' : 'text-app-muted hover:bg-violet-500/10'}`}
                     style={r.is_active ? undefined : { background: 'var(--bg-card-alt)' }}>
-                    {r.is_active ? 'Active' : 'Inactive'}
+                    {r.is_active ? tr('Active') : tr('Inactive')}
                   </button>
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
-                    <button onClick={() => onEdit(r)} className="p-1.5 rounded text-violet-300 hover:bg-violet-600/20 transition" title="Modifier">
+                    <button onClick={() => onEdit(r)} className="p-1.5 rounded text-violet-300 hover:bg-violet-600/20 transition" title={tr('Modifier')}>
                       <EditIcon />
                     </button>
-                    <button onClick={() => onDelete(r.id)} className="p-1.5 rounded text-red-400 hover:bg-red-900/20 transition" title="Supprimer">
+                    <button onClick={() => onDelete(r.id)} className="p-1.5 rounded text-red-400 hover:bg-red-900/20 transition" title={tr('Supprimer')}>
                       <TrashIcon />
                     </button>
                   </div>
@@ -229,6 +228,7 @@ function ReasonsTab({ reasons, loading, seeding, onEdit, onDelete, onToggleActiv
 const EMPTY_HISTORY_FILTERS = { reason: '', agent: '', date_from: '', date_to: '', search: '' }
 
 function HistoryTab({ reasons, initialFilters }) {
+  const { t: tr } = useTranslation('dashboard')
   const navigate = useNavigate()
   const [filters, setFilters] = useState({ ...EMPTY_HISTORY_FILTERS, ...initialFilters })
   const [agents, setAgents] = useState([])
@@ -268,14 +268,14 @@ function HistoryTab({ reasons, initialFilters }) {
         <input
           value={filters.search}
           onChange={e => setFilters(f => ({ ...f, search: e.target.value }))}
-          placeholder="Nom ou téléphone…"
+          placeholder={tr('Nom ou téléphone…')}
           className={inputCls} style={{ ...bdrStyle, width: 200 }}
         />
         <div style={{ width: 200 }}>
           <Select
             value={filters.reason}
             onChange={v => setFilters(f => ({ ...f, reason: v }))}
-            options={[{ value: '', label: 'Toutes les raisons' }, ...reasons.map(r => ({ value: String(r.id), label: r.label }))]}
+            options={[{ value: '', label: tr('Toutes les raisons') }, ...reasons.map(r => ({ value: String(r.id), label: r.label }))]}
             className="px-3 py-2 rounded-lg border text-sm text-app-primary"
             style={{ background: 'transparent', borderColor: theme.dark.border }}
           />
@@ -284,7 +284,7 @@ function HistoryTab({ reasons, initialFilters }) {
           <Select
             value={filters.agent}
             onChange={v => setFilters(f => ({ ...f, agent: v }))}
-            options={[{ value: '', label: 'Tous les confirmateurs' }, ...agents.map(a => ({ value: String(a.id), label: `${a.first_name} ${a.last_name}` }))]}
+            options={[{ value: '', label: tr('Tous les confirmateurs') }, ...agents.map(a => ({ value: String(a.id), label: `${a.first_name} ${a.last_name}` }))]}
             className="px-3 py-2 rounded-lg border text-sm text-app-primary"
             style={{ background: 'transparent', borderColor: theme.dark.border }}
           />
@@ -293,25 +293,23 @@ function HistoryTab({ reasons, initialFilters }) {
         <span className="self-center text-app-muted text-sm">→</span>
         <input type="date" value={filters.date_to} onChange={e => setFilters(f => ({ ...f, date_to: e.target.value }))} className={inputCls} style={bdrStyle} />
         {(filters.reason || filters.agent || filters.date_from || filters.date_to || filters.search) && (
-          <button onClick={() => setFilters(EMPTY_HISTORY_FILTERS)} className="text-xs px-3 py-2 text-app-muted-light hover:text-app-primary transition">
-            Réinitialiser
-          </button>
+          <button onClick={() => setFilters(EMPTY_HISTORY_FILTERS)} className="text-xs px-3 py-2 text-app-muted-light hover:text-app-primary transition">{tr('Réinitialiser')}</button>
         )}
       </div>
 
-      <p className="text-sm mb-3" style={{ color: theme.dark.muted }}>{data.count} tentative{data.count !== 1 ? 's' : ''} en échec.</p>
+      <p className="text-sm mb-3" style={{ color: theme.dark.muted }}>{tr('{{count}} tentative', { count: data.count })}{data.count !== 1 ? sfx('s') : ''}{' '}{tr('en échec.')}</p>
 
       <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border }}>
         <table className="w-full text-sm min-w-180">
           <thead style={{ background: theme.dark.sidebar }}>
-            <tr className="text-left text-xs border-b" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
-              <th className="px-4 py-3 font-medium">COMMANDE</th>
-              <th className="px-4 py-3 font-medium">CLIENT</th>
-              <th className="px-4 py-3 font-medium">RAISON</th>
-              <th className="px-4 py-3 font-medium">TENTATIVE</th>
-              <th className="px-4 py-3 font-medium">CONFIRMATEUR</th>
-              <th className="px-4 py-3 font-medium">SUIVI</th>
-              <th className="px-4 py-3 font-medium">DATE</th>
+            <tr className="text-start text-xs border-b" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
+              <th className="px-4 py-3 font-medium">{tr('COMMANDE')}</th>
+              <th className="px-4 py-3 font-medium">{tr('CLIENT')}</th>
+              <th className="px-4 py-3 font-medium">{tr('RAISON')}</th>
+              <th className="px-4 py-3 font-medium">{tr('TENTATIVE')}</th>
+              <th className="px-4 py-3 font-medium">{tr('CONFIRMATEUR')}</th>
+              <th className="px-4 py-3 font-medium">{tr('SUIVI')}</th>
+              <th className="px-4 py-3 font-medium">{tr('DATE')}</th>
             </tr>
           </thead>
           <tbody>
@@ -321,14 +319,12 @@ function HistoryTab({ reasons, initialFilters }) {
                   <svg className="w-5 h-5 animate-spin text-violet-500" viewBox="0 0 24 24" fill="none">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-                  </svg>
-                  Chargement…
-                </div>
+                  </svg>{tr('Chargement…')}</div>
               </td></tr>
             ) : data.results.length === 0 ? (
               <tr><td colSpan={7}>
                 <div className={theme.emptyState}>
-                  <p>Aucun échec trouvé pour ces filtres.</p>
+                  <p>{tr('Aucun échec trouvé pour ces filtres.')}</p>
                 </div>
               </td></tr>
             ) : data.results.map(a => (
@@ -336,7 +332,7 @@ function HistoryTab({ reasons, initialFilters }) {
                 className="border-b hover:bg-violet-500/5 transition cursor-pointer" style={{ borderColor: theme.dark.borderRowHover }}>
                 <td className="px-4 py-3 text-app-muted">#{a.order_id}</td>
                 <td className="px-4 py-3">
-                  <p className="text-app-primary font-medium">{a.client_name || 'Client'}</p>
+                  <p className="text-app-primary font-medium">{a.client_name || tr('Client')}</p>
                   <p className="text-xs font-mono" style={{ color: theme.dark.muted }}>{a.phone}</p>
                 </td>
                 <td className="px-4 py-3 text-app-primary">{a.reason_label || '—'}</td>
@@ -354,9 +350,9 @@ function HistoryTab({ reasons, initialFilters }) {
 
       {data.count > perPage && (
         <div className="flex items-center justify-end gap-2 mt-4 text-sm" style={{ color: theme.dark.muted }}>
-          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">← Précédent</button>
+          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">{tr('← Précédent')}</button>
           <span className={theme.badge.info}>{page}/{totalPages}</span>
-          <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">Suivant →</button>
+          <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">{tr('Suivant →')}</button>
         </div>
       )}
     </>
@@ -381,7 +377,7 @@ function DownloadIcon(props) {
 }
 
 function exportCsv(rows) {
-  const header = ['ID', 'Nom', 'Téléphone', 'Wilaya', 'Commune', 'Prix total', 'Suivi', 'Sous-statut', 'Remarque']
+  const header = ['ID', 'Nom', tt('Téléphone'), 'Wilaya', 'Commune', tt('Prix total'), 'Suivi', 'Sous-statut', 'Remarque']
   const lines = rows.map(o => [
     o.id, `${o.first_name} ${o.last_name}`.trim(), o.phone, o.wilaya, o.commune,
     o.total, o.carrier_tracking_number || '', o.carrier_status || '', (o.note || '').replace(/\n/g, ' '),
@@ -400,13 +396,14 @@ function exportCsv(rows) {
 
 const SUBSTATUS_OPTIONS = [
   { value: '',                    label: '—' },
-  { value: 'pending_processing',  label: 'En attente de traitement' },
-  { value: 'accepted',            label: 'Accepté' },
-  { value: 'cancelled',           label: 'Annulé' },
-  { value: 'unreachable',         label: 'Injoignable' },
+  { value: 'pending_processing',  label: tt('En attente de traitement') },
+  { value: 'accepted',            label: tt('Accepté') },
+  { value: 'cancelled',           label: tt('Annulé') },
+  { value: 'unreachable',         label: tt('Injoignable') },
 ]
 
 function CarrierTrackingTab() {
+  const { t: tr } = useTranslation('dashboard')
   const navigate = useNavigate()
   const [data, setData] = useState({ results: [], count: 0, buckets: [] })
   const [search, setSearch] = useState('')
@@ -467,38 +464,36 @@ function CarrierTrackingTab() {
         <input
           value={search}
           onChange={e => setSearch(e.target.value)}
-          placeholder="Nom, téléphone ou suivi…"
+          placeholder={tr('Nom, téléphone ou suivi…')}
           className="px-3.5 py-2.5 rounded-lg border text-sm text-app-primary bg-transparent outline-none focus:border-violet-500 transition w-full sm:w-72"
           style={{ borderColor: theme.dark.border }}
         />
         <div className="flex items-center gap-2">
-          <button onClick={fetchData} className={theme.btn.icon} title="Rafraîchir">
+          <button onClick={fetchData} className={theme.btn.icon} title={tr('Rafraîchir')}>
             <RefreshIcon />
           </button>
-          <button onClick={() => exportCsv(data.results)} disabled={!data.results.length} className={theme.btn.icon + ' disabled:opacity-30'} title="Exporter en CSV">
+          <button onClick={() => exportCsv(data.results)} disabled={!data.results.length} className={theme.btn.icon + ' disabled:opacity-30'} title={tr('Exporter en CSV')}>
             <DownloadIcon />
           </button>
           <button onClick={() => navigate('/dashboard/commandes/nouvelle')} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white bg-violet-600 hover:bg-violet-500 transition">
-            <PlusIcon />
-            Créer une commande
-          </button>
+            <PlusIcon />{tr('Créer une commande')}</button>
         </div>
       </div>
 
-      <p className="text-sm mb-3" style={{ color: theme.dark.muted }}>{data.count} commande{data.count !== 1 ? 's' : ''} en cours de livraison.</p>
+      <p className="text-sm mb-3" style={{ color: theme.dark.muted }}>{tr('{{count}} commande', { count: data.count })}{data.count !== 1 ? sfx('s') : ''}{' '}{tr('en cours de livraison.')}</p>
 
       <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border }}>
         <table className="w-full text-sm min-w-200">
           <thead style={{ background: theme.dark.sidebar }}>
-            <tr className="text-left text-xs border-b" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
-              <th className="px-4 py-3 font-medium">SUIVI</th>
-              <th className="px-4 py-3 font-medium">CLIENT</th>
-              <th className="px-4 py-3 font-medium">COMMUNE</th>
-              <th className="px-4 py-3 font-medium">REMARQUE</th>
-              <th className="px-4 py-3 font-medium">ÉTAT TRANSPORTEUR</th>
-              <th className="px-4 py-3 font-medium">SOUS-STATUT</th>
-              <th className="px-4 py-3 font-medium">PRIX TOTAL</th>
-              <th className="px-4 py-3 font-medium">DATE</th>
+            <tr className="text-start text-xs border-b" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
+              <th className="px-4 py-3 font-medium">{tr('SUIVI')}</th>
+              <th className="px-4 py-3 font-medium">{tr('CLIENT')}</th>
+              <th className="px-4 py-3 font-medium">{tr('COMMUNE')}</th>
+              <th className="px-4 py-3 font-medium">{tr('REMARQUE')}</th>
+              <th className="px-4 py-3 font-medium">{tr('ÉTAT TRANSPORTEUR')}</th>
+              <th className="px-4 py-3 font-medium">{tr('SOUS-STATUT')}</th>
+              <th className="px-4 py-3 font-medium">{tr('PRIX TOTAL')}</th>
+              <th className="px-4 py-3 font-medium">{tr('DATE')}</th>
             </tr>
           </thead>
           <tbody>
@@ -508,14 +503,12 @@ function CarrierTrackingTab() {
                   <svg className="w-5 h-5 animate-spin text-violet-500" viewBox="0 0 24 24" fill="none">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-                  </svg>
-                  Chargement…
-                </div>
+                  </svg>{tr('Chargement…')}</div>
               </td></tr>
             ) : data.results.length === 0 ? (
               <tr><td colSpan={8}>
                 <div className={theme.emptyState}>
-                  <p>Aucune donnée</p>
+                  <p>{tr('Aucune donnée')}</p>
                 </div>
               </td></tr>
             ) : data.results.map(o => (
@@ -544,7 +537,7 @@ function CarrierTrackingTab() {
                     style={{ background: 'transparent', borderColor: theme.dark.border }}
                   />
                 </td>
-                <td className="px-4 py-3 text-app-primary">{Number(o.total).toLocaleString('fr-DZ')} DZD</td>
+                <td className="px-4 py-3 text-app-primary">{Number(o.total).toLocaleString('fr-DZ')}{' '}{tr('DZD')}</td>
                 <td className="px-4 py-3 text-app-muted text-xs">{new Date(o.created_at).toLocaleDateString('fr-DZ')}</td>
               </tr>
             ))}
@@ -554,9 +547,9 @@ function CarrierTrackingTab() {
 
       {data.count > perPage && (
         <div className="flex items-center justify-end gap-2 mt-4 text-sm" style={{ color: theme.dark.muted }}>
-          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">← Précédent</button>
+          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">{tr('← Précédent')}</button>
           <span className={theme.badge.info}>{page}/{totalPages}</span>
-          <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">Suivant →</button>
+          <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">{tr('Suivant →')}</button>
         </div>
       )}
     </>
@@ -564,6 +557,7 @@ function CarrierTrackingTab() {
 }
 
 export default function FailureReasonsPage() {
+  const { t: tr } = useTranslation('dashboard')
   const [tab, setTab] = useState('raisons')
   const [reasons, setReasons] = useState([])
   const [modal,   setModal]   = useState(null)
@@ -579,7 +573,7 @@ export default function FailureReasonsPage() {
   useEffect(() => { fetchReasons() }, [])
 
   const handleDelete = async id => {
-    if (!confirm('Supprimer cette raison ?')) return
+    if (!confirm(tr('Supprimer cette raison ?'))) return
     await api.delete(`/orders/failure-reasons/${id}/`)
     fetchReasons()
   }
@@ -619,7 +613,7 @@ export default function FailureReasonsPage() {
   }
 
   return (
-    <DashboardLayout title="Raisons d'échec" subtitle={`Quand un confirmateur appelle un client et n'arrive pas à confirmer la commande, il doit choisir une raison ("ne répond pas", "a changé d'avis"...). L'onglet "Raisons" sert à créer et modifier la liste de ces motifs proposés à vos confirmateurs. L'onglet "Historique des échecs" vous montre chaque tentative ratée, avec des filtres par raison, par confirmateur ou par client — utile pour repérer un problème récurrent (un confirmateur qui échoue souvent, un motif très fréquent...).`}>
+    <DashboardLayout title={tr('Raisons d\'échec')} subtitle={tr('Quand un confirmateur appelle un client et n\'arrive pas à confirmer la commande, il doit choisir une raison ("ne répond pas", "a changé d\'avis"...). L\'onglet "Raisons" sert à créer et modifier la liste de ces motifs proposés à vos confirmateurs. L\'onglet "Historique des échecs" vous montre chaque tentative ratée, avec des filtres par raison, par confirmateur ou par client — utile pour repérer un problème récurrent (un confirmateur qui échoue souvent, un motif très fréquent...).')}>
       {modal !== null && (
         <ReasonModal
           reason={modal?.id ? modal : null}

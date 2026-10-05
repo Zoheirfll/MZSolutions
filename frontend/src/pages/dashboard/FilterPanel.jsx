@@ -3,6 +3,7 @@ import Select from '../../components/Select'
 import { WILAYAS } from '../../data/wilayas'
 import api from '../../api/axios'
 import { theme } from '../../theme'
+import { useTranslation } from 'react-i18next'
 
 function FilterIcon(props) {
   return (
@@ -17,6 +18,7 @@ const EMPTY_FILTERS = { product: '', category: '', wilaya: '', confirmateur: '',
 export { EMPTY_FILTERS }
 
 export default function FilterPanel({ filters, setFilters }) {
+  const { t } = useTranslation('dashboard')
   const [open, setOpen] = useState(false)
   const [confirmateurs, setConfirmateurs] = useState([])
   const [carriers, setCarriers] = useState([])
@@ -47,52 +49,49 @@ export default function FilterPanel({ filters, setFilters }) {
       <button onClick={() => setOpen(o => !o)}
         className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium border transition cursor-pointer ${activeCount ? 'border-violet-500 text-violet-300' : 'text-app-primary hover:bg-violet-500/5'}`}
         style={activeCount ? undefined : bdrStyle}>
-        <FilterIcon /> Filtrage
-        {activeCount > 0 && <span className="w-4.5 h-4.5 rounded-full bg-violet-600 text-white text-[10px] flex items-center justify-center">{activeCount}</span>}
+        <FilterIcon />{' '}{t('Filtrage')}{activeCount > 0 && <span className="w-4.5 h-4.5 rounded-full bg-violet-600 text-white text-[10px] flex items-center justify-center">{activeCount}</span>}
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-xl border p-4 shadow-xl z-30"
+        <div className="absolute end-0 mt-2 w-80 sm:w-96 rounded-xl border p-4 shadow-xl z-30"
           style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
           <div className="flex items-center justify-between mb-3">
-            <p className="text-sm font-semibold text-app-primary">Filtrage</p>
+            <p className="text-sm font-semibold text-app-primary">{t('Filtrage')}</p>
             {activeCount > 0 && (
-              <button onClick={() => setFilters(EMPTY_FILTERS)} className="text-xs text-violet-400 hover:text-violet-300 transition cursor-pointer">
-                Réinitialiser
-              </button>
+              <button onClick={() => setFilters(EMPTY_FILTERS)} className="text-xs text-violet-400 hover:text-violet-300 transition cursor-pointer">{t('Réinitialiser')}</button>
             )}
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-[11px] mb-1" style={{ color: theme.dark.muted }}>Recherche par produit</label>
-              <input value={filters.product} onChange={e => set('product', e.target.value)} placeholder="Nom du produit" className={inputCls} style={bdrStyle} />
+              <label className="block text-[11px] mb-1" style={{ color: theme.dark.muted }}>{t('Recherche par produit')}</label>
+              <input value={filters.product} onChange={e => set('product', e.target.value)} placeholder={t('Nom du produit')} className={inputCls} style={bdrStyle} />
             </div>
             <div>
-              <label className="block text-[11px] mb-1" style={{ color: theme.dark.muted }}>Recherche par catégorie</label>
-              <input value={filters.category} onChange={e => set('category', e.target.value)} placeholder="Nom de la catégorie" className={inputCls} style={bdrStyle} />
+              <label className="block text-[11px] mb-1" style={{ color: theme.dark.muted }}>{t('Recherche par catégorie')}</label>
+              <input value={filters.category} onChange={e => set('category', e.target.value)} placeholder={t('Nom de la catégorie')} className={inputCls} style={bdrStyle} />
             </div>
             <div>
-              <label className="block text-[11px] mb-1" style={{ color: theme.dark.muted }}>Wilaya</label>
+              <label className="block text-[11px] mb-1" style={{ color: theme.dark.muted }}>{t('Wilaya')}</label>
               <Select value={filters.wilaya} onChange={v => set('wilaya', v)}
-                options={[{ value: '', label: 'Choisissez une wilaya' }, ...WILAYAS.map(w => ({ value: w.name, label: w.name }))]}
+                options={[{ value: '', label: t('Choisissez une wilaya') }, ...WILAYAS.map(w => ({ value: w.name, label: w.name }))]}
                 className={inputCls} style={{ ...bdrStyle, background: 'transparent' }} />
             </div>
             <div>
-              <label className="block text-[11px] mb-1" style={{ color: theme.dark.muted }}>Agent de confirmation</label>
+              <label className="block text-[11px] mb-1" style={{ color: theme.dark.muted }}>{t('Agent de confirmation')}</label>
               <Select value={filters.confirmateur} onChange={v => set('confirmateur', v)}
-                options={[{ value: '', label: 'Agent de confirmation' }, ...confirmateurs.map(c => ({ value: String(c.id), label: `${c.first_name} ${c.last_name}` }))]}
+                options={[{ value: '', label: t('Agent de confirmation') }, ...confirmateurs.map(c => ({ value: String(c.id), label: `${c.first_name} ${c.last_name}` }))]}
                 className={inputCls} style={{ ...bdrStyle, background: 'transparent' }} />
             </div>
             <div>
-              <label className="block text-[11px] mb-1" style={{ color: theme.dark.muted }}>Entreprise de livraison</label>
+              <label className="block text-[11px] mb-1" style={{ color: theme.dark.muted }}>{t('Entreprise de livraison')}</label>
               <Select value={filters.carrier} onChange={v => set('carrier', v)}
-                options={[{ value: '', label: 'Entreprise de livraison' }, ...carriers.map(c => ({ value: String(c.id), label: c.carrier_label }))]}
+                options={[{ value: '', label: t('Entreprise de livraison') }, ...carriers.map(c => ({ value: String(c.id), label: c.carrier_label }))]}
                 className={inputCls} style={{ ...bdrStyle, background: 'transparent' }} />
             </div>
             <div>
-              <label className="block text-[11px] mb-1" style={{ color: theme.dark.muted }}>Canal de vente</label>
+              <label className="block text-[11px] mb-1" style={{ color: theme.dark.muted }}>{t('Canal de vente')}</label>
               <Select value={filters.source} onChange={v => set('source', v)}
-                options={[{ value: '', label: 'Tous les canaux de vente' }, ...sources.map(s => ({ value: s.source, label: s.source }))]}
+                options={[{ value: '', label: t('Tous les canaux de vente') }, ...sources.map(s => ({ value: s.source, label: s.source }))]}
                 className={inputCls} style={{ ...bdrStyle, background: 'transparent' }} />
             </div>
           </div>

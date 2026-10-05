@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
 import api from '../../api/axios'
 import { theme } from '../../theme'
+import { useTranslation } from 'react-i18next'
+import { sfx } from '../../i18n'
+import { tt } from '../../i18n'
 
 const EMPTY_FORM = { first_name: '', last_name: '', email: '', phone: '', address: '' }
 
@@ -52,7 +55,8 @@ function CloseIcon(props) {
   )
 }
 
-function Spinner({ label = 'Chargement…' }) {
+function Spinner({ label = tt('Chargement…') }) {
+  const { t: tr } = useTranslation('dashboard')
   return (
     <div className="flex flex-col items-center justify-center gap-2 py-12 text-app-muted">
       <svg className="animate-spin" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -75,6 +79,7 @@ function EmptyState({ icon, title, subtitle }) {
 }
 
 function SupplierModal({ supplier, onClose, onSaved }) {
+  const { t } = useTranslation('dashboard')
   const [form, setForm]     = useState(supplier?.id ? {
     first_name: supplier.first_name,
     last_name:  supplier.last_name,
@@ -110,40 +115,40 @@ function SupplierModal({ supplier, onClose, onSaved }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
       <div className="w-full max-w-lg rounded-xl border p-6" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
         <div className="flex items-center justify-between mb-5">
-          <h3 className="font-semibold text-app-primary">{supplier?.id ? 'Modifier le fournisseur' : 'Nouveau fournisseur'}</h3>
+          <h3 className="font-semibold text-app-primary">{supplier?.id ? t('Modifier le fournisseur') : t('Nouveau fournisseur')}</h3>
           <button onClick={onClose} className="text-app-muted hover:text-app-primary transition cursor-pointer"><CloseIcon /></button>
         </div>
         <form onSubmit={submit} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs text-app-muted-light mb-1.5">Prénom *</label>
-              <input value={form.first_name} onChange={e => setForm(f => ({ ...f, first_name: e.target.value }))} required className={inputCls} style={bdrStyle} placeholder="Prénom" />
+              <label className="block text-xs text-app-muted-light mb-1.5">{t('Prénom *')}</label>
+              <input value={form.first_name} onChange={e => setForm(f => ({ ...f, first_name: e.target.value }))} required className={inputCls} style={bdrStyle} placeholder={t('Prénom')} />
               {errors.first_name && <p className="text-red-400 text-xs mt-1">{errors.first_name}</p>}
             </div>
             <div>
-              <label className="block text-xs text-app-muted-light mb-1.5">Nom *</label>
-              <input value={form.last_name} onChange={e => setForm(f => ({ ...f, last_name: e.target.value }))} required className={inputCls} style={bdrStyle} placeholder="Nom" />
+              <label className="block text-xs text-app-muted-light mb-1.5">{t('Nom *')}</label>
+              <input value={form.last_name} onChange={e => setForm(f => ({ ...f, last_name: e.target.value }))} required className={inputCls} style={bdrStyle} placeholder={t('Nom')} />
               {errors.last_name && <p className="text-red-400 text-xs mt-1">{errors.last_name}</p>}
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs text-app-muted-light mb-1.5">Email</label>
-              <input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} className={inputCls} style={bdrStyle} placeholder="email@example.com" />
+              <label className="block text-xs text-app-muted-light mb-1.5">{t('Email')}</label>
+              <input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} className={inputCls} style={bdrStyle} placeholder={t('email@example.com')} />
             </div>
             <div>
-              <label className="block text-xs text-app-muted-light mb-1.5">Téléphone</label>
+              <label className="block text-xs text-app-muted-light mb-1.5">{t('Téléphone')}</label>
               <input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} className={inputCls} style={bdrStyle} placeholder="+213…" />
             </div>
           </div>
           <div>
-            <label className="block text-xs text-app-muted-light mb-1.5">Adresse</label>
-            <textarea value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} rows={3} className={`${inputCls} resize-none`} style={bdrStyle} placeholder="Adresse complète…" />
+            <label className="block text-xs text-app-muted-light mb-1.5">{t('Adresse')}</label>
+            <textarea value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} rows={3} className={`${inputCls} resize-none`} style={bdrStyle} placeholder={t('Adresse complète…')} />
           </div>
           <div className="flex justify-end gap-3 pt-1">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-app-muted-light hover:text-app-primary cursor-pointer transition">Annuler</button>
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-app-muted-light hover:text-app-primary cursor-pointer transition">{t('Annuler')}</button>
             <button type="submit" disabled={saving} className="px-5 py-2 rounded-lg text-sm font-semibold text-white bg-violet-600 hover:bg-violet-500 disabled:opacity-60 cursor-pointer transition">
-              {saving ? '…' : supplier?.id ? 'Mettre à jour' : 'Créer'}
+              {saving ? '…' : supplier?.id ? t('Mettre à jour') : t('Créer')}
             </button>
           </div>
         </form>
@@ -153,6 +158,7 @@ function SupplierModal({ supplier, onClose, onSaved }) {
 }
 
 export default function SuppliersPage() {
+  const { t } = useTranslation('dashboard')
   const [suppliers, setSuppliers] = useState([])
   const [modal, setModal]         = useState(null)
   const [loading, setLoading]     = useState(true)
@@ -168,13 +174,13 @@ export default function SuppliersPage() {
   useEffect(() => { fetchSuppliers() }, [])
 
   const handleDelete = async (id) => {
-    if (!confirm('Supprimer ce fournisseur ?')) return
+    if (!confirm(t('Supprimer ce fournisseur ?'))) return
     await api.delete(`/products/suppliers/${id}/`)
     fetchSuppliers()
   }
 
   return (
-    <DashboardLayout title="Fournisseurs" subtitle="Cette page liste les fournisseurs chez qui vous achetez vos produits, avec leurs coordonnées. Depuis la fiche de chaque fournisseur, vous pouvez suivre ce qu'il vous a accordé en crédit et ce que vous lui avez déjà versé.">
+    <DashboardLayout title={t('Fournisseurs')} subtitle={t('Cette page liste les fournisseurs chez qui vous achetez vos produits, avec leurs coordonnées. Depuis la fiche de chaque fournisseur, vous pouvez suivre ce qu\'il vous a accordé en crédit et ce que vous lui avez déjà versé.')}>
       {modal !== null && (
         <SupplierModal
           supplier={modal?.id ? modal : null}
@@ -184,26 +190,25 @@ export default function SuppliersPage() {
       )}
 
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-5">
-        <p className="text-sm" style={{ color: theme.dark.muted }}>{suppliers.length} fournisseur{suppliers.length !== 1 ? 's' : ''}</p>
+        <p className="text-sm" style={{ color: theme.dark.muted }}>{t('{{length}} fournisseur', { length: suppliers.length })}{suppliers.length !== 1 ? sfx('s') : ''}</p>
         <button
           onClick={() => setModal({})}
           className={theme.btn.primary + ' text-sm shrink-0'}
         >
-          <PlusIcon /> Ajouter un fournisseur
-        </button>
+          <PlusIcon />{' '}{t('Ajouter un fournisseur')}</button>
       </div>
 
       <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border }}>
         <table className="w-full text-sm min-w-180">
           <thead style={{ background: theme.dark.sidebar }}>
-            <tr className="text-left text-xs border-b" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
-              <th className="px-4 py-3 font-medium">PRÉNOM</th>
-              <th className="px-4 py-3 font-medium">NOM</th>
-              <th className="px-4 py-3 font-medium">EMAIL</th>
-              <th className="px-4 py-3 font-medium">TÉLÉPHONE</th>
-              <th className="px-4 py-3 font-medium">SOLDE</th>
-              <th className="px-4 py-3 font-medium">DATE</th>
-              <th className="px-4 py-3 font-medium">ACTIONS</th>
+            <tr className="text-start text-xs border-b" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
+              <th className="px-4 py-3 font-medium">{t('PRÉNOM')}</th>
+              <th className="px-4 py-3 font-medium">{t('NOM')}</th>
+              <th className="px-4 py-3 font-medium">{t('EMAIL')}</th>
+              <th className="px-4 py-3 font-medium">{t('TÉLÉPHONE')}</th>
+              <th className="px-4 py-3 font-medium">{t('SOLDE')}</th>
+              <th className="px-4 py-3 font-medium">{t('DATE')}</th>
+              <th className="px-4 py-3 font-medium">{t('ACTIONS')}</th>
             </tr>
           </thead>
           <tbody>
@@ -211,7 +216,7 @@ export default function SuppliersPage() {
               <tr><td colSpan={7}><Spinner /></td></tr>
             ) : suppliers.length === 0 ? (
               <tr><td colSpan={7}>
-                <EmptyState icon={<TruckIcon />} title="Aucun fournisseur" subtitle="Ajoutez votre premier fournisseur pour commencer." />
+                <EmptyState icon={<TruckIcon />} title={t('Aucun fournisseur')} subtitle={t('Ajoutez votre premier fournisseur pour commencer.')} />
               </td></tr>
             ) : suppliers.map(s => (
               <tr key={s.id} className="border-b hover:bg-violet-500/5 transition" style={{ borderColor: theme.dark.borderRowHover }}>
@@ -221,16 +226,15 @@ export default function SuppliersPage() {
                 <td className="px-4 py-3 text-app-muted-light">{s.phone || '—'}</td>
                 <td className="px-4 py-3 font-semibold text-sm">
                   <span className={s.balance >= 0 ? 'text-red-300' : 'text-emerald-400'}>
-                    {Number(s.balance || 0).toLocaleString('fr-DZ')} DZD
-                  </span>
+                    {Number(s.balance || 0).toLocaleString('fr-DZ')}{' '}{t('DZD')}</span>
                 </td>
                 <td className="px-4 py-3 text-app-muted text-xs">
                   {new Date(s.created_at).toLocaleDateString('fr-DZ')}
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
-                    <button onClick={() => setModal(s)} className="p-1.5 rounded text-violet-300 hover:bg-violet-600/20 transition cursor-pointer" title="Modifier"><EditIcon /></button>
-                    <button onClick={() => handleDelete(s.id)} className="p-1.5 rounded text-red-400 hover:bg-red-900/20 transition cursor-pointer" title="Supprimer"><TrashIcon /></button>
+                    <button onClick={() => setModal(s)} className="p-1.5 rounded text-violet-300 hover:bg-violet-600/20 transition cursor-pointer" title={t('Modifier')}><EditIcon /></button>
+                    <button onClick={() => handleDelete(s.id)} className="p-1.5 rounded text-red-400 hover:bg-red-900/20 transition cursor-pointer" title={t('Supprimer')}><TrashIcon /></button>
                   </div>
                 </td>
               </tr>

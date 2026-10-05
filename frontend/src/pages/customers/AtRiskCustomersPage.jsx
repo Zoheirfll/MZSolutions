@@ -6,6 +6,9 @@ import BlockPhoneModal from '../../components/BlockPhoneModal'
 import RiskScoreBadge from '../../components/RiskScoreBadge'
 import api from '../../api/axios'
 import { theme } from '../../theme'
+import { useTranslation } from 'react-i18next'
+import { sfx } from '../../i18n'
+import { tt } from '../../i18n'
 
 const PER_PAGE_OPTIONS = [10, 25, 50]
 
@@ -35,7 +38,8 @@ function ShieldIcon(props) {
   )
 }
 
-function Spinner({ label = 'Chargement…' }) {
+function Spinner({ label = tt('Chargement…') }) {
+  const { t: tr } = useTranslation('dashboard')
   return (
     <div className="flex flex-col items-center justify-center gap-2 py-12 text-app-muted">
       <svg className="animate-spin" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -58,6 +62,7 @@ function EmptyState({ icon, title, subtitle }) {
 }
 
 export default function AtRiskCustomersPage() {
+  const { t, t: tr } = useTranslation('dashboard')
   const [data, setData]       = useState({ results: [], count: 0 })
   const [search, setSearch]   = useState('')
   const [page, setPage]       = useState(1)
@@ -116,50 +121,48 @@ export default function AtRiskCustomersPage() {
   const totalPages = Math.max(1, Math.ceil(data.count / perPage))
 
   return (
-    <DashboardLayout title="Clients à risque" subtitle={`Cette page vous aide à repérer les clients potentiellement problématiques avant qu'ils ne vous commandent à nouveau. Un client est marqué "à risque" automatiquement s'il a annulé ou retourné trop de commandes récemment (vous pouvez régler ce seuil et la période observée en bas de page), ou vous pouvez le marquer vous-même manuellement. Important : être "à risque" ne bloque pas ses futures commandes — c'est juste un avertissement visuel pour vous, le confirmateur ou le livreur. Si vous voulez vraiment empêcher un client de commander, utilisez la page "Liste noire" à la place.`}>
+    <DashboardLayout title={t('Clients à risque')} subtitle={t('Cette page vous aide à repérer les clients potentiellement problématiques avant qu\'ils ne vous commandent à nouveau. Un client est marqué "à risque" automatiquement s\'il a annulé ou retourné trop de commandes récemment (vous pouvez régler ce seuil et la période observée en bas de page), ou vous pouvez le marquer vous-même manuellement. Important : être "à risque" ne bloque pas ses futures commandes — c\'est juste un avertissement visuel pour vous, le confirmateur ou le livreur. Si vous voulez vraiment empêcher un client de commander, utilisez la page "Liste noire" à la place.')}>
       {/* Réglages du seuil */}
       <div className="rounded-xl border p-5 mb-5" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-        <h3 className="text-sm font-semibold text-app-primary mb-3">Seuil de détection automatique</h3>
+        <h3 className="text-sm font-semibold text-app-primary mb-3">{t('Seuil de détection automatique')}</h3>
         <div className="flex flex-wrap items-end gap-4">
           <div>
-            <label className="block text-xs text-app-muted-light mb-1.5">Nb. commandes annulées/retournées</label>
+            <label className="block text-xs text-app-muted-light mb-1.5">{t('Nb. commandes annulées/retournées')}</label>
             <input type="number" min="1" value={threshold} onChange={e => setThreshold(Number(e.target.value))} className={inputCls} style={bdrStyle} />
           </div>
           <div>
-            <label className="block text-xs text-app-muted-light mb-1.5">Sur une période de (jours)</label>
+            <label className="block text-xs text-app-muted-light mb-1.5">{t('Sur une période de (jours)')}</label>
             <input type="number" min="1" value={periodDays} onChange={e => setPeriodDays(Number(e.target.value))} className={inputCls} style={bdrStyle} />
           </div>
           <button onClick={saveSettings} disabled={savingSettings} className={theme.btn.primary + ' disabled:opacity-60'}>
-            {savingSettings ? '…' : 'Enregistrer'}
+            {savingSettings ? '…' : tr('Enregistrer')}
           </button>
         </div>
-        <p className="text-xs mt-3" style={{ color: theme.dark.muted }}>
-          Un client est marqué à risque automatiquement s'il atteint ce nombre de commandes annulées/retournées sur la période indiquée. Vous pouvez aussi marquer/démarquer un client manuellement ci-dessous, indépendamment de ce calcul.
-        </p>
+        <p className="text-xs mt-3" style={{ color: theme.dark.muted }}>{t('Un client est marqué à risque automatiquement s\'il atteint ce nombre de commandes annulées/retournées sur la période indiquée. Vous pouvez aussi marquer/démarquer un client manuellement ci-dessous, indépendamment de ce calcul.')}</p>
       </div>
 
       <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
         <input
           value={search}
           onChange={e => { setSearch(e.target.value); setPage(1) }}
-          placeholder="Recherche par nom ou téléphone"
+          placeholder={t('Recherche par nom ou téléphone')}
           className="px-4 py-2 rounded-lg text-sm text-app-primary border outline-none focus:border-violet-500 transition w-full sm:w-72"
           style={{ background: theme.dark.card, borderColor: theme.dark.border }}
         />
-        <p className="text-sm" style={{ color: theme.dark.muted }}>{data.count} client{data.count !== 1 ? 's' : ''} à risque</p>
+        <p className="text-sm" style={{ color: theme.dark.muted }}>{t('{{count}} client', { count: data.count })}{data.count !== 1 ? sfx('s') : ''}{' '}{t('à risque')}</p>
       </div>
 
       <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border }}>
         <table className="w-full text-sm min-w-180">
           <thead style={{ background: theme.dark.sidebar }}>
-            <tr className="text-left text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
-              <th className="px-4 py-3 font-medium">NOM COMPLET</th>
-              <th className="px-4 py-3 font-medium">TÉLÉPHONE</th>
-              <th className="px-4 py-3 font-medium">COMMANDES</th>
-              <th className="px-4 py-3 font-medium">ANNULÉES/RETOURNÉES</th>
-              <th className="px-4 py-3 font-medium">SCORE AVANCÉ</th>
-              <th className="px-4 py-3 font-medium">ORIGINE</th>
-              <th className="px-4 py-3 font-medium">ACTIONS</th>
+            <tr className="text-start text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
+              <th className="px-4 py-3 font-medium">{t('NOM COMPLET')}</th>
+              <th className="px-4 py-3 font-medium">{t('TÉLÉPHONE')}</th>
+              <th className="px-4 py-3 font-medium">{t('COMMANDES')}</th>
+              <th className="px-4 py-3 font-medium">{t('ANNULÉES/RETOURNÉES')}</th>
+              <th className="px-4 py-3 font-medium">{t('SCORE AVANCÉ')}</th>
+              <th className="px-4 py-3 font-medium">{t('ORIGINE')}</th>
+              <th className="px-4 py-3 font-medium">{t('ACTIONS')}</th>
             </tr>
           </thead>
           <tbody>
@@ -167,7 +170,7 @@ export default function AtRiskCustomersPage() {
               <tr><td colSpan={7}><Spinner /></td></tr>
             ) : data.results.length === 0 ? (
               <tr><td colSpan={7}>
-                <EmptyState icon={<AlertIcon />} title="Aucun client à risque" subtitle="Personne ne dépasse le seuil configuré pour l'instant." />
+                <EmptyState icon={<AlertIcon />} title={t('Aucun client à risque')} subtitle={t('Personne ne dépasse le seuil configuré pour l\'instant.')} />
               </td></tr>
             ) : data.results.map(c => (
               <tr key={c.phone} className="border-b hover:bg-violet-500/5 transition" style={{ borderColor: theme.dark.borderRowHover }}>
@@ -181,14 +184,14 @@ export default function AtRiskCustomersPage() {
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className={c.manual_risk ? theme.badge.warning : theme.badge.neutral}>
-                      {c.manual_risk ? 'Manuel' : 'Automatique'}
+                      {c.manual_risk ? tr('Manuel') : tr('Automatique')}
                     </span>
-                    {c.is_blacklisted && <span className={theme.badge.danger}>Bloqué</span>}
+                    {c.is_blacklisted && <span className={theme.badge.danger}>{t('Bloqué')}</span>}
                   </div>
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-1 flex-wrap">
-                    <button onClick={() => setHistoryClient(c)} className="p-1.5 rounded text-violet-300 hover:bg-violet-600/20 transition cursor-pointer" title="Historique des commandes">
+                    <button onClick={() => setHistoryClient(c)} className="p-1.5 rounded text-violet-300 hover:bg-violet-600/20 transition cursor-pointer" title={t('Historique des commandes')}>
                       <HistoryIcon />
                     </button>
                     <button
@@ -196,10 +199,10 @@ export default function AtRiskCustomersPage() {
                       disabled={togglingPhone === c.phone}
                       className={theme.btn.outline + ' text-xs disabled:opacity-50'}
                     >
-                      {togglingPhone === c.phone ? '…' : c.manual_risk ? 'Retirer le flag' : 'Marquer manuellement'}
+                      {togglingPhone === c.phone ? '…' : c.manual_risk ? t('Retirer le flag') : t('Marquer manuellement')}
                     </button>
                     {!c.is_blacklisted && (
-                      <button onClick={() => setBlockingClient(c)} className="p-1.5 rounded text-red-400 hover:bg-red-900/20 transition cursor-pointer" title="Bloquer ce numéro">
+                      <button onClick={() => setBlockingClient(c)} className="p-1.5 rounded text-red-400 hover:bg-red-900/20 transition cursor-pointer" title={t('Bloquer ce numéro')}>
                         <ShieldIcon />
                       </button>
                     )}
@@ -213,17 +216,15 @@ export default function AtRiskCustomersPage() {
 
       {data.count > 0 && (
         <div className="flex items-center justify-between mt-4 text-sm" style={{ color: theme.dark.muted }}>
-          <div className="flex items-center gap-2 text-xs">
-            Lignes par page :
-            <Select value={perPage} onChange={v => { setPerPage(Number(v)); setPage(1) }}
+          <div className="flex items-center gap-2 text-xs">{t('Lignes par page :')}<Select value={perPage} onChange={v => { setPerPage(Number(v)); setPage(1) }}
               options={PER_PAGE_OPTIONS.map(n => ({ value: n, label: n }))}
               className="px-2 py-1 rounded-lg border text-app-primary text-xs"
               style={{ background: theme.dark.card, borderColor: theme.dark.border, minWidth: 64 }} />
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">← Précédent</button>
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">{t('← Précédent')}</button>
             <span className={theme.badge.info}>{page}</span>
-            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">Suivant →</button>
+            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">{t('Suivant →')}</button>
           </div>
         </div>
       )}

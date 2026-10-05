@@ -3,8 +3,10 @@ import { useSearchParams, useNavigate } from 'react-router-dom'
 import api from '../../api/axios'
 import { theme } from '../../theme'
 import { useAuth } from '../../context/AuthContext'
+import { useTranslation } from 'react-i18next'
 
 export default function PlatformAdminAcceptInvitation() {
+  const { t, t: tr } = useTranslation('dashboard')
   const [params] = useSearchParams()
   const navigate  = useNavigate()
   const { setUser } = useAuth()
@@ -27,7 +29,7 @@ export default function PlatformAdminAcceptInvitation() {
     e.preventDefault()
     setError('')
     if (form.password !== form.confirm) {
-      setError('Les mots de passe ne correspondent pas.')
+      setError(t('Les mots de passe ne correspondent pas.'))
       return
     }
     setLoading(true)
@@ -39,7 +41,7 @@ export default function PlatformAdminAcceptInvitation() {
       // et l'aurait renvoyé vers /dashboard (la garde PA le rejette).
       navigate('/platform-admin/ma-file')
     } catch (err) {
-      setError(err.response?.data?.detail || 'Une erreur est survenue.')
+      setError(err.response?.data?.detail || t('Une erreur est survenue.'))
     } finally {
       setLoading(false)
     }
@@ -48,35 +50,35 @@ export default function PlatformAdminAcceptInvitation() {
   if (invalid) {
     return (
       <div className="min-h-screen flex items-center justify-center px-4 bg-gray-50">
-        <p className="text-gray-700 text-lg font-semibold">Lien invalide ou déjà utilisé</p>
+        <p className="text-gray-700 text-lg font-semibold">{t('Lien invalide ou déjà utilisé')}</p>
       </div>
     )
   }
 
   if (!info) {
-    return <div className="min-h-screen flex items-center justify-center px-4 bg-gray-50"><p className="text-gray-500 text-sm">Vérification du lien…</p></div>
+    return <div className="min-h-screen flex items-center justify-center px-4 bg-gray-50"><p className="text-gray-500 text-sm">{t('Vérification du lien…')}</p></div>
   }
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 bg-gray-50">
       <div className="w-full max-w-sm">
-        <p className="text-2xl font-bold tracking-tight mb-2 text-gray-900">MZSolutions</p>
-        <p className="text-sm text-gray-500 mb-8">Activation — équipe de confirmation superadmin</p>
-        <p className="text-sm text-gray-700 mb-6">Bonjour <span className="font-semibold">{info.first_name} {info.last_name}</span>, définissez votre mot de passe.</p>
+        <p className="text-2xl font-bold tracking-tight mb-2 text-gray-900">{t('MZSolutions')}</p>
+        <p className="text-sm text-gray-500 mb-8">{t('Activation — équipe de confirmation superadmin')}</p>
+        <p className="text-sm text-gray-700 mb-6">{t('Bonjour')}{' '}<span className="font-semibold">{info.first_name} {info.last_name}</span>{t(', définissez votre mot de passe.')}</p>
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
           <div className="flex flex-col gap-1.5">
-            <label className={theme.label}>Mot de passe *</label>
+            <label className={theme.label}>{t('Mot de passe *')}</label>
             <input type="password" required minLength={8} value={form.password}
               onChange={e => setForm(f => ({ ...f, password: e.target.value }))} className={theme.input} />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className={theme.label}>Confirmer le mot de passe *</label>
+            <label className={theme.label}>{t('Confirmer le mot de passe *')}</label>
             <input type="password" required value={form.confirm}
               onChange={e => setForm(f => ({ ...f, confirm: e.target.value }))} className={theme.input} />
           </div>
           {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">{error}</p>}
           <button type="submit" disabled={loading} className={`w-full py-3 text-sm ${theme.btn.primary}`}>
-            {loading ? 'Activation…' : 'Activer mon compte'}
+            {loading ? tr('Activation…') : t('Activer mon compte')}
           </button>
         </form>
       </div>

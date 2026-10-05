@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import StorefrontLayout from './StorefrontLayout'
 import publicApi from '../../api/publicApi'
 import useDocumentMeta from '../../hooks/useDocumentMeta'
+import { useTranslation } from 'react-i18next'
 
 function PackageIcon(props) {
   return (
@@ -23,6 +24,7 @@ function TruckIcon(props) {
 }
 
 function ProductCard({ product, slug }) {
+  const { t } = useTranslation('storefront')
   const strikePrice = product.original_price || product.compare_price
   const discount = strikePrice
     ? Math.round((1 - product.price / strikePrice) * 100)
@@ -43,13 +45,13 @@ function ProductCard({ product, slug }) {
             </div>
         }
         {discount && (
-          <span className="absolute top-2.5 left-2.5 text-[10px] font-bold px-2 py-0.5 rounded-lg ring-1 ring-inset ring-red-400/40 backdrop-blur-sm" style={{ background: 'rgba(239,68,68,0.18)', color: '#fca5a5' }}>
+          <span className="absolute top-2.5 start-2.5 text-[10px] font-bold px-2 py-0.5 rounded-lg ring-1 ring-inset ring-red-400/40 backdrop-blur-sm" style={{ background: 'rgba(239,68,68,0.18)', color: '#fca5a5' }}>
             -{discount}%
           </span>
         )}
         {product.free_shipping && (
-          <span className="absolute top-2.5 right-2.5 text-[10px] font-bold px-2 py-0.5 rounded-lg ring-1 ring-inset ring-emerald-400/40 backdrop-blur-sm flex items-center gap-0.5" style={{ background: 'rgba(16,185,129,0.18)', color: '#6ee7b7' }}>
-            <TruckIcon className="w-2.5 h-2.5" /> Gratuit
+          <span className="absolute top-2.5 end-2.5 text-[10px] font-bold px-2 py-0.5 rounded-lg ring-1 ring-inset ring-emerald-400/40 backdrop-blur-sm flex items-center gap-0.5" style={{ background: 'rgba(16,185,129,0.18)', color: '#6ee7b7' }}>
+            <TruckIcon className="w-2.5 h-2.5" /> {t('home.free')}
           </span>
         )}
       </div>
@@ -58,7 +60,7 @@ function ProductCard({ product, slug }) {
           <p className="text-sm font-semibold truncate transition-colors" style={{ color: 'var(--sf-text)' }}>{product.name}</p>
         )}
         <div className="flex items-baseline gap-2 mt-1.5">
-          <span className="font-bold text-base" style={{ color: 'var(--sf-primary)' }}>{Number(product.price).toLocaleString('fr-DZ')} DA</span>
+          <span className="font-bold text-base" style={{ color: 'var(--sf-primary)' }}>{Number(product.price).toLocaleString('fr-DZ')} {t('common.currency')}</span>
           {strikePrice && (
             <span className="text-xs line-through" style={{ color: 'var(--sf-text-muted)' }}>{Number(strikePrice).toLocaleString('fr-DZ')}</span>
           )}
@@ -81,6 +83,7 @@ function SkeletonCard() {
 }
 
 export default function StorefrontHomePage() {
+  const { t } = useTranslation('storefront')
   const { slug } = useParams()
   const [store, setStore] = useState(null)
   const [products, setProducts] = useState([])
@@ -106,12 +109,12 @@ export default function StorefrontHomePage() {
       {/* Hero */}
       <div className="relative overflow-hidden"
         style={{ background: 'linear-gradient(135deg, var(--sf-hero-from) 0%, var(--sf-hero-via) 50%, var(--sf-hero-to) 100%)' }}>
-        <div className="absolute top-0 right-0 w-96 h-96 rounded-full opacity-10 pointer-events-none"
+        <div className="absolute top-0 end-0 w-96 h-96 rounded-full opacity-10 pointer-events-none"
           style={{ background: 'radial-gradient(circle, var(--sf-primary-light), transparent)', transform: 'translate(30%, -30%)' }} />
-        <div className="absolute bottom-0 left-0 w-64 h-64 rounded-full opacity-10 pointer-events-none"
+        <div className="absolute bottom-0 start-0 w-64 h-64 rounded-full opacity-10 pointer-events-none"
           style={{ background: 'radial-gradient(circle, var(--sf-primary), transparent)', transform: 'translate(-30%, 30%)' }} />
 
-        <div className="relative max-w-6xl mx-auto px-4 py-14 sm:py-20 flex flex-col sm:flex-row items-center gap-8 text-center sm:text-left">
+        <div className="relative max-w-6xl mx-auto px-4 py-14 sm:py-20 flex flex-col sm:flex-row items-center gap-8 text-center sm:text-start">
           {store?.logo_url && (
             <img src={store.logo_url} alt={store.name}
               className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl object-cover shadow-2xl shadow-black/40 shrink-0" />
@@ -128,8 +131,8 @@ export default function StorefrontHomePage() {
               style={{ color: 'var(--sf-primary)' }}
               onMouseEnter={e => e.currentTarget.style.background = 'var(--sf-primary-light)'}
               onMouseLeave={e => e.currentTarget.style.background = '#ffffff'}>
-              Voir tous les produits
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              {t('home.viewAll')}
+              <svg className="w-4 h-4 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
               </svg>
             </Link>
@@ -141,16 +144,16 @@ export default function StorefrontHomePage() {
       <div className="max-w-6xl mx-auto px-4 py-10 sm:py-12">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-xl font-bold" style={{ color: 'var(--sf-text)' }}>Nouveautés</h2>
-            <p className="text-sm mt-0.5" style={{ color: 'var(--sf-text-muted)' }}>Les derniers produits disponibles</p>
+            <h2 className="text-xl font-bold" style={{ color: 'var(--sf-text)' }}>{t('home.newArrivals')}</h2>
+            <p className="text-sm mt-0.5" style={{ color: 'var(--sf-text-muted)' }}>{t('home.latest')}</p>
           </div>
           <Link to={`/store/${slug}/products`}
             className="text-sm font-semibold flex items-center gap-1 transition-colors"
             style={{ color: 'var(--sf-primary)' }}
             onMouseEnter={e => e.currentTarget.style.opacity = '0.7'}
             onMouseLeave={e => e.currentTarget.style.opacity = '1'}>
-            Tout voir
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            {t('home.seeAll')}
+            <svg className="w-4 h-4 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
             </svg>
           </Link>
@@ -163,7 +166,7 @@ export default function StorefrontHomePage() {
         ) : products.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20" style={{ color: 'var(--sf-text-muted)' }}>
             <PackageIcon className="w-14 h-14 mb-4 opacity-30" />
-            <p className="font-medium">Aucun produit disponible pour le moment.</p>
+            <p className="font-medium">{t('home.none')}</p>
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">

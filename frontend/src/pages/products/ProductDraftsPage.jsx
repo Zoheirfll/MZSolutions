@@ -4,8 +4,10 @@ import EmptyState from '../../components/EmptyState'
 import Toast from '../../components/Toast'
 import { theme } from '../../theme'
 import { listProductDrafts, createProductFromDraft, discardProductDraft } from '../../api/aiApi'
+import { useTranslation } from 'react-i18next'
 
 export default function ProductDraftsPage() {
+  const { t } = useTranslation('dashboard')
   const [drafts, setDrafts] = useState([])
   const [selected, setSelected] = useState([])
   const [loading, setLoading] = useState(true)
@@ -28,7 +30,7 @@ export default function ProductDraftsPage() {
     }
     setBusy(false)
     setSelected([])
-    setToast({ message: 'Produits créés à partir des brouillons sélectionnés.' })
+    setToast({ message: t('Produits créés à partir des brouillons sélectionnés.') })
     refresh()
   }
 
@@ -38,11 +40,11 @@ export default function ProductDraftsPage() {
   }
 
   return (
-    <DashboardLayout title="Brouillons de produits (IA)" subtitle="Issus d'un scan de facture ou de catalogue fournisseur — validez avant création.">
+    <DashboardLayout title={t('Brouillons de produits (IA)')} subtitle={t('Issus d\'un scan de facture ou de catalogue fournisseur — validez avant création.')}>
       {loading ? (
-        <p className="text-sm text-app-muted">Chargement…</p>
+        <p className="text-sm text-app-muted">{t('Chargement…')}</p>
       ) : drafts.length === 0 ? (
-        <EmptyState title="Aucun brouillon en attente" description="Scannez une photo de produit ou une facture fournisseur pour en générer." />
+        <EmptyState title={t('Aucun brouillon en attente')} description={t('Scannez une photo de produit ou une facture fournisseur pour en générer.')} />
       ) : (
         <div className="space-y-3">
           <div className="rounded-xl border border-app bg-app-card divide-y divide-app">
@@ -51,19 +53,15 @@ export default function ProductDraftsPage() {
                 <input type="checkbox" checked={selected.includes(d.id)} onChange={() => toggle(d.id)} />
                 <div className="flex-1">
                   <p className="text-sm font-medium text-app-primary">{d.extracted_data.name}</p>
-                  <p className="text-xs text-app-muted">{d.extracted_data.price} DA{d.extracted_data.category ? ` — ${d.extracted_data.category}` : ''}</p>
+                  <p className="text-xs text-app-muted">{t('{{price}} DA', { price: d.extracted_data.price })}{d.extracted_data.category ? ` — ${d.extracted_data.category}` : ''}</p>
                 </div>
-                <button type="button" aria-label="Rejeter ce brouillon" onClick={() => handleDiscard(d.id)}
-                  className="text-xs text-app-muted hover:text-red-400 transition">
-                  Rejeter
-                </button>
+                <button type="button" aria-label={t('Rejeter ce brouillon')} onClick={() => handleDiscard(d.id)}
+                  className="text-xs text-app-muted hover:text-red-400 transition">{t('Rejeter')}</button>
               </div>
             ))}
           </div>
           <button type="button" disabled={busy || selected.length === 0} onClick={handleCreateSelected}
-            className={theme.btn.primary + ' text-sm disabled:opacity-40'}>
-            Créer les produits sélectionnés ({selected.length})
-          </button>
+            className={theme.btn.primary + ' text-sm disabled:opacity-40'}>{t('Créer les produits sélectionnés ({{length}})', { length: selected.length })}</button>
         </div>
       )}
       <Toast toast={toast} onClose={() => setToast(null)} />

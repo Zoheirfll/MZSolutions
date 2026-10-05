@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import api from '../api/axios'
+import { tt } from '../i18n'
+import { useTranslation } from 'react-i18next'
 
 // Aperçu carte du bureau/point relais sélectionné — pur affichage (pas de
 // pin manuel). Géocode l'adresse via `/stores/me/geocode/` (Nominatim/
@@ -15,15 +17,16 @@ import api from '../api/axios'
 // qu'approximative (échelle wilaya).
 function buildCandidates(name, address, wilaya) {
   const candidates = []
-  if (address && wilaya) candidates.push({ q: `${address}, ${wilaya}, Algérie`, approx: false })
+  if (address && wilaya) candidates.push({ q: tt('{{address}}, {{wilaya}}, Algérie', { address, wilaya }), approx: false })
   const quartier = (name || '').match(/«\s*([^»]+)\s*»/)?.[1]?.trim()
-  if (quartier && wilaya) candidates.push({ q: `${quartier}, ${wilaya}, Algérie`, approx: false })
+  if (quartier && wilaya) candidates.push({ q: tt('{{quartier}}, {{wilaya}}, Algérie', { quartier, wilaya }), approx: false })
   if (address && wilaya) candidates.push({ q: `${address}`, approx: false })
-  if (wilaya) candidates.push({ q: `${wilaya}, Algérie`, approx: true })
+  if (wilaya) candidates.push({ q: tt('{{wilaya}}, Algérie', { wilaya }), approx: true })
   return candidates
 }
 
 export default function DeskMapPreview({ name, address, wilaya }) {
+  const { t } = useTranslation('dashboard')
   const [coords, setCoords]     = useState(null)
   const [approx, setApprox]     = useState(false)
   const [loading, setLoading]   = useState(false)
@@ -60,10 +63,10 @@ export default function DeskMapPreview({ name, address, wilaya }) {
   if (!address) return null
 
   if (loading) {
-    return <p className="text-xs mt-2" style={{ color: 'var(--text-muted, #8a8f98)' }}>Localisation du bureau…</p>
+    return <p className="text-xs mt-2" style={{ color: 'var(--text-muted, #8a8f98)' }}>{t('Localisation du bureau…')}</p>
   }
   if (notFound || !coords) {
-    return <p className="text-xs mt-2" style={{ color: 'var(--text-muted, #8a8f98)' }}>Position introuvable pour cette adresse.</p>
+    return <p className="text-xs mt-2" style={{ color: 'var(--text-muted, #8a8f98)' }}>{t('Position introuvable pour cette adresse.')}</p>
   }
 
   const delta = approx ? 0.08 : 0.01
@@ -73,7 +76,7 @@ export default function DeskMapPreview({ name, address, wilaya }) {
     <div className="mt-2">
       <div className="rounded-lg overflow-hidden border" style={{ borderColor: 'var(--border-color, #23252a)' }}>
         <iframe
-          title={`Position — ${name || address}`}
+          title={`${tt('Position')} — ${name || address}`}
           width="100%"
           height="220"
           style={{ border: 0, display: 'block' }}
@@ -82,9 +85,7 @@ export default function DeskMapPreview({ name, address, wilaya }) {
         />
       </div>
       {approx && (
-        <p className="text-xs mt-1" style={{ color: 'var(--text-muted, #8a8f98)' }}>
-          Position approximative (adresse précise non localisable — échelle de la wilaya).
-        </p>
+        <p className="text-xs mt-1" style={{ color: 'var(--text-muted, #8a8f98)' }}>{t('Position approximative (adresse précise non localisable — échelle de la wilaya).')}</p>
       )}
     </div>
   )

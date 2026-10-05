@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import DashboardLayout from '../../components/DashboardLayout'
 import api from '../../api/axios'
 import { theme } from '../../theme'
+import { useTranslation } from 'react-i18next'
+import { sfx } from '../../i18n'
 
 function UsersIcon(props) {
   return (
@@ -13,13 +15,14 @@ function UsersIcon(props) {
 }
 
 function Spinner() {
+  const { t } = useTranslation('dashboard')
   return (
     <div className="flex flex-col items-center justify-center gap-2 py-12 text-app-muted">
       <svg className="animate-spin" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
         <circle cx="12" cy="12" r="9" opacity="0.25" />
         <path d="M21 12a9 9 0 0 0-9-9" strokeLinecap="round" />
       </svg>
-      <span className="text-xs">Chargement…</span>
+      <span className="text-xs">{t('Chargement…')}</span>
     </div>
   )
 }
@@ -37,6 +40,7 @@ function EmptyState({ title, subtitle }) {
 const money = v => `${Number(v || 0).toLocaleString('fr-DZ')} DZD`
 
 export default function DropshippersPage() {
+  const { t } = useTranslation('dashboard')
   const navigate = useNavigate()
   const [dropshippers, setDropshippers] = useState([])
   const [search, setSearch] = useState('')
@@ -55,32 +59,31 @@ export default function DropshippersPage() {
   useEffect(() => { fetchDropshippers() }, [fetchDropshippers])
 
   return (
-    <DashboardLayout title="Dropshipping" subtitle="Un dropshipper est une personne qui vend vos produits pour vous (par exemple sur les réseaux sociaux) sans gérer de stock, et qui touche une commission sur chaque vente livrée. Cette page liste tous vos dropshippers actifs avec leur solde : combien ils ont gagné au total, combien vous leur avez déjà payé, et combien il vous reste à leur verser. Cliquez sur un dropshipper pour définir combien il touche par produit (un pourcentage ou un montant fixe) et pour consulter le détail de chacune de ses ventes.">
+    <DashboardLayout title={t('Dropshipping')} subtitle={t('Un dropshipper est une personne qui vend vos produits pour vous (par exemple sur les réseaux sociaux) sans gérer de stock, et qui touche une commission sur chaque vente livrée. Cette page liste tous vos dropshippers actifs avec leur solde : combien ils ont gagné au total, combien vous leur avez déjà payé, et combien il vous reste à leur verser. Cliquez sur un dropshipper pour définir combien il touche par produit (un pourcentage ou un montant fixe) et pour consulter le détail de chacune de ses ventes.')}>
       <div className="flex items-center justify-between mb-5 gap-3 flex-wrap">
         <input
           value={search}
           onChange={e => setSearch(e.target.value)}
-          placeholder="Recherche par nom, email ou téléphone"
+          placeholder={t('Recherche par nom, email ou téléphone')}
           className="px-4 py-2 rounded-lg text-sm text-app-primary border outline-none focus:border-violet-500 transition w-full sm:w-72"
           style={{ background: theme.dark.card, borderColor: theme.dark.border }}
         />
-        <p className="text-sm" style={{ color: theme.dark.muted }}>
-          {dropshippers.length} dropshipper{dropshippers.length !== 1 ? 's' : ''} actif{dropshippers.length !== 1 ? 's' : ''}
+        <p className="text-sm" style={{ color: theme.dark.muted }}>{t('{{length}} dropshipper', { length: dropshippers.length })}{dropshippers.length !== 1 ? sfx('s') : ''}{' '}{t('actif')}{dropshippers.length !== 1 ? sfx('s') : ''}
         </p>
       </div>
 
       <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border }}>
         <table className="w-full text-sm min-w-220">
           <thead style={{ background: theme.dark.sidebar }}>
-            <tr className="text-left text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
-              <th className="px-4 py-3 font-medium">DROPSHIPPER</th>
-              <th className="px-4 py-3 font-medium">TÉLÉPHONE</th>
-              <th className="px-4 py-3 font-medium">WILAYA</th>
-              <th className="px-4 py-3 font-medium">PRODUITS SÉLECTIONNÉS</th>
-              <th className="px-4 py-3 font-medium">TOTAL GAGNÉ</th>
-              <th className="px-4 py-3 font-medium">TOTAL PAYÉ</th>
-              <th className="px-4 py-3 font-medium">SOLDE À PAYER</th>
-              <th className="px-4 py-3 font-medium">ACTIONS</th>
+            <tr className="text-start text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
+              <th className="px-4 py-3 font-medium">{t('DROPSHIPPER')}</th>
+              <th className="px-4 py-3 font-medium">{t('TÉLÉPHONE')}</th>
+              <th className="px-4 py-3 font-medium">{t('WILAYA')}</th>
+              <th className="px-4 py-3 font-medium">{t('PRODUITS SÉLECTIONNÉS')}</th>
+              <th className="px-4 py-3 font-medium">{t('TOTAL GAGNÉ')}</th>
+              <th className="px-4 py-3 font-medium">{t('TOTAL PAYÉ')}</th>
+              <th className="px-4 py-3 font-medium">{t('SOLDE À PAYER')}</th>
+              <th className="px-4 py-3 font-medium">{t('ACTIONS')}</th>
             </tr>
           </thead>
           <tbody>
@@ -88,7 +91,7 @@ export default function DropshippersPage() {
               <tr><td colSpan={8}><Spinner /></td></tr>
             ) : dropshippers.length === 0 ? (
               <tr><td colSpan={8}>
-                <EmptyState title="Aucun dropshipper" subtitle="Invitez un membre d'équipe avec le rôle Dropshipper depuis la page Équipe." />
+                <EmptyState title={t('Aucun dropshipper')} subtitle={t('Invitez un membre d\'équipe avec le rôle Dropshipper depuis la page Équipe.')} />
               </td></tr>
             ) : dropshippers.map(d => (
               <tr key={d.id} className="border-b hover:bg-violet-500/5 transition" style={{ borderColor: theme.dark.borderRowHover }}>
@@ -104,9 +107,7 @@ export default function DropshippersPage() {
                 <td className="px-4 py-3">
                   <button onClick={() => navigate(`/dashboard/dropshipping/${d.id}`)}
                     className="px-3 py-1.5 rounded-lg text-xs border text-violet-300 hover:bg-violet-500/5 transition cursor-pointer"
-                    style={{ borderColor: theme.dark.border }}>
-                    Gérer
-                  </button>
+                    style={{ borderColor: theme.dark.border }}>{t('Gérer')}</button>
                 </td>
               </tr>
             ))}

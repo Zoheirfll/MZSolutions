@@ -113,7 +113,8 @@ class AuditLog(models.Model):
     (target_type/target_id en texte libre, pas de FK par type de cible) pour
     pouvoir journaliser n'importe quelle entité sans coupler cette app à
     orders/inbox/team/products."""
-    store       = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='audit_logs')
+    # null = action de niveau plateforme (ex: gestion des admins), sans boutique cible
+    store       = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='audit_logs', null=True, blank=True)
     actor       = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='audit_logs')
     actor_name  = models.CharField(max_length=200, blank=True)   # figé au moment de l'action (survit à la suppression du compte)
     actor_role  = models.CharField(max_length=20, blank=True)    # 'owner' | 'admin' | 'confirmateur' | 'dropshipper'

@@ -12,12 +12,14 @@ import ConfirmationTab from './dashboard/ConfirmationTab'
 import KpiTab from './dashboard/KpiTab'
 import FilterPanel, { EMPTY_FILTERS } from './dashboard/FilterPanel'
 import ConfirmateurDashboard from './dashboard/ConfirmateurDashboard'
+import { tt } from '../i18n'
+import { useTranslation } from 'react-i18next'
 
 const TABS = [
-  { key: 'deliveries',   label: 'Livraisons',    icon: LineChart },
-  { key: 'revenue',      label: 'Revenus',       icon: DollarSign },
-  { key: 'confirmation', label: 'Confirmation',  icon: CheckCircle2 },
-  { key: 'kpi',          label: 'KPI',           icon: Star },
+  { key: 'deliveries',   label: tt('Livraisons'),    icon: LineChart },
+  { key: 'revenue',      label: tt('Revenus'),       icon: DollarSign },
+  { key: 'confirmation', label: tt('Confirmation'),  icon: CheckCircle2 },
+  { key: 'kpi',          label: tt('KPI'),           icon: Star },
 ]
 
 // Le tableau de bord analytique ci-dessous nécessite stats_view (masqué par
@@ -35,6 +37,7 @@ export default function Dashboard() {
 }
 
 function OwnerAnalyticsDashboard() {
+  const { t: tr } = useTranslation('dashboard')
   const { user } = useAuth()
   const navigate = useNavigate()
   const [quota, setQuota] = useState(null)
@@ -57,17 +60,16 @@ function OwnerAnalyticsDashboard() {
   const daysLeft = quota
     ? (quota.is_subscription_active ? daysLeftUntil(quota.period_end) : daysLeftUntil(quota.trial_ends_at))
     : 0
-  const daysLeftLabel = quota?.is_subscription_active ? "Jours avant renouvellement" : "Jours d'essai"
+  const daysLeftLabel = quota?.is_subscription_active ? tr('Jours avant renouvellement') : tr('Jours d\'essai')
 
   const goToWilaya = (wilayaName) => navigate(`/dashboard/commandes?wilaya=${encodeURIComponent(wilayaName)}`)
 
   return (
-    <DashboardLayout title="Tableau de bord" subtitle="C'est la première page que vous voyez en vous connectant. Elle résume l'état de votre boutique : l'onglet Livraisons montre l'entonnoir de vos commandes (réelles → confirmées → expédiées) et la carte des ventes par wilaya, Revenus détaille votre rentabilité, Confirmation le travail de vos confirmateurs, et KPI vos meilleures sources et wilayas. Choisissez la période en haut, elle s'applique aux 4 onglets.">
+    <DashboardLayout title={tr('Tableau de bord')} subtitle={tr('C\'est la première page que vous voyez en vous connectant. Elle résume l\'état de votre boutique : l\'onglet Livraisons montre l\'entonnoir de vos commandes (réelles → confirmées → expédiées) et la carte des ventes par wilaya, Revenus détaille votre rentabilité, Confirmation le travail de vos confirmateurs, et KPI vos meilleures sources et wilayas. Choisissez la période en haut, elle s\'applique aux 4 onglets.')}>
       {/* Welcome */}
       <div className="mb-7 flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-app-primary">
-            Bonjour, <span className="text-violet-400">{user?.first_name}</span>
+          <h2 className="text-2xl font-bold text-app-primary">{tr('Bonjour,')}{' '}<span className="text-violet-400">{user?.first_name}</span>
           </h2>
           <p className="text-sm mt-1" style={{ color: theme.dark.muted }}>
             {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
@@ -75,9 +77,9 @@ function OwnerAnalyticsDashboard() {
         </div>
         <a href={user?.store_slug ? `/store/${user.store_slug}` : '#'} target="_blank" rel="noreferrer"
           className={theme.btn.outline + ' inline-flex text-xs w-9 h-9 sm:w-auto justify-center sm:justify-start px-0 sm:px-3.5'}
-          aria-label="Voir ma boutique">
+          aria-label={tr('Voir ma boutique')}>
           <ExternalLink className="w-3.5 h-3.5" strokeWidth={2} />
-          <span className="hidden sm:inline">Voir ma boutique</span>
+          <span className="hidden sm:inline">{tr('Voir ma boutique')}</span>
         </a>
       </div>
 
@@ -90,25 +92,25 @@ function OwnerAnalyticsDashboard() {
           <div className="relative flex flex-wrap items-center justify-between gap-4">
             <div className="flex flex-wrap items-center gap-6">
               <div>
-                <p className="text-xs font-medium mb-1" style={{ color: theme.dark.muted }}>Commandes restantes</p>
+                <p className="text-xs font-medium mb-1" style={{ color: theme.dark.muted }}>{tr('Commandes restantes')}</p>
                 <p className="text-3xl font-bold text-violet-400">{quota.orders_remaining}
-                  <span className="text-sm font-normal ml-1" style={{ color: theme.dark.muted }}>/ {quota.orders_limit}</span>
+                  <span className="text-sm font-normal ms-1" style={{ color: theme.dark.muted }}>/ {quota.orders_limit}</span>
                 </p>
               </div>
               <div className="w-px h-10 hidden sm:block" style={{ background: theme.dark.border }} />
               <div>
                 <p className="text-xs font-medium mb-1" style={{ color: theme.dark.muted }}>{daysLeftLabel}</p>
                 <p className="text-3xl font-bold text-violet-300">{daysLeft}
-                  <span className="text-sm font-normal ml-1" style={{ color: theme.dark.muted }}>jours</span>
+                  <span className="text-sm font-normal ms-1" style={{ color: theme.dark.muted }}>{tr('jours')}</span>
                 </p>
               </div>
               <div className="flex flex-col gap-1.5 min-w-35">
                 <div className="flex justify-between text-[10px]" style={{ color: theme.dark.muted }}>
-                  <span>Utilisation quota</span><span>{usedPct}%</span>
+                  <span>{tr('Utilisation quota')}</span><span>{usedPct}%</span>
                 </div>
                 <div className="h-1.5 rounded-full" style={{ background: theme.dark.border }}
                   role="progressbar" aria-valuenow={usedPct} aria-valuemin={0} aria-valuemax={100}
-                  aria-label="Utilisation du quota de commandes">
+                  aria-label={tr('Utilisation du quota de commandes')}>
                   <div className="h-full rounded-full transition-all duration-700"
                     style={{ width: `${usedPct}%`, background: usedPct > 80 ? '#f87171' : '#7c3aed' }} />
                 </div>
@@ -117,7 +119,7 @@ function OwnerAnalyticsDashboard() {
             <div className="flex items-center gap-3">
               {(() => {
                 const active = quota.is_trial_active || quota.is_subscription_active
-                const label = quota.is_subscription_active ? (quota.plan?.name ? `Abonnement ${quota.plan.name}` : 'Abonnement actif') : quota.is_trial_active ? 'Essai actif' : 'Expiré'
+                const label = quota.is_subscription_active ? (quota.plan?.name ? tr('Abonnement {{name}}', { name: quota.plan.name }) : tr('Abonnement actif')) : quota.is_trial_active ? tr('Essai actif') : tr('Expiré')
                 return (
                   <span className={active ? theme.badge.success : theme.badge.danger}>
                     <span className={`w-1.5 h-1.5 rounded-full ${active ? 'bg-emerald-400' : 'bg-red-400'}`} />
@@ -125,7 +127,7 @@ function OwnerAnalyticsDashboard() {
                   </span>
                 )
               })()}
-              <button onClick={() => navigate('/dashboard/abonnement')} className={theme.btn.primary}>Mettre à niveau</button>
+              <button onClick={() => navigate('/dashboard/abonnement')} className={theme.btn.primary}>{tr('Mettre à niveau')}</button>
             </div>
           </div>
         </div>
@@ -152,7 +154,7 @@ function OwnerAnalyticsDashboard() {
       </div>
 
       {!period.ready ? (
-        <p className="text-sm" style={{ color: theme.dark.muted }}>Choisissez une date de début et de fin.</p>
+        <p className="text-sm" style={{ color: theme.dark.muted }}>{tr('Choisissez une date de début et de fin.')}</p>
       ) : tab === 'deliveries' ? (
         <DeliveriesTab queryString={buildFilteredQuery} onFilterWilaya={goToWilaya} />
       ) : tab === 'revenue' ? (

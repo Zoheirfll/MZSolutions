@@ -4,6 +4,9 @@ import Select from '../../components/Select'
 import CheckboxList from '../../components/CheckboxList'
 import api from '../../api/axios'
 import { theme } from '../../theme'
+import { tt } from '../../i18n'
+import { useTranslation } from 'react-i18next'
+import { sfx } from '../../i18n'
 
 const EMPTY_FORM = {
   name: '', discount_type: 'percentage', discount_value: '',
@@ -11,8 +14,8 @@ const EMPTY_FORM = {
 }
 
 const DISCOUNT_TYPE_OPTIONS = [
-  { value: 'percentage', label: 'Pourcentage (%)' },
-  { value: 'fixed',      label: 'Montant fixe (DZD)' },
+  { value: 'percentage', label: tt('Pourcentage (%)') },
+  { value: 'fixed',      label: tt('Montant fixe (DZD)') },
 ]
 
 function SparkleIcon(props) {
@@ -60,7 +63,8 @@ function CloseIcon(props) {
   )
 }
 
-function Spinner({ label = 'Chargement…' }) {
+function Spinner({ label = tt('Chargement…') }) {
+  const { t: tr } = useTranslation('dashboard')
   return (
     <div className="flex flex-col items-center justify-center gap-2 py-12 text-app-muted">
       <svg className="animate-spin" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -88,6 +92,7 @@ function toDatetimeLocal(value) {
 }
 
 function AutoPromoModal({ promo, products, categories, onClose, onSaved }) {
+  const { t } = useTranslation('dashboard')
   const [form, setForm] = useState(promo?.id ? {
     name: promo.name,
     discount_type: promo.discount_type,
@@ -139,53 +144,51 @@ function AutoPromoModal({ promo, products, categories, onClose, onSaved }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
       <div className="w-full max-w-lg rounded-xl border p-6 max-h-[90vh] overflow-y-auto" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
         <div className="flex items-center justify-between mb-5">
-          <h3 className="font-semibold text-app-primary">{promo?.id ? "Modifier l'offre" : 'Nouvelle offre automatique'}</h3>
+          <h3 className="font-semibold text-app-primary">{promo?.id ? t('Modifier l\'offre') : t('Nouvelle offre automatique')}</h3>
           <button onClick={onClose} className="text-app-muted hover:text-app-primary transition cursor-pointer"><CloseIcon /></button>
         </div>
         <form onSubmit={submit} className="space-y-4">
           <div>
-            <label className="block text-xs text-app-muted-light mb-1.5">Nom *</label>
-            <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required className={inputCls} style={bdrStyle} placeholder="Déstockage rentrée" />
+            <label className="block text-xs text-app-muted-light mb-1.5">{t('Nom *')}</label>
+            <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required className={inputCls} style={bdrStyle} placeholder={t('Déstockage rentrée')} />
             {errors.name && <p className="text-red-400 text-xs mt-1">{errors.name}</p>}
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs text-app-muted-light mb-1.5">Type de réduction</label>
+              <label className="block text-xs text-app-muted-light mb-1.5">{t('Type de réduction')}</label>
               <Select value={form.discount_type} onChange={v => setForm(f => ({ ...f, discount_type: v }))} options={DISCOUNT_TYPE_OPTIONS} className={inputCls} style={bdrStyle} />
             </div>
             <div>
-              <label className="block text-xs text-app-muted-light mb-1.5">Valeur *</label>
+              <label className="block text-xs text-app-muted-light mb-1.5">{t('Valeur *')}</label>
               <input type="number" min="0" step="0.01" value={form.discount_value} onChange={e => setForm(f => ({ ...f, discount_value: e.target.value }))} required className={inputCls} style={bdrStyle} placeholder={form.discount_type === 'percentage' ? '15' : '1000'} />
               {errors.discount_value && <p className="text-red-400 text-xs mt-1">{errors.discount_value}</p>}
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs text-app-muted-light mb-1.5">Début (optionnel)</label>
+              <label className="block text-xs text-app-muted-light mb-1.5">{t('Début (optionnel)')}</label>
               <input type="datetime-local" value={form.starts_at} onChange={e => setForm(f => ({ ...f, starts_at: e.target.value }))} className={inputCls} style={bdrStyle} />
             </div>
             <div>
-              <label className="block text-xs text-app-muted-light mb-1.5">Fin (optionnel)</label>
+              <label className="block text-xs text-app-muted-light mb-1.5">{t('Fin (optionnel)')}</label>
               <input type="datetime-local" value={form.ends_at} onChange={e => setForm(f => ({ ...f, ends_at: e.target.value }))} className={inputCls} style={bdrStyle} />
             </div>
           </div>
           <div>
-            <label className="block text-xs text-app-muted-light mb-1.5">Produits ciblés</label>
-            <CheckboxList items={products} selected={form.products} onToggle={toggleProduct} emptyLabel="Aucun produit disponible." />
+            <label className="block text-xs text-app-muted-light mb-1.5">{t('Produits ciblés')}</label>
+            <CheckboxList items={products} selected={form.products} onToggle={toggleProduct} emptyLabel={tt("Aucun produit disponible.")} />
           </div>
           <div>
-            <label className="block text-xs text-app-muted-light mb-1.5">Catégories ciblées</label>
-            <CheckboxList items={categories} selected={form.categories} onToggle={toggleCategory} emptyLabel="Aucune catégorie disponible." />
+            <label className="block text-xs text-app-muted-light mb-1.5">{t('Catégories ciblées')}</label>
+            <CheckboxList items={categories} selected={form.categories} onToggle={toggleCategory} emptyLabel={tt("Aucune catégorie disponible.")} />
           </div>
           {errors.non_field_errors && <p className="text-red-400 text-xs">{errors.non_field_errors[0]}</p>}
-          <label className="flex items-center justify-between text-sm text-app-primary">
-            Actif
-            <input type="checkbox" checked={form.is_active} onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} className="w-4 h-4 accent-violet-600 cursor-pointer" />
+          <label className="flex items-center justify-between text-sm text-app-primary">{t('Actif')}<input type="checkbox" checked={form.is_active} onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} className="w-4 h-4 accent-violet-600 cursor-pointer" />
           </label>
           <div className="flex justify-end gap-3 pt-1">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-app-muted-light hover:text-app-primary cursor-pointer transition">Annuler</button>
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-app-muted-light hover:text-app-primary cursor-pointer transition">{t('Annuler')}</button>
             <button type="submit" disabled={saving} className="px-5 py-2 rounded-lg text-sm font-semibold text-white bg-violet-600 hover:bg-violet-500 disabled:opacity-60 cursor-pointer transition">
-              {saving ? '…' : promo?.id ? 'Mettre à jour' : 'Créer'}
+              {saving ? '…' : promo?.id ? t('Mettre à jour') : t('Créer')}
             </button>
           </div>
         </form>
@@ -195,6 +198,7 @@ function AutoPromoModal({ promo, products, categories, onClose, onSaved }) {
 }
 
 export default function AutoPromotionsPage() {
+  const { t, t: tr } = useTranslation('dashboard')
   const [promos, setPromos]       = useState([])
   const [products, setProducts]   = useState([])
   const [categories, setCategories] = useState([])
@@ -216,13 +220,13 @@ export default function AutoPromotionsPage() {
   }, [])
 
   const handleDelete = async (id) => {
-    if (!confirm('Supprimer cette offre ?')) return
+    if (!confirm(t('Supprimer cette offre ?'))) return
     await api.delete(`/products/promotions/${id}/`)
     fetchPromos()
   }
 
   return (
-    <DashboardLayout title="Réductions automatiques" subtitle="Contrairement à un code promo que le client doit taper, une réduction automatique s'applique toute seule, sans rien à saisir : vous choisissez un ou plusieurs produits (ou catégories entières), un pourcentage ou montant de réduction, et dès que vous l'activez, le prix barré apparaît directement sur la fiche produit de votre boutique publique — un peu comme une promotion en magasin, visible par tous.">
+    <DashboardLayout title={t('Réductions automatiques')} subtitle={t('Contrairement à un code promo que le client doit taper, une réduction automatique s\'applique toute seule, sans rien à saisir : vous choisissez un ou plusieurs produits (ou catégories entières), un pourcentage ou montant de réduction, et dès que vous l\'activez, le prix barré apparaît directement sur la fiche produit de votre boutique publique — un peu comme une promotion en magasin, visible par tous.')}>
       {modal !== null && (
         <AutoPromoModal
           promo={modal?.id ? modal : null}
@@ -234,22 +238,21 @@ export default function AutoPromotionsPage() {
       )}
 
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-5">
-        <p className="text-sm" style={{ color: theme.dark.muted }}>{promos.length} offre{promos.length !== 1 ? 's' : ''}</p>
+        <p className="text-sm" style={{ color: theme.dark.muted }}>{t('{{length}} offre', { length: promos.length })}{promos.length !== 1 ? sfx('s') : ''}</p>
         <button onClick={() => setModal({})} className={theme.btn.primary + ' text-sm shrink-0'}>
-          <PlusIcon /> Ajouter une offre
-        </button>
+          <PlusIcon />{' '}{t('Ajouter une offre')}</button>
       </div>
 
       <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border }}>
         <table className="w-full text-sm min-w-180">
           <thead style={{ background: theme.dark.sidebar }}>
-            <tr className="text-left text-xs border-b" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
-              <th className="px-4 py-3 font-medium">NOM</th>
-              <th className="px-4 py-3 font-medium">RÉDUCTION</th>
-              <th className="px-4 py-3 font-medium">CIBLE</th>
-              <th className="px-4 py-3 font-medium">VALIDITÉ</th>
-              <th className="px-4 py-3 font-medium">STATUT</th>
-              <th className="px-4 py-3 font-medium">ACTIONS</th>
+            <tr className="text-start text-xs border-b" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
+              <th className="px-4 py-3 font-medium">{t('NOM')}</th>
+              <th className="px-4 py-3 font-medium">{t('RÉDUCTION')}</th>
+              <th className="px-4 py-3 font-medium">{t('CIBLE')}</th>
+              <th className="px-4 py-3 font-medium">{t('VALIDITÉ')}</th>
+              <th className="px-4 py-3 font-medium">{t('STATUT')}</th>
+              <th className="px-4 py-3 font-medium">{t('ACTIONS')}</th>
             </tr>
           </thead>
           <tbody>
@@ -257,7 +260,7 @@ export default function AutoPromotionsPage() {
               <tr><td colSpan={6}><Spinner /></td></tr>
             ) : promos.length === 0 ? (
               <tr><td colSpan={6}>
-                <EmptyState icon={<SparkleIcon />} title="Aucune offre automatique" subtitle="Créez une réduction visible directement sur vos fiches produit." />
+                <EmptyState icon={<SparkleIcon />} title={t('Aucune offre automatique')} subtitle={t('Créez une réduction visible directement sur vos fiches produit.')} />
               </td></tr>
             ) : promos.map(p => (
               <tr key={p.id} className="border-b hover:bg-violet-500/5 transition" style={{ borderColor: theme.dark.borderRowHover }}>
@@ -275,12 +278,12 @@ export default function AutoPromotionsPage() {
                   {p.starts_at ? new Date(p.starts_at).toLocaleDateString('fr-DZ') : '—'} → {p.ends_at ? new Date(p.ends_at).toLocaleDateString('fr-DZ') : '—'}
                 </td>
                 <td className="px-4 py-3">
-                  <span className={p.is_active ? theme.badge.success : theme.badge.neutral}>{p.is_active ? 'Actif' : 'Inactif'}</span>
+                  <span className={p.is_active ? theme.badge.success : theme.badge.neutral}>{p.is_active ? tr('Actif') : tr('Inactif')}</span>
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
-                    <button onClick={() => setModal(p)} className="p-1.5 rounded text-violet-300 hover:bg-violet-600/20 transition cursor-pointer" title="Modifier"><EditIcon /></button>
-                    <button onClick={() => handleDelete(p.id)} className="p-1.5 rounded text-red-400 hover:bg-red-900/20 transition cursor-pointer" title="Supprimer"><TrashIcon /></button>
+                    <button onClick={() => setModal(p)} className="p-1.5 rounded text-violet-300 hover:bg-violet-600/20 transition cursor-pointer" title={t('Modifier')}><EditIcon /></button>
+                    <button onClick={() => handleDelete(p.id)} className="p-1.5 rounded text-red-400 hover:bg-red-900/20 transition cursor-pointer" title={t('Supprimer')}><TrashIcon /></button>
                   </div>
                 </td>
               </tr>

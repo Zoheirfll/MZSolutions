@@ -1,8 +1,11 @@
 import { useEffect, useState, useCallback } from 'react'
 import api from '../../api/axios'
 import { theme } from '../../theme'
+import { useTranslation } from 'react-i18next'
+import { sfx } from '../../i18n'
 
 export default function PlatformAdminAuditPage() {
+  const { t } = useTranslation('dashboard')
   const [logs, setLogs]       = useState([])
   const [count, setCount]     = useState(0)
   const [loading, setLoading] = useState(true)
@@ -26,31 +29,31 @@ export default function PlatformAdminAuditPage() {
   return (
     <div className="max-w-6xl mx-auto flex flex-col gap-5">
       <div>
-        <h1 className="text-xl font-bold text-app-primary">Journal d'audit</h1>
-        <p className="text-sm text-app-muted mt-1">Toutes les actions journalisées, à travers toutes les boutiques — y compris celles faites en mode « Gérer cette boutique ».</p>
+        <h1 className="text-xl font-bold text-app-primary">{t('Journal d\'audit')}</h1>
+        <p className="text-sm text-app-muted mt-1">{t('Toutes les actions journalisées, à travers toutes les boutiques — y compris celles faites en mode « Gérer cette boutique ».')}</p>
       </div>
 
       <input
         value={search}
         onChange={e => setSearch(e.target.value)}
-        placeholder="Rechercher (acteur, boutique, description)…"
+        placeholder={t('Rechercher (acteur, boutique, description)…')}
         className={theme.inputDark + ' max-w-md'}
       />
 
       <div className="rounded-xl border overflow-x-auto" style={{ borderColor: 'var(--border-color)', background: 'var(--bg-card)' }}>
         <table className="w-full text-sm min-w-200">
           <thead>
-            <tr className="text-left text-xs font-semibold uppercase tracking-wide text-app-muted-light border-b" style={{ borderColor: 'var(--border-color)' }}>
-              <th className="px-4 py-3">Date</th>
-              <th className="px-4 py-3">Boutique</th>
-              <th className="px-4 py-3">Acteur</th>
-              <th className="px-4 py-3">Action</th>
-              <th className="px-4 py-3">Description</th>
+            <tr className="text-start text-xs font-semibold uppercase tracking-wide text-app-muted-light border-b" style={{ borderColor: 'var(--border-color)' }}>
+              <th className="px-4 py-3">{t('Date')}</th>
+              <th className="px-4 py-3">{t('Boutique')}</th>
+              <th className="px-4 py-3">{t('Acteur')}</th>
+              <th className="px-4 py-3">{t('Action')}</th>
+              <th className="px-4 py-3">{t('Description')}</th>
             </tr>
           </thead>
           <tbody>
-            {loading && <tr><td colSpan={5} className="px-4 py-8 text-center text-app-muted">Chargement…</td></tr>}
-            {!loading && logs.length === 0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-app-muted">Aucune entrée.</td></tr>}
+            {loading && <tr><td colSpan={5} className="px-4 py-8 text-center text-app-muted">{t('Chargement…')}</td></tr>}
+            {!loading && logs.length === 0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-app-muted">{t('Aucune entrée.')}</td></tr>}
             {!loading && logs.map(l => (
               <tr key={l.id} className="border-b last:border-0" style={{ borderColor: 'var(--border-color)' }}>
                 <td className="px-4 py-3 text-app-muted-light whitespace-nowrap">{new Date(l.created_at).toLocaleString('fr-DZ')}</td>
@@ -65,11 +68,11 @@ export default function PlatformAdminAuditPage() {
       </div>
 
       <div className="flex items-center justify-between text-sm" style={{ color: theme.dark.muted }}>
-        <p>{count} entrée{count > 1 ? 's' : ''}</p>
+        <p>{t('{{count}} entrée', { count })}{count > 1 ? sfx('s') : ''}</p>
         <div className="flex items-center gap-1">
-          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-2.5 py-1 rounded text-xs disabled:opacity-30 hover:bg-violet-500/5">Précédent</button>
+          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-2.5 py-1 rounded text-xs disabled:opacity-30 hover:bg-violet-500/5">{t('Précédent')}</button>
           <span className="px-2 text-xs">{page} / {totalPages}</span>
-          <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="px-2.5 py-1 rounded text-xs disabled:opacity-30 hover:bg-violet-500/5">Suivant</button>
+          <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="px-2.5 py-1 rounded text-xs disabled:opacity-30 hover:bg-violet-500/5">{t('Suivant')}</button>
         </div>
       </div>
     </div>

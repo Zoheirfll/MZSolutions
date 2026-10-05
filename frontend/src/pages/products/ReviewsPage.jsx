@@ -3,11 +3,13 @@ import DashboardLayout from '../../components/DashboardLayout'
 import Select from '../../components/Select'
 import api from '../../api/axios'
 import { theme } from '../../theme'
+import { tt } from '../../i18n'
+import { useTranslation } from 'react-i18next'
 
 const FILTERS = [
-  { label: 'Tous',       value: '' },
-  { label: 'En attente', value: '0' },
-  { label: 'Approuvés',  value: '1' },
+  { label: tt('Tous'),       value: '' },
+  { label: tt('En attente'), value: '0' },
+  { label: tt('Approuvés'),  value: '1' },
 ]
 
 const PER_PAGE_OPTIONS = [10, 25, 50]
@@ -81,13 +83,14 @@ function StarOutlineIcon(props) {
 }
 
 function Spinner() {
+  const { t } = useTranslation('dashboard')
   return (
     <div className="flex items-center justify-center gap-2 py-12 text-app-muted">
       <svg className="animate-spin" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
         <circle cx="12" cy="12" r="9" opacity="0.25" />
         <path d="M21 12a9 9 0 0 0-9-9" strokeLinecap="round" />
       </svg>
-      <span className="text-xs">Chargement…</span>
+      <span className="text-xs">{t('Chargement…')}</span>
     </div>
   )
 }
@@ -103,6 +106,7 @@ function EmptyState({ icon, title, subtitle }) {
 }
 
 function AddModal({ onClose, onSaved }) {
+  const { t, t: tr } = useTranslation('dashboard')
   const [products, setProducts] = useState([])
   const [search,   setSearch]   = useState('')
   const [form, setForm] = useState({
@@ -144,7 +148,7 @@ function AddModal({ onClose, onSaved }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
       <div className="w-full max-w-lg rounded-xl border p-6 max-h-[90vh] overflow-y-auto" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
         <div className="flex items-center justify-between mb-5">
-          <h3 className="font-semibold text-app-primary">Ajouter un avis</h3>
+          <h3 className="font-semibold text-app-primary">{t('Ajouter un avis')}</h3>
           <button onClick={onClose} className="text-app-muted hover:text-app-primary transition cursor-pointer"><CloseIcon /></button>
         </div>
         <form onSubmit={submit} className="space-y-4">
@@ -152,44 +156,44 @@ function AddModal({ onClose, onSaved }) {
           {/* Prénom + Nom */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs text-app-muted-light mb-1.5">Prénom *</label>
-              <input value={form.first_name} onChange={e => setForm(f => ({ ...f, first_name: e.target.value }))} required className={inputCls} style={bdrStyle} placeholder="Prénom" />
+              <label className="block text-xs text-app-muted-light mb-1.5">{t('Prénom *')}</label>
+              <input value={form.first_name} onChange={e => setForm(f => ({ ...f, first_name: e.target.value }))} required className={inputCls} style={bdrStyle} placeholder={t('Prénom')} />
               {errors.first_name && <p className="text-red-400 text-xs mt-1">{errors.first_name}</p>}
             </div>
             <div>
-              <label className="block text-xs text-app-muted-light mb-1.5">Nom de famille</label>
-              <input value={form.last_name} onChange={e => setForm(f => ({ ...f, last_name: e.target.value }))} className={inputCls} style={bdrStyle} placeholder="Nom" />
+              <label className="block text-xs text-app-muted-light mb-1.5">{t('Nom de famille')}</label>
+              <input value={form.last_name} onChange={e => setForm(f => ({ ...f, last_name: e.target.value }))} className={inputCls} style={bdrStyle} placeholder={t('Nom')} />
             </div>
           </div>
 
           {/* Email */}
           <div>
-            <label className="block text-xs text-app-muted-light mb-1.5">Email</label>
-            <input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} className={inputCls} style={bdrStyle} placeholder="client@example.com" />
+            <label className="block text-xs text-app-muted-light mb-1.5">{t('Email')}</label>
+            <input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} className={inputCls} style={bdrStyle} placeholder={t('client@example.com')} />
           </div>
 
           {/* Produit recherche */}
           <div>
-            <label className="block text-xs text-app-muted-light mb-1.5">Produit *</label>
+            <label className="block text-xs text-app-muted-light mb-1.5">{t('Produit *')}</label>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-app-muted"><SearchIcon /></span>
+              <span className="absolute start-3 top-1/2 -translate-y-1/2 text-app-muted"><SearchIcon /></span>
               <input
                 value={search}
                 onChange={e => { setSearch(e.target.value); setForm(f => ({ ...f, product: '' })) }}
-                className={inputCls + ' pl-8'}
+                className={inputCls + ' ps-8'}
                 style={bdrStyle}
-                placeholder="Recherche par produit"
+                placeholder={t('Recherche par produit')}
               />
             </div>
             {search && !form.product && (
               <div className="rounded-lg border mt-1 max-h-36 overflow-y-auto" style={{ background: theme.dark.sidebar, borderColor: theme.dark.border }}>
                 {filtered.length === 0
-                  ? <p className="px-3 py-2 text-xs text-app-muted">Aucun résultat</p>
+                  ? <p className="px-3 py-2 text-xs text-app-muted">{t('Aucun résultat')}</p>
                   : filtered.map(p => (
                     <button
                       key={p.id} type="button"
                       onClick={() => { setForm(f => ({ ...f, product: p.id })); setSearch(p.name) }}
-                      className="w-full text-left px-3 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition cursor-pointer"
+                      className="w-full text-start px-3 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition cursor-pointer"
                     >{p.name}</button>
                   ))
                 }
@@ -200,19 +204,19 @@ function AddModal({ onClose, onSaved }) {
 
           {/* Rating */}
           <div>
-            <label className="block text-xs text-app-muted-light mb-1.5">Note</label>
+            <label className="block text-xs text-app-muted-light mb-1.5">{t('Note')}</label>
             <Stars rating={form.rating} onClick={v => setForm(f => ({ ...f, rating: v }))} />
           </div>
 
           {/* Commentaire */}
           <div>
-            <label className="block text-xs text-app-muted-light mb-1.5">Commentaire</label>
-            <textarea value={form.comment} onChange={e => setForm(f => ({ ...f, comment: e.target.value }))} rows={3} className={inputCls + ' resize-none'} style={bdrStyle} placeholder="Contenu de l'avis…" />
+            <label className="block text-xs text-app-muted-light mb-1.5">{t('Commentaire')}</label>
+            <textarea value={form.comment} onChange={e => setForm(f => ({ ...f, comment: e.target.value }))} rows={3} className={inputCls + ' resize-none'} style={bdrStyle} placeholder={t('Contenu de l\'avis…')} />
           </div>
 
           {/* Image */}
           <div>
-            <label className="block text-xs text-app-muted-light mb-1.5">Image (optionnel)</label>
+            <label className="block text-xs text-app-muted-light mb-1.5">{t('Image (optionnel)')}</label>
             <div
               onClick={() => fileRef.current?.click()}
               className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-violet-500 transition"
@@ -220,16 +224,16 @@ function AddModal({ onClose, onSaved }) {
             >
               {form.image
                 ? <p className="text-sm text-app-primary">{form.image.name}</p>
-                : <><div className="flex justify-center mb-1 text-app-muted"><UploadIcon /></div><p className="text-xs text-app-muted">Choisissez un fichier ou faites-le glisser ici</p></>
+                : <><div className="flex justify-center mb-1 text-app-muted"><UploadIcon /></div><p className="text-xs text-app-muted">{t('Choisissez un fichier ou faites-le glisser ici')}</p></>
               }
             </div>
             <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={e => setForm(f => ({ ...f, image: e.target.files[0] || null }))} />
           </div>
 
           <div className="flex justify-end gap-3 pt-1">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-app-muted-light hover:text-app-primary cursor-pointer transition">Fermer</button>
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-app-muted-light hover:text-app-primary cursor-pointer transition">{t('Fermer')}</button>
             <button type="submit" disabled={saving || !form.product} className="px-5 py-2 rounded-lg text-sm font-semibold text-white bg-violet-600 hover:bg-violet-500 disabled:opacity-60 flex items-center gap-2 cursor-pointer transition">
-              {saving ? 'Enregistrement…' : <>Créer <PlusIcon width={14} height={14} /></>}
+              {saving ? tr('Enregistrement…') : <>{t('Créer')}{' '}<PlusIcon width={14} height={14} /></>}
             </button>
           </div>
         </form>
@@ -239,6 +243,7 @@ function AddModal({ onClose, onSaved }) {
 }
 
 export default function ReviewsPage() {
+  const { t } = useTranslation('dashboard')
   const [reviews,  setReviews]  = useState([])
   const [total,    setTotal]    = useState(0)
   const [filter,   setFilter]   = useState('')
@@ -283,13 +288,13 @@ export default function ReviewsPage() {
   }
 
   const remove = async id => {
-    if (!confirm('Supprimer cet avis ?')) return
+    if (!confirm(t('Supprimer cet avis ?'))) return
     await api.delete(`/products/reviews/${id}/`)
     fetchReviews()
   }
 
   const bulkDelete = async () => {
-    if (!confirm(`Supprimer ${selected.size} avis ?`)) return
+    if (!confirm(t('Supprimer {{size}} avis ?', { size: selected.size }))) return
     await Promise.all([...selected].map(id => api.delete(`/products/reviews/${id}/`)))
     setSelected(new Set())
     fetchReviews()
@@ -299,7 +304,7 @@ export default function ReviewsPage() {
   const pageNums   = Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i + 1)
 
   return (
-    <DashboardLayout title="Avis" subtitle="Quand un client laisse un avis (note + commentaire) sur un de vos produits, il n'apparaît pas tout de suite sur votre boutique — il attend votre validation ici, pour éviter les faux avis ou les messages inappropriés. Approuvez les avis que vous voulez rendre publics, ou rejetez les autres. Vous pouvez aussi ajouter vous-même un avis manuellement si besoin.">
+    <DashboardLayout title={t('Avis')} subtitle={t('Quand un client laisse un avis (note + commentaire) sur un de vos produits, il n\'apparaît pas tout de suite sur votre boutique — il attend votre validation ici, pour éviter les faux avis ou les messages inappropriés. Approuvez les avis que vous voulez rendre publics, ou rejetez les autres. Vous pouvez aussi ajouter vous-même un avis manuellement si besoin.')}>
       {modal && (
         <AddModal onClose={() => setModal(false)} onSaved={() => { setModal(false); fetchReviews() }} />
       )}
@@ -316,13 +321,10 @@ export default function ReviewsPage() {
         </div>
         <div className="flex items-center gap-3">
           {selected.size > 0 && (
-            <button onClick={bulkDelete} className="px-4 py-2 rounded-lg text-sm font-semibold text-red-400 border border-red-800 hover:bg-red-900/20 transition cursor-pointer">
-              Supprimer ({selected.size})
-            </button>
+            <button onClick={bulkDelete} className="px-4 py-2 rounded-lg text-sm font-semibold text-red-400 border border-red-800 hover:bg-red-900/20 transition cursor-pointer">{t('Supprimer ({{size}})', { size: selected.size })}</button>
           )}
           <button onClick={() => setModal(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white bg-violet-600 hover:bg-violet-500 cursor-pointer transition">
-            <PlusIcon width={16} height={16} /> Ajouter une nouvelle
-          </button>
+            <PlusIcon width={16} height={16} />{' '}{t('Ajouter une nouvelle')}</button>
         </div>
       </div>
 
@@ -330,19 +332,19 @@ export default function ReviewsPage() {
       <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border }}>
         <table className="w-full text-sm min-w-220">
           <thead style={{ background: theme.dark.sidebar }}>
-            <tr className="text-left text-xs border-b" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
+            <tr className="text-start text-xs border-b" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
               <th className="px-4 py-3 font-medium">
                 <input type="checkbox" checked={allChecked} onChange={toggleAll} className="accent-violet-600 cursor-pointer" />
               </th>
-              <th className="px-4 py-3 font-medium">ID</th>
-              <th className="px-4 py-3 font-medium">PRÉNOM</th>
-              <th className="px-4 py-3 font-medium">NOM DE FAMILLE</th>
-              <th className="px-4 py-3 font-medium">EMAIL</th>
-              <th className="px-4 py-3 font-medium">PRODUIT</th>
-              <th className="px-4 py-3 font-medium">RATING</th>
-              <th className="px-4 py-3 font-medium">DESCRIPTION</th>
-              <th className="px-4 py-3 font-medium">CRÉÉ À</th>
-              <th className="px-4 py-3 font-medium">ACTIONS</th>
+              <th className="px-4 py-3 font-medium">{t('ID')}</th>
+              <th className="px-4 py-3 font-medium">{t('PRÉNOM')}</th>
+              <th className="px-4 py-3 font-medium">{t('NOM DE FAMILLE')}</th>
+              <th className="px-4 py-3 font-medium">{t('EMAIL')}</th>
+              <th className="px-4 py-3 font-medium">{t('PRODUIT')}</th>
+              <th className="px-4 py-3 font-medium">{t('RATING')}</th>
+              <th className="px-4 py-3 font-medium">{t('DESCRIPTION')}</th>
+              <th className="px-4 py-3 font-medium">{t('CRÉÉ À')}</th>
+              <th className="px-4 py-3 font-medium">{t('ACTIONS')}</th>
             </tr>
           </thead>
           <tbody>
@@ -350,7 +352,7 @@ export default function ReviewsPage() {
               <tr><td colSpan={10}><Spinner /></td></tr>
             ) : reviews.length === 0 ? (
               <tr><td colSpan={10}>
-                <EmptyState icon={<StarOutlineIcon />} title="Aucun avis trouvé" subtitle="Les avis clients approuvés ou en attente apparaîtront ici." />
+                <EmptyState icon={<StarOutlineIcon />} title={t('Aucun avis trouvé')} subtitle={t('Les avis clients approuvés ou en attente apparaîtront ici.')} />
               </td></tr>
             ) : reviews.map(r => (
               <tr key={r.id} className="border-b hover:bg-violet-500/5 transition" style={{ borderColor: theme.dark.borderRowHover }}>
@@ -370,11 +372,11 @@ export default function ReviewsPage() {
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-1.5 flex-nowrap">
                     {r.is_approved ? (
-                      <button onClick={() => toggleApprove(r)} className={theme.badge.warning + ' cursor-pointer hover:opacity-80 transition'}>Désapprouver</button>
+                      <button onClick={() => toggleApprove(r)} className={theme.badge.warning + ' cursor-pointer hover:opacity-80 transition'}>{t('Désapprouver')}</button>
                     ) : (
-                      <button onClick={() => toggleApprove(r)} className={theme.badge.success + ' cursor-pointer hover:opacity-80 transition'}>Approuver</button>
+                      <button onClick={() => toggleApprove(r)} className={theme.badge.success + ' cursor-pointer hover:opacity-80 transition'}>{t('Approuver')}</button>
                     )}
-                    <button onClick={() => remove(r.id)} className="p-1.5 rounded text-red-400 hover:bg-red-900/20 transition cursor-pointer" title="Supprimer"><TrashIcon /></button>
+                    <button onClick={() => remove(r.id)} className="p-1.5 rounded text-red-400 hover:bg-red-900/20 transition cursor-pointer" title={t('Supprimer')}><TrashIcon /></button>
                   </div>
                 </td>
               </tr>
@@ -385,11 +387,9 @@ export default function ReviewsPage() {
 
       {/* Pagination footer */}
       <div className="flex items-center justify-between mt-4 text-sm" style={{ color: theme.dark.muted }}>
-        <p>{selected.size} de {total} sélectionné</p>
+        <p>{t('{{size}} de {{total}} sélectionné', { size: selected.size, total })}</p>
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 text-xs">
-            Lignes par page :
-            <Select
+          <div className="flex items-center gap-2 text-xs">{t('Lignes par page :')}<Select
               value={perPage}
               onChange={v => { setPerPage(Number(v)); setPage(1) }}
               options={PER_PAGE_OPTIONS.map(n => ({ value: n, label: n }))}

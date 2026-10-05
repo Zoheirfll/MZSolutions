@@ -4,10 +4,13 @@ import DashboardLayout from '../../components/DashboardLayout'
 import EmptyState from '../../components/EmptyState'
 import api from '../../api/axios'
 import { theme } from '../../theme'
+import { tt } from '../../i18n'
+import { useTranslation } from 'react-i18next'
+import { sfx } from '../../i18n'
 
 const TABS = [
-  { key: 'pending',  label: 'À préparer' },
-  { key: 'prepared', label: 'Préparées' },
+  { key: 'pending',  label: tt('À préparer') },
+  { key: 'prepared', label: tt('Préparées') },
 ]
 
 function CheckIcon(props) {
@@ -28,6 +31,7 @@ function RefreshIcon(props) {
 }
 
 export default function PreparedOrdersPage() {
+  const { t: tr } = useTranslation('dashboard')
   const navigate = useNavigate()
   const [tab, setTab] = useState('pending')
   const [data, setData] = useState({ results: [], count: 0 })
@@ -67,7 +71,7 @@ export default function PreparedOrdersPage() {
   }
 
   return (
-    <DashboardLayout title="Commandes préparées" subtitle={`Marquez les commandes confirmées comme "préparées" une fois le colis emballé, avant remise au transporteur — indépendant de l'impression de l'étiquette. Sélectionnez plusieurs lignes puis "Update selected state" pour marquer un lot d'un coup.`}>
+    <DashboardLayout title={tr('Commandes préparées')} subtitle={tr('Marquez les commandes confirmées comme "préparées" une fois le colis emballé, avant remise au transporteur — indépendant de l\'impression de l\'étiquette. Sélectionnez plusieurs lignes puis "Update selected state" pour marquer un lot d\'un coup.')}>
       <div className="flex items-center gap-1 mb-6 p-1 rounded-xl w-fit" style={{ background: theme.dark.card, border: `1px solid ${theme.dark.border}` }}>
         {TABS.map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
@@ -81,13 +85,13 @@ export default function PreparedOrdersPage() {
         <input
           value={search}
           onChange={e => setSearch(e.target.value)}
-          placeholder="Rechercher nom, téléphone ou suivi (scan)…"
+          placeholder={tr('Rechercher nom, téléphone ou suivi (scan)…')}
           autoFocus
           className="px-3.5 py-2.5 rounded-lg border text-sm text-app-primary bg-transparent outline-none focus:border-violet-500 transition w-full sm:w-80"
           style={{ borderColor: theme.dark.border }}
         />
         <div className="flex items-center gap-2">
-          <button onClick={fetchData} className={theme.btn.icon} title="Rafraîchir">
+          <button onClick={fetchData} className={theme.btn.icon} title={tr('Rafraîchir')}>
             <RefreshIcon />
           </button>
           {tab === 'pending' && (
@@ -99,23 +103,23 @@ export default function PreparedOrdersPage() {
         </div>
       </div>
 
-      <p className="text-sm mb-3" style={{ color: theme.dark.muted }}>{data.count} commande{data.count !== 1 ? 's' : ''}.</p>
+      <p className="text-sm mb-3" style={{ color: theme.dark.muted }}>{tr('{{count}} commande', { count: data.count })}{data.count !== 1 ? sfx('s') : ''}.</p>
 
       <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border }}>
         <table className="w-full text-sm min-w-180">
           <thead style={{ background: theme.dark.sidebar }}>
-            <tr className="text-left text-xs border-b" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
+            <tr className="text-start text-xs border-b" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
               {tab === 'pending' && (
                 <th className="px-4 py-3 w-8">
                   <input type="checkbox" checked={allSelected} onChange={toggleAll} className="accent-violet-600 w-4 h-4 cursor-pointer" />
                 </th>
               )}
-              <th className="px-4 py-3 font-medium">ID</th>
-              <th className="px-4 py-3 font-medium">NOM</th>
-              <th className="px-4 py-3 font-medium">TÉLÉPHONE</th>
-              <th className="px-4 py-3 font-medium">EMPLACEMENT</th>
-              <th className="px-4 py-3 font-medium">PRIX TOTAL</th>
-              <th className="px-4 py-3 font-medium">SUIVI</th>
+              <th className="px-4 py-3 font-medium">{tr('ID')}</th>
+              <th className="px-4 py-3 font-medium">{tr('NOM')}</th>
+              <th className="px-4 py-3 font-medium">{tr('TÉLÉPHONE')}</th>
+              <th className="px-4 py-3 font-medium">{tr('EMPLACEMENT')}</th>
+              <th className="px-4 py-3 font-medium">{tr('PRIX TOTAL')}</th>
+              <th className="px-4 py-3 font-medium">{tr('SUIVI')}</th>
             </tr>
           </thead>
           <tbody>
@@ -125,13 +129,11 @@ export default function PreparedOrdersPage() {
                   <svg className="w-5 h-5 animate-spin text-violet-500" viewBox="0 0 24 24" fill="none">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-                  </svg>
-                  Chargement…
-                </div>
+                  </svg>{tr('Chargement…')}</div>
               </td></tr>
             ) : data.results.length === 0 ? (
               <tr><td colSpan={7}>
-                <EmptyState title="Aucune donnée" description="Rien à afficher dans cette étape pour l'instant." />
+                <EmptyState title={tr('Aucune donnée')} description={tr('Rien à afficher dans cette étape pour l\'instant.')} />
               </td></tr>
             ) : data.results.map(o => (
               <tr key={o.id} className="border-b hover:bg-violet-500/5 transition" style={{ borderColor: theme.dark.borderRowHover }}>
@@ -144,7 +146,7 @@ export default function PreparedOrdersPage() {
                 <td className="px-4 py-3 text-app-primary font-medium cursor-pointer" onClick={() => navigate(`/dashboard/commandes/${o.id}`)}>{o.first_name} {o.last_name}</td>
                 <td className="px-4 py-3 font-mono text-xs text-app-muted-light">{o.phone}</td>
                 <td className="px-4 py-3 text-app-primary">{o.wilaya}</td>
-                <td className="px-4 py-3 text-app-primary">{Number(o.total).toLocaleString('fr-DZ')} DZD</td>
+                <td className="px-4 py-3 text-app-primary">{Number(o.total).toLocaleString('fr-DZ')}{' '}{tr('DZD')}</td>
                 <td className="px-4 py-3 font-mono text-xs text-violet-300">{o.carrier_tracking_number || '—'}</td>
               </tr>
             ))}
@@ -154,9 +156,9 @@ export default function PreparedOrdersPage() {
 
       {data.count > perPage && (
         <div className="flex items-center justify-end gap-2 mt-4 text-sm" style={{ color: theme.dark.muted }}>
-          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">← Précédent</button>
+          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">{tr('← Précédent')}</button>
           <span className={theme.badge.info}>{page}/{totalPages}</span>
-          <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">Suivant →</button>
+          <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">{tr('Suivant →')}</button>
         </div>
       )}
     </DashboardLayout>

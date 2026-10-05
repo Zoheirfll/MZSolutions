@@ -4,6 +4,9 @@ import DashboardLayout from '../../components/DashboardLayout'
 import EmptyState from '../../components/EmptyState'
 import api from '../../api/axios'
 import { theme } from '../../theme'
+import { tt } from '../../i18n'
+import { useTranslation } from 'react-i18next'
+import { sfx } from '../../i18n'
 
 function RefreshIcon(props) {
   return (
@@ -15,11 +18,12 @@ function RefreshIcon(props) {
 }
 
 const REASON_LABELS = {
-  tentative_echouee: 'Tentative échouée (transporteur)',
-  client_a_risque:   'Client à risque (historique)',
+  tentative_echouee: tt('Tentative échouée (transporteur)'),
+  client_a_risque:   tt('Client à risque (historique)'),
 }
 
 export default function PredictiveReturnsPage() {
+  const { t } = useTranslation('dashboard')
   const navigate = useNavigate()
   const [data, setData] = useState({ results: [], count: 0 })
   const [search, setSearch] = useState('')
@@ -43,34 +47,34 @@ export default function PredictiveReturnsPage() {
   const totalPages = Math.max(1, Math.ceil(data.count / perPage))
 
   return (
-    <DashboardLayout title="Retour prédictif" subtitle={`Commandes en cours de livraison qui présentent un risque élevé de retour, calculé à partir de deux signaux : le client a un historique de commandes annulées/retournées (risque connu), ou le transporteur signale déjà une tentative de livraison échouée sur ce colis précis. Lecture seule — servez-vous-en pour relancer le client par téléphone avant que le colis ne revienne pour de bon.`}>
+    <DashboardLayout title={t('Retour prédictif')} subtitle={t('Commandes en cours de livraison qui présentent un risque élevé de retour, calculé à partir de deux signaux : le client a un historique de commandes annulées/retournées (risque connu), ou le transporteur signale déjà une tentative de livraison échouée sur ce colis précis. Lecture seule — servez-vous-en pour relancer le client par téléphone avant que le colis ne revienne pour de bon.')}>
       <div className="flex items-center justify-between mb-5 gap-3 flex-wrap">
         <input
           value={search}
           onChange={e => setSearch(e.target.value)}
-          placeholder="Rechercher nom, téléphone ou suivi…"
+          placeholder={t('Rechercher nom, téléphone ou suivi…')}
           className="px-3.5 py-2.5 rounded-lg border text-sm text-app-primary bg-transparent outline-none focus:border-violet-500 transition w-full sm:w-80"
           style={{ borderColor: theme.dark.border }}
         />
-        <button onClick={fetchData} className={theme.btn.icon} title="Rafraîchir">
+        <button onClick={fetchData} className={theme.btn.icon} title={t('Rafraîchir')}>
           <RefreshIcon />
         </button>
       </div>
 
-      <p className="text-sm mb-3" style={{ color: theme.dark.muted }}>{data.count} commande{data.count !== 1 ? 's' : ''} à risque.</p>
+      <p className="text-sm mb-3" style={{ color: theme.dark.muted }}>{t('{{count}} commande', { count: data.count })}{data.count !== 1 ? sfx('s') : ''}{' '}{t('à risque.')}</p>
 
       <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border }}>
         <table className="w-full text-sm min-w-200">
           <thead style={{ background: theme.dark.sidebar }}>
-            <tr className="text-left text-xs border-b" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
-              <th className="px-4 py-3 font-medium">ID</th>
-              <th className="px-4 py-3 font-medium">NOM</th>
-              <th className="px-4 py-3 font-medium">TÉLÉPHONE</th>
-              <th className="px-4 py-3 font-medium">EMPLACEMENT</th>
-              <th className="px-4 py-3 font-medium">COMMUNE</th>
-              <th className="px-4 py-3 font-medium">PRIX TOTAL</th>
-              <th className="px-4 py-3 font-medium">SUIVI</th>
-              <th className="px-4 py-3 font-medium">RAISON</th>
+            <tr className="text-start text-xs border-b" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
+              <th className="px-4 py-3 font-medium">{t('ID')}</th>
+              <th className="px-4 py-3 font-medium">{t('NOM')}</th>
+              <th className="px-4 py-3 font-medium">{t('TÉLÉPHONE')}</th>
+              <th className="px-4 py-3 font-medium">{t('EMPLACEMENT')}</th>
+              <th className="px-4 py-3 font-medium">{t('COMMUNE')}</th>
+              <th className="px-4 py-3 font-medium">{t('PRIX TOTAL')}</th>
+              <th className="px-4 py-3 font-medium">{t('SUIVI')}</th>
+              <th className="px-4 py-3 font-medium">{t('RAISON')}</th>
             </tr>
           </thead>
           <tbody>
@@ -80,13 +84,11 @@ export default function PredictiveReturnsPage() {
                   <svg className="w-5 h-5 animate-spin text-violet-500" viewBox="0 0 24 24" fill="none">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-                  </svg>
-                  Chargement…
-                </div>
+                  </svg>{t('Chargement…')}</div>
               </td></tr>
             ) : data.results.length === 0 ? (
               <tr><td colSpan={8}>
-                <EmptyState title="Aucune donnée" description="Aucune commande à risque de retour détectée pour l'instant." />
+                <EmptyState title={t('Aucune donnée')} description={t('Aucune commande à risque de retour détectée pour l\'instant.')} />
               </td></tr>
             ) : data.results.map(o => (
               <tr key={o.id} onClick={() => navigate(`/dashboard/commandes/${o.id}`)}
@@ -96,7 +98,7 @@ export default function PredictiveReturnsPage() {
                 <td className="px-4 py-3 font-mono text-xs text-app-muted-light">{o.phone}</td>
                 <td className="px-4 py-3 text-app-primary">{o.wilaya}</td>
                 <td className="px-4 py-3 text-app-muted-light">{o.commune}</td>
-                <td className="px-4 py-3 text-app-primary">{Number(o.total).toLocaleString('fr-DZ')} DZD</td>
+                <td className="px-4 py-3 text-app-primary">{Number(o.total).toLocaleString('fr-DZ')}{' '}{t('DZD')}</td>
                 <td className="px-4 py-3 font-mono text-xs text-app-muted-light">{o.carrier_tracking_number || '—'}</td>
                 <td className="px-4 py-3">
                   <div className="flex flex-wrap gap-1">
@@ -113,9 +115,9 @@ export default function PredictiveReturnsPage() {
 
       {data.count > perPage && (
         <div className="flex items-center justify-end gap-2 mt-4 text-sm" style={{ color: theme.dark.muted }}>
-          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">← Précédent</button>
+          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">{t('← Précédent')}</button>
           <span className={theme.badge.info}>{page}/{totalPages}</span>
-          <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">Suivant →</button>
+          <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">{t('Suivant →')}</button>
         </div>
       )}
     </DashboardLayout>

@@ -6,23 +6,26 @@ import Select from '../../components/Select'
 import api from '../../api/axios'
 import { theme } from '../../theme'
 import { usePeriod, PeriodFilter, Spinner, PIE_COLORS } from './stats/statsShared'
+import { tt } from '../../i18n'
+import { useTranslation } from 'react-i18next'
+import { sfx } from '../../i18n'
 
 const SUMMARY_CARDS = [
-  { key: 'pending',   label: 'En attente',  color: 'text-amber-400' },
-  { key: 'no_answer', label: 'Non joignable', color: 'text-amber-400' },
-  { key: 'confirmed', label: 'Confirmées',  color: 'text-emerald-400' },
-  { key: 'delivered', label: 'Livrées',     color: 'text-emerald-400' },
-  { key: 'returned',  label: 'Retournées',  color: 'text-red-400' },
-  { key: 'cancelled', label: 'Annulées',    color: 'text-red-400' },
-  { key: 'duplicate', label: 'Doubles',     color: 'text-app-muted-light' },
-  { key: 'fake',      label: 'Fictives',    color: 'text-app-muted-light' },
-  { key: 'scheduled', label: 'Programmées', color: 'text-violet-400' },
+  { key: 'pending',   label: tt('En attente'),  color: 'text-amber-400' },
+  { key: 'no_answer', label: tt('Non joignable'), color: 'text-amber-400' },
+  { key: 'confirmed', label: tt('Confirmées'),  color: 'text-emerald-400' },
+  { key: 'delivered', label: tt('Livrées'),     color: 'text-emerald-400' },
+  { key: 'returned',  label: tt('Retournées'),  color: 'text-red-400' },
+  { key: 'cancelled', label: tt('Annulées'),    color: 'text-red-400' },
+  { key: 'duplicate', label: tt('Doubles'),     color: 'text-app-muted-light' },
+  { key: 'fake',      label: tt('Fictives'),    color: 'text-app-muted-light' },
+  { key: 'scheduled', label: tt('Programmées'), color: 'text-violet-400' },
 ]
 
 const RETARD_STATUS_OPTIONS = [
-  { value: 'no_answer_1', label: 'Non joignable — 1ère tentative' },
-  { value: 'confirmed',   label: 'Confirmée' },
-  { value: 'cancelled',   label: 'Annulée' },
+  { value: 'no_answer_1', label: tt('Non joignable — 1ère tentative') },
+  { value: 'confirmed',   label: tt('Confirmée') },
+  { value: 'cancelled',   label: tt('Annulée') },
 ]
 
 function rateBadge(rate) {
@@ -38,9 +41,10 @@ function rateColor(rate) {
 }
 
 function TrendDelta({ current, previous }) {
+  const { t } = useTranslation('dashboard')
   if (previous === null || previous === undefined) return null
   const delta = Math.round((current - previous) * 10) / 10
-  if (delta === 0) return <span className="text-xs" style={{ color: theme.dark.muted }}>= vs période précédente ({previous}%)</span>
+  if (delta === 0) return <span className="text-xs" style={{ color: theme.dark.muted }}>{t('= vs période précédente ({{previous}}%)', { previous })}</span>
   const up = delta > 0
   return (
     <span className={`text-xs font-medium inline-flex items-center gap-1 ${up ? 'text-emerald-400' : 'text-red-400'}`}>
@@ -48,12 +52,12 @@ function TrendDelta({ current, previous }) {
         style={{ transform: up ? 'none' : 'rotate(180deg)' }}>
         <path d="M12 19V5M5 12l7-7 7 7" />
       </svg>
-      {up ? '+' : ''}{delta}% vs période précédente ({previous}%)
-    </span>
+      {up ? '+' : ''}{t('{{delta}}% vs période précédente ({{previous}}%)', { delta, previous })}</span>
   )
 }
 
 export default function ConfirmationRatePage() {
+  const { t } = useTranslation('dashboard')
   const navigate = useNavigate()
   const { period, setPeriod, dateFrom, setDateFrom, dateTo, setDateTo, queryString, ready } = usePeriod()
   const [data,    setData]    = useState(null)
@@ -98,11 +102,11 @@ export default function ConfirmationRatePage() {
   }))
 
   return (
-    <DashboardLayout title="Taux de confirmation" subtitle="Le taux de confirmation, c'est le pourcentage de commandes que vos confirmateurs arrivent à valider auprès du client par téléphone (plutôt que non-joignable, annulée ou retournée). Cette page affiche ce taux global sur la période choisie, son évolution jour par jour, et surtout un classement de chaque confirmateur selon sa performance — pratique pour savoir qui travaille bien et qui a besoin d'aide.">
+    <DashboardLayout title={t('Taux de confirmation')} subtitle={t('Le taux de confirmation, c\'est le pourcentage de commandes que vos confirmateurs arrivent à valider auprès du client par téléphone (plutôt que non-joignable, annulée ou retournée). Cette page affiche ce taux global sur la période choisie, son évolution jour par jour, et surtout un classement de chaque confirmateur selon sa performance — pratique pour savoir qui travaille bien et qui a besoin d\'aide.')}>
       <PeriodFilter period={period} setPeriod={setPeriod} dateFrom={dateFrom} setDateFrom={setDateFrom} dateTo={dateTo} setDateTo={setDateTo} />
 
       {loading ? <Spinner /> : !data ? (
-        <p className="text-app-muted text-center py-16">Erreur de chargement.</p>
+        <p className="text-app-muted text-center py-16">{t('Erreur de chargement.')}</p>
       ) : (
         <div className="space-y-5">
 
@@ -122,18 +126,18 @@ export default function ConfirmationRatePage() {
           {data.pending_late_count > 0 && (
             <div className="rounded-xl border overflow-hidden" style={{ borderColor: '#f59e0b40' }}>
               <div className="px-5 py-3.5 border-b flex items-center justify-between gap-3 flex-wrap" style={{ background: 'rgba(245,158,11,0.08)', borderColor: '#f59e0b40' }}>
-                <h2 className="text-sm font-semibold text-amber-400">⚠ {data.pending_late_count} commande{data.pending_late_count > 1 ? 's' : ''} en attente depuis plus de 24h</h2>
+                <h2 className="text-sm font-semibold text-amber-400">{t('⚠ {{pending_late_count}} commande', { pending_late_count: data.pending_late_count })}{data.pending_late_count > 1 ? sfx('s') : ''}{' '}{t('en attente depuis plus de 24h')}</h2>
                 {selectedLate.size > 0 && (
                   <div className="flex items-center gap-2">
                     <Select
                       value={bulkStatus}
                       onChange={setBulkStatus}
-                      options={[{ value: '', label: 'Changer le statut…' }, ...RETARD_STATUS_OPTIONS]}
+                      options={[{ value: '', label: t('Changer le statut…') }, ...RETARD_STATUS_OPTIONS]}
                       className="px-3 py-1.5 rounded-lg border text-xs text-app-primary"
                       style={{ background: theme.dark.sidebar, borderColor: theme.dark.border, minWidth: 200 }}
                     />
                     <button onClick={applyBulkStatus} disabled={!bulkStatus || bulkBusy} className={theme.btn.primary + ' text-xs cursor-pointer disabled:opacity-50'}>
-                      {bulkBusy ? '…' : `Appliquer (${selectedLate.size})`}
+                      {bulkBusy ? '…' : t('Appliquer ({{size}})', { size: selectedLate.size })}
                     </button>
                   </div>
                 )}
@@ -141,16 +145,16 @@ export default function ConfirmationRatePage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm min-w-160">
                   <thead style={{ background: theme.dark.sidebar }}>
-                    <tr className="text-left text-xs border-b" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
+                    <tr className="text-start text-xs border-b" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
                       <th className="px-4 py-2.5"><input type="checkbox"
                         checked={data.pending_late.length > 0 && data.pending_late.every(o => selectedLate.has(o.id))}
                         onChange={() => setSelectedLate(s => s.size === data.pending_late.length ? new Set() : new Set(data.pending_late.map(o => o.id)))}
                         className="accent-violet-600" /></th>
-                      <th className="px-4 py-2.5 font-medium">CLIENT</th>
-                      <th className="px-4 py-2.5 font-medium">WILAYA</th>
-                      <th className="px-4 py-2.5 font-medium">TOTAL</th>
-                      <th className="px-4 py-2.5 font-medium">CONFIRMATEUR</th>
-                      <th className="px-4 py-2.5 font-medium">RETARD</th>
+                      <th className="px-4 py-2.5 font-medium">{t('CLIENT')}</th>
+                      <th className="px-4 py-2.5 font-medium">{t('WILAYA')}</th>
+                      <th className="px-4 py-2.5 font-medium">{t('TOTAL')}</th>
+                      <th className="px-4 py-2.5 font-medium">{t('CONFIRMATEUR')}</th>
+                      <th className="px-4 py-2.5 font-medium">{t('RETARD')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -162,10 +166,10 @@ export default function ConfirmationRatePage() {
                         </td>
                         <td className="px-4 py-2.5 text-app-primary font-medium">{o.first_name} {o.last_name} <span className="text-app-muted-light font-normal">· {o.phone}</span></td>
                         <td className="px-4 py-2.5 text-app-primary">{o.wilaya}</td>
-                        <td className="px-4 py-2.5 text-app-primary">{Number(o.total).toLocaleString('fr-DZ')} DZD</td>
+                        <td className="px-4 py-2.5 text-app-primary">{Number(o.total).toLocaleString('fr-DZ')}{' '}{t('DZD')}</td>
                         <td className="px-4 py-2.5 text-app-muted-light">{o.confirmateur_name || '—'}</td>
                         <td className="px-4 py-2.5">
-                          <span className={theme.badge.warning}>{o.delay_hours}h</span>
+                          <span className={theme.badge.warning}>{t('{{delay_hours}}h', { delay_hours: o.delay_hours })}</span>
                         </td>
                       </tr>
                     ))}
@@ -197,18 +201,18 @@ export default function ConfirmationRatePage() {
                   <span className="text-2xl font-bold text-white">{globalRate}%</span>
                 </div>
               </div>
-              <p className="text-sm mt-2 font-medium" style={{ color: rateColor(globalRate) }}>Taux global</p>
+              <p className="text-sm mt-2 font-medium" style={{ color: rateColor(globalRate) }}>{t('Taux global')}</p>
               <TrendDelta current={globalRate} previous={data.previous_rate} />
             </div>
 
             {/* Chiffres */}
             <div className="flex-1 grid grid-cols-2 sm:grid-cols-5 gap-6">
               {[
-                { label: 'Commandes traitées', value: data.total_processed, color: 'text-app-primary' },
-                { label: 'Confirmées', value: data.total_confirmed, color: 'text-emerald-400' },
-                { label: 'Non joignable', value: data.no_answer_total, color: 'text-amber-400' },
-                { label: 'Retournées', value: data.returned_total, color: 'text-red-400' },
-                { label: 'Annulées', value: data.cancelled_total, color: 'text-red-400' },
+                { label: t('Commandes traitées'), value: data.total_processed, color: 'text-app-primary' },
+                { label: t('Confirmées'), value: data.total_confirmed, color: 'text-emerald-400' },
+                { label: t('Non joignable'), value: data.no_answer_total, color: 'text-amber-400' },
+                { label: t('Retournées'), value: data.returned_total, color: 'text-red-400' },
+                { label: t('Annulées'), value: data.cancelled_total, color: 'text-red-400' },
               ].map(({ label, value, color }) => (
                 <div key={label} className="text-center">
                   <p className={`text-2xl sm:text-3xl font-bold ${color}`}>{value}</p>
@@ -218,8 +222,8 @@ export default function ConfirmationRatePage() {
             </div>
 
             {/* Période */}
-            <div className="text-right shrink-0">
-              <p className="text-xs mb-1" style={{ color: theme.dark.muted }}>Période</p>
+            <div className="text-end shrink-0">
+              <p className="text-xs mb-1" style={{ color: theme.dark.muted }}>{t('Période')}</p>
               <p className="text-sm text-app-primary">{data.date_from}</p>
               <p className="text-xs" style={{ color: theme.dark.muted }}>→</p>
               <p className="text-sm text-app-primary">{data.date_to}</p>
@@ -229,9 +233,9 @@ export default function ConfirmationRatePage() {
           {/* Tendance + répartition */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             <div className="rounded-xl border p-5" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-              <p className="text-sm font-medium text-app-primary mb-4">Évolution du taux de confirmation</p>
+              <p className="text-sm font-medium text-app-primary mb-4">{t('Évolution du taux de confirmation')}</p>
               {dailyChart.length === 0 ? (
-                <p className="text-sm text-app-muted py-16 text-center">Aucune commande traitée sur cette période.</p>
+                <p className="text-sm text-app-muted py-16 text-center">{t('Aucune commande traitée sur cette période.')}</p>
               ) : (
                 <ResponsiveContainer width="100%" height={240}>
                   <AreaChart data={dailyChart} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
@@ -246,7 +250,7 @@ export default function ConfirmationRatePage() {
                     <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: theme.dark.muted }} axisLine={false} tickLine={false} unit="%" />
                     <Tooltip
                       contentStyle={{ background: theme.dark.sidebar, border: `1px solid ${theme.dark.border}`, borderRadius: 8, fontSize: 12 }}
-                      formatter={(value, name) => name === 'rate' ? [`${value}%`, 'Taux'] : [value, name === 'processed' ? 'Traitées' : 'Confirmées']}
+                      formatter={(value, name) => name === 'rate' ? [`${value}%`, 'Taux'] : [value, name === 'processed' ? t('Traitées') : t('Confirmées')]}
                     />
                     <Area type="monotone" dataKey="rate" name="rate" stroke="#7c3aed" strokeWidth={2} fill="url(#rateGradient)" />
                   </AreaChart>
@@ -255,9 +259,9 @@ export default function ConfirmationRatePage() {
             </div>
 
             <div className="rounded-xl border p-5" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-              <p className="text-sm font-medium text-app-primary mb-4">Répartition des commandes traitées</p>
+              <p className="text-sm font-medium text-app-primary mb-4">{t('Répartition des commandes traitées')}</p>
               {(data.by_status || []).length === 0 ? (
-                <p className="text-sm text-app-muted py-16 text-center">Aucune commande traitée sur cette période.</p>
+                <p className="text-sm text-app-muted py-16 text-center">{t('Aucune commande traitée sur cette période.')}</p>
               ) : (
                 <ResponsiveContainer width="100%" height={240}>
                   <PieChart>
@@ -275,33 +279,31 @@ export default function ConfirmationRatePage() {
           {/* Classement confirmateurs */}
           <div className="rounded-xl border overflow-hidden" style={{ borderColor: theme.dark.border }}>
             <div className="px-5 py-3.5 border-b" style={{ background: theme.dark.sidebar, borderColor: theme.dark.border }}>
-              <h2 className="text-sm font-semibold text-app-primary">Classement par confirmateur</h2>
+              <h2 className="text-sm font-semibold text-app-primary">{t('Classement par confirmateur')}</h2>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm min-w-280">
                 <thead style={{ background: theme.dark.sidebar }}>
-                  <tr className="text-left text-xs border-b" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
-                    <th className="px-5 py-3 font-medium">RANG</th>
-                    <th className="px-5 py-3 font-medium">NOM</th>
-                    <th className="px-5 py-3 font-medium text-center">TRAITÉES</th>
-                    <th className="px-5 py-3 font-medium text-center">EN ATTENTE</th>
-                    <th className="px-5 py-3 font-medium text-center">CONFIRMÉES</th>
-                    <th className="px-5 py-3 font-medium text-center">VERS LE CLIENT</th>
-                    <th className="px-5 py-3 font-medium text-center">LIVRÉES</th>
-                    <th className="px-5 py-3 font-medium text-center">NON JOIGNABLE</th>
-                    <th className="px-5 py-3 font-medium text-center">RETOURNÉES</th>
-                    <th className="px-5 py-3 font-medium text-center">ANNULÉES</th>
-                    <th className="px-5 py-3 font-medium text-center">DOUBLES</th>
-                    <th className="px-5 py-3 font-medium text-center">FICTIVES</th>
-                    <th className="px-5 py-3 font-medium text-center">TAUX</th>
+                  <tr className="text-start text-xs border-b" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
+                    <th className="px-5 py-3 font-medium">{t('RANG')}</th>
+                    <th className="px-5 py-3 font-medium">{t('NOM')}</th>
+                    <th className="px-5 py-3 font-medium text-center">{t('TRAITÉES')}</th>
+                    <th className="px-5 py-3 font-medium text-center">{t('EN ATTENTE')}</th>
+                    <th className="px-5 py-3 font-medium text-center">{t('CONFIRMÉES')}</th>
+                    <th className="px-5 py-3 font-medium text-center">{t('VERS LE CLIENT')}</th>
+                    <th className="px-5 py-3 font-medium text-center">{t('LIVRÉES')}</th>
+                    <th className="px-5 py-3 font-medium text-center">{t('NON JOIGNABLE')}</th>
+                    <th className="px-5 py-3 font-medium text-center">{t('RETOURNÉES')}</th>
+                    <th className="px-5 py-3 font-medium text-center">{t('ANNULÉES')}</th>
+                    <th className="px-5 py-3 font-medium text-center">{t('DOUBLES')}</th>
+                    <th className="px-5 py-3 font-medium text-center">{t('FICTIVES')}</th>
+                    <th className="px-5 py-3 font-medium text-center">{t('TAUX')}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {data.by_confirmateur.length === 0 ? (
                     <tr>
-                      <td colSpan={12} className="text-center py-12 text-app-muted">
-                        Aucune commande assignée sur cette période.
-                      </td>
+                      <td colSpan={12} className="text-center py-12 text-app-muted">{t('Aucune commande assignée sur cette période.')}</td>
                     </tr>
                   ) : data.by_confirmateur.map((c, i) => (
                     <tr

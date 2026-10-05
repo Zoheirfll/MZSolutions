@@ -4,12 +4,15 @@ import DashboardLayout from '../../components/DashboardLayout'
 import api from '../../api/axios'
 import { theme } from '../../theme'
 import TrackingBadge from '../../components/TrackingBadge'
+import { tt } from '../../i18n'
+import { useTranslation } from 'react-i18next'
+import { sfx } from '../../i18n'
 
 const FILTERS = [
-  { label: 'Toutes',    value: '' },
-  { label: 'En attente', value: 'open' },
-  { label: 'Approuvées', value: 'approved' },
-  { label: 'Refusées',   value: 'rejected' },
+  { label: tt('Toutes'),    value: '' },
+  { label: tt('En attente'), value: 'open' },
+  { label: tt('Approuvées'), value: 'approved' },
+  { label: tt('Refusées'),   value: 'rejected' },
 ]
 
 const STATUS_BADGE = {
@@ -26,7 +29,8 @@ function ExchangeIcon(props) {
   )
 }
 
-function Spinner({ label = 'Chargement…' }) {
+function Spinner({ label = tt('Chargement…') }) {
+  const { t: tr } = useTranslation('dashboard')
   return (
     <div className="flex flex-col items-center justify-center gap-2 py-12 text-app-muted">
       <svg className="animate-spin" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -49,6 +53,7 @@ function EmptyState({ icon, title, subtitle }) {
 }
 
 export default function ExchangesPage() {
+  const { t } = useTranslation('dashboard')
   const navigate = useNavigate()
   const [data, setData]       = useState({ results: [], count: 0, page: 1, per_page: 10 })
   const [filter, setFilter]   = useState('')
@@ -73,7 +78,7 @@ export default function ExchangesPage() {
   const totalPages = Math.max(1, Math.ceil(data.count / perPage))
 
   return (
-    <DashboardLayout title="Échanges" subtitle="Un client qui a reçu, par exemple, la mauvaise taille peut demander un échange directement sur votre boutique, sans compte — juste son téléphone et sa commande. Cette page liste ces demandes. Quand vous approuvez un échange, tout se fait automatiquement : le stock de l'article rendu est remis en stock, et celui de la nouvelle variante envoyée est déduit — vous n'avez rien à ajuster à la main.">
+    <DashboardLayout title={t('Échanges')} subtitle={t('Un client qui a reçu, par exemple, la mauvaise taille peut demander un échange directement sur votre boutique, sans compte — juste son téléphone et sa commande. Cette page liste ces demandes. Quand vous approuvez un échange, tout se fait automatiquement : le stock de l\'article rendu est remis en stock, et celui de la nouvelle variante envoyée est déduit — vous n\'avez rien à ajuster à la main.')}>
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-5">
         <div className="flex items-center gap-1 p-1 rounded-xl w-fit" style={{ background: theme.dark.card, border: `1px solid ${theme.dark.border}` }}>
           {FILTERS.map(f => (
@@ -91,7 +96,7 @@ export default function ExchangesPage() {
         <input
           value={search}
           onChange={e => { setSearch(e.target.value); setPage(1) }}
-          placeholder="Recherche par téléphone, nom, produit"
+          placeholder={t('Recherche par téléphone, nom, produit')}
           className="px-4 py-2 rounded-lg text-sm text-app-primary border outline-none focus:border-violet-500 transition w-full sm:w-64"
           style={{ background: theme.dark.card, borderColor: theme.dark.border }}
         />
@@ -100,15 +105,15 @@ export default function ExchangesPage() {
       <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border }}>
         <table className="w-full text-sm min-w-200">
           <thead style={{ background: theme.dark.sidebar }}>
-            <tr className="text-left text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
-              <th className="px-4 py-3 font-medium">COMMANDE</th>
-              <th className="px-4 py-3 font-medium">CLIENT</th>
-              <th className="px-4 py-3 font-medium">ARTICLE</th>
-              <th className="px-4 py-3 font-medium">VARIANTE DEMANDÉE</th>
-              <th className="px-4 py-3 font-medium">MOTIF</th>
-              <th className="px-4 py-3 font-medium">STATUT</th>
-              <th className="px-4 py-3 font-medium">SUIVI</th>
-              <th className="px-4 py-3 font-medium">DÉPOSÉE LE</th>
+            <tr className="text-start text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
+              <th className="px-4 py-3 font-medium">{t('COMMANDE')}</th>
+              <th className="px-4 py-3 font-medium">{t('CLIENT')}</th>
+              <th className="px-4 py-3 font-medium">{t('ARTICLE')}</th>
+              <th className="px-4 py-3 font-medium">{t('VARIANTE DEMANDÉE')}</th>
+              <th className="px-4 py-3 font-medium">{t('MOTIF')}</th>
+              <th className="px-4 py-3 font-medium">{t('STATUT')}</th>
+              <th className="px-4 py-3 font-medium">{t('SUIVI')}</th>
+              <th className="px-4 py-3 font-medium">{t('DÉPOSÉE LE')}</th>
             </tr>
           </thead>
           <tbody>
@@ -116,7 +121,7 @@ export default function ExchangesPage() {
               <tr><td colSpan={8}><Spinner /></td></tr>
             ) : data.results.length === 0 ? (
               <tr><td colSpan={8}>
-                <EmptyState icon={<ExchangeIcon />} title="Aucune demande d'échange" subtitle="Les demandes d'échange déposées par vos clients apparaîtront ici." />
+                <EmptyState icon={<ExchangeIcon />} title={t('Aucune demande d\'échange')} subtitle={t('Les demandes d\'échange déposées par vos clients apparaîtront ici.')} />
               </td></tr>
             ) : data.results.map(e => (
               <tr key={e.id} onClick={() => navigate(`/dashboard/echanges/${e.id}`)}
@@ -132,9 +137,7 @@ export default function ExchangesPage() {
                   <div className="flex items-center gap-1.5">
                     <span className={STATUS_BADGE[e.status] || theme.badge.neutral}>{e.status_label}</span>
                     {e.days_open >= 2 && (
-                      <span className={theme.badge.danger} title="Ouverte depuis plusieurs jours">
-                        {e.days_open}j
-                      </span>
+                      <span className={theme.badge.danger} title={t('Ouverte depuis plusieurs jours')}>{t('{{days_open}}j', { days_open: e.days_open })}</span>
                     )}
                   </div>
                 </td>
@@ -150,11 +153,11 @@ export default function ExchangesPage() {
 
       {data.count > 0 && (
         <div className="flex items-center justify-between mt-4 text-sm" style={{ color: theme.dark.muted }}>
-          <p>{data.count} échange{data.count !== 1 ? 's' : ''}</p>
+          <p>{t('{{count}} échange', { count: data.count })}{data.count !== 1 ? sfx('s') : ''}</p>
           <div className="flex items-center gap-2">
-            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">← Précédent</button>
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">{t('← Précédent')}</button>
             <span className={theme.badge.info}>{page}</span>
-            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">Suivant →</button>
+            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">{t('Suivant →')}</button>
           </div>
         </div>
       )}

@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams, useNavigate, useLocation } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import LanguageSwitcher from '../../components/LanguageSwitcher'
 import publicApi from '../../api/publicApi'
 import StorefrontChatWidget from '../../components/StorefrontChatWidget'
 import { useCart } from '../../context/CartContext'
@@ -25,6 +27,7 @@ function CartIcon(props) {
 
 export default function StorefrontLayout({ children, storeOverride }) {
   const { slug } = useParams()
+  const { t } = useTranslation('storefront')
   const navigate = useNavigate()
   const location = useLocation()
   const { getCount } = useCart()
@@ -34,14 +37,14 @@ export default function StorefrontLayout({ children, storeOverride }) {
 
   useEffect(() => {
     if (storeOverride) {
-      const t = storeOverride.theme || {}
-      injectTheme(t.template || 'violet', t.primary || '', t.secondary || '', t.font || 'inter')
+      const th = storeOverride.theme || {}
+      injectTheme(th.template || 'violet', th.primary || '', th.secondary || '', th.font || 'inter')
       return
     }
     publicApi.get(`/store/${slug}/`).then(({ data }) => {
       setStore(data)
-      const t = data.theme || {}
-      injectTheme(t.template || 'violet', t.primary || '', t.secondary || '', t.font || 'inter')
+      const th = data.theme || {}
+      injectTheme(th.template || 'violet', th.primary || '', th.secondary || '', th.font || 'inter')
       loadPixelScripts(slug, data.pixels)
     }).catch(() => {})
     return () => cleanupTheme()
@@ -91,8 +94,8 @@ export default function StorefrontLayout({ children, storeOverride }) {
           <form onSubmit={handleSearch} className="flex-1 max-w-lg min-w-0">
             <div className="relative">
               <input value={search} onChange={e => setSearch(e.target.value)}
-                placeholder="Rechercher un produit…"
-                className="w-full pl-4 pr-10 py-2.5 rounded-xl text-sm outline-none transition-all duration-200"
+                placeholder={t("layout.searchPlaceholder")}
+                className="w-full ps-4 pe-10 py-2.5 rounded-xl text-sm outline-none transition-all duration-200"
                 style={{
                   background: 'color-mix(in srgb, var(--sf-header-text) 8%, transparent)',
                   border: '1px solid transparent',
@@ -101,7 +104,7 @@ export default function StorefrontLayout({ children, storeOverride }) {
                 onFocus={e => { e.target.style.borderColor = 'var(--sf-primary)'; e.target.style.background = 'var(--sf-card-bg)' }}
                 onBlur={e => { e.target.style.borderColor = 'transparent'; e.target.style.background = 'color-mix(in srgb, var(--sf-header-text) 8%, transparent)' }}
               />
-              <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer transition-colors"
+              <button type="submit" className="absolute end-3 top-1/2 -translate-y-1/2 cursor-pointer transition-colors"
                 style={{ color: 'var(--sf-text-muted)' }}
                 onMouseEnter={e => e.currentTarget.style.color = 'var(--sf-primary)'}
                 onMouseLeave={e => e.currentTarget.style.color = 'var(--sf-text-muted)'}>
@@ -123,7 +126,7 @@ export default function StorefrontLayout({ children, storeOverride }) {
                     external: c.type === 'external',
                   })),
                 }))
-              : [{ to: `/store/${slug}`, label: 'Accueil' }, { to: `/store/${slug}/products`, label: 'Produits' }]
+              : [{ to: `/store/${slug}`, label: t('layout.home') }, { to: `/store/${slug}/products`, label: t('layout.products') }]
             ).map(({ to, label, external, children }) => (
               <div key={to} className="relative hidden sm:block group">
                 {external
@@ -142,7 +145,7 @@ export default function StorefrontLayout({ children, storeOverride }) {
                       {label}
                     </Link>}
                 {children?.length > 0 && (
-                  <div className="absolute left-0 top-full pt-1 hidden group-hover:block z-40 min-w-40">
+                  <div className="absolute start-0 top-full pt-1 hidden group-hover:block z-40 min-w-40">
                     <div className="rounded-lg border shadow-lg py-1" style={{ background: 'var(--sf-card-bg)', borderColor: 'var(--sf-header-border)' }}>
                       {children.map(c => (
                         c.external
@@ -156,15 +159,15 @@ export default function StorefrontLayout({ children, storeOverride }) {
                 )}
               </div>
             ))}
-            <Link to={`/store/${slug}/checkout`} aria-label="Panier"
+            <Link to={`/store/${slug}/checkout`} aria-label={t("layout.cart")}
               className="relative flex items-center gap-1.5 px-3 py-2 text-sm font-semibold rounded-xl transition-all duration-150 cursor-pointer"
               style={{ color: 'var(--sf-primary)' }}
               onMouseEnter={e => e.currentTarget.style.background = 'color-mix(in srgb, var(--sf-primary) 10%, transparent)'}
               onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
               <CartIcon className="w-5 h-5" />
-              <span className="hidden sm:inline">Panier</span>
+              <span className="hidden sm:inline">{t("layout.cart")}</span>
               {cartCount > 0 && (
-                <span className="absolute -top-1 -right-1 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center shadow-sm"
+                <span className="absolute -top-1 -end-1 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center shadow-sm"
                   style={{ background: 'var(--sf-primary)' }}>
                   {cartCount > 9 ? '9+' : cartCount}
                 </span>
@@ -176,7 +179,7 @@ export default function StorefrontLayout({ children, storeOverride }) {
 
       {store?.is_paused && (
         <div className="w-full text-center py-2.5 px-4 text-sm font-medium" style={{ background: '#78350f', color: '#fef3c7' }}>
-          Cette boutique est temporairement en pause — les commandes ne sont pas acceptées pour le moment.
+          {t('layout.paused')}
         </div>
       )}
 
@@ -187,17 +190,18 @@ export default function StorefrontLayout({ children, storeOverride }) {
         <div className="max-w-6xl mx-auto px-4 text-center">
           <p className="text-sm" style={{ color: 'var(--sf-text-muted)' }}>
             © {new Date().getFullYear()} <span className="font-semibold" style={{ color: 'var(--sf-text)' }}>{store?.name}</span>.
-            Propulsé par{' '}
+            {t('layout.poweredBy')}{' '}
             <span className="font-semibold" style={{ color: 'var(--sf-primary)' }}>MZSolutions</span>.
           </p>
           <div className="flex items-center justify-center gap-4 mt-2">
+            <LanguageSwitcher variant="light" />
             <Link to={`/store/${slug}/reclamation`} className="text-xs hover:underline"
               style={{ color: 'var(--sf-text-muted)' }}>
-              Déposer une réclamation
+              {t('layout.complaint')}
             </Link>
             <Link to={`/store/${slug}/echange`} className="text-xs hover:underline"
               style={{ color: 'var(--sf-text-muted)' }}>
-              Demander un échange
+              {t('layout.exchange')}
             </Link>
           </div>
         </div>

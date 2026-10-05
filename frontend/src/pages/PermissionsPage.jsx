@@ -4,6 +4,9 @@ import Select from '../components/Select'
 import Toast from '../components/Toast'
 import api from '../api/axios'
 import { theme } from '../theme'
+import { useTranslation } from 'react-i18next'
+import { sfx } from '../i18n'
+import { tt } from '../i18n'
 
 const ROLE_LABELS = {
   admin: 'Admin',
@@ -12,13 +15,14 @@ const ROLE_LABELS = {
 }
 
 function Spinner() {
+  const { t } = useTranslation('dashboard')
   return (
     <div className="flex flex-col items-center justify-center gap-2 py-12 text-app-muted">
       <svg className="animate-spin" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
         <circle cx="12" cy="12" r="9" opacity="0.25" />
         <path d="M21 12a9 9 0 0 0-9-9" strokeLinecap="round" />
       </svg>
-      <span className="text-xs">Chargement…</span>
+      <span className="text-xs">{t('Chargement…')}</span>
     </div>
   )
 }
@@ -30,8 +34,8 @@ function groupByCategory(catalog) {
   const groups = []
   const catIndex = new Map()
   for (const perm of catalog) {
-    const cat = perm.category || 'Autres'
-    const sub = perm.subcategory || 'Autres'
+    const cat = perm.category || tt('Autres')
+    const sub = perm.subcategory || tt('Autres')
     if (!catIndex.has(cat)) {
       catIndex.set(cat, { name: cat, subIndex: new Map(), subcategories: [] })
       groups.push(catIndex.get(cat))
@@ -54,12 +58,13 @@ function ToggleSwitch({ enabled, busy, onClick, title }) {
       title={title}
       className={`w-9 h-5 rounded-full transition-colors duration-150 relative cursor-pointer disabled:opacity-60 shrink-0 ${enabled ? 'bg-violet-600' : 'bg-violet-500/15'}`}
     >
-      <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-150 ${enabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+      <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-150 ${enabled ? 'translate-x-4 rtl:-translate-x-4' : 'translate-x-0.5 rtl:-translate-x-0.5'}`} />
     </button>
   )
 }
 
 function CategoryAccordion({ groups, renderRow, renderCategoryActions }) {
+  const { t } = useTranslation('dashboard')
   const [openCats, setOpenCats] = useState(() => new Set())
   const toggleCat = name => setOpenCats(s => {
     const next = new Set(s)
@@ -81,11 +86,11 @@ function CategoryAccordion({ groups, renderRow, renderCategoryActions }) {
             >
               <button
                 onClick={() => toggleCat(group.name)}
-                className="flex-1 flex items-center justify-between text-left cursor-pointer transition min-w-0"
+                className="flex-1 flex items-center justify-between text-start cursor-pointer transition min-w-0"
               >
                 <span className="text-sm font-semibold text-app-primary">{group.name}</span>
-                <span className="flex items-center gap-2 ml-3">
-                  <span className="text-xs" style={{ color: theme.dark.muted }}>{total} permission{total > 1 ? 's' : ''}</span>
+                <span className="flex items-center gap-2 ms-3">
+                  <span className="text-xs" style={{ color: theme.dark.muted }}>{t('{{total}} permission', { total })}{total > 1 ? sfx('s') : ''}</span>
                   <svg className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
@@ -115,6 +120,7 @@ function CategoryAccordion({ groups, renderRow, renderCategoryActions }) {
 }
 
 function RoleMatrix() {
+  const { t } = useTranslation('dashboard')
   const [data, setData]     = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving]   = useState(null) // "role:permission" en cours
@@ -138,7 +144,7 @@ function RoleMatrix() {
       await api.post('/team/permissions/', { role, permission, enabled: !current })
     } catch (err) {
       setData(d => ({ ...d, matrix: { ...d.matrix, [role]: { ...d.matrix[role], [permission]: current } } }))
-      setToast({ type: 'error', message: err.response?.data?.detail || 'Erreur lors de la mise à jour.' })
+      setToast({ type: 'error', message: err.response?.data?.detail || t('Erreur lors de la mise à jour.') })
     } finally {
       setSaving(null)
     }
@@ -152,7 +158,7 @@ function RoleMatrix() {
       fetchData()
     } catch (err) {
       fetchData()
-      setToast({ type: 'error', message: err.response?.data?.detail || 'Erreur lors de la mise à jour groupée.' })
+      setToast({ type: 'error', message: err.response?.data?.detail || t('Erreur lors de la mise à jour groupée.') })
     } finally {
       setSaving(null)
     }
@@ -178,9 +184,9 @@ function RoleMatrix() {
                 onClick={() => toggleAll(role, allKeys, !allOn)}
                 className="text-[11px] px-2 py-1 rounded-md border transition disabled:opacity-50 cursor-pointer hover:bg-violet-500/10"
                 style={{ borderColor: theme.dark.border, color: theme.dark.muted }}
-                title={`${allOn ? 'Tout désactiver' : 'Tout activer'} — ${ROLE_LABELS[role] || role}`}
+                title={`${allOn ? t('Tout désactiver') : t('Tout activer')} — ${ROLE_LABELS[role] || role}`}
               >
-                {ROLE_LABELS[role] || role} : {allOn ? 'tout désactiver' : 'tout activer'}
+                {ROLE_LABELS[role] || role} : {allOn ? t('tout désactiver') : 'tout activer'}
               </button>
             )
           })}
@@ -200,7 +206,7 @@ function RoleMatrix() {
                     enabled={enabled}
                     busy={busy}
                     onClick={() => toggle(role, key, enabled)}
-                    title={enabled ? 'Activé — cliquer pour désactiver' : 'Désactivé — cliquer pour activer'}
+                    title={enabled ? t('Activé — cliquer pour désactiver') : t('Désactivé — cliquer pour activer')}
                   />
                 </div>
               )
@@ -215,6 +221,7 @@ function RoleMatrix() {
 }
 
 function MemberMatrix({ memberId }) {
+  const { t } = useTranslation('dashboard')
   const [catalog, setCatalog] = useState([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving]   = useState(null)
@@ -238,7 +245,7 @@ function MemberMatrix({ memberId }) {
       fetchCatalog()
     } catch (err) {
       setCatalog(c => c.map(e => e.key === key ? { ...e, enabled: current } : e))
-      setToast({ type: 'error', message: err.response?.data?.detail || 'Erreur lors de la mise à jour.' })
+      setToast({ type: 'error', message: err.response?.data?.detail || t('Erreur lors de la mise à jour.') })
     } finally {
       setSaving(null)
     }
@@ -252,7 +259,7 @@ function MemberMatrix({ memberId }) {
       fetchCatalog()
     } catch (err) {
       fetchCatalog()
-      setToast({ type: 'error', message: err.response?.data?.detail || 'Erreur lors de la mise à jour groupée.' })
+      setToast({ type: 'error', message: err.response?.data?.detail || t('Erreur lors de la mise à jour groupée.') })
     } finally {
       setSaving(null)
     }
@@ -276,7 +283,7 @@ function MemberMatrix({ memberId }) {
             className="text-[11px] px-2 py-1 rounded-md border transition disabled:opacity-50 cursor-pointer hover:bg-violet-500/10"
             style={{ borderColor: theme.dark.border, color: theme.dark.muted }}
           >
-            {allOn ? 'Tout désactiver' : 'Tout activer'}
+            {allOn ? t('Tout désactiver') : t('Tout activer')}
           </button>
         )
       }}
@@ -287,16 +294,14 @@ function MemberMatrix({ memberId }) {
             <span className="text-sm text-app-primary flex items-center gap-2">
               {label}
               {is_custom && (
-                <span className="text-xs px-1.5 py-0.5 rounded-full bg-violet-600/20 text-violet-300">
-                  Personnalisé
-                </span>
+                <span className="text-xs px-1.5 py-0.5 rounded-full bg-violet-600/20 text-violet-300">{t('Personnalisé')}</span>
               )}
             </span>
             <ToggleSwitch
               enabled={enabled}
               busy={busy}
               onClick={() => toggle(key, enabled)}
-              title={enabled ? 'Activé — cliquer pour désactiver' : 'Désactivé — cliquer pour activer'}
+              title={enabled ? t('Activé — cliquer pour désactiver') : t('Désactivé — cliquer pour activer')}
             />
           </div>
         )
@@ -308,6 +313,7 @@ function MemberMatrix({ memberId }) {
 }
 
 export default function PermissionsPage() {
+  const { t } = useTranslation('dashboard')
   const [target, setTarget]   = useState('role') // 'role' ou l'id d'un membre
   const [members, setMembers] = useState([])
 
@@ -316,7 +322,7 @@ export default function PermissionsPage() {
   }, [])
 
   const options = [
-    { value: 'role', label: 'Tous les rôles (matrice)' },
+    { value: 'role', label: t('Tous les rôles (matrice)') },
     ...members.map(m => ({
       value: String(m.id),
       label: `${m.first_name} ${m.last_name} (${ROLE_LABELS[m.role] || m.role})`,
@@ -324,10 +330,8 @@ export default function PermissionsPage() {
   ]
 
   return (
-    <DashboardLayout title="Permissions" subtitle="Cette page vous permet de décider ce que chaque type de membre de votre équipe (administrateur, confirmateur, dropshipper) a le droit de voir dans le tableau de bord. Par exemple, vous pouvez cacher la section Finances à vos confirmateurs. Attention : ce réglage contrôle uniquement ce qu'un rôle peut consulter — les actions comme créer, modifier ou supprimer restent toujours réservées aux administrateurs, quoi que vous cochiez ici.">
-      <p className="text-sm mb-4" style={{ color: theme.dark.muted }}>
-        Personnalise ce que chaque rôle peut voir dans le tableau de bord, ou affine les permissions d'une personne précise au-dessus de son rôle. Les actions de création/modification/suppression restent toujours réservées au propriétaire et aux administrateurs, quel que soit ce réglage.
-      </p>
+    <DashboardLayout title={t('Permissions')} subtitle={t('Cette page vous permet de décider ce que chaque type de membre de votre équipe (administrateur, confirmateur, dropshipper) a le droit de voir dans le tableau de bord. Par exemple, vous pouvez cacher la section Finances à vos confirmateurs. Attention : ce réglage contrôle uniquement ce qu\'un rôle peut consulter — les actions comme créer, modifier ou supprimer restent toujours réservées aux administrateurs, quoi que vous cochiez ici.')}>
+      <p className="text-sm mb-4" style={{ color: theme.dark.muted }}>{t('Personnalise ce que chaque rôle peut voir dans le tableau de bord, ou affine les permissions d\'une personne précise au-dessus de son rôle. Les actions de création/modification/suppression restent toujours réservées au propriétaire et aux administrateurs, quel que soit ce réglage.')}</p>
 
       <div className="mb-5 max-w-sm">
         <Select

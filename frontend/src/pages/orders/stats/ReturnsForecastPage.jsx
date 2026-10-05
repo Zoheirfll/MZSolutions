@@ -4,8 +4,11 @@ import DashboardLayout from '../../../components/DashboardLayout'
 import api from '../../../api/axios'
 import { theme } from '../../../theme'
 import { Spinner } from './statsShared'
+import { useTranslation } from 'react-i18next'
+import { tt } from '../../../i18n'
 
 export default function ReturnsForecastPage() {
+  const { t } = useTranslation('dashboard')
   const [horizon, setHorizon] = useState(7)
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -18,7 +21,7 @@ export default function ReturnsForecastPage() {
       .then(({ data }) => setData(data))
       .catch(e => {
         setData(null)
-        setError(e?.response?.data?.detail || 'Impossible de calculer la prévision.')
+        setError(e?.response?.data?.detail || t('Impossible de calculer la prévision.'))
       })
       .finally(() => setLoading(false))
   }, [horizon])
@@ -26,14 +29,12 @@ export default function ReturnsForecastPage() {
   useEffect(() => { fetchData() }, [fetchData])
 
   return (
-    <DashboardLayout title="Prévision de taux de retour" subtitle="Estimation statistique du taux de retour sur les prochains jours, basée sur votre historique. Ajustez l'horizon avec le curseur.">
-      <div className="rounded-xl border p-4 mb-5 text-sm text-app-muted-light" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-        Estimation statistique basée sur votre historique — pas une garantie. Un retour prend du temps à se matérialiser : au moins 30 jours d'historique sont nécessaires pour une estimation fiable.
-      </div>
+    <DashboardLayout title={t('Prévision de taux de retour')} subtitle={t('Estimation statistique du taux de retour sur les prochains jours, basée sur votre historique. Ajustez l\'horizon avec le curseur.')}>
+      <div className="rounded-xl border p-4 mb-5 text-sm text-app-muted-light" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>{t('Estimation statistique basée sur votre historique — pas une garantie. Un retour prend du temps à se matérialiser : au moins 30 jours d\'historique sont nécessaires pour une estimation fiable.')}</div>
 
       <div className="rounded-xl border p-5 mb-6" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
         <div className="flex items-center justify-between mb-2">
-          <label className="text-sm text-app-primary font-medium">Horizon : {horizon} jours</label>
+          <label className="text-sm text-app-primary font-medium">{t('Horizon : {{horizon}} jours', { horizon })}</label>
         </div>
         <input type="range" min={7} max={60} value={horizon} role="slider"
           onChange={e => setHorizon(Number(e.target.value))}
@@ -53,7 +54,7 @@ export default function ReturnsForecastPage() {
                 <Tooltip />
                 <Legend />
                 <Area type="monotone" dataKey="rate_high" stroke="none" fill="#7c3aed" fillOpacity={0.08} name="Taux (haut)" />
-                <Area type="monotone" dataKey="predicted_rate" stroke="#7c3aed" fill="#7c3aed" fillOpacity={0.2} name="Taux de retour prévu" />
+                <Area type="monotone" dataKey="predicted_rate" stroke="#7c3aed" fill="#7c3aed" fillOpacity={0.2} name={tt('Taux de retour prévu')} />
                 <Area type="monotone" dataKey="rate_low" stroke="none" fill="transparent" name="Taux (bas)" />
               </AreaChart>
             </ResponsiveContainer>
@@ -62,18 +63,18 @@ export default function ReturnsForecastPage() {
           <div className="rounded-xl border overflow-hidden" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
             <table className="w-full text-sm">
               <thead style={{ background: theme.dark.sidebar }}>
-                <tr className="text-left text-xs" style={{ color: theme.dark.muted }}>
-                  <th className="px-4 py-3 font-medium">DATE</th>
-                  <th className="px-4 py-3 font-medium text-right">TAUX DE RETOUR PRÉVU</th>
-                  <th className="px-4 py-3 font-medium text-right">FOURCHETTE</th>
+                <tr className="text-start text-xs" style={{ color: theme.dark.muted }}>
+                  <th className="px-4 py-3 font-medium">{t('DATE')}</th>
+                  <th className="px-4 py-3 font-medium text-end">{t('TAUX DE RETOUR PRÉVU')}</th>
+                  <th className="px-4 py-3 font-medium text-end">{t('FOURCHETTE')}</th>
                 </tr>
               </thead>
               <tbody>
                 {data.points.map(p => (
                   <tr key={p.date} className="border-b last:border-0" style={{ borderColor: theme.dark.borderRowHover }}>
                     <td className="px-4 py-3 text-app-primary">{p.date}</td>
-                    <td className="px-4 py-3 text-right text-app-primary font-medium">{p.predicted_rate}%</td>
-                    <td className="px-4 py-3 text-right text-app-muted-light">{p.rate_low}% – {p.rate_high}%</td>
+                    <td className="px-4 py-3 text-end text-app-primary font-medium">{p.predicted_rate}%</td>
+                    <td className="px-4 py-3 text-end text-app-muted-light">{p.rate_low}% – {p.rate_high}%</td>
                   </tr>
                 ))}
               </tbody>

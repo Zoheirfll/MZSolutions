@@ -6,12 +6,14 @@ import ConfirmDialog from '../../components/ConfirmDialog'
 import { theme } from '../../theme'
 import { renderMarkdown } from '../../lib/markdown'
 import { listConversations, getConversation, sendChatMessage, deleteConversation, confirmPendingAction, rejectPendingAction } from '../../api/aiApi'
+import { tt } from '../../i18n'
+import { useTranslation } from 'react-i18next'
 
 const SUGGESTIONS = [
-  'Quel est mon stock bas ?',
-  'Combien de commandes ce mois-ci ?',
-  'Quels clients sont à risque ?',
-  'Quelle est ma rentabilité récente ?',
+  tt('Quel est mon stock bas ?'),
+  tt('Combien de commandes ce mois-ci ?'),
+  tt('Quels clients sont à risque ?'),
+  tt('Quelle est ma rentabilité récente ?'),
 ]
 
 function TypingDots() {
@@ -49,23 +51,23 @@ function MessageBubble({ role, content }) {
 }
 
 function CapabilitiesBanner() {
+  const { t } = useTranslation('dashboard')
   return (
     <div className="border-b border-app px-4 py-3 bg-app-card-alt/40 text-xs text-app-muted-light space-y-1.5">
-      <p><span className="font-medium text-app-primary">🔍 Me poser des questions</span> — commandes, stock, clients à risque, rentabilité, équipe, retours, recommandations produit, ou « à quoi sert cette page ? »...</p>
+      <p><span className="font-medium text-app-primary">{t('🔍 Me poser des questions')}</span>{' '}{t('— commandes, stock, clients à risque, rentabilité, équipe, retours, recommandations produit, ou « à quoi sert cette page ? »...')}</p>
       <p>
-        <span className="font-medium text-app-primary">✏️ Me demander d'agir</span> — produits (prix/stock/statut, un ou plusieurs à la fois, création), statut d'une commande précise, équipe (activer/désactiver un membre), transporteur par défaut, tarifs de livraison par wilaya, clients (risque manuel, liste noire), réglages boutique (seuils, frais d'assurance). <span className="text-app-muted">Je vous montre toujours l'avant/après et j'attends votre confirmation avant d'écrire quoi que ce soit.</span>
+        <span className="font-medium text-app-primary">{t('✏️ Me demander d\'agir')}</span>{' '}{t('— produits (prix/stock/statut, un ou plusieurs à la fois, création), statut d\'une commande précise, équipe (activer/désactiver un membre), transporteur par défaut, tarifs de livraison par wilaya, clients (risque manuel, liste noire), réglages boutique (seuils, frais d\'assurance).')}{' '}<span className="text-app-muted">{t('Je vous montre toujours l\'avant/après et j\'attends votre confirmation avant d\'écrire quoi que ce soit.')}</span>
       </p>
       <p>
-        <span className="font-medium text-app-primary">📷 Scanner un produit</span> — pour créer une fiche depuis une photo ou une facture fournisseur, direction{' '}
-        <Link to="/dashboard/produits/scanner" className="inline-flex items-center gap-1 text-violet-400 hover:text-violet-300 underline">
-          <ScanLine size={12} /> Scanner un produit
-        </Link>.
+        <span className="font-medium text-app-primary">{t('📷 Scanner un produit')}</span>{' '}{t('— pour créer une fiche depuis une photo ou une facture fournisseur, direction')}<Link to="/dashboard/produits/scanner" className="inline-flex items-center gap-1 text-violet-400 hover:text-violet-300 underline">
+          <ScanLine size={12} />{' '}{t('Scanner un produit')}</Link>.
       </p>
     </div>
   )
 }
 
 function PendingActionCard({ action, onResolved }) {
+  const { t } = useTranslation('dashboard')
   const [busy, setBusy] = useState(false)
   const [resolvedStatus, setResolvedStatus] = useState(action.status === 'pending' ? null : action.status)
 
@@ -94,18 +96,14 @@ function PendingActionCard({ action, onResolved }) {
             ))}
           </ul>
         )}
-        {resolvedStatus === 'confirmed' && <p className="text-xs font-medium text-emerald-500">Confirmé</p>}
-        {resolvedStatus === 'rejected' && <p className="text-xs font-medium text-app-muted">Rejeté</p>}
+        {resolvedStatus === 'confirmed' && <p className="text-xs font-medium text-emerald-500">{t('Confirmé')}</p>}
+        {resolvedStatus === 'rejected' && <p className="text-xs font-medium text-app-muted">{t('Rejeté')}</p>}
         {!resolvedStatus && (
           <div className="flex gap-2">
             <button type="button" disabled={busy} onClick={() => handle(confirmPendingAction, 'confirmed')}
-              className={theme.btn.primary + ' text-xs px-3 py-1.5 disabled:opacity-40'}>
-              Confirmer
-            </button>
+              className={theme.btn.primary + ' text-xs px-3 py-1.5 disabled:opacity-40'}>{t('Confirmer')}</button>
             <button type="button" disabled={busy} onClick={() => handle(rejectPendingAction, 'rejected')}
-              className="text-xs px-3 py-1.5 rounded-lg border border-app text-app-muted-light hover:text-app-primary transition disabled:opacity-40">
-              Rejeter
-            </button>
+              className="text-xs px-3 py-1.5 rounded-lg border border-app text-app-muted-light hover:text-app-primary transition disabled:opacity-40">{t('Rejeter')}</button>
           </div>
         )}
       </div>
@@ -114,6 +112,7 @@ function PendingActionCard({ action, onResolved }) {
 }
 
 export default function AIAssistantPage() {
+  const { t } = useTranslation('dashboard')
   const [conversations, setConversations] = useState([])
   const [activeId, setActiveId] = useState(null)
   const [messages, setMessages] = useState([])
@@ -161,7 +160,7 @@ export default function AIAssistantPage() {
       setMessages(m => [...m, { role: 'assistant', content: data.reply, pending_action: data.pending_action || null }])
       refreshConversations()
     } catch (e) {
-      setError(e?.response?.data?.detail || 'Assistant IA indisponible')
+      setError(e?.response?.data?.detail || t('Assistant IA indisponible'))
     } finally {
       setSending(false)
     }
@@ -179,7 +178,7 @@ export default function AIAssistantPage() {
   const handleDelete = (e, id) => {
     e.stopPropagation()
     setConfirmDelete({
-      message: 'Supprimer cette conversation ?',
+      message: t('Supprimer cette conversation ?'),
       onConfirm: async () => {
         setConfirmDelete(null)
         try {
@@ -195,42 +194,41 @@ export default function AIAssistantPage() {
 
   const visibleMessages = messages.filter(m => m.role !== 'tool')
   const filteredConversations = conversations.filter(c =>
-    (c.title || `Conversation #${c.id}`).toLowerCase().includes(conversationSearch.trim().toLowerCase())
+    (c.title || t('Conversation #{{id}}', { id: c.id })).toLowerCase().includes(conversationSearch.trim().toLowerCase())
   )
 
   return (
-    <DashboardLayout title="Assistant IA" subtitle="Posez une question sur votre boutique — commandes, stock, clients à risque, rentabilité.">
+    <DashboardLayout title={t('Assistant IA')} subtitle={t('Posez une question sur votre boutique — commandes, stock, clients à risque, rentabilité.')}>
       <div className="flex gap-4 h-[75vh]">
         {/* Conversations */}
         <div className="w-64 shrink-0 flex flex-col rounded-xl border border-app bg-app-card overflow-hidden">
           <div className="p-2 border-b border-app">
             <button type="button" onClick={newConversation}
               className={theme.btn.primary + ' w-full text-sm flex items-center justify-center gap-1.5'}>
-              <Plus size={15} /> Nouvelle conversation
-            </button>
+              <Plus size={15} />{' '}{t('Nouvelle conversation')}</button>
           </div>
           <div className="px-2 pb-2 border-b border-app">
             <input
               value={conversationSearch} onChange={e => setConversationSearch(e.target.value)}
-              placeholder="Rechercher une conversation…"
+              placeholder={t('Rechercher une conversation…')}
               className="w-full px-2.5 py-1.5 rounded-lg text-xs text-app-primary bg-app-card-alt outline-none focus:ring-1 focus:ring-violet-500 transition"
             />
           </div>
           <div className="flex-1 overflow-y-auto">
             {filteredConversations.length === 0 && (
-              <p className="text-xs text-app-muted px-3 py-4 text-center">Aucune conversation pour l'instant.</p>
+              <p className="text-xs text-app-muted px-3 py-4 text-center">{t('Aucune conversation pour l\'instant.')}</p>
             )}
             {filteredConversations.map(c => (
               <div key={c.id} className="group relative">
                 <button type="button" onClick={() => setActiveId(c.id)}
-                  className={`w-full text-left pl-3 pr-8 py-2.5 text-sm truncate flex items-center gap-2 border-l-2 transition ${
+                  className={`w-full text-start ps-3 pe-8 py-2.5 text-sm truncate flex items-center gap-2 border-s-2 transition ${
                     activeId === c.id ? 'bg-app-card-alt border-violet-600 text-app-primary' : 'border-transparent text-app-muted-light hover:bg-app-card-alt'
                   }`}>
                   <MessageSquare size={13} className="shrink-0" />
-                  <span className="truncate">{c.title || `Conversation #${c.id}`}</span>
+                  <span className="truncate">{c.title || t('Conversation #{{id}}', { id: c.id })}</span>
                 </button>
-                <button type="button" onClick={e => handleDelete(e, c.id)} aria-label="Supprimer la conversation"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 text-app-muted hover:text-red-400 transition p-1">
+                <button type="button" onClick={e => handleDelete(e, c.id)} aria-label={t('Supprimer la conversation')}
+                  className="absolute end-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 text-app-muted hover:text-red-400 transition p-1">
                   <Trash2 size={13} />
                 </button>
               </div>
@@ -247,8 +245,8 @@ export default function AIAssistantPage() {
                 <div className="w-12 h-12 rounded-full bg-violet-600/15 text-violet-500 flex items-center justify-center mb-3">
                   <Sparkles size={22} />
                 </div>
-                <p className="text-sm font-medium text-app-primary mb-1">Comment puis-je vous aider ?</p>
-                <p className="text-xs text-app-muted mb-4">Posez une question sur vos données, ou essayez l'une de ces suggestions.</p>
+                <p className="text-sm font-medium text-app-primary mb-1">{t('Comment puis-je vous aider ?')}</p>
+                <p className="text-xs text-app-muted mb-4">{t('Posez une question sur vos données, ou essayez l\'une de ces suggestions.')}</p>
                 <div className="flex flex-wrap gap-2 justify-center max-w-md">
                   {SUGGESTIONS.map(s => (
                     <button key={s} type="button" onClick={() => handleSend(s)}
@@ -276,11 +274,11 @@ export default function AIAssistantPage() {
           <div className="flex gap-2 p-3 border-t border-app items-end">
             <textarea ref={textareaRef} value={input} onChange={e => setInput(e.target.value)}
               onKeyDown={handleKeyDown} rows={1}
-              placeholder="Posez une question sur votre boutique… (Entrée pour envoyer, Maj+Entrée pour une nouvelle ligne)"
+              placeholder={t('Posez une question sur votre boutique… (Entrée pour envoyer, Maj+Entrée pour une nouvelle ligne)')}
               className="flex-1 rounded-lg border border-app bg-transparent px-3 py-2.5 text-sm text-app-primary outline-none focus:border-violet-500 resize-none max-h-40 transition" />
             <button type="button" onClick={() => handleSend()} disabled={sending || !input.trim()}
               className={theme.btn.primary + ' text-sm px-3 py-2.5 disabled:opacity-40 shrink-0'}
-              aria-label="Envoyer">
+              aria-label={t('Envoyer')}>
               <Send size={16} />
             </button>
           </div>

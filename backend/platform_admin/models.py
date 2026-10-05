@@ -124,3 +124,7 @@ class PlatformOrderAssignment(models.Model):
 
     def __str__(self):
         return f"Commande #{self.order_id} → {self.confirmateur}"
+
+
+from .system_models import ErrorEvent, PlatformSettings  # noqa: E402,F401  (enregistrés pour Django)
+from .communication_models import PlatformAnnouncement, ContactMessage  # noqa: E402,F401

@@ -4,8 +4,10 @@ import DashboardLayout from '../../../components/DashboardLayout'
 import api from '../../../api/axios'
 import { theme } from '../../../theme'
 import { usePeriod, PeriodFilter, Spinner, money, StatsToolbar, TrendBadge, StatsPagination, downloadCsv } from './statsShared'
+import { useTranslation } from 'react-i18next'
 
 export default function WilayaStatsPage() {
+  const { t } = useTranslation('dashboard')
   const navigate = useNavigate()
   const { period, setPeriod, dateFrom, setDateFrom, dateTo, setDateTo, queryString, resolvedRange, ready } = usePeriod()
   const [data, setData]       = useState({ results: [], count: 0 })
@@ -41,7 +43,7 @@ export default function WilayaStatsPage() {
   const results = data.results || []
 
   return (
-    <DashboardLayout title="Statistiques par wilaya" subtitle="Cette page classe vos ventes par wilaya de livraison : combien de commandes viennent de chaque wilaya, leur taux de confirmation et le revenu généré. Cela vous aide à repérer vos zones géographiques les plus rentables, ou celles où le taux de confirmation est faible (peut-être à cause de délais de livraison trop longs).">
+    <DashboardLayout title={t('Statistiques par wilaya')} subtitle={t('Cette page classe vos ventes par wilaya de livraison : combien de commandes viennent de chaque wilaya, leur taux de confirmation et le revenu généré. Cela vous aide à repérer vos zones géographiques les plus rentables, ou celles où le taux de confirmation est faible (peut-être à cause de délais de livraison trop longs).')}>
       <div className="flex items-center justify-between gap-3 mb-6 flex-wrap">
         <PeriodFilter period={period} setPeriod={setPeriod} dateFrom={dateFrom} setDateFrom={setDateFrom} dateTo={dateTo} setDateTo={setDateTo} />
         <StatsToolbar onRefresh={fetchData} onExport={handleExport} exporting={exporting} exportDisabled={results.length === 0} />
@@ -51,17 +53,17 @@ export default function WilayaStatsPage() {
           <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border }}>
             <table className="w-full text-sm min-w-140">
               <thead style={{ background: theme.dark.sidebar }}>
-                <tr className="text-left text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
-                  <th className="px-4 py-3 font-medium">WILAYA</th>
-                  <th className="px-4 py-3 font-medium">COMMANDES</th>
-                  <th className="px-4 py-3 font-medium">CONFIRMÉES</th>
-                  <th className="px-4 py-3 font-medium">REVENU</th>
-                  <th className="px-4 py-3 font-medium">MEILLEUR PRODUIT</th>
+                <tr className="text-start text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
+                  <th className="px-4 py-3 font-medium">{t('WILAYA')}</th>
+                  <th className="px-4 py-3 font-medium">{t('COMMANDES')}</th>
+                  <th className="px-4 py-3 font-medium">{t('CONFIRMÉES')}</th>
+                  <th className="px-4 py-3 font-medium">{t('REVENU')}</th>
+                  <th className="px-4 py-3 font-medium">{t('MEILLEUR PRODUIT')}</th>
                 </tr>
               </thead>
               <tbody>
                 {results.length === 0 ? (
-                  <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-app-muted">Aucune commande sur cette période.</td></tr>
+                  <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-app-muted">{t('Aucune commande sur cette période.')}</td></tr>
                 ) : results.map(r => (
                   <tr key={r.wilaya} onClick={() => goToWilayaOrders(r.wilaya)}
                     className="border-b hover:bg-violet-500/5 transition cursor-pointer" style={{ borderColor: theme.dark.borderRowHover }}>

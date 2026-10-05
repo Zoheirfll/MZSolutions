@@ -6,12 +6,14 @@ import api from '../api/axios'
 import { theme } from '../theme'
 import { WILAYAS } from '../data/wilayas'
 import { useAuth } from '../context/AuthContext'
+import { tt } from '../i18n'
+import { useTranslation } from 'react-i18next'
 
 const TABS = [
-  { key: 'admin',        label: 'Administrateurs' },
-  { key: 'confirmateur', label: 'Confirmateurs' },
-  { key: 'dropshipper',  label: 'Dropshippers' },
-  { key: 'inactifs',     label: 'Membres désactivés' },
+  { key: 'admin',        label: tt('Administrateurs') },
+  { key: 'confirmateur', label: tt('Confirmateurs') },
+  { key: 'dropshipper',  label: tt('Dropshippers') },
+  { key: 'inactifs',     label: tt('Membres désactivés') },
 ]
 
 const ROLE_LABELS = { admin: 'Admin', confirmateur: 'Confirmateur', dropshipper: 'Dropshipper' }
@@ -22,6 +24,7 @@ const EMPTY_FORM = {
 }
 
 function Modal({ role, onClose, onSaved }) {
+  const { t: tr } = useTranslation('dashboard')
   const [form, setForm]     = useState({ ...EMPTY_FORM, role })
   const [loading, setLoading] = useState(false)
   const [error, setError]   = useState('')
@@ -57,7 +60,7 @@ function Modal({ role, onClose, onSaved }) {
       onSaved()
     } catch (err) {
       const data = err.response?.data
-      setError(data?.email?.[0] || data?.detail || 'Une erreur est survenue.')
+      setError(data?.email?.[0] || data?.detail || tr('Une erreur est survenue.'))
     } finally {
       setLoading(false)
     }
@@ -71,7 +74,7 @@ function Modal({ role, onClose, onSaved }) {
       <div className="w-full max-w-lg rounded-xl border p-6 max-h-[90vh] overflow-y-auto" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
         <div className="flex items-center justify-between mb-5">
           <h3 className="text-base font-semibold text-app-primary">
-            Inviter un {ROLE_LABELS[role]}
+            {tr('Inviter un {{role}}', { role: ROLE_LABELS[role] })}
           </h3>
           <button onClick={onClose} className="text-app-muted hover:text-app-primary transition">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -83,33 +86,33 @@ function Modal({ role, onClose, onSaved }) {
         <form onSubmit={submit} className="space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs text-app-muted mb-1">Prénom *</label>
-              <input name="first_name" value={form.first_name} onChange={change} required className={inputCls} style={bdrStyle} placeholder="Prénom" />
+              <label className="block text-xs text-app-muted mb-1">{tr('Prénom *')}</label>
+              <input name="first_name" value={form.first_name} onChange={change} required className={inputCls} style={bdrStyle} placeholder={tr('Prénom')} />
             </div>
             <div>
-              <label className="block text-xs text-app-muted mb-1">Nom *</label>
-              <input name="last_name" value={form.last_name} onChange={change} required className={inputCls} style={bdrStyle} placeholder="Nom" />
+              <label className="block text-xs text-app-muted mb-1">{tr('Nom *')}</label>
+              <input name="last_name" value={form.last_name} onChange={change} required className={inputCls} style={bdrStyle} placeholder={tr('Nom')} />
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs text-app-muted mb-1">Email *</label>
-              <input type="email" name="email" value={form.email} onChange={change} required className={inputCls} style={bdrStyle} placeholder="Email" />
+              <label className="block text-xs text-app-muted mb-1">{tr('Email *')}</label>
+              <input type="email" name="email" value={form.email} onChange={change} required className={inputCls} style={bdrStyle} placeholder={tr('Email')} />
             </div>
             <div>
-              <label className="block text-xs text-app-muted mb-1">Téléphone</label>
+              <label className="block text-xs text-app-muted mb-1">{tr('Téléphone')}</label>
               <input name="phone" value={form.phone} onChange={change} className={inputCls} style={bdrStyle} placeholder="+213 …" />
             </div>
           </div>
 
           {role === 'admin' && (
             <div>
-              <label className="block text-xs text-app-muted mb-1">Rôle</label>
+              <label className="block text-xs text-app-muted mb-1">{tr('Rôle')}</label>
               <Select
                 value={form.role}
                 onChange={v => setForm(f => ({ ...f, role: v }))}
-                options={[{ value: 'admin', label: 'Admin' }, { value: 'confirmateur', label: 'Confirmateur' }]}
+                options={[{ value: 'admin', label: tr('Admin') }, { value: 'confirmateur', label: tr('Confirmateur') }]}
                 className={inputCls}
               />
             </div>
@@ -119,30 +122,30 @@ function Modal({ role, onClose, onSaved }) {
             <>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-app-muted mb-1">Wilaya</label>
+                  <label className="block text-xs text-app-muted mb-1">{tr('Wilaya')}</label>
                   <Select
                     value={form.wilaya}
                     onChange={v => setForm(f => ({ ...f, wilaya: v }))}
                     options={WILAYAS.map(w => ({ value: w.name, label: `${w.id} — ${w.name}` }))}
-                    placeholder="Choisissez une Wilaya"
+                    placeholder={tr('Choisissez une Wilaya')}
                     className={inputCls}
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-app-muted mb-1">Commune</label>
-                  <input name="commune" value={form.commune} onChange={change} className={inputCls} style={bdrStyle} placeholder="Commune" />
+                  <label className="block text-xs text-app-muted mb-1">{tr('Commune')}</label>
+                  <input name="commune" value={form.commune} onChange={change} className={inputCls} style={bdrStyle} placeholder={tr('Commune')} />
                 </div>
               </div>
               <div>
-                <label className="block text-xs text-app-muted mb-1">Adresse</label>
-                <input name="address" value={form.address} onChange={change} className={inputCls} style={bdrStyle} placeholder="Adresse complète" />
+                <label className="block text-xs text-app-muted mb-1">{tr('Adresse')}</label>
+                <input name="address" value={form.address} onChange={change} className={inputCls} style={bdrStyle} placeholder={tr('Adresse complète')} />
               </div>
             </>
           )}
 
           {catalog.length > 0 && (
             <div>
-              <label className="block text-xs text-app-muted mb-2">Permissions</label>
+              <label className="block text-xs text-app-muted mb-2">{tr('Permissions')}</label>
               <div className="max-h-48 overflow-y-auto rounded-lg border divide-y" style={{ borderColor: theme.dark.border }}>
                 {catalog.map(({ key, label }) => (
                   <label key={key} className="flex items-center gap-2.5 px-3 py-2 text-sm text-app-primary cursor-pointer hover:bg-violet-500/5 transition">
@@ -162,11 +165,9 @@ function Modal({ role, onClose, onSaved }) {
           {error && <p className="text-red-400 text-xs">{error}</p>}
 
           <div className="pt-2 flex justify-end gap-3">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-app-muted hover:text-app-primary transition">
-              Annuler
-            </button>
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-app-muted hover:text-app-primary transition">{tr('Annuler')}</button>
             <button type="submit" disabled={loading} className="px-5 py-2 rounded-lg text-sm font-semibold text-white bg-violet-600 hover:bg-violet-500 transition disabled:opacity-60">
-              {loading ? 'Envoi…' : 'Envoyer l\'invitation'}
+              {loading ? tr('Envoi…') : tr('Envoyer l\'invitation')}
             </button>
           </div>
         </form>
@@ -176,6 +177,7 @@ function Modal({ role, onClose, onSaved }) {
 }
 
 function MemberPermissionsModal({ member, onClose }) {
+  const { t: tr } = useTranslation('dashboard')
   const [catalog, setCatalog] = useState([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving]   = useState(null)
@@ -199,7 +201,7 @@ function MemberPermissionsModal({ member, onClose }) {
       fetchCatalog()
     } catch (err) {
       setCatalog(c => c.map(e => e.key === key ? { ...e, enabled: current } : e))
-      setToast({ type: 'error', message: err.response?.data?.detail || 'Erreur lors de la mise à jour.' })
+      setToast({ type: 'error', message: err.response?.data?.detail || tr('Erreur lors de la mise à jour.') })
     } finally {
       setSaving(null)
     }
@@ -211,7 +213,7 @@ function MemberPermissionsModal({ member, onClose }) {
       await api.delete(`/team/members/${member.id}/permissions/?permission=${key}`)
       fetchCatalog()
     } catch (err) {
-      setToast({ type: 'error', message: err.response?.data?.detail || 'Erreur lors de la réinitialisation.' })
+      setToast({ type: 'error', message: err.response?.data?.detail || tr('Erreur lors de la réinitialisation.') })
     } finally {
       setSaving(null)
     }
@@ -221,9 +223,7 @@ function MemberPermissionsModal({ member, onClose }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
       <div className="w-full max-w-lg rounded-xl border p-6 max-h-[90vh] overflow-y-auto" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
         <div className="flex items-center justify-between mb-5">
-          <h3 className="text-base font-semibold text-app-primary">
-            Permissions — {member.first_name} {member.last_name}
-          </h3>
+          <h3 className="text-base font-semibold text-app-primary">{tr('Permissions — {{first_name}} {{last_name}}', { first_name: member.first_name, last_name: member.last_name })}</h3>
           <button onClick={onClose} className="text-app-muted hover:text-app-primary transition">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -232,7 +232,7 @@ function MemberPermissionsModal({ member, onClose }) {
         </div>
 
         {loading ? (
-          <p className="text-sm text-app-muted py-6 text-center">Chargement…</p>
+          <p className="text-sm text-app-muted py-6 text-center">{tr('Chargement…')}</p>
         ) : (
           <div className="rounded-lg border divide-y" style={{ borderColor: theme.dark.border }}>
             {catalog.map(({ key, label, enabled, is_custom }) => (
@@ -241,13 +241,11 @@ function MemberPermissionsModal({ member, onClose }) {
                   type="button"
                   onClick={() => toggle(key, enabled)}
                   disabled={saving === key}
-                  className="text-sm text-app-primary text-left flex items-center gap-2 disabled:opacity-60"
+                  className="text-sm text-app-primary text-start flex items-center gap-2 disabled:opacity-60"
                 >
                   {label}
                   {is_custom && (
-                    <span className="text-xs px-1.5 py-0.5 rounded-full bg-violet-600/20 text-violet-300">
-                      Personnalisé
-                    </span>
+                    <span className="text-xs px-1.5 py-0.5 rounded-full bg-violet-600/20 text-violet-300">{tr('Personnalisé')}</span>
                   )}
                 </button>
                 <div className="flex items-center gap-2 shrink-0">
@@ -256,18 +254,16 @@ function MemberPermissionsModal({ member, onClose }) {
                       type="button"
                       onClick={() => resetToRoleDefault(key)}
                       disabled={saving === key}
-                      title="Réinitialiser au défaut du rôle"
+                      title={tr('Réinitialiser au défaut du rôle')}
                       className="text-xs text-app-muted hover:text-app-primary transition disabled:opacity-60"
-                    >
-                      Réinitialiser
-                    </button>
+                    >{tr('Réinitialiser')}</button>
                   )}
                   <button
                     onClick={() => toggle(key, enabled)}
                     disabled={saving === key}
                     className={`w-9 h-5 rounded-full transition-colors duration-150 relative cursor-pointer disabled:opacity-60 shrink-0 ${enabled ? 'bg-violet-600' : 'bg-violet-500/15'}`}
                   >
-                    <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-150 ${enabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                    <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-150 ${enabled ? 'translate-x-4 rtl:-translate-x-4' : 'translate-x-0.5 rtl:-translate-x-0.5'}`} />
                   </button>
                 </div>
               </div>
@@ -281,13 +277,14 @@ function MemberPermissionsModal({ member, onClose }) {
 }
 
 function MembersTable({ members, onToggle, onManagePermissions, onReactivate, onResend, resending }) {
+  const { t: tr } = useTranslation('dashboard')
   if (!members.length) {
     return (
       <div className="flex flex-col items-center justify-center text-center py-16 px-6 text-app-muted">
         <svg className="w-10 h-10 mb-3 text-app-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m9-2.13a4 4 0 10-8 0 4 4 0 008 0zm6 4v.01M3 16v.01" />
         </svg>
-        <p className="text-sm">Aucun membre dans cette catégorie.</p>
+        <p className="text-sm">{tr('Aucun membre dans cette catégorie.')}</p>
       </div>
     )
   }
@@ -295,51 +292,51 @@ function MembersTable({ members, onToggle, onManagePermissions, onReactivate, on
     <div className="overflow-x-auto -mx-5 px-5 sm:mx-0 sm:px-0">
       <table className="w-full text-sm min-w-180">
         <thead>
-          <tr className="text-left text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
-            <th className="pb-3 pr-4 font-medium">Nom</th>
-            <th className="pb-3 pr-4 font-medium">Email</th>
-            <th className="pb-3 pr-4 font-medium">Téléphone</th>
-            <th className="pb-3 pr-4 font-medium">Rôle</th>
-            <th className="pb-3 pr-4 font-medium">Statut</th>
-            <th className="pb-3 font-medium">Créé le</th>
-            <th className="pb-3 font-medium">Actions</th>
+          <tr className="text-start text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
+            <th className="pb-3 pe-4 font-medium">{tr('Nom')}</th>
+            <th className="pb-3 pe-4 font-medium">{tr('Email')}</th>
+            <th className="pb-3 pe-4 font-medium">{tr('Téléphone')}</th>
+            <th className="pb-3 pe-4 font-medium">{tr('Rôle')}</th>
+            <th className="pb-3 pe-4 font-medium">{tr('Statut')}</th>
+            <th className="pb-3 font-medium">{tr('Créé le')}</th>
+            <th className="pb-3 font-medium">{tr('Actions')}</th>
           </tr>
         </thead>
         <tbody>
           {members.map(m => (
             <tr key={m.id} className="border-b" style={{ borderColor: theme.dark.borderRowHoverStrong }}>
-              <td className="py-3 pr-4 text-app-primary font-medium">{m.first_name} {m.last_name}</td>
-              <td className="py-3 pr-4 text-app-muted">{m.email}</td>
-              <td className="py-3 pr-4 text-app-muted">{m.phone || '—'}</td>
-              <td className="py-3 pr-4">
+              <td className="py-3 pe-4 text-app-primary font-medium">{m.first_name} {m.last_name}</td>
+              <td className="py-3 pe-4 text-app-muted">{m.email}</td>
+              <td className="py-3 pe-4 text-app-muted">{m.phone || '—'}</td>
+              <td className="py-3 pe-4">
                 <span className="text-xs px-2 py-0.5 rounded-full bg-violet-600/20 text-violet-300">
                   {ROLE_LABELS[m.role]}
                 </span>
               </td>
-              <td className="py-3 pr-4">
+              <td className="py-3 pe-4">
                 <div className="flex items-center gap-1.5 flex-wrap">
                   {m.is_active ? (
                     <>
-                      <span className={theme.badge.success}>Actif</span>
+                      <span className={theme.badge.success}>{tr('Actif')}</span>
                       {m.role === 'confirmateur' && (
                         m.is_currently_online ? (
-                          <span className={theme.badge.success} title="Reçoit des commandes automatiquement">En ligne</span>
+                          <span className={theme.badge.success} title={tr('Reçoit des commandes automatiquement')}>{tr('En ligne')}</span>
                         ) : (
-                          <span className="text-xs px-2 py-0.5 rounded-full ring-1 ring-inset ring-white/10 text-app-muted">Hors ligne</span>
+                          <span className="text-xs px-2 py-0.5 rounded-full ring-1 ring-inset ring-white/10 text-app-muted">{tr('Hors ligne')}</span>
                         )
                       )}
                     </>
                   ) : m.is_activated ? (
-                    <span className={theme.badge.danger}>Désactivé</span>
+                    <span className={theme.badge.danger}>{tr('Désactivé')}</span>
                   ) : (
                     <>
-                      <span className={theme.badge.warning}>En attente</span>
-                      {m.invite_expired && <span className={theme.badge.danger}>Invitation expirée</span>}
+                      <span className={theme.badge.warning}>{tr('En attente')}</span>
+                      {m.invite_expired && <span className={theme.badge.danger}>{tr('Invitation expirée')}</span>}
                     </>
                   )}
                 </div>
               </td>
-              <td className="py-3 pr-4 text-app-muted text-xs">
+              <td className="py-3 pe-4 text-app-muted text-xs">
                 {new Date(m.invited_at).toLocaleDateString('fr-FR')}
               </td>
               <td className="py-3">
@@ -349,30 +346,24 @@ function MembersTable({ members, onToggle, onManagePermissions, onReactivate, on
                       <button
                         onClick={() => onManagePermissions(m)}
                         className="text-xs text-app-muted hover:text-app-primary transition"
-                      >
-                        Permissions
-                      </button>
+                      >{tr('Permissions')}</button>
                       <button
                         onClick={() => onToggle(m)}
                         className="text-xs text-red-400 hover:text-red-300 transition"
-                      >
-                        Désactiver
-                      </button>
+                      >{tr('Désactiver')}</button>
                     </>
                   ) : m.is_activated ? (
                     <button
                       onClick={() => onReactivate(m)}
                       className="text-xs text-emerald-400 hover:text-emerald-300 transition"
-                    >
-                      Réactiver
-                    </button>
+                    >{tr('Réactiver')}</button>
                   ) : (
                     <button
                       onClick={() => onResend(m)}
                       disabled={resending === m.id}
                       className="text-xs text-violet-400 hover:text-violet-300 transition disabled:opacity-50"
                     >
-                      {resending === m.id ? '…' : "Renvoyer l'invitation"}
+                      {resending === m.id ? '…' : tr('Renvoyer l\'invitation')}
                     </button>
                   )}
                 </div>
@@ -392,11 +383,12 @@ function MembersTable({ members, onToggle, onManagePermissions, onReactivate, on
 // sinon (voir aussi Dashboard.jsx pour le même pattern : jamais de hook
 // après un retour conditionnel).
 export default function TeamPage() {
+  const { t: tr } = useTranslation('dashboard')
   const { user } = useAuth()
   if (!user?.permissions?.team_view && user?.team_role) {
     return (
-      <DashboardLayout title="Équipe">
-        <p className="text-sm" style={{ color: theme.dark.muted }}>Accès réservé au propriétaire, à l'administrateur, ou à un membre avec la permission "Voir la gestion d'équipe".</p>
+      <DashboardLayout title={tr('Équipe')}>
+        <p className="text-sm" style={{ color: theme.dark.muted }}>{tr('Accès réservé au propriétaire, à l\'administrateur, ou à un membre avec la permission "Voir la gestion d\'équipe".')}</p>
       </DashboardLayout>
     )
   }
@@ -404,6 +396,7 @@ export default function TeamPage() {
 }
 
 function TeamPageContent() {
+  const { t: tr } = useTranslation('dashboard')
   const [activeTab, setActiveTab] = useState('admin')
   const [members, setMembers]     = useState([])
   const [showModal, setShowModal] = useState(false)
@@ -430,13 +423,13 @@ function TeamPageContent() {
   }
 
   const handleToggle = async (m) => {
-    if (!confirm(`Désactiver ${m.first_name} ${m.last_name} ?`)) return
+    if (!confirm(tr('Désactiver {{first_name}} {{last_name}} ?', { first_name: m.first_name, last_name: m.last_name }))) return
     await api.delete(`/team/members/${m.id}/`)
     fetchMembers()
   }
 
   const handleReactivate = async (m) => {
-    if (!confirm(`Réactiver ${m.first_name} ${m.last_name} ?`)) return
+    if (!confirm(tr('Réactiver {{first_name}} {{last_name}} ?', { first_name: m.first_name, last_name: m.last_name }))) return
     await api.post(`/team/members/${m.id}/reactivate/`)
     fetchMembers()
   }
@@ -447,14 +440,14 @@ function TeamPageContent() {
       await api.post(`/team/members/${m.id}/resend-invite/`)
       fetchMembers()
     } catch (err) {
-      setToast({ type: 'error', message: err.response?.data?.detail || "Erreur lors du renvoi de l'invitation." })
+      setToast({ type: 'error', message: err.response?.data?.detail || tr('Erreur lors du renvoi de l\'invitation.') })
     } finally {
       setResending(null)
     }
   }
 
   return (
-    <DashboardLayout title="Équipe" subtitle="Cette page gère toutes les personnes qui travaillent avec vous sur la boutique. Invitez un nouveau membre par email en choisissant son rôle : Administrateur (accès large), Confirmateur (appelle les clients pour valider les commandes) ou Dropshipper (revend vos produits contre commission). La personne reçoit un email avec un lien pour créer son accès. Vous pouvez aussi désactiver puis réactiver un membre, ou ajuster ses permissions individuellement en plus de celles de son rôle.">
+    <DashboardLayout title={tr('Équipe')} subtitle={tr('Cette page gère toutes les personnes qui travaillent avec vous sur la boutique. Invitez un nouveau membre par email en choisissant son rôle : Administrateur (accès large), Confirmateur (appelle les clients pour valider les commandes) ou Dropshipper (revend vos produits contre commission). La personne reçoit un email avec un lien pour créer son accès. Vous pouvez aussi désactiver puis réactiver un membre, ou ajuster ses permissions individuellement en plus de celles de son rôle.')}>
       {showModal && (
         <Modal
           role={activeTab === 'retirer' ? 'confirmateur' : activeTab}
@@ -495,9 +488,7 @@ function TeamPageContent() {
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
-            Ajouter
-          </button>
+            </svg>{tr('Ajouter')}</button>
         )}
       </div>
 
@@ -505,9 +496,7 @@ function TeamPageContent() {
         <div className="mb-4 flex items-center gap-2 px-4 py-3 rounded-lg text-sm text-emerald-400 border border-emerald-500/25 bg-emerald-500/10">
           <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-          </svg>
-          Invitation envoyée par email.
-        </div>
+          </svg>{tr('Invitation envoyée par email.')}</div>
       )}
 
       <div className="rounded-xl border p-5" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>

@@ -2,15 +2,17 @@ import { useEffect, useState, useCallback } from 'react'
 import api from '../../api/axios'
 import { theme } from '../../theme'
 import Toast from '../../components/Toast'
+import { useTranslation } from 'react-i18next'
 
 function AssignmentPermissionsModal({ assignment, onClose }) {
+  const { t, t: tr } = useTranslation('dashboard')
   const [catalog, setCatalog] = useState(null)
   const [error, setError]     = useState('')
 
   useEffect(() => {
     api.get(`/platform-admin/assignments/${assignment.id}/permissions/`)
       .then(({ data }) => setCatalog(data.catalog))
-      .catch(() => setError('Erreur de chargement des permissions.'))
+      .catch(() => setError(t('Erreur de chargement des permissions.')))
   }, [assignment.id])
 
   const toggle = async (key, enabled) => {
@@ -18,13 +20,13 @@ function AssignmentPermissionsModal({ assignment, onClose }) {
     try {
       await api.post(`/platform-admin/assignments/${assignment.id}/permissions/`, { permission: key, enabled })
     } catch {
-      setError("Échec de la mise à jour — rechargez la page.")
+      setError(t('Échec de la mise à jour — rechargez la page.'))
     }
   }
 
   const grouped = {}
   ;(catalog || []).forEach(p => {
-    const cat = p.category || 'Autres'
+    const cat = p.category || tr('Autres')
     grouped[cat] = grouped[cat] || []
     grouped[cat].push(p)
   })
@@ -37,14 +39,14 @@ function AssignmentPermissionsModal({ assignment, onClose }) {
       >
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-base font-bold text-app-primary">Permissions — {assignment.confirmateur_name}</h2>
-            <p className="text-xs text-app-muted mt-0.5">Sur la boutique {assignment.store_name} uniquement. Tout est désactivé par défaut.</p>
+            <h2 className="text-base font-bold text-app-primary">{t('Permissions — {{confirmateur_name}}', { confirmateur_name: assignment.confirmateur_name })}</h2>
+            <p className="text-xs text-app-muted mt-0.5">{t('Sur la boutique {{store_name}} uniquement. Tout est désactivé par défaut.', { store_name: assignment.store_name })}</p>
           </div>
           <button onClick={onClose} className="text-app-muted-light hover:text-app-primary text-xl leading-none cursor-pointer">×</button>
         </div>
 
         {error && <p className="text-xs text-red-400">{error}</p>}
-        {!catalog && !error && <p className="text-xs text-app-muted">Chargement…</p>}
+        {!catalog && !error && <p className="text-xs text-app-muted">{t('Chargement…')}</p>}
 
         {catalog && Object.entries(grouped).map(([cat, perms]) => (
           <div key={cat} className="flex flex-col gap-2">
@@ -54,7 +56,7 @@ function AssignmentPermissionsModal({ assignment, onClose }) {
                 <label key={p.key} className="flex items-center justify-between gap-3 px-3 py-1.5 rounded-lg hover:bg-violet-500/5 cursor-pointer">
                   <span className="text-sm text-app-primary flex items-center gap-2">
                     {p.label}
-                    {p.is_custom && <span className={theme.badge.info}>personnalisé</span>}
+                    {p.is_custom && <span className={theme.badge.info}>{t('personnalisé')}</span>}
                   </span>
                   <input type="checkbox" checked={p.enabled} onChange={e => toggle(p.key, e.target.checked)} className="accent-violet-600 w-4 h-4 cursor-pointer shrink-0" />
                 </label>
@@ -68,6 +70,7 @@ function AssignmentPermissionsModal({ assignment, onClose }) {
 }
 
 export default function PlatformAdminConfirmateursPage() {
+  const { t, t: tr } = useTranslation('dashboard')
   const [confirmateurs, setConfirmateurs] = useState([])
   const [accounts, setAccounts]           = useState([]) // boutiques actives (PlatformConfirmationAccount)
   const [assignments, setAssignments]     = useState([])
@@ -89,7 +92,7 @@ export default function PlatformAdminConfirmateursPage() {
       setAccounts(storesList.results.filter(s => s.confirmation).map(s => s.confirmation))
       setAssignments(assignmentList)
     } catch {
-      setToast({ type: 'error', message: 'Erreur de chargement.' })
+      setToast({ type: 'error', message: t('Erreur de chargement.') })
     } finally {
       setLoading(false)
     }
@@ -102,10 +105,10 @@ export default function PlatformAdminConfirmateursPage() {
     try {
       await api.post('/platform-admin/confirmateurs/', form)
       setForm({ first_name: '', last_name: '', email: '', phone: '' })
-      setToast({ type: 'success', message: 'Invitation envoyée.' })
+      setToast({ type: 'success', message: t('Invitation envoyée.') })
       load()
     } catch (err) {
-      setToast({ type: 'error', message: err.response?.data?.email?.[0] || err.response?.data?.detail || "Échec de l'invitation." })
+      setToast({ type: 'error', message: err.response?.data?.email?.[0] || err.response?.data?.detail || t('Échec de l\'invitation.') })
     }
   }
 
@@ -114,17 +117,17 @@ export default function PlatformAdminConfirmateursPage() {
       await api.put(`/platform-admin/confirmateurs/${c.id}/`, { is_active: !c.is_active })
       load()
     } catch {
-      setToast({ type: 'error', message: 'Échec de la mise à jour.' })
+      setToast({ type: 'error', message: t('Échec de la mise à jour.') })
     }
   }
 
   const resendInvite = async (c) => {
     try {
       await api.post(`/platform-admin/confirmateurs/${c.id}/resend-invite/`)
-      setToast({ type: 'success', message: 'Invitation renvoyée.' })
+      setToast({ type: 'success', message: t('Invitation renvoyée.') })
       load()
     } catch {
-      setToast({ type: 'error', message: "Échec de l'envoi." })
+      setToast({ type: 'error', message: t('Échec de l\'envoi.') })
     }
   }
 
@@ -142,62 +145,60 @@ export default function PlatformAdminConfirmateursPage() {
       const { data } = await api.get('/platform-admin/assignments/')
       setAssignments(data)
     } catch {
-      setToast({ type: 'error', message: "Échec de l'assignation." })
+      setToast({ type: 'error', message: t('Échec de l\'assignation.') })
     }
   }
 
   return (
     <div className="max-w-6xl mx-auto flex flex-col gap-6">
       <div>
-        <h1 className="text-xl font-bold text-app-primary">Confirmateurs</h1>
-        <p className="text-sm text-app-muted mt-1">
-          Équipe de confirmation du superadmin — assignée boutique par boutique (uniquement les boutiques ayant activé le service).
-        </p>
+        <h1 className="text-xl font-bold text-app-primary">{t('Confirmateurs')}</h1>
+        <p className="text-sm text-app-muted mt-1">{t('Équipe de confirmation du superadmin — assignée boutique par boutique (uniquement les boutiques ayant activé le service).')}</p>
       </div>
 
       <form onSubmit={handleInvite} className="rounded-xl border p-5 flex flex-wrap items-end gap-3" style={{ borderColor: 'var(--border-color)', background: 'var(--bg-card)' }}>
         <div className="flex flex-col gap-1">
-          <label className={theme.labelDark}>Prénom</label>
+          <label className={theme.labelDark}>{t('Prénom')}</label>
           <input required value={form.first_name} onChange={e => setForm(f => ({ ...f, first_name: e.target.value }))} className={theme.inputDark + ' w-40'} />
         </div>
         <div className="flex flex-col gap-1">
-          <label className={theme.labelDark}>Nom</label>
+          <label className={theme.labelDark}>{t('Nom')}</label>
           <input required value={form.last_name} onChange={e => setForm(f => ({ ...f, last_name: e.target.value }))} className={theme.inputDark + ' w-40'} />
         </div>
         <div className="flex flex-col gap-1">
-          <label className={theme.labelDark}>Email</label>
+          <label className={theme.labelDark}>{t('Email')}</label>
           <input required type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} className={theme.inputDark + ' w-64'} />
         </div>
         <div className="flex flex-col gap-1">
-          <label className={theme.labelDark}>Téléphone</label>
+          <label className={theme.labelDark}>{t('Téléphone')}</label>
           <input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} className={theme.inputDark + ' w-40'} />
         </div>
-        <button type="submit" className={theme.btn.primary}>Inviter</button>
+        <button type="submit" className={theme.btn.primary}>{t('Inviter')}</button>
       </form>
 
       <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-color)', background: 'var(--bg-card)' }}>
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-left text-xs font-semibold uppercase tracking-wide text-app-muted-light border-b" style={{ borderColor: 'var(--border-color)' }}>
-              <th className="px-4 py-3">Nom</th>
-              <th className="px-4 py-3">Email</th>
-              <th className="px-4 py-3">Compte</th>
-              <th className="px-4 py-3">Actif</th>
-              <th className="px-4 py-3">Boutiques assignées</th>
+            <tr className="text-start text-xs font-semibold uppercase tracking-wide text-app-muted-light border-b" style={{ borderColor: 'var(--border-color)' }}>
+              <th className="px-4 py-3">{t('Nom')}</th>
+              <th className="px-4 py-3">{t('Email')}</th>
+              <th className="px-4 py-3">{t('Compte')}</th>
+              <th className="px-4 py-3">{t('Actif')}</th>
+              <th className="px-4 py-3">{t('Boutiques assignées')}</th>
             </tr>
           </thead>
           <tbody>
-            {loading && <tr><td colSpan={5} className="px-4 py-8 text-center text-app-muted">Chargement…</td></tr>}
-            {!loading && confirmateurs.length === 0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-app-muted">Aucun confirmateur.</td></tr>}
+            {loading && <tr><td colSpan={5} className="px-4 py-8 text-center text-app-muted">{t('Chargement…')}</td></tr>}
+            {!loading && confirmateurs.length === 0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-app-muted">{t('Aucun confirmateur.')}</td></tr>}
             {!loading && confirmateurs.map(c => (
               <>
                 <tr key={c.id} className="border-b last:border-0" style={{ borderColor: 'var(--border-color)' }}>
                   <td className="px-4 py-3 text-app-primary font-medium">{c.first_name} {c.last_name}</td>
                   <td className="px-4 py-3 text-app-muted">{c.email}</td>
                   <td className="px-4 py-3 text-app-muted">
-                    {c.is_activated ? 'Activé' : (
+                    {c.is_activated ? t('Activé') : (
                       <button onClick={() => resendInvite(c)} className="text-violet-400 hover:text-violet-300 text-xs font-medium">
-                        {c.invite_expired ? 'Invitation expirée — renvoyer' : 'En attente — renvoyer'}
+                        {c.invite_expired ? t('Invitation expirée — renvoyer') : t('En attente — renvoyer')}
                       </button>
                     )}
                   </td>
@@ -208,12 +209,12 @@ export default function PlatformAdminConfirmateursPage() {
                         c.is_active ? 'bg-emerald-500/10 text-emerald-400 ring-1 ring-inset ring-emerald-500/30' : 'bg-(--bg-card-alt) text-app-muted-light ring-1 ring-inset ring-(--border-color-hover)'
                       }`}
                     >
-                      {c.is_active ? 'Actif' : 'Inactif'}
+                      {c.is_active ? tr('Actif') : tr('Inactif')}
                     </button>
                   </td>
                   <td className="px-4 py-3">
                     <button onClick={() => setExpanded(expanded === c.id ? null : c.id)} className="text-violet-400 hover:text-violet-300 text-xs font-medium">
-                      {expanded === c.id ? 'Masquer' : `Gérer (${assignments.filter(a => a.confirmateur === c.id && a.is_active).length})`}
+                      {expanded === c.id ? tr('Masquer') : t('Gérer ({{length}})', { length: assignments.filter(a => a.confirmateur === c.id && a.is_active).length })}
                     </button>
                   </td>
                 </tr>
@@ -221,7 +222,7 @@ export default function PlatformAdminConfirmateursPage() {
                   <tr className="border-b" style={{ borderColor: 'var(--border-color)' }}>
                     <td colSpan={5} className="px-4 py-4" style={{ background: 'var(--bg-card-alt)' }}>
                       {accounts.length === 0 ? (
-                        <p className="text-xs text-app-muted">Aucune boutique n'a encore activé le service de confirmation.</p>
+                        <p className="text-xs text-app-muted">{t('Aucune boutique n\'a encore activé le service de confirmation.')}</p>
                       ) : (
                         <div className="flex flex-wrap gap-2">
                           {accounts.map(account => {
@@ -238,7 +239,7 @@ export default function PlatformAdminConfirmateursPage() {
                                   {account.store_name}
                                 </button>
                                 {on && a && (
-                                  <button onClick={() => setPermAssignment(a)} title="Gérer les permissions"
+                                  <button onClick={() => setPermAssignment(a)} title={t('Gérer les permissions')}
                                     className="w-7 h-7 rounded-lg flex items-center justify-center text-app-muted-light hover:text-violet-300 hover:bg-violet-500/10 transition cursor-pointer">
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
                                       <circle cx="12" cy="12" r="3" />

@@ -1,10 +1,12 @@
 import { useEffect } from 'react'
 import { theme } from '../theme'
+import { useTranslation } from 'react-i18next'
 
 // Notification légère en bas à droite — remplace les `alert()` natifs du
 // navigateur (moches, bloquants, non stylables). `toast` = {message, type}
 // ('success'|'error'|'info'), `onClose` appelé automatiquement après 4s.
 export default function Toast({ toast, onClose }) {
+  const { t: tr } = useTranslation('dashboard')
   useEffect(() => {
     if (!toast) return
     const t = setTimeout(onClose, 4000)
@@ -21,7 +23,7 @@ export default function Toast({ toast, onClose }) {
 
   return (
     <div
-      className="fixed bottom-5 right-5 z-100 max-w-sm rounded-xl border px-4 py-3 shadow-xl flex items-start gap-3 animate-[fadeIn_0.2s_ease]"
+      className="fixed bottom-5 end-5 z-100 max-w-sm rounded-xl border px-4 py-3 shadow-xl flex items-start gap-3 animate-[fadeIn_0.2s_ease]"
       style={{ background: colors.bg, borderColor: colors.border }}
       role="status"
     >

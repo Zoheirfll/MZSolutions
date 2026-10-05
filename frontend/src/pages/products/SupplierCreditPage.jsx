@@ -3,6 +3,7 @@ import DashboardLayout from '../../components/DashboardLayout'
 import Select from '../../components/Select'
 import api from '../../api/axios'
 import { theme } from '../../theme'
+import { useTranslation } from 'react-i18next'
 
 function CloseIcon(props) {
   return (
@@ -41,13 +42,14 @@ function CreditIcon(props) {
 }
 
 function Spinner() {
+  const { t } = useTranslation('dashboard')
   return (
     <div className="flex items-center justify-center gap-2 py-12 text-app-muted">
       <svg className="animate-spin" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
         <circle cx="12" cy="12" r="9" opacity="0.25" />
         <path d="M21 12a9 9 0 0 0-9-9" strokeLinecap="round" />
       </svg>
-      <span className="text-xs">Chargement…</span>
+      <span className="text-xs">{t('Chargement…')}</span>
     </div>
   )
 }
@@ -63,6 +65,7 @@ function EmptyState({ icon, title, subtitle }) {
 }
 
 function AddModal({ suppliers, onClose, onSaved }) {
+  const { t, t: tr } = useTranslation('dashboard')
   const [form, setForm]     = useState({ supplier: '', amount: '', note: '', date: new Date().toISOString().slice(0, 10) })
   const [saving, setSaving] = useState(false)
   const [errors, setErrors] = useState({})
@@ -91,17 +94,17 @@ function AddModal({ suppliers, onClose, onSaved }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
       <div className="w-full max-w-md rounded-xl border p-6" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
         <div className="flex items-center justify-between mb-5">
-          <h3 className="font-semibold text-app-primary">Ajouter un crédit fournisseur</h3>
+          <h3 className="font-semibold text-app-primary">{t('Ajouter un crédit fournisseur')}</h3>
           <button onClick={onClose} className="text-app-muted hover:text-app-primary transition cursor-pointer"><CloseIcon /></button>
         </div>
         <form onSubmit={submit} className="space-y-4">
           <div>
-            <label className="block text-xs text-app-muted-light mb-1.5">Fournisseur *</label>
+            <label className="block text-xs text-app-muted-light mb-1.5">{t('Fournisseur *')}</label>
             <Select
               value={form.supplier}
               onChange={v => setForm(f => ({ ...f, supplier: v }))}
               options={suppliers.map(s => ({ value: s.id, label: `${s.first_name} ${s.last_name}` }))}
-              placeholder="Sélectionner un fournisseur"
+              placeholder={t('Sélectionner un fournisseur')}
               className={inputCls}
               style={{ ...bdrStyle, background: theme.dark.sidebar }}
             />
@@ -109,23 +112,23 @@ function AddModal({ suppliers, onClose, onSaved }) {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs text-app-muted-light mb-1.5">Montant * <span className="text-app-muted">DZD</span></label>
+              <label className="block text-xs text-app-muted-light mb-1.5">{t('Montant *')}{' '}<span className="text-app-muted">{t('DZD')}</span></label>
               <input type="number" min="0" step="0.01" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} required className={inputCls} style={bdrStyle} placeholder="0" />
               {errors.amount && <p className="text-red-400 text-xs mt-1">{errors.amount}</p>}
             </div>
             <div>
-              <label className="block text-xs text-app-muted-light mb-1.5">Date</label>
+              <label className="block text-xs text-app-muted-light mb-1.5">{t('Date')}</label>
               <input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} className={inputCls} style={bdrStyle} />
             </div>
           </div>
           <div>
-            <label className="block text-xs text-app-muted-light mb-1.5">Note</label>
-            <textarea value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} rows={3} className={`${inputCls} resize-none`} style={bdrStyle} placeholder="Motif, référence…" />
+            <label className="block text-xs text-app-muted-light mb-1.5">{t('Note')}</label>
+            <textarea value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} rows={3} className={`${inputCls} resize-none`} style={bdrStyle} placeholder={t('Motif, référence…')} />
           </div>
           <div className="flex justify-end gap-3 pt-1">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-app-muted-light hover:text-app-primary cursor-pointer transition">Annuler</button>
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-app-muted-light hover:text-app-primary cursor-pointer transition">{t('Annuler')}</button>
             <button type="submit" disabled={saving} className="px-5 py-2 rounded-lg text-sm font-semibold text-white bg-violet-600 hover:bg-violet-500 disabled:opacity-60 cursor-pointer transition">
-              {saving ? 'Enregistrement…' : 'Ajouter'}
+              {saving ? tr('Enregistrement…') : tr('Ajouter')}
             </button>
           </div>
         </form>
@@ -135,6 +138,7 @@ function AddModal({ suppliers, onClose, onSaved }) {
 }
 
 export default function SupplierCreditPage() {
+  const { t } = useTranslation('dashboard')
   const [credits, setCredits]     = useState([])
   const [suppliers, setSuppliers] = useState([])
   const [filterSup, setFilterSup] = useState('')
@@ -159,7 +163,7 @@ export default function SupplierCreditPage() {
   useEffect(() => { fetchCredits() }, [fetchCredits])
 
   const handleDelete = async (id) => {
-    if (!confirm('Supprimer ce crédit ?')) return
+    if (!confirm(t('Supprimer ce crédit ?'))) return
     // find supplier id from credit
     const credit = credits.find(c => c.id === id)
     await api.delete(`/products/suppliers/${credit.supplier}/credits/${id}/`)
@@ -167,7 +171,7 @@ export default function SupplierCreditPage() {
   }
 
   return (
-    <DashboardLayout title="Crédit Fournisseur" subtitle="Cette page enregistre les crédits (avances, délais de paiement...) que vos fournisseurs vous ont accordés. Comparez-les aux versements que vous avez déjà effectués pour connaître précisément ce que vous devez encore à chacun.">
+    <DashboardLayout title={t('Crédit Fournisseur')} subtitle={t('Cette page enregistre les crédits (avances, délais de paiement...) que vos fournisseurs vous ont accordés. Comparez-les aux versements que vous avez déjà effectués pour connaître précisément ce que vous devez encore à chacun.')}>
       {modal && (
         <AddModal
           suppliers={suppliers}
@@ -179,8 +183,8 @@ export default function SupplierCreditPage() {
       {/* Résumé */}
       <div className="grid grid-cols-3 gap-4 mb-5">
         <div className="rounded-xl border px-5 py-4" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-          <p className="text-2xl font-bold text-violet-300">{totalAmount.toLocaleString('fr-DZ')} DZD</p>
-          <p className="text-xs mt-0.5" style={{ color: theme.dark.muted }}>Total crédits ({credits.length})</p>
+          <p className="text-2xl font-bold text-violet-300">{totalAmount.toLocaleString('fr-DZ')}{' '}{t('DZD')}</p>
+          <p className="text-xs mt-0.5" style={{ color: theme.dark.muted }}>{t('Total crédits ({{length}})', { length: credits.length })}</p>
         </div>
       </div>
 
@@ -190,36 +194,34 @@ export default function SupplierCreditPage() {
           value={filterSup}
           onChange={setFilterSup}
           options={suppliers.map(s => ({ value: s.id, label: `${s.first_name} ${s.last_name}` }))}
-          placeholder="Tous les fournisseurs"
+          placeholder={t('Tous les fournisseurs')}
           className="px-3 py-2 rounded-lg border text-sm text-app-primary outline-none focus:border-violet-500 transition"
           style={{ background: theme.dark.card, borderColor: theme.dark.border, minWidth: 200 }}
         />
-        <button onClick={() => setModal(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white bg-violet-600 hover:bg-violet-500 transition">
-          Ajouter un crédit +
-        </button>
+        <button onClick={() => setModal(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white bg-violet-600 hover:bg-violet-500 transition">{t('Ajouter un crédit +')}</button>
       </div>
 
       {/* Table */}
       <div className="rounded-xl border overflow-hidden" style={{ borderColor: theme.dark.border }}>
         <table className="w-full text-sm">
           <thead style={{ background: theme.dark.sidebar }}>
-            <tr className="text-left text-xs border-b" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
-              <th className="px-4 py-3 font-medium">FOURNISSEUR</th>
-              <th className="px-4 py-3 font-medium">MONTANT</th>
-              <th className="px-4 py-3 font-medium">NOTE</th>
-              <th className="px-4 py-3 font-medium">DATE</th>
-              <th className="px-4 py-3 font-medium">ACTIONS</th>
+            <tr className="text-start text-xs border-b" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
+              <th className="px-4 py-3 font-medium">{t('FOURNISSEUR')}</th>
+              <th className="px-4 py-3 font-medium">{t('MONTANT')}</th>
+              <th className="px-4 py-3 font-medium">{t('NOTE')}</th>
+              <th className="px-4 py-3 font-medium">{t('DATE')}</th>
+              <th className="px-4 py-3 font-medium">{t('ACTIONS')}</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={5} className="text-center py-12 text-app-muted">Chargement…</td></tr>
+              <tr><td colSpan={5} className="text-center py-12 text-app-muted">{t('Chargement…')}</td></tr>
             ) : credits.length === 0 ? (
-              <tr><td colSpan={5} className="text-center py-12 text-app-muted">Aucun crédit enregistré.</td></tr>
+              <tr><td colSpan={5} className="text-center py-12 text-app-muted">{t('Aucun crédit enregistré.')}</td></tr>
             ) : credits.map(c => (
               <tr key={c.id} className="border-b hover:bg-violet-500/5 transition" style={{ borderColor: theme.dark.borderRowHover }}>
                 <td className="px-4 py-3 text-app-primary font-medium">{c.supplier_name}</td>
-                <td className="px-4 py-3 text-red-300 font-semibold">{Number(c.amount).toLocaleString('fr-DZ')} DZD</td>
+                <td className="px-4 py-3 text-red-300 font-semibold">{Number(c.amount).toLocaleString('fr-DZ')}{' '}{t('DZD')}</td>
                 <td className="px-4 py-3 text-app-muted-light max-w-[200px] truncate">{c.note || '—'}</td>
                 <td className="px-4 py-3 text-app-muted-light text-xs">{new Date(c.date).toLocaleDateString('fr-DZ')}</td>
                 <td className="px-4 py-3">
