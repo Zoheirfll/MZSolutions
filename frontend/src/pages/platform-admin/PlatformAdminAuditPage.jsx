@@ -1,11 +1,13 @@
 import { useEffect, useState, useCallback } from 'react'
 import api from '../../api/axios'
+import { useAuth } from '../../context/AuthContext'
 import { theme } from '../../theme'
 import { useTranslation } from 'react-i18next'
 import { sfx } from '../../i18n'
 
 export default function PlatformAdminAuditPage() {
   const { t } = useTranslation('dashboard')
+  const { user } = useAuth()
   const [logs, setLogs]       = useState([])
   const [count, setCount]     = useState(0)
   const [loading, setLoading] = useState(true)
@@ -30,7 +32,7 @@ export default function PlatformAdminAuditPage() {
     <div className="max-w-6xl mx-auto flex flex-col gap-5">
       <div>
         <h1 className="text-xl font-bold text-app-primary">{t('Journal d\'audit')}</h1>
-        <p className="text-sm text-app-muted mt-1">{t('Toutes les actions journalisées, à travers toutes les boutiques — y compris celles faites en mode « Gérer cette boutique ».')}</p>
+        <p className="text-sm text-app-muted mt-1">{user?.is_service_admin ? t('Actions journalisées sur les boutiques de votre service, y compris celles faites en mode « Gérer cette boutique ».') : t('Toutes les actions journalisées, à travers toutes les boutiques — y compris celles faites en mode « Gérer cette boutique ».')}</p>
       </div>
 
       <input

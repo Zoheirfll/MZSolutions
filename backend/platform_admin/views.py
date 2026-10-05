@@ -675,7 +675,7 @@ class MyDashboardSummaryView(APIView):
 # ─── Journal d'audit transversal (V4, superadmin uniquement) ───────────────
 
 class PlatformAuditLogListView(APIView):
-    """Journal d'audit à travers TOUTES les boutiques — réservé au superadmin.
+    """Journal d'audit : toutes les boutiques pour l'administration de la plateforme, uniquement les boutiques du service pour son opérateur.
     Réutilise audit.AuditLog tel quel (déjà correctement rempli pour les
     actions faites en mode "Gérer cette boutique", voir audit.utils.log_audit
     corrigé en V3) plutôt qu'un journal séparé."""
@@ -689,6 +689,11 @@ class PlatformAuditLogListView(APIView):
         from audit.serializers import AuditLogSerializer
 
         qs = AuditLog.objects.select_related('store', 'actor').order_by('-created_at')
+        # Séparation : l'opérateur du SERVICE ne voit que les boutiques pour lesquelles le service
+        # est actif (jamais les vendeurs qui ne sont pas ses clients — données confidentielles) ;
+        # l'administration de la plateforme voit tout, y compris les actions de niveau plateforme.
+        if not is_platform_admin(request):
+            qs = qs.filter(store__platform_confirmation_account__is_active=True)
 
         store_id = request.query_params.get('store')
         if store_id:

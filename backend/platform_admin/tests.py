@@ -661,3 +661,19 @@ class ServiceVsPlatformSeparationTests(TestCase):
         for user in (self.service, self.admin, self.superadmin):
             self.assertEqual(auth_client(user).get('/api/platform-admin/audit-logs/').status_code, 200, user.email)
         self.assertEqual(auth_client(self.owner).get('/api/platform-admin/audit-logs/').status_code, 403)
+
+    def test_audit_journal_is_scoped_for_the_service_operator(self):
+        from audit.models import AuditLog
+        from .models import PlatformConfirmationAccount
+        _, client_store = make_owner()
+        PlatformConfirmationAccount.objects.create(store=client_store, is_active=True)
+        AuditLog.objects.create(store=client_store, actor_name='A', action='order.status_changed')
+        AuditLog.objects.create(store=self.store, actor_name='B', action='order.status_changed')  # boutique hors service
+        AuditLog.objects.create(store=None, actor_name='C', action='platform.admin_created')      # niveau plateforme
+
+        service_rows = auth_client(self.service).get('/api/platform-admin/audit-logs/').data['results']
+        self.assertEqual({r['store_name'] for r in service_rows}, {client_store.name})
+
+        platform_rows = auth_client(self.admin).get('/api/platform-admin/audit-logs/').data['results']
+        self.assertEqual(len(platform_rows), 3)
+
