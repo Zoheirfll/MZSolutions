@@ -81,7 +81,17 @@ export default function PlatformAdminPlansPage() {
 
   const columns = [
     { key: 'name', label: t('Palier'), render: (r) => <span className="font-medium">{r.name}</span> },
-    { key: 'ai', label: t('IA (jour / semaine)'), render: (r) => `${r.ai_daily_limit || '∞'} / ${r.ai_weekly_limit || '∞'}${(r.ai_quotas || []).some((q) => q.daily || q.weekly) ? ' + ' + t('par fonction') : ''}` },
+    { key: 'ai', label: t('Quotas IA (jour / semaine)'), render: (r) => {
+      const limited = (r.ai_quotas || []).filter((q) => q.daily || q.weekly)
+      return (
+        <div className="text-xs space-y-0.5 min-w-48">
+          <p className="text-app-primary">{t('Total')} : {r.ai_daily_limit || '∞'} / {r.ai_weekly_limit || '∞'}</p>
+          {limited.length === 0
+            ? <p className="text-app-muted">{t('Aucune limite par fonctionnalité')}</p>
+            : limited.map((q) => <p key={q.key} className="text-app-muted-light">{t(q.label)} : {q.daily || '∞'} / {q.weekly || '∞'}</p>)}
+        </div>
+      )
+    } },
     { key: 'orders_limit', label: t('Commandes'), render: (r) => (r.orders_limit == null ? t('Illimité') : r.orders_limit) },
     { key: 'price_monthly', label: t('Mensuel'), render: (r) => money(r.price_monthly) },
     { key: 'price_yearly', label: t('Annuel'), render: (r) => money(r.price_yearly) },
