@@ -4,30 +4,31 @@ import Select from '../components/Select'
 import { useAuth } from '../context/AuthContext'
 import api from '../api/axios'
 import { theme } from '../theme'
+import { tt } from '../i18n'
+import { useTranslation } from 'react-i18next'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 const TABS = [
-  { value: 'stores',  label: 'Boutiques e-commerce' },
-  { value: 'sheets',  label: 'Google Sheets' },
-  { value: 'meta',    label: 'Meta Commerce' },
+  { value: 'stores',  label: tt('Boutiques e-commerce') },
+  { value: 'sheets',  label: tt('Google Sheets') },
+  { value: 'meta',    label: tt('Meta Commerce') },
 ]
 
 const LOG_CHANNEL_OPTIONS = [
-  { value: '',              label: 'Tous les canaux' },
-  { value: 'shopify',       label: 'Shopify' },
-  { value: 'google_sheets', label: 'Google Sheets' },
+  { value: '',              label: tt('Tous les canaux') },
+  { value: 'shopify',       label: tt('Shopify') },
+  { value: 'google_sheets', label: tt('Google Sheets') },
 ]
 
 function Spinner() {
+  const { t: tr } = useTranslation('dashboard')
   return (
     <div className="flex items-center justify-center gap-2 text-app-muted py-10">
       <svg className="w-5 h-5 animate-spin text-violet-500" viewBox="0 0 24 24" fill="none">
         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-      </svg>
-      Chargement…
-    </div>
+      </svg>{tr('Chargement…')}</div>
   )
 }
 
@@ -40,6 +41,7 @@ function CheckIcon(props) {
 }
 
 function ConnectModal({ channel, initial, onClose, onSaved }) {
+  const { t: tr } = useTranslation('dashboard')
   const [form, setForm] = useState({
     shop_url: initial?.shop_url || '',
     api_key: initial?.api_key || '',
@@ -60,16 +62,14 @@ function ConnectModal({ channel, initial, onClose, onSaved }) {
     }
   }
 
-  const label = channel === 'shopify' ? 'Shopify' : 'Google Sheets'
-  const urlLabel = channel === 'shopify' ? 'URL de la boutique (ex: monshop.myshopify.com)' : 'URL ou ID du Google Sheet'
+  const label = channel === 'shopify' ? tr('Shopify') : tr('Google Sheets')
+  const urlLabel = channel === 'shopify' ? tr('URL de la boutique (ex: monshop.myshopify.com)') : tr('URL ou ID du Google Sheet')
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: 'rgba(0,0,0,0.7)' }} onClick={onClose}>
       <div className="w-full max-w-md rounded-xl border p-6" style={{ background: theme.dark.card, borderColor: theme.dark.border }} onClick={e => e.stopPropagation()}>
-        <h3 className="font-semibold text-app-primary mb-1">Connecter {label}</h3>
-        <p className="text-xs mb-5" style={{ color: theme.dark.muted }}>
-          Les accès API réels ne sont pas encore obtenus — la connexion est enregistrée et la synchronisation fonctionne en mode simulé (aucun appel réseau réel) en attendant.
-        </p>
+        <h3 className="font-semibold text-app-primary mb-1">{tr('Connecter {{label}}', { label })}</h3>
+        <p className="text-xs mb-5" style={{ color: theme.dark.muted }}>{tr('Les accès API réels ne sont pas encore obtenus — la connexion est enregistrée et la synchronisation fonctionne en mode simulé (aucun appel réseau réel) en attendant.')}</p>
         <form onSubmit={submit} className="space-y-4">
           <div>
             <label className="block text-xs text-app-muted-light mb-1.5">{urlLabel}</label>
@@ -77,19 +77,19 @@ function ConnectModal({ channel, initial, onClose, onSaved }) {
               className={inputCls} style={bdrStyle} />
           </div>
           <div>
-            <label className="block text-xs text-app-muted-light mb-1.5">Clé API (optionnel pour l'instant)</label>
+            <label className="block text-xs text-app-muted-light mb-1.5">{tr('Clé API (optionnel pour l\'instant)')}</label>
             <input value={form.api_key} onChange={e => setForm(f => ({ ...f, api_key: e.target.value }))}
               className={inputCls} style={bdrStyle} />
           </div>
           <div>
-            <label className="block text-xs text-app-muted-light mb-1.5">Secret API (optionnel pour l'instant)</label>
+            <label className="block text-xs text-app-muted-light mb-1.5">{tr('Secret API (optionnel pour l\'instant)')}</label>
             <input type="password" value={form.api_secret} onChange={e => setForm(f => ({ ...f, api_secret: e.target.value }))}
               className={inputCls} style={bdrStyle} />
           </div>
           <div className="flex justify-end gap-3 pt-1">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-app-muted-light hover:text-app-primary cursor-pointer transition">Fermer</button>
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-app-muted-light hover:text-app-primary cursor-pointer transition">{tr('Fermer')}</button>
             <button type="submit" disabled={saving} className={theme.btn.primary + ' text-sm disabled:opacity-60'}>
-              {saving ? '…' : 'Connecter'}
+              {saving ? '…' : tr('Connecter')}
             </button>
           </div>
         </form>
@@ -98,7 +98,8 @@ function ConnectModal({ channel, initial, onClose, onSaved }) {
   )
 }
 
-function ChannelCard({ title, description, connection, onConnect, onSync, onDisconnect, syncingDirection, pullDirection = 'pull', pullLabel = 'Importer les commandes' }) {
+function ChannelCard({ title, description, connection, onConnect, onSync, onDisconnect, syncingDirection, pullDirection = 'pull', pullLabel = tt('Importer les commandes') }) {
+  const { t: tr } = useTranslation('dashboard')
   return (
     <div className="rounded-xl border p-5 flex flex-col gap-3" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
       <div>
@@ -108,30 +109,29 @@ function ChannelCard({ title, description, connection, onConnect, onSync, onDisc
       {connection ? (
         <>
           <div className="text-xs space-y-1" style={{ color: theme.dark.muted }}>
-            <p>URL : <span className="text-app-primary">{connection.shop_url || '—'}</span></p>
-            {connection.oauth_connected && <p><span className={theme.badge.success}>Connecté via OAuth</span></p>}
-            <p>Dernière synchro : <span className="text-app-primary">{connection.last_synced_at ? new Date(connection.last_synced_at).toLocaleString('fr-DZ') : 'jamais'}</span></p>
+            <p>{tr('URL :')}{' '}<span className="text-app-primary">{connection.shop_url || '—'}</span></p>
+            {connection.oauth_connected && <p><span className={theme.badge.success}>{tr('Connecté via OAuth')}</span></p>}
+            <p>{tr('Dernière synchro :')}{' '}<span className="text-app-primary">{connection.last_synced_at ? new Date(connection.last_synced_at).toLocaleString('fr-DZ') : 'jamais'}</span></p>
           </div>
           <div className="flex gap-2 flex-wrap">
             <button onClick={() => onSync(connection, 'push')} disabled={!!syncingDirection} className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-violet-600 hover:bg-violet-500 disabled:opacity-60 cursor-pointer transition">
-              {syncingDirection === 'push' ? 'Envoi…' : 'Pousser le catalogue'}
+              {syncingDirection === 'push' ? tr('Envoi…') : tr('Pousser le catalogue')}
             </button>
             <button onClick={() => onSync(connection, pullDirection)} disabled={!!syncingDirection} className="px-3 py-1.5 rounded-lg text-xs font-semibold border text-app-primary hover:bg-violet-500/5 disabled:opacity-60 cursor-pointer transition" style={{ borderColor: theme.dark.border }}>
-              {syncingDirection === pullDirection ? 'Import…' : pullLabel}
+              {syncingDirection === pullDirection ? tr('Import…') : pullLabel}
             </button>
-            <button onClick={() => onDisconnect(connection)} className="px-3 py-1.5 rounded-lg text-xs font-semibold text-red-400 hover:bg-red-900/20 cursor-pointer transition">
-              Déconnecter
-            </button>
+            <button onClick={() => onDisconnect(connection)} className="px-3 py-1.5 rounded-lg text-xs font-semibold text-red-400 hover:bg-red-900/20 cursor-pointer transition">{tr('Déconnecter')}</button>
           </div>
         </>
       ) : (
-        <button onClick={onConnect} className={theme.btn.primary + ' text-sm self-start'}>Connecter</button>
+        <button onClick={onConnect} className={theme.btn.primary + ' text-sm self-start'}>{tr('Connecter')}</button>
       )}
     </div>
   )
 }
 
 function ShopifyConnectModal({ onClose, onError }) {
+  const { t: tr } = useTranslation('dashboard')
   const [shop, setShop] = useState('')
   const [connecting, setConnecting] = useState(false)
   const inputCls = 'w-full px-3.5 py-2.5 rounded-lg border text-sm text-app-primary bg-transparent outline-none focus:border-violet-500 transition [color-scheme:dark]'
@@ -144,7 +144,7 @@ function ShopifyConnectModal({ onClose, onError }) {
       const { data } = await api.post('/channels/shopify/install/', { shop: shop.trim() })
       window.location.href = data.authorize_url
     } catch (err) {
-      onError(err?.response?.data?.detail || "Impossible de démarrer la connexion Shopify.")
+      onError(err?.response?.data?.detail || tr('Impossible de démarrer la connexion Shopify.'))
       setConnecting(false)
     }
   }
@@ -152,20 +152,18 @@ function ShopifyConnectModal({ onClose, onError }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: 'rgba(0,0,0,0.7)' }} onClick={onClose}>
       <div className="w-full max-w-md rounded-xl border p-6" style={{ background: theme.dark.card, borderColor: theme.dark.border }} onClick={e => e.stopPropagation()}>
-        <h3 className="font-semibold text-app-primary mb-1">Connecter Shopify</h3>
-        <p className="text-xs mb-5" style={{ color: theme.dark.muted }}>
-          Vous allez être redirigé vers Shopify pour autoriser MZSolutions à accéder à votre boutique. Aucune information sensible à saisir ici.
-        </p>
+        <h3 className="font-semibold text-app-primary mb-1">{tr('Connecter Shopify')}</h3>
+        <p className="text-xs mb-5" style={{ color: theme.dark.muted }}>{tr('Vous allez être redirigé vers Shopify pour autoriser MZSolutions à accéder à votre boutique. Aucune information sensible à saisir ici.')}</p>
         <form onSubmit={submit} className="space-y-4">
           <div>
-            <label className="block text-xs text-app-muted-light mb-1.5">Domaine de votre boutique Shopify</label>
-            <input value={shop} onChange={e => setShop(e.target.value)} placeholder="monshop.myshopify.com"
+            <label className="block text-xs text-app-muted-light mb-1.5">{tr('Domaine de votre boutique Shopify')}</label>
+            <input value={shop} onChange={e => setShop(e.target.value)} placeholder={tr('monshop.myshopify.com')}
               className={inputCls} style={bdrStyle} required />
           </div>
           <div className="flex justify-end gap-3 pt-1">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-app-muted-light hover:text-app-primary cursor-pointer transition">Fermer</button>
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-app-muted-light hover:text-app-primary cursor-pointer transition">{tr('Fermer')}</button>
             <button type="submit" disabled={connecting} className={theme.btn.primary + ' text-sm disabled:opacity-60'}>
-              {connecting ? '…' : 'Continuer vers Shopify'}
+              {connecting ? '…' : tr('Continuer vers Shopify')}
             </button>
           </div>
         </form>
@@ -175,6 +173,7 @@ function ShopifyConnectModal({ onClose, onError }) {
 }
 
 export default function SalesChannelsPage() {
+  const { t: tr } = useTranslation('dashboard')
   const { user } = useAuth()
   const [tab, setTab] = useState('stores')
   const [connections, setConnections] = useState([])
@@ -204,7 +203,7 @@ export default function SalesChannelsPage() {
     fetchAll()
     const params = new URLSearchParams(window.location.search)
     if (params.get('shopify') === 'connected') {
-      setNotice('Boutique Shopify connectée avec succès.')
+      setNotice(tr('Boutique Shopify connectée avec succès.'))
       setNoticeError(false)
       window.history.replaceState({}, '', window.location.pathname)
     }
@@ -221,16 +220,16 @@ export default function SalesChannelsPage() {
     try {
       const { data } = await api.post(`/channels/connections/${connection.id}/sync/`, { direction })
       if (data.status === 'success') {
-        setNotice(data.message || 'Synchronisation réussie.')
+        setNotice(data.message || tr('Synchronisation réussie.'))
         setNoticeError(false)
       } else {
-        setNotice(data.message || 'La synchronisation a échoué.')
+        setNotice(data.message || tr('La synchronisation a échoué.'))
         setNoticeError(true)
       }
       fetchConnections()
       fetchLogs()
     } catch (err) {
-      setNotice(err.response?.data?.detail || 'La synchronisation a échoué.')
+      setNotice(err.response?.data?.detail || tr('La synchronisation a échoué.'))
       setNoticeError(true)
     } finally {
       setSyncing(null)
@@ -238,7 +237,7 @@ export default function SalesChannelsPage() {
   }
 
   const handleDisconnect = async (connection) => {
-    if (!confirm('Déconnecter ce canal ?')) return
+    if (!confirm(tr('Déconnecter ce canal ?'))) return
     await api.delete(`/channels/connections/${connection.id}/`)
     fetchAll()
   }
@@ -252,10 +251,8 @@ export default function SalesChannelsPage() {
   }
 
   return (
-    <DashboardLayout title="Canaux de vente" subtitle={`Cette page connecte votre boutique MZSolutions à d'autres plateformes de vente. Si vous avez aussi une boutique Shopify, connectez-la en un clic pour que vos commandes Shopify arrivent automatiquement ici. Vous pouvez aussi synchroniser un fichier Google Sheets manuellement. Enfin, l'onglet "Meta Commerce" vous donne une adresse à copier-coller dans Facebook/Instagram Shopping ou Google Merchant Center pour qu'ils affichent automatiquement votre catalogue de produits — aucune connexion technique nécessaire pour cette dernière option.`}>
-      <p className="text-sm mb-5" style={{ color: theme.dark.muted }}>
-        Connectez vos applications et services pour centraliser vos données et vos flux de travail.
-      </p>
+    <DashboardLayout title={tr('Canaux de vente')} subtitle={tr('Cette page connecte votre boutique MZSolutions à d\'autres plateformes de vente. Si vous avez aussi une boutique Shopify, connectez-la en un clic pour que vos commandes Shopify arrivent automatiquement ici. Vous pouvez aussi synchroniser un fichier Google Sheets manuellement. Enfin, l\'onglet "Meta Commerce" vous donne une adresse à copier-coller dans Facebook/Instagram Shopping ou Google Merchant Center pour qu\'ils affichent automatiquement votre catalogue de produits — aucune connexion technique nécessaire pour cette dernière option.')}>
+      <p className="text-sm mb-5" style={{ color: theme.dark.muted }}>{tr('Connectez vos applications et services pour centraliser vos données et vos flux de travail.')}</p>
 
       {notice && (
         <div className={(noticeError ? theme.badge.danger : theme.badge.success) + ' block mb-5 px-3.5 py-2.5 rounded-lg text-sm'}>{notice}</div>
@@ -276,7 +273,7 @@ export default function SalesChannelsPage() {
           {tab === 'stores' && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
               <ChannelCard
-                title="Shopify" description="Connectez votre boutique Shopify — les commandes arrivent automatiquement dans MZSolutions."
+                title={tr('Shopify')} description={tr('Connectez votre boutique Shopify — les commandes arrivent automatiquement dans MZSolutions.')}
                 connection={byChannel('shopify')} onConnect={() => setShopifyModalOpen(true)}
                 onSync={handleSync} onDisconnect={handleDisconnect}
                 syncingDirection={syncing && byChannel('shopify') && syncing.connectionId === byChannel('shopify').id ? syncing.direction : null}
@@ -288,7 +285,7 @@ export default function SalesChannelsPage() {
           {tab === 'sheets' && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
               <ChannelCard
-                title="Google Sheets" description="Synchronisez automatiquement vos données de commandes avec Google Sheets pour les rapports et l'analyse."
+                title={tr('Google Sheets')} description={tr('Synchronisez automatiquement vos données de commandes avec Google Sheets pour les rapports et l\'analyse.')}
                 connection={byChannel('google_sheets')} onConnect={() => setModalChannel('google_sheets')}
                 onSync={handleSync} onDisconnect={handleDisconnect}
                 syncingDirection={syncing && byChannel('google_sheets') && syncing.connectionId === byChannel('google_sheets').id ? syncing.direction : null}
@@ -298,24 +295,20 @@ export default function SalesChannelsPage() {
 
           {tab === 'meta' && (
             <div className="rounded-xl border p-5 mb-8" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-              <p className="font-semibold text-app-primary mb-1">Intégration des Publicités Meta (Facebook/Instagram)</p>
-              <p className="text-xs mb-4" style={{ color: theme.dark.muted }}>
-                Contrairement à Shopify/Google Sheets, cette intégration ne nécessite aucune clé API de votre part : copiez l'URL ci-dessous dans Meta Commerce Manager (Catalogue → Ajouter des articles → Flux de données programmé). Meta viendra lire automatiquement votre catalogue à cette adresse.
-              </p>
+              <p className="font-semibold text-app-primary mb-1">{tr('Intégration des Publicités Meta (Facebook/Instagram)')}</p>
+              <p className="text-xs mb-4" style={{ color: theme.dark.muted }}>{tr('Contrairement à Shopify/Google Sheets, cette intégration ne nécessite aucune clé API de votre part : copiez l\'URL ci-dessous dans Meta Commerce Manager (Catalogue → Ajouter des articles → Flux de données programmé). Meta viendra lire automatiquement votre catalogue à cette adresse.')}</p>
               <div className="flex items-center gap-2">
                 <input readOnly value={feedUrl} className="flex-1 px-3.5 py-2.5 rounded-lg border text-sm text-app-primary bg-transparent outline-none [color-scheme:dark]" style={{ borderColor: theme.dark.border }} />
-                <a href={feedUrl} target="_blank" rel="noreferrer" className="px-3.5 py-2.5 rounded-lg text-sm border text-app-primary hover:bg-violet-500/5 transition shrink-0" style={{ borderColor: theme.dark.border }}>
-                  Ouvrir
-                </a>
+                <a href={feedUrl} target="_blank" rel="noreferrer" className="px-3.5 py-2.5 rounded-lg text-sm border text-app-primary hover:bg-violet-500/5 transition shrink-0" style={{ borderColor: theme.dark.border }}>{tr('Ouvrir')}</a>
                 <button onClick={copyFeedUrl} className={theme.btn.primary + ' text-sm shrink-0 flex items-center gap-1.5'}>
-                  {copied ? <><CheckIcon /> Copié</> : 'Copier'}
+                  {copied ? <><CheckIcon />{' '}{tr('Copié')}</> : tr('Copier')}
                 </button>
               </div>
             </div>
           )}
 
           <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
-            <h2 className="font-semibold text-app-primary">Journal de synchronisation</h2>
+            <h2 className="font-semibold text-app-primary">{tr('Journal de synchronisation')}</h2>
             <div className="w-52">
               <Select value={logChannel} onChange={setLogChannel} options={LOG_CHANNEL_OPTIONS} variant="dark" />
             </div>
@@ -323,23 +316,23 @@ export default function SalesChannelsPage() {
           <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border }}>
             <table className="w-full text-sm min-w-140">
               <thead style={{ background: theme.dark.sidebar }}>
-                <tr className="text-left text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
-                  <th className="px-4 py-3 font-medium">CANAL</th>
-                  <th className="px-4 py-3 font-medium">SENS</th>
-                  <th className="px-4 py-3 font-medium">STATUT</th>
-                  <th className="px-4 py-3 font-medium">MESSAGE</th>
-                  <th className="px-4 py-3 font-medium">DATE</th>
+                <tr className="text-start text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
+                  <th className="px-4 py-3 font-medium">{tr('CANAL')}</th>
+                  <th className="px-4 py-3 font-medium">{tr('SENS')}</th>
+                  <th className="px-4 py-3 font-medium">{tr('STATUT')}</th>
+                  <th className="px-4 py-3 font-medium">{tr('MESSAGE')}</th>
+                  <th className="px-4 py-3 font-medium">{tr('DATE')}</th>
                 </tr>
               </thead>
               <tbody>
                 {logs.length === 0 ? (
-                  <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-app-muted">Aucune synchronisation pour l'instant.</td></tr>
+                  <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-app-muted">{tr('Aucune synchronisation pour l\'instant.')}</td></tr>
                 ) : logs.map(l => (
                   <tr key={l.id} className="border-b hover:bg-violet-500/5 transition" style={{ borderColor: theme.dark.borderRowHover }}>
                     <td className="px-4 py-3 text-app-primary">{l.channel_label}</td>
                     <td className="px-4 py-3 text-app-muted-light">{l.direction_label}</td>
                     <td className="px-4 py-3">
-                      <span className={l.status === 'success' ? theme.badge.success : theme.badge.danger}>{l.status === 'success' ? 'Succès' : 'Erreur'}</span>
+                      <span className={l.status === 'success' ? theme.badge.success : theme.badge.danger}>{l.status === 'success' ? tr('Succès') : tr('Erreur')}</span>
                     </td>
                     <td className="px-4 py-3 text-app-muted-light max-w-80 truncate" title={l.message}>{l.message}</td>
                     <td className="px-4 py-3 text-app-muted text-xs">{new Date(l.started_at).toLocaleString('fr-DZ')}</td>

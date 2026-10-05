@@ -3,8 +3,11 @@ import DashboardLayout from '../../../components/DashboardLayout'
 import api from '../../../api/axios'
 import { theme } from '../../../theme'
 import { usePeriod, PeriodFilter, Spinner, StatsToolbar, TrendBadge, StatsPagination, downloadCsv } from './statsShared'
+import { useTranslation } from 'react-i18next'
+import { sfx } from '../../../i18n'
 
 export default function FailuresStatsPage() {
+  const { t } = useTranslation('dashboard')
   const { period, setPeriod, dateFrom, setDateFrom, dateTo, setDateTo, queryString, ready } = usePeriod()
   const [data, setData]       = useState(null)
   const [loading, setLoading] = useState(true)
@@ -31,29 +34,27 @@ export default function FailuresStatsPage() {
   }
 
   return (
-    <DashboardLayout title="Statistique des échecs" subtitle="Cette page vous montre, sous forme de graphique, quelles sont les raisons qui reviennent le plus souvent quand vos confirmateurs n'arrivent pas à valider une commande par téléphone. Cela vous aide à comprendre pourquoi vous perdez des ventes : trop de clients injoignables ? Trop d'annulations pour cause de délai ? Choisissez la période à analyser en haut de page.">
+    <DashboardLayout title={t('Statistique des échecs')} subtitle={t('Cette page vous montre, sous forme de graphique, quelles sont les raisons qui reviennent le plus souvent quand vos confirmateurs n\'arrivent pas à valider une commande par téléphone. Cela vous aide à comprendre pourquoi vous perdez des ventes : trop de clients injoignables ? Trop d\'annulations pour cause de délai ? Choisissez la période à analyser en haut de page.')}>
       <div className="flex items-center justify-between gap-3 mb-6 flex-wrap">
         <PeriodFilter period={period} setPeriod={setPeriod} dateFrom={dateFrom} setDateFrom={setDateFrom} dateTo={dateTo} setDateTo={setDateTo} />
         <StatsToolbar onRefresh={fetchData} onExport={handleExport} exporting={exporting} exportDisabled={!data?.total} />
       </div>
       {loading || !data ? <Spinner /> : (
         <>
-          <p className="text-sm mb-5 flex items-center gap-2" style={{ color: theme.dark.muted }}>
-            {data.total} tentative{data.total !== 1 ? 's' : ''} d'appel en échec sur la période.
-            <TrendBadge pct={data.total_delta_pct} />
+          <p className="text-sm mb-5 flex items-center gap-2" style={{ color: theme.dark.muted }}>{t('{{total}} tentative', { total: data.total })}{data.total !== 1 ? sfx('s') : ''}{' '}{t('d\'appel en échec sur la période.')}<TrendBadge pct={data.total_delta_pct} />
           </p>
           <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border }}>
             <table className="w-full text-sm min-w-140">
               <thead style={{ background: theme.dark.sidebar }}>
-                <tr className="text-left text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
-                  <th className="px-4 py-3 font-medium">RAISON</th>
-                  <th className="px-4 py-3 font-medium">NOMBRE</th>
-                  <th className="px-4 py-3 font-medium">PART</th>
+                <tr className="text-start text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
+                  <th className="px-4 py-3 font-medium">{t('RAISON')}</th>
+                  <th className="px-4 py-3 font-medium">{t('NOMBRE')}</th>
+                  <th className="px-4 py-3 font-medium">{t('PART')}</th>
                 </tr>
               </thead>
               <tbody>
                 {data.by_reason.length === 0 ? (
-                  <tr><td colSpan={3} className="px-4 py-10 text-center text-sm text-app-muted">Aucun échec sur cette période.</td></tr>
+                  <tr><td colSpan={3} className="px-4 py-10 text-center text-sm text-app-muted">{t('Aucun échec sur cette période.')}</td></tr>
                 ) : data.by_reason.map(r => (
                   <tr key={r.reason_id} className="border-b hover:bg-violet-500/5 transition" style={{ borderColor: theme.dark.borderRowHover }}>
                     <td className="px-4 py-3 text-app-primary">{r.label}</td>

@@ -1,4 +1,5 @@
 import { theme } from '../theme'
+import { tt } from '../i18n'
 
 // Mapping statut commande → variante theme.badge (source unique, remplace les
 // couleurs inline dupliquées entre OrdersPage / StockPage / etc.)
@@ -24,24 +25,24 @@ const ORDER_STATUS_VARIANT = {
 }
 
 const ORDER_STATUS_LABEL = {
-  scheduled:        'Programmée',
-  pending:          'En attente',
-  no_answer_1:      'Non joignable — 1ère tentative',
-  no_answer_2:      'Non joignable — 2ème tentative',
-  no_answer_3:      'Non joignable — 3ème tentative',
-  no_answer:        'Sans réponse',
-  confirmed:        'Confirmée',
-  preparing:        'Préparation de commande',
-  prepared:         'Préparée',
-  in_progress:      'En cours',
-  shipped:          'Expédiée',
-  out_for_delivery: 'Sorti en livraison',
-  delivered:        'Livrée',
-  returned:         'Retournée',
-  cancel_requested: 'Annulation demandée',
-  cancelled:        'Annulée',
-  duplicate:        'Commande double',
-  fake:             'Commande fictive',
+  scheduled:        tt('Programmée'),
+  pending:          tt('En attente'),
+  no_answer_1:      tt('Non joignable — 1ère tentative'),
+  no_answer_2:      tt('Non joignable — 2ème tentative'),
+  no_answer_3:      tt('Non joignable — 3ème tentative'),
+  no_answer:        tt('Sans réponse'),
+  confirmed:        tt('Confirmée'),
+  preparing:        tt('Préparation de commande'),
+  prepared:         tt('Préparée'),
+  in_progress:      tt('En cours'),
+  shipped:          tt('Expédiée'),
+  out_for_delivery: tt('Sorti en livraison'),
+  delivered:        tt('Livrée'),
+  returned:         tt('Retournée'),
+  cancel_requested: tt('Annulation demandée'),
+  cancelled:        tt('Annulée'),
+  duplicate:        tt('Commande double'),
+  fake:             tt('Commande fictive'),
 }
 
 export default function StatusBadge({ status, label, variant, children }) {

@@ -7,8 +7,10 @@ import api from '../../api/axios'
 import { theme } from '../../theme'
 import { useAuth } from '../../context/AuthContext'
 import { generateProduct } from '../../api/aiApi'
+import { tt } from '../../i18n'
+import { useTranslation } from 'react-i18next'
 
-const SECTIONS = ['Détails du produit', 'Description', 'Images', 'Variantes', 'SEO', 'Autres']
+const SECTIONS = [tt('Détails du produit'), 'Description', 'Images', 'Variantes', 'SEO', 'Autres']
 
 const EMPTY = {
   name: '', price: '', compare_price: '', cost_price: '',
@@ -119,7 +121,7 @@ function Toggle({ label, value, onChange, disabled }) {
         onClick={() => onChange(!value)}
         className={`w-10 h-5 rounded-full transition-colors relative shrink-0 disabled:opacity-40 disabled:cursor-not-allowed ${value ? 'bg-violet-600' : 'bg-(--border-color-hover)'}`}
       >
-        <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${value ? 'left-5' : 'left-0.5'}`} />
+        <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${value ? 'start-5' : 'start-0.5'}`} />
       </button>
       {label && <span className="text-sm text-app-primary">{label}</span>}
     </div>
@@ -127,6 +129,7 @@ function Toggle({ label, value, onChange, disabled }) {
 }
 
 function VariantBlock({ productId, variant, onDeleted, onUpdated, stockBatchId }) {
+  const { t, t: tr } = useTranslation('dashboard')
   const [expanded, setExpanded] = useState(true)
   const [name, setName]         = useState(variant.name)
   const [subName, setSubName]   = useState(variant.sub_option_name || '')
@@ -148,14 +151,14 @@ function VariantBlock({ productId, variant, onDeleted, onUpdated, stockBatchId }
   }
 
   const deleteVariant = async () => {
-    if (!confirm('Supprimer cette variante ?')) return
+    if (!confirm(t('Supprimer cette variante ?'))) return
     await api.delete(`/products/${productId}/variants/${variant.id}/`)
     onDeleted()
   }
 
   const addOption = async () => {
     try {
-      const { data } = await api.post(`/products/${productId}/variants/${variant.id}/options/`, { ...EMPTY_OPTION, value: 'Nouvelle option' })
+      const { data } = await api.post(`/products/${productId}/variants/${variant.id}/options/`, { ...EMPTY_OPTION, value: t('Nouvelle option') })
       setOptions(o => [...o, data])
     } catch {}
   }
@@ -199,7 +202,7 @@ function VariantBlock({ productId, variant, onDeleted, onUpdated, stockBatchId }
     try {
       const { data } = await api.post(
         `/products/${productId}/variants/${variant.id}/options/${opt.id}/sub-options/`,
-        { value: 'Nouvelle valeur', stock: 0 },
+        { value: t('Nouvelle valeur'), stock: 0 },
       )
       setOptions(o => o.map(x => x.id === opt.id ? { ...x, sub_options: [...(x.sub_options || []), data] } : x))
     } catch {}
@@ -242,7 +245,7 @@ function VariantBlock({ productId, variant, onDeleted, onUpdated, stockBatchId }
             value={name}
             onChange={e => setName(e.target.value)}
             onBlur={saveVariant}
-            placeholder="Nom de la variante (ex: Couleur)"
+            placeholder={t('Nom de la variante (ex: Couleur)')}
             className="flex-1 px-2 py-1 rounded text-sm text-app-primary bg-transparent border-b outline-none focus:border-violet-500 transition"
             style={{ borderColor: theme.dark.border }}
           />
@@ -250,7 +253,7 @@ function VariantBlock({ productId, variant, onDeleted, onUpdated, stockBatchId }
             value={subName}
             onChange={e => setSubName(e.target.value)}
             onBlur={saveVariant}
-            placeholder="Nom des sous-options (ex: Taille)"
+            placeholder={t('Nom des sous-options (ex: Taille)')}
             className="flex-1 px-2 py-1 rounded text-sm text-app-primary bg-transparent border-b outline-none focus:border-violet-500 transition"
             style={{ borderColor: theme.dark.border }}
           />
@@ -270,7 +273,7 @@ function VariantBlock({ productId, variant, onDeleted, onUpdated, stockBatchId }
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Toggle value={opt.is_active} onChange={v => { updateOption(opt.id, { is_active: v }); saveOption({ ...opt, is_active: v }) }} />
-                  <span className="text-sm text-app-muted-light font-medium">Option {idx + 1}</span>
+                  <span className="text-sm text-app-muted-light font-medium">{t('Option')}{' '}{idx + 1}</span>
                 </div>
                 <button onClick={() => deleteOption(opt.id)} className="w-7 h-7 flex items-center justify-center rounded bg-red-600/15 text-red-400 hover:bg-red-600/30 transition"><TrashIcon /></button>
               </div>
@@ -279,17 +282,17 @@ function VariantBlock({ productId, variant, onDeleted, onUpdated, stockBatchId }
                 {/* Left — champs */}
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-xs text-app-muted-light mb-1">Valeur de l'option</label>
+                    <label className="block text-xs text-app-muted-light mb-1">{t('Valeur de l\'option')}</label>
                     <input
                       value={opt.value}
                       onChange={e => updateOption(opt.id, { value: e.target.value })}
                       onBlur={() => saveOption(opt)}
                       className={inputCls} style={bdrStyle}
-                      placeholder="ex: Rouge"
+                      placeholder={t('ex: Rouge')}
                     />
                   </div>
                   <div>
-                    <label className="block text-xs text-app-muted-light mb-1">Stock de l'option</label>
+                    <label className="block text-xs text-app-muted-light mb-1">{t('Stock de l\'option')}</label>
                     <input
                       type="number" min="0"
                       value={opt.stock}
@@ -300,7 +303,7 @@ function VariantBlock({ productId, variant, onDeleted, onUpdated, stockBatchId }
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="block text-xs text-app-muted-light mb-1">Prix de l'option <span className="text-app-muted">DZD</span></label>
+                      <label className="block text-xs text-app-muted-light mb-1">{t('Prix de l\'option')}{' '}<span className="text-app-muted">{t('DZD')}</span></label>
                       <input
                         type="number" min="0" step="0.01"
                         value={opt.price || ''}
@@ -311,7 +314,7 @@ function VariantBlock({ productId, variant, onDeleted, onUpdated, stockBatchId }
                       />
                     </div>
                     <div>
-                      <label className="block text-xs text-app-muted-light mb-1">Prix d'achat <span className="text-app-muted">DZD</span></label>
+                      <label className="block text-xs text-app-muted-light mb-1">{t('Prix d\'achat')}{' '}<span className="text-app-muted">{t('DZD')}</span></label>
                       <input
                         type="number" min="0" step="0.01"
                         value={opt.cost_price || ''}
@@ -323,17 +326,17 @@ function VariantBlock({ productId, variant, onDeleted, onUpdated, stockBatchId }
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs text-app-muted-light mb-1">SKU</label>
+                    <label className="block text-xs text-app-muted-light mb-1">{t('SKU')}</label>
                     <input
                       value={opt.sku}
                       onChange={e => updateOption(opt.id, { sku: e.target.value })}
                       onBlur={() => saveOption(opt)}
                       className={inputCls} style={bdrStyle}
-                      placeholder="sku"
+                      placeholder={tr('SKU')}
                     />
                   </div>
                   <Toggle
-                    label="Permettre aux utilisateurs d'effectuer des achats même si l'article est en rupture de stock."
+                    label={t('Permettre aux utilisateurs d\'effectuer des achats même si l\'article est en rupture de stock.')}
                     value={opt.allow_out_of_stock}
                     onChange={v => { updateOption(opt.id, { allow_out_of_stock: v }); saveOption({ ...opt, allow_out_of_stock: v }) }}
                   />
@@ -354,7 +357,7 @@ function VariantBlock({ productId, variant, onDeleted, onUpdated, stockBatchId }
                         type="button"
                         onClick={() => optImgRefs.current[opt.id]?.click()}
                         className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/40 opacity-0 group-hover:opacity-100 transition text-white text-sm"
-                      >Changer</button>
+                      >{t('Changer')}</button>
                     </div>
                   ) : (
                     <div
@@ -363,8 +366,8 @@ function VariantBlock({ productId, variant, onDeleted, onUpdated, stockBatchId }
                       style={{ borderColor: theme.dark.border }}
                     >
                       <ImagePlaceholderIcon className="text-app-muted mb-2" />
-                      <span className="text-xs text-app-muted text-center px-2">Drag and drop or <span className="text-violet-400">browse</span> to upload</span>
-                      <span className="text-xs mt-1" style={{ color: theme.dark.muted }}>PNG, JPG, GIF up to 5MB each</span>
+                      <span className="text-xs text-app-muted text-center px-2">{t('Drag and drop or')}{' '}<span className="text-violet-400">{t('browse')}</span>{' '}{t('to upload')}</span>
+                      <span className="text-xs mt-1" style={{ color: theme.dark.muted }}>{t('PNG, JPG, GIF up to 5MB each')}</span>
                     </div>
                   )}
                 </div>
@@ -373,32 +376,32 @@ function VariantBlock({ productId, variant, onDeleted, onUpdated, stockBatchId }
               {/* Sous-variantes (2e niveau, ex: pointures 41/42/43 sous "Noir") */}
               {subName.trim() && (
                 <div className="border-t pt-3 mt-1" style={{ borderColor: theme.dark.border }}>
-                  <p className="text-xs font-medium text-app-muted-light mb-2">{subName} de "{opt.value}"</p>
+                  <p className="text-xs font-medium text-app-muted-light mb-2">{t('{{subName}} de "{{value}}"', { subName, value: opt.value })}</p>
                   <div className="space-y-2">
                     {(opt.sub_options || []).map(sub => (
                       <div key={sub.id} className="grid grid-cols-6 gap-2 items-end rounded-lg border p-2.5" style={{ borderColor: theme.dark.border }}>
                         <div className="col-span-1">
-                          <label className="block text-[10px] text-app-muted mb-0.5">Valeur</label>
+                          <label className="block text-[10px] text-app-muted mb-0.5">{t('Valeur')}</label>
                           <input value={sub.value} onChange={e => updateSubOption(opt.id, sub.id, { value: e.target.value })}
                             onBlur={() => saveSubOption(opt.id, sub)} className={`${inputCls} text-xs px-2 py-1.5`} style={bdrStyle} />
                         </div>
                         <div className="col-span-1">
-                          <label className="block text-[10px] text-app-muted mb-0.5">Stock</label>
+                          <label className="block text-[10px] text-app-muted mb-0.5">{t('Stock')}</label>
                           <input type="number" min="0" value={sub.stock} onChange={e => updateSubOption(opt.id, sub.id, { stock: Number(e.target.value) })}
                             onBlur={() => saveSubOption(opt.id, sub)} className={`${inputCls} text-xs px-2 py-1.5`} style={bdrStyle} />
                         </div>
                         <div className="col-span-1">
-                          <label className="block text-[10px] text-app-muted mb-0.5">Prix</label>
+                          <label className="block text-[10px] text-app-muted mb-0.5">{t('Prix')}</label>
                           <input type="number" min="0" step="0.01" value={sub.price || ''} placeholder="—" onChange={e => updateSubOption(opt.id, sub.id, { price: e.target.value })}
                             onBlur={() => saveSubOption(opt.id, sub)} className={`${inputCls} text-xs px-2 py-1.5`} style={bdrStyle} />
                         </div>
                         <div className="col-span-1">
-                          <label className="block text-[10px] text-app-muted mb-0.5">Prix drop</label>
+                          <label className="block text-[10px] text-app-muted mb-0.5">{t('Prix drop')}</label>
                           <input type="number" min="0" step="0.01" value={sub.dropshipping_price || ''} placeholder="—" onChange={e => updateSubOption(opt.id, sub.id, { dropshipping_price: e.target.value })}
                             onBlur={() => saveSubOption(opt.id, sub)} className={`${inputCls} text-xs px-2 py-1.5`} style={bdrStyle} />
                         </div>
                         <div className="col-span-1">
-                          <label className="block text-[10px] text-app-muted mb-0.5">Min. vente drop</label>
+                          <label className="block text-[10px] text-app-muted mb-0.5">{t('Min. vente drop')}</label>
                           <input type="number" min="0" step="0.01" value={sub.minimum_selling_price || ''} placeholder="—" onChange={e => updateSubOption(opt.id, sub.id, { minimum_selling_price: e.target.value })}
                             onBlur={() => saveSubOption(opt.id, sub)} className={`${inputCls} text-xs px-2 py-1.5`} style={bdrStyle} />
                         </div>
@@ -414,8 +417,7 @@ function VariantBlock({ productId, variant, onDeleted, onUpdated, stockBatchId }
                     onClick={() => addSubOption(opt)}
                     className="w-full mt-2 py-1.5 rounded-lg border border-dashed text-xs text-violet-400 hover:border-violet-500 hover:bg-violet-600/5 transition"
                     style={{ borderColor: theme.dark.border }}
-                  >
-                    + Ajouter {subName || 'une sous-variante'}
+                  >{t('+ Ajouter')}{' '}{subName || 'une sous-variante'}
                   </button>
                 </div>
               )}
@@ -427,9 +429,7 @@ function VariantBlock({ productId, variant, onDeleted, onUpdated, stockBatchId }
             onClick={addOption}
             className="w-full py-2 rounded-lg border-2 border-dashed text-sm text-violet-400 hover:border-violet-500 hover:bg-violet-600/5 transition"
             style={{ borderColor: theme.dark.border }}
-          >
-            + Ajouter une option
-          </button>
+          >{t('+ Ajouter une option')}</button>
         </div>
       )}
     </div>
@@ -450,6 +450,7 @@ const EMPTY_DRAFT_OPTION = () => ({
 // handleSave), pour ne plus jamais exiger un premier "Enregistrer" avant de
 // pouvoir remplir les variantes (incohérence relevée par l'utilisateur).
 function DraftVariantBlock({ variant, onChange, onDelete }) {
+  const { t, t: tr } = useTranslation('dashboard')
   const [expanded, setExpanded] = useState(true)
   const inputCls = `w-full px-3 py-2 rounded-lg border text-sm text-app-primary bg-transparent outline-none focus:border-violet-500 transition [color-scheme:dark]`
   const bdrStyle = { borderColor: theme.dark.border }
@@ -469,14 +470,14 @@ function DraftVariantBlock({ variant, onChange, onDelete }) {
           <input
             value={variant.name}
             onChange={e => patch({ name: e.target.value })}
-            placeholder="Nom de la variante (ex: Couleur)"
+            placeholder={t('Nom de la variante (ex: Couleur)')}
             className="flex-1 px-2 py-1 rounded text-sm text-app-primary bg-transparent border-b outline-none focus:border-violet-500 transition"
             style={{ borderColor: theme.dark.border }}
           />
           <input
             value={variant.sub_option_name}
             onChange={e => patch({ sub_option_name: e.target.value })}
-            placeholder="Nom des sous-options (ex: Taille)"
+            placeholder={t('Nom des sous-options (ex: Taille)')}
             className="flex-1 px-2 py-1 rounded text-sm text-app-primary bg-transparent border-b outline-none focus:border-violet-500 transition"
             style={{ borderColor: theme.dark.border }}
           />
@@ -494,41 +495,41 @@ function DraftVariantBlock({ variant, onChange, onDelete }) {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Toggle value={opt.is_active} onChange={v => updateOption(opt.tempId, { is_active: v })} />
-                  <span className="text-sm text-app-muted-light font-medium">Option {idx + 1}</span>
+                  <span className="text-sm text-app-muted-light font-medium">{t('Option')}{' '}{idx + 1}</span>
                 </div>
                 <button type="button" onClick={() => deleteOption(opt.tempId)} className="w-7 h-7 flex items-center justify-center rounded bg-red-600/15 text-red-400 hover:bg-red-600/30 transition"><TrashIcon /></button>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-app-muted-light mb-1">Valeur de l'option</label>
-                  <input value={opt.value} onChange={e => updateOption(opt.tempId, { value: e.target.value })} className={inputCls} style={bdrStyle} placeholder="ex: Rouge" />
+                  <label className="block text-xs text-app-muted-light mb-1">{t('Valeur de l\'option')}</label>
+                  <input value={opt.value} onChange={e => updateOption(opt.tempId, { value: e.target.value })} className={inputCls} style={bdrStyle} placeholder={t('ex: Rouge')} />
                 </div>
                 <div>
-                  <label className="block text-xs text-app-muted-light mb-1">Stock de l'option</label>
+                  <label className="block text-xs text-app-muted-light mb-1">{t('Stock de l\'option')}</label>
                   <input type="number" min="0" value={opt.stock} onChange={e => updateOption(opt.tempId, { stock: Number(e.target.value) })} className={inputCls} style={bdrStyle} />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-app-muted-light mb-1">Prix de l'option <span className="text-app-muted">DZD</span></label>
+                  <label className="block text-xs text-app-muted-light mb-1">{t('Prix de l\'option')}{' '}<span className="text-app-muted">{t('DZD')}</span></label>
                   <input type="number" min="0" step="0.01" value={opt.price} onChange={e => updateOption(opt.tempId, { price: e.target.value })} className={inputCls} style={bdrStyle} placeholder="0" />
                 </div>
                 <div>
-                  <label className="block text-xs text-app-muted-light mb-1">Prix d'achat <span className="text-app-muted">DZD</span></label>
+                  <label className="block text-xs text-app-muted-light mb-1">{t('Prix d\'achat')}{' '}<span className="text-app-muted">{t('DZD')}</span></label>
                   <input type="number" min="0" step="0.01" value={opt.cost_price} onChange={e => updateOption(opt.tempId, { cost_price: e.target.value })} className={inputCls} style={bdrStyle} placeholder="0" />
                 </div>
               </div>
               <div>
-                <label className="block text-xs text-app-muted-light mb-1">SKU</label>
-                <input value={opt.sku} onChange={e => updateOption(opt.tempId, { sku: e.target.value })} className={inputCls} style={bdrStyle} placeholder="sku" />
+                <label className="block text-xs text-app-muted-light mb-1">{t('SKU')}</label>
+                <input value={opt.sku} onChange={e => updateOption(opt.tempId, { sku: e.target.value })} className={inputCls} style={bdrStyle} placeholder={tr('SKU')} />
               </div>
               <Toggle
-                label="Permettre aux utilisateurs d'effectuer des achats même si l'article est en rupture de stock."
+                label={t('Permettre aux utilisateurs d\'effectuer des achats même si l\'article est en rupture de stock.')}
                 value={opt.allow_out_of_stock}
                 onChange={v => updateOption(opt.tempId, { allow_out_of_stock: v })}
               />
-              <p className="text-xs" style={{ color: theme.dark.muted }}>L'image de cette option pourra être ajoutée après l'enregistrement du produit.</p>
+              <p className="text-xs" style={{ color: theme.dark.muted }}>{t('L\'image de cette option pourra être ajoutée après l\'enregistrement du produit.')}</p>
             </div>
           ))}
 
@@ -537,9 +538,7 @@ function DraftVariantBlock({ variant, onChange, onDelete }) {
             onClick={addOption}
             className="w-full py-2 rounded-lg border-2 border-dashed text-sm text-violet-400 hover:border-violet-500 hover:bg-violet-600/5 transition"
             style={{ borderColor: theme.dark.border }}
-          >
-            + Ajouter une sous-option
-          </button>
+          >{t('+ Ajouter une sous-option')}</button>
         </div>
       )}
     </div>
@@ -547,6 +546,7 @@ function DraftVariantBlock({ variant, onChange, onDelete }) {
 }
 
 export default function ProductFormPage() {
+  const { t, t: tr } = useTranslation('dashboard')
   const { id }  = useParams()
   const isEdit  = !!id
   const navigate = useNavigate()
@@ -673,7 +673,7 @@ export default function ProductFormPage() {
 
   const handleAiGenerate = async () => {
     if (!form.name?.trim()) {
-      setAiError('Renseignez le nom du produit avant de générer.')
+      setAiError(t('Renseignez le nom du produit avant de générer.'))
       return
     }
     setAiGenerating(true)
@@ -688,7 +688,7 @@ export default function ProductFormPage() {
         meta_keywords: data.meta_keywords,
       }))
     } catch (e) {
-      setAiError(e?.response?.data?.detail || 'Assistant IA indisponible')
+      setAiError(e?.response?.data?.detail || t('Assistant IA indisponible'))
     } finally {
       setAiGenerating(false)
     }
@@ -776,7 +776,7 @@ export default function ProductFormPage() {
       setPendingVariants(v => [...v, { tempId: nextDraftId(), name: '', sub_option_name: '', options: [] }])
       return
     }
-    api.post(`/products/${id}/variants/`, { name: 'Nouvelle variante', order: variants.length })
+    api.post(`/products/${id}/variants/`, { name: t('Nouvelle variante'), order: variants.length })
       .then(({ data }) => setVariants(v => [...v, { ...data, options: [] }]))
   }
 
@@ -793,7 +793,7 @@ export default function ProductFormPage() {
   const bdrStyle = { borderColor: theme.dark.border }
 
   return (
-    <DashboardLayout title={isEdit ? 'Modifier le produit' : 'Ajouter un produit'} subtitle="C'est ici que vous créez ou modifiez un produit de votre catalogue : son nom, sa description, son prix, ses photos, et ses catégories. Si votre produit existe en plusieurs versions (par exemple différentes couleurs ou tailles), ajoutez des variantes — chacune peut avoir son propre prix, stock et image. La section SEO tout en bas contrôle comment ce produit apparaît dans les résultats de recherche Google.">
+    <DashboardLayout title={isEdit ? t('Modifier le produit') : t('Ajouter un produit')} subtitle={t('C\'est ici que vous créez ou modifiez un produit de votre catalogue : son nom, sa description, son prix, ses photos, et ses catégories. Si votre produit existe en plusieurs versions (par exemple différentes couleurs ou tailles), ajoutez des variantes — chacune peut avoir son propre prix, stock et image. La section SEO tout en bas contrôle comment ce produit apparaît dans les résultats de recherche Google.')}>
       <div className="flex gap-5 h-full">
 
         {/* Section nav gauche */}
@@ -803,7 +803,7 @@ export default function ProductFormPage() {
               <button
                 key={s}
                 onClick={() => setSection(s)}
-                className={`w-full text-left px-4 py-3 text-sm border-b transition ${
+                className={`w-full text-start px-4 py-3 text-sm border-b transition ${
                   section === s ? 'text-violet-300 bg-violet-600/10' : 'text-app-muted-light hover:text-app-primary hover:bg-violet-500/5'
                 }`}
                 style={{ borderColor: theme.dark.border }}
@@ -820,7 +820,7 @@ export default function ProductFormPage() {
 
             {Object.keys(errors).length > 0 && (
               <div className="rounded-xl border border-red-500/40 bg-red-950/20 p-4 mb-4 text-sm text-red-400 space-y-1">
-                <p className="font-semibold">La sauvegarde a échoué :</p>
+                <p className="font-semibold">{t('La sauvegarde a échoué :')}</p>
                 {Object.entries(errors).map(([field, msg]) => (
                   <p key={field}>{Array.isArray(msg) ? msg.join(' ') : String(msg)}</p>
                 ))}
@@ -832,14 +832,14 @@ export default function ProductFormPage() {
               <div className="rounded-xl border p-6 space-y-5" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
                 <div className="grid grid-cols-3 gap-4">
                   <div className="col-span-1">
-                    <label className="block text-xs text-app-muted-light mb-1.5">Nom *</label>
-                    <input name="name" value={form.name} onChange={change} required className={inputCls} style={bdrStyle} placeholder="Nom du produit" />
+                    <label className="block text-xs text-app-muted-light mb-1.5">{t('Nom *')}</label>
+                    <input name="name" value={form.name} onChange={change} required className={inputCls} style={bdrStyle} placeholder={t('Nom du produit')} />
                     {errors.name && <p className="text-red-400 text-xs mt-1">{errors.name}</p>}
                   </div>
                   <div>
-                    <label className="block text-xs text-app-muted-light mb-1.5">Catégories</label>
+                    <label className="block text-xs text-app-muted-light mb-1.5">{t('Catégories')}</label>
                     <div className="rounded-lg border p-2 max-h-32 overflow-y-auto space-y-0.5" style={{ borderColor: theme.dark.border }}>
-                      {categories.length === 0 && <p className="text-xs text-app-muted px-1">Aucune catégorie</p>}
+                      {categories.length === 0 && <p className="text-xs text-app-muted px-1">{t('Aucune catégorie')}</p>}
                       {categoryTree.map(node => (
                         <CategoryTreeNode
                           key={node.id}
@@ -852,53 +852,51 @@ export default function ProductFormPage() {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs text-app-muted-light mb-1.5">Stock</label>
+                    <label className="block text-xs text-app-muted-light mb-1.5">{t('Stock')}</label>
                     <input
                       name="stock" type="number" min="0"
                       value={hasVariants ? totalStock : form.stock} onChange={change}
                       readOnly={hasVariants} className={inputCls} style={bdrStyle} placeholder="0"
                     />
                     {hasVariants && (
-                      <p className="text-xs mt-1" style={{ color: theme.dark.muted }}>
-                        Stock final calculé à partir des variantes (onglet "Variantes").
-                      </p>
+                      <p className="text-xs mt-1" style={{ color: theme.dark.muted }}>{t('Stock final calculé à partir des variantes (onglet "Variantes").')}</p>
                     )}
                   </div>
                 </div>
 
                 <div className="grid grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-xs text-app-muted-light mb-1.5">Prix de vente * <span className="text-app-muted">DZD</span></label>
+                    <label className="block text-xs text-app-muted-light mb-1.5">{t('Prix de vente *')}{' '}<span className="text-app-muted">{t('DZD')}</span></label>
                     <input name="price" type="number" min="0" step="0.01" value={form.price} onChange={change} required className={inputCls} style={bdrStyle} placeholder="0" />
                     {errors.price && <p className="text-red-400 text-xs mt-1">{errors.price}</p>}
                   </div>
                   <div>
-                    <label className="block text-xs text-app-muted-light mb-1.5">Prix hors remise <span className="text-app-muted">DZD</span></label>
+                    <label className="block text-xs text-app-muted-light mb-1.5">{t('Prix hors remise')}{' '}<span className="text-app-muted">{t('DZD')}</span></label>
                     <input name="compare_price" type="number" min="0" step="0.01" value={form.compare_price} onChange={change} className={inputCls} style={bdrStyle} placeholder="0" />
                   </div>
                   <div>
-                    <label className="block text-xs text-app-muted-light mb-1.5">Prix d'achat <span className="text-app-muted">DZD</span></label>
+                    <label className="block text-xs text-app-muted-light mb-1.5">{t('Prix d\'achat')}{' '}<span className="text-app-muted">{t('DZD')}</span></label>
                     <input name="cost_price" type="number" min="0" step="0.01" value={form.cost_price} onChange={change} className={inputCls} style={bdrStyle} placeholder="0" />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-xs text-app-muted-light mb-1.5">SKU</label>
-                    <input name="sku" value={form.sku} onChange={change} className={inputCls} style={bdrStyle} placeholder="Référence produit" />
+                    <label className="block text-xs text-app-muted-light mb-1.5">{t('SKU')}</label>
+                    <input name="sku" value={form.sku} onChange={change} className={inputCls} style={bdrStyle} placeholder={t('Référence produit')} />
                     {errors.sku && <p className="text-red-400 text-xs mt-1">{errors.sku}</p>}
                   </div>
                   <div>
-                    <label className="block text-xs text-app-muted-light mb-1.5">Poids <span className="text-app-muted">Kg</span></label>
+                    <label className="block text-xs text-app-muted-light mb-1.5">{t('Poids')}{' '}<span className="text-app-muted">{t('Kg')}</span></label>
                     <input name="weight" type="number" min="0" step="0.01" value={form.weight} onChange={change} className={inputCls} style={bdrStyle} placeholder="0.00" />
                   </div>
                   <div>
-                    <label className="block text-xs text-app-muted-light mb-1.5">Fournisseur</label>
+                    <label className="block text-xs text-app-muted-light mb-1.5">{t('Fournisseur')}</label>
                     <Select
                       value={form.supplier}
                       onChange={v => setForm(f => ({ ...f, supplier: v }))}
                       options={suppliers.map(s => ({ value: s.id, label: `${s.first_name} ${s.last_name}` }))}
-                      placeholder="Aucun fournisseur"
+                      placeholder={t('Aucun fournisseur')}
                       className={inputCls}
                       style={{ ...bdrStyle, background: theme.dark.sidebar }}
                     />
@@ -907,10 +905,10 @@ export default function ProductFormPage() {
 
                 <div className="border-t pt-4 grid grid-cols-2 gap-x-8" style={{ borderColor: theme.dark.border }}>
                   {[
-                    ['Livraison gratuite', 'free_shipping'],
-                    ['Autoriser achats en rupture de stock', 'allow_out_of_stock', hasVariants],
-                    ['Drop Shipping', 'drop_shipping'],
-                    ['Produit actif', 'is_active'],
+                    [t('Livraison gratuite'), 'free_shipping'],
+                    [t('Autoriser achats en rupture de stock'), 'allow_out_of_stock', hasVariants],
+                    [t('Drop Shipping'), 'drop_shipping'],
+                    [t('Produit actif'), 'is_active'],
                   ].map(([label, name, disabled]) => (
                     <div key={name} className="flex items-center justify-between py-2">
                       <span className="text-sm text-app-primary">{label}</span>
@@ -919,33 +917,29 @@ export default function ProductFormPage() {
                   ))}
                 </div>
                 {form.free_shipping && (
-                  <p className="text-xs" style={{ color: theme.dark.muted }}>
-                    Ce produit sera toujours en livraison gratuite, quelle que soit la wilaya ou le transporteur.
-                  </p>
+                  <p className="text-xs" style={{ color: theme.dark.muted }}>{t('Ce produit sera toujours en livraison gratuite, quelle que soit la wilaya ou le transporteur.')}</p>
                 )}
                 {hasVariants && (
-                  <p className="text-xs" style={{ color: theme.dark.muted }}>
-                    Ce produit a des variantes — la rupture de stock se gère par option dans l'onglet "Variantes" (ce réglage global n'a aucun effet tant qu'il y a des variantes).
-                  </p>
+                  <p className="text-xs" style={{ color: theme.dark.muted }}>{t('Ce produit a des variantes — la rupture de stock se gère par option dans l\'onglet "Variantes" (ce réglage global n\'a aucun effet tant qu\'il y a des variantes).')}</p>
                 )}
 
                 {/* Offre disponible (palier de quantité) */}
                 <div className="border-t pt-4" style={{ borderColor: theme.dark.border }}>
                   <div className="flex items-center justify-between py-2">
                     <div>
-                      <span className="text-sm text-app-primary">Offre disponible</span>
-                      <p className="text-xs mt-0.5" style={{ color: theme.dark.muted }}>Prix total fixe à partir d'une certaine quantité (ex : 2 pour 2500 DZD au lieu de 3000 DZD)</p>
+                      <span className="text-sm text-app-primary">{t('Offre disponible')}</span>
+                      <p className="text-xs mt-0.5" style={{ color: theme.dark.muted }}>{t('Prix total fixe à partir d\'une certaine quantité (ex : 2 pour 2500 DZD au lieu de 3000 DZD)')}</p>
                     </div>
                     <Toggle value={form.offer_enabled} onChange={v => setForm(f => ({ ...f, offer_enabled: v }))} />
                   </div>
                   {form.offer_enabled && (
                     <div className="grid grid-cols-2 gap-4 mt-2">
                       <div>
-                        <label className="block text-xs text-app-muted-light mb-1.5">Quantité du palier</label>
+                        <label className="block text-xs text-app-muted-light mb-1.5">{t('Quantité du palier')}</label>
                         <input type="number" min="2" value={form.offer_quantity} onChange={e => setForm(f => ({ ...f, offer_quantity: e.target.value }))} className={inputCls} style={bdrStyle} placeholder="2" />
                       </div>
                       <div>
-                        <label className="block text-xs text-app-muted-light mb-1.5">Prix total du palier <span className="text-app-muted">DZD</span></label>
+                        <label className="block text-xs text-app-muted-light mb-1.5">{t('Prix total du palier')}{' '}<span className="text-app-muted">{t('DZD')}</span></label>
                         <input type="number" min="0" step="0.01" value={form.offer_price} onChange={e => setForm(f => ({ ...f, offer_price: e.target.value }))} className={inputCls} style={bdrStyle} placeholder="2500" />
                       </div>
                     </div>
@@ -956,19 +950,19 @@ export default function ProductFormPage() {
                 <div className="border-t pt-4" style={{ borderColor: theme.dark.border }}>
                   <div className="flex items-center justify-between py-2">
                     <div>
-                      <span className="text-sm text-app-primary">Prix de livraison spécifique</span>
-                      <p className="text-xs mt-0.5" style={{ color: theme.dark.muted }}>Remplace le tarif de livraison habituel (grille wilaya/transporteur) pour ce produit précis</p>
+                      <span className="text-sm text-app-primary">{t('Prix de livraison spécifique')}</span>
+                      <p className="text-xs mt-0.5" style={{ color: theme.dark.muted }}>{t('Remplace le tarif de livraison habituel (grille wilaya/transporteur) pour ce produit précis')}</p>
                     </div>
                     <Toggle value={form.specific_shipping_enabled} onChange={v => setForm(f => ({ ...f, specific_shipping_enabled: v }))} />
                   </div>
                   {form.specific_shipping_enabled && (
                     <div className="grid grid-cols-2 gap-4 mt-2">
                       <div>
-                        <label className="block text-xs text-app-muted-light mb-1.5">Livraison à domicile <span className="text-app-muted">DZD</span></label>
+                        <label className="block text-xs text-app-muted-light mb-1.5">{t('Livraison à domicile')}{' '}<span className="text-app-muted">{t('DZD')}</span></label>
                         <input type="number" min="0" step="0.01" value={form.specific_shipping_home_price} onChange={e => setForm(f => ({ ...f, specific_shipping_home_price: e.target.value }))} className={inputCls} style={bdrStyle} placeholder="0" />
                       </div>
                       <div>
-                        <label className="block text-xs text-app-muted-light mb-1.5">Livraison en point relais <span className="text-app-muted">DZD</span></label>
+                        <label className="block text-xs text-app-muted-light mb-1.5">{t('Livraison en point relais')}{' '}<span className="text-app-muted">{t('DZD')}</span></label>
                         <input type="number" min="0" step="0.01" value={form.specific_shipping_desk_price} onChange={e => setForm(f => ({ ...f, specific_shipping_desk_price: e.target.value }))} className={inputCls} style={bdrStyle} placeholder="0" />
                       </div>
                     </div>
@@ -978,15 +972,15 @@ export default function ProductFormPage() {
                 {/* Dropshipping — prix coûtant / prix minimum de vente */}
                 {form.drop_shipping && (
                   <div className="border-t pt-4" style={{ borderColor: theme.dark.border }}>
-                    <span className="text-sm text-app-primary">Tarification dropshipping</span>
-                    <p className="text-xs mt-0.5 mb-2" style={{ color: theme.dark.muted }}>Le dropshipper choisit son propre prix de vente (au moins le minimum) — sa marge = prix de vente choisi moins le prix coûtant.</p>
+                    <span className="text-sm text-app-primary">{t('Tarification dropshipping')}</span>
+                    <p className="text-xs mt-0.5 mb-2" style={{ color: theme.dark.muted }}>{t('Le dropshipper choisit son propre prix de vente (au moins le minimum) — sa marge = prix de vente choisi moins le prix coûtant.')}</p>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-xs text-app-muted-light mb-1.5">Prix coûtant (dropshipper) <span className="text-app-muted">DZD</span></label>
+                        <label className="block text-xs text-app-muted-light mb-1.5">{t('Prix coûtant (dropshipper)')}{' '}<span className="text-app-muted">{t('DZD')}</span></label>
                         <input type="number" min="0" step="0.01" value={form.dropshipping_price} onChange={e => setForm(f => ({ ...f, dropshipping_price: e.target.value }))} className={inputCls} style={bdrStyle} placeholder="0" />
                       </div>
                       <div>
-                        <label className="block text-xs text-app-muted-light mb-1.5">Prix minimum de vente <span className="text-app-muted">DZD</span></label>
+                        <label className="block text-xs text-app-muted-light mb-1.5">{t('Prix minimum de vente')}{' '}<span className="text-app-muted">{t('DZD')}</span></label>
                         <input type="number" min="0" step="0.01" value={form.minimum_selling_price} onChange={e => setForm(f => ({ ...f, minimum_selling_price: e.target.value }))} className={inputCls} style={bdrStyle} placeholder="0" />
                       </div>
                     </div>
@@ -999,17 +993,17 @@ export default function ProductFormPage() {
             {section === 'Description' && (
               <div className="rounded-xl border p-6" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="block text-xs text-app-muted-light">Description du produit</label>
+                  <label className="block text-xs text-app-muted-light">{t('Description du produit')}</label>
                   <button type="button" onClick={handleAiGenerate} disabled={aiGenerating}
                     className={theme.btn.outline + ' text-xs py-1 px-2 disabled:opacity-50'}>
-                    {aiGenerating ? 'Génération…' : "✨ Générer avec l'IA"}
+                    {aiGenerating ? t('Génération…') : t('✨ Générer avec l\'IA')}
                   </button>
                 </div>
                 {aiError && <p className="text-xs text-red-400 mb-2">{aiError}</p>}
                 <RichEditor
                   value={form.description}
                   onChange={html => setForm(f => ({ ...f, description: html }))}
-                  placeholder="Décrivez votre produit…"
+                  placeholder={t('Décrivez votre produit…')}
                 />
               </div>
             )}
@@ -1028,9 +1022,9 @@ export default function ProductFormPage() {
                   style={{ borderColor: theme.dark.border }}
                 >
                   <ImagePlaceholderIcon className="mx-auto mb-3 text-app-muted" width={36} height={36} />
-                  <p className="text-app-muted-light text-sm">Glissez-déposez ou cliquez pour uploader</p>
-                  <p className="text-xs mt-1" style={{ color: theme.dark.muted }}>PNG, JPG, GIF — max 5MB chacun</p>
-                  {!isEdit && <p className="text-xs mt-2" style={{ color: theme.dark.muted }}>Envoyées à l'enregistrement du produit</p>}
+                  <p className="text-app-muted-light text-sm">{t('Glissez-déposez ou cliquez pour uploader')}</p>
+                  <p className="text-xs mt-1" style={{ color: theme.dark.muted }}>{t('PNG, JPG, GIF — max 5MB chacun')}</p>
+                  {!isEdit && <p className="text-xs mt-2" style={{ color: theme.dark.muted }}>{t('Envoyées à l\'enregistrement du produit')}</p>}
                 </div>
 
                 {(images.length > 0 || pendingImages.length > 0) && (
@@ -1039,27 +1033,27 @@ export default function ProductFormPage() {
                       <div key={img.id} className="relative group">
                         <img src={img.image_url} alt="" className="w-full aspect-square object-cover rounded-lg" />
                         {idx === 0 && (
-                          <span className={theme.badge.info + ' absolute bottom-1 left-1'}>Principale</span>
+                          <span className={theme.badge.info + ' absolute bottom-1 start-1'}>{t('Principale')}</span>
                         )}
                         <button
                           type="button"
                           onClick={() => handleDeleteImage(img.id)}
-                          className="absolute top-1 right-1 w-6 h-6 bg-red-600 text-white rounded-full items-center justify-center hidden group-hover:flex"
+                          className="absolute top-1 end-1 w-6 h-6 bg-red-600 text-white rounded-full items-center justify-center hidden group-hover:flex"
                         ><CloseIcon /></button>
-                        <div className="absolute top-1 left-1 hidden group-hover:flex gap-0.5">
+                        <div className="absolute top-1 start-1 hidden group-hover:flex gap-0.5">
                           <button
                             type="button"
                             onClick={() => moveImage(idx, -1)}
                             disabled={idx === 0}
                             className="w-6 h-6 bg-black/60 text-white rounded-full flex items-center justify-center disabled:opacity-30"
-                            title="Déplacer avant"
+                            title={t('Déplacer avant')}
                           ><ChevronIcon direction="up" style={{ transform: 'rotate(-90deg)' }} /></button>
                           <button
                             type="button"
                             onClick={() => moveImage(idx, 1)}
                             disabled={idx === images.length - 1}
                             className="w-6 h-6 bg-black/60 text-white rounded-full flex items-center justify-center disabled:opacity-30"
-                            title="Déplacer après"
+                            title={t('Déplacer après')}
                           ><ChevronIcon style={{ transform: 'rotate(-90deg)' }} /></button>
                         </div>
                       </div>
@@ -1068,13 +1062,13 @@ export default function ProductFormPage() {
                       <div key={img.tempId} className="relative group">
                         <img src={img.previewUrl} alt="" className="w-full aspect-square object-cover rounded-lg" />
                         {images.length === 0 && idx === 0 && (
-                          <span className={theme.badge.info + ' absolute bottom-1 left-1'}>Principale</span>
+                          <span className={theme.badge.info + ' absolute bottom-1 start-1'}>{t('Principale')}</span>
                         )}
-                        <span className={theme.badge.warning + ' absolute top-1 left-1'}>En attente</span>
+                        <span className={theme.badge.warning + ' absolute top-1 start-1'}>{t('En attente')}</span>
                         <button
                           type="button"
                           onClick={() => removePendingImage(img.tempId)}
-                          className="absolute top-1 right-1 w-6 h-6 bg-red-600 text-white rounded-full items-center justify-center hidden group-hover:flex"
+                          className="absolute top-1 end-1 w-6 h-6 bg-red-600 text-white rounded-full items-center justify-center hidden group-hover:flex"
                         ><CloseIcon /></button>
                       </div>
                     ))}
@@ -1111,9 +1105,7 @@ export default function ProductFormPage() {
                   onClick={addVariant}
                   className="w-full py-3 rounded-xl border-2 border-dashed text-sm text-violet-400 font-medium hover:border-violet-500 hover:bg-violet-600/5 transition flex items-center justify-center gap-2"
                   style={{ borderColor: theme.dark.border }}
-                >
-                  + Ajouter une variante
-                </button>
+                >{t('+ Ajouter une variante')}</button>
               </div>
             )}
 
@@ -1123,75 +1115,73 @@ export default function ProductFormPage() {
                 <div className="grid grid-cols-3 gap-4">
                   <div className="col-span-1">
                     <div className="flex items-center justify-between mb-1.5">
-                      <label className="block text-xs text-app-muted-light">Titre (balise &lt;title&gt;)</label>
+                      <label className="block text-xs text-app-muted-light">{t('Titre (balise <title>)')}</label>
                       <span className="text-xs" style={{ color: form.meta_title.length > 70 ? '#f87171' : theme.dark.muted }}>{form.meta_title.length}/70</span>
                     </div>
                     <input
                       name="meta_title" value={form.meta_title} onChange={change} maxLength={70}
                       className={inputCls} style={bdrStyle}
-                      placeholder={form.name || 'Retombe sur le nom du produit si vide'}
+                      placeholder={form.name || t('Retombe sur le nom du produit si vide')}
                     />
                   </div>
                   <div>
-                    <label className="block text-xs text-app-muted-light mb-1.5">Balise méta robots</label>
+                    <label className="block text-xs text-app-muted-light mb-1.5">{t('Balise méta robots')}</label>
                     <Select
                       value={form.meta_robots}
                       onChange={v => setForm(f => ({ ...f, meta_robots: v }))}
                       options={[
-                        { value: '', label: 'index, follow (défaut)' },
-                        { value: 'noindex,follow', label: 'noindex, follow' },
-                        { value: 'index,nofollow', label: 'index, nofollow' },
-                        { value: 'noindex,nofollow', label: 'noindex, nofollow' },
+                        { value: '', label: t('index, follow (défaut)') },
+                        { value: 'noindex,follow', label: t('noindex, follow') },
+                        { value: 'index,nofollow', label: t('index, nofollow') },
+                        { value: 'noindex,nofollow', label: t('noindex, nofollow') },
                       ]}
                       className={inputCls}
                       style={{ ...bdrStyle, background: theme.dark.sidebar }}
                     />
                   </div>
                   <div>
-                    <label className="block text-xs text-app-muted-light mb-1.5">Mots-clés</label>
+                    <label className="block text-xs text-app-muted-light mb-1.5">{t('Mots-clés')}</label>
                     <input
                       value={form.meta_keywords} onChange={e => setForm(f => ({ ...f, meta_keywords: e.target.value }))}
-                      className={inputCls} style={bdrStyle} placeholder="chaussure, sport, running"
+                      className={inputCls} style={bdrStyle} placeholder={t('chaussure, sport, running')}
                     />
                   </div>
                 </div>
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-xs text-app-muted-light">Meta description</label>
+                    <label className="block text-xs text-app-muted-light">{t('Meta description')}</label>
                     <span className="text-xs" style={{ color: form.meta_description.length > 160 ? '#f87171' : theme.dark.muted }}>{form.meta_description.length}/160</span>
                   </div>
                   <textarea
                     name="meta_description" value={form.meta_description} onChange={change} maxLength={160} rows={3}
                     className={`${inputCls} resize-none`} style={bdrStyle}
-                    placeholder={form.description ? stripHtml(form.description).slice(0, 160) : 'Retombe sur un extrait de la description si vide'}
+                    placeholder={form.description ? stripHtml(form.description).slice(0, 160) : t('Retombe sur un extrait de la description si vide')}
                   />
                 </div>
 
                 {/* Images de partage (Open Graph / Twitter) */}
                 <div className="grid grid-cols-2 gap-4">
                   {[
-                    { label: 'URL de l\'image Open Graph (Facebook/WhatsApp)', url: ogImageUrl, ref: ogImageRef, field: 'og_image' },
-                    { label: 'URL de l\'image de la carte Twitter', url: twitterImageUrl, ref: twitterImageRef, field: 'twitter_image' },
+                    { label: t('URL de l\'image Open Graph (Facebook/WhatsApp)'), url: ogImageUrl, ref: ogImageRef, field: 'og_image' },
+                    { label: t('URL de l\'image de la carte Twitter'), url: twitterImageUrl, ref: twitterImageRef, field: 'twitter_image' },
                   ].map(({ label, url, ref, field }) => (
                     <div key={field}>
                       <label className="block text-xs text-app-muted-light mb-1.5">{label}</label>
                       <input ref={ref} type="file" accept="image/*" className="hidden"
                         onChange={e => e.target.files[0] && uploadSeoImage(field, e.target.files[0])} />
                       {!isEdit ? (
-                        <div className="rounded-xl border-2 border-dashed flex items-center justify-center aspect-video text-xs text-app-muted text-center px-4" style={{ borderColor: theme.dark.border }}>
-                          Disponible après le premier enregistrement du produit
-                        </div>
+                        <div className="rounded-xl border-2 border-dashed flex items-center justify-center aspect-video text-xs text-app-muted text-center px-4" style={{ borderColor: theme.dark.border }}>{t('Disponible après le premier enregistrement du produit')}</div>
                       ) : url ? (
                         <div className="relative group aspect-video">
                           <img src={url} alt="" className="w-full h-full object-cover rounded-xl" />
                           <button type="button" onClick={() => ref.current?.click()}
-                            className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/40 opacity-0 group-hover:opacity-100 transition text-white text-sm">Changer</button>
+                            className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/40 opacity-0 group-hover:opacity-100 transition text-white text-sm">{t('Changer')}</button>
                         </div>
                       ) : (
                         <div onClick={() => ref.current?.click()}
                           className="border-2 border-dashed rounded-xl flex items-center justify-center cursor-pointer hover:border-violet-500 transition aspect-video text-sm text-violet-400"
                           style={{ borderColor: theme.dark.border }}
-                        >Télécharger une image</div>
+                        >{t('Télécharger une image')}</div>
                       )}
                     </div>
                   ))}
@@ -1199,14 +1189,14 @@ export default function ProductFormPage() {
 
                 {/* Aperçu façon résultat Google */}
                 <div>
-                  <p className="text-xs text-app-muted-light mb-2">Aperçu dans les résultats de recherche</p>
+                  <p className="text-xs text-app-muted-light mb-2">{t('Aperçu dans les résultats de recherche')}</p>
                   <div className="rounded-lg border p-4" style={{ background: theme.dark.sidebar, borderColor: theme.dark.border }}>
                     <p className="text-xs text-emerald-400 truncate">
                       {user?.store_slug ? `mzsolutions.app/store/${user.store_slug}/products/${id || '…'}` : 'mzsolutions.app/store/…'}
                     </p>
-                    <p className="text-[#8ab4f8] text-lg truncate mt-0.5">{form.meta_title || form.name || 'Titre du produit'}</p>
+                    <p className="text-[#8ab4f8] text-lg truncate mt-0.5">{form.meta_title || form.name || t('Titre du produit')}</p>
                     <p className="text-sm text-app-muted-light mt-0.5 line-clamp-2">
-                      {form.meta_description || stripHtml(form.description) || 'La description du produit apparaîtra ici.'}
+                      {form.meta_description || stripHtml(form.description) || t('La description du produit apparaîtra ici.')}
                     </p>
                   </div>
                 </div>
@@ -1218,21 +1208,19 @@ export default function ProductFormPage() {
               <div className="space-y-4">
                 {/* Alerte de stock */}
                 <div className="rounded-xl border p-6" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-                  <p className="text-sm font-semibold text-app-primary mb-1">Alerte de stock</p>
-                  <p className="text-xs mb-4" style={{ color: theme.dark.muted }}>
-                    Seuils propres à ce produit — remplacent le seuil global de la boutique (Stock & Inventaire) pour ce produit précis. Laissez vide pour garder le seuil global.
-                  </p>
+                  <p className="text-sm font-semibold text-app-primary mb-1">{t('Alerte de stock')}</p>
+                  <p className="text-xs mb-4" style={{ color: theme.dark.muted }}>{t('Seuils propres à ce produit — remplacent le seuil global de la boutique (Stock & Inventaire) pour ce produit précis. Laissez vide pour garder le seuil global.')}</p>
                   <div className="grid grid-cols-3 gap-4">
                     <div>
-                      <label className="block text-xs text-app-muted-light mb-1.5">Seuil 1 — stock faible</label>
+                      <label className="block text-xs text-app-muted-light mb-1.5">{t('Seuil 1 — stock faible')}</label>
                       <input type="number" min="0" value={form.stock_alert_1} onChange={e => setForm(f => ({ ...f, stock_alert_1: e.target.value }))} className={inputCls} style={bdrStyle} placeholder="10" />
                     </div>
                     <div>
-                      <label className="block text-xs text-app-muted-light mb-1.5">Seuil 2 — très faible</label>
+                      <label className="block text-xs text-app-muted-light mb-1.5">{t('Seuil 2 — très faible')}</label>
                       <input type="number" min="0" value={form.stock_alert_2} onChange={e => setForm(f => ({ ...f, stock_alert_2: e.target.value }))} className={inputCls} style={bdrStyle} placeholder="5" />
                     </div>
                     <div>
-                      <label className="block text-xs text-app-muted-light mb-1.5">Seuil 3 — critique</label>
+                      <label className="block text-xs text-app-muted-light mb-1.5">{t('Seuil 3 — critique')}</label>
                       <input type="number" min="0" value={form.stock_alert_3} onChange={e => setForm(f => ({ ...f, stock_alert_3: e.target.value }))} className={inputCls} style={bdrStyle} placeholder="3" />
                     </div>
                   </div>
@@ -1241,25 +1229,23 @@ export default function ProductFormPage() {
                 {/* Position en entrepôt */}
                 <div className="rounded-xl border p-6" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
                   <div className="flex items-center justify-between mb-1">
-                    <p className="text-sm font-semibold text-app-primary">Position en entrepôt</p>
+                    <p className="text-sm font-semibold text-app-primary">{t('Position en entrepôt')}</p>
                     <Toggle value={form.has_position} onChange={v => setForm(f => ({ ...f, has_position: v }))} />
                   </div>
-                  <p className="text-xs mb-4" style={{ color: theme.dark.muted }}>
-                    Purement informatif — pour retrouver physiquement l'article, aucun effet sur le stock ou la vente.
-                  </p>
+                  <p className="text-xs mb-4" style={{ color: theme.dark.muted }}>{t('Purement informatif — pour retrouver physiquement l\'article, aucun effet sur le stock ou la vente.')}</p>
                   {form.has_position && (
                     <div className="grid grid-cols-3 gap-4">
                       <div>
-                        <label className="block text-xs text-app-muted-light mb-1.5">Allée / Rayon</label>
-                        <input value={form.position_range} onChange={e => setForm(f => ({ ...f, position_range: e.target.value }))} className={inputCls} style={bdrStyle} placeholder="ex: A" />
+                        <label className="block text-xs text-app-muted-light mb-1.5">{t('Allée / Rayon')}</label>
+                        <input value={form.position_range} onChange={e => setForm(f => ({ ...f, position_range: e.target.value }))} className={inputCls} style={bdrStyle} placeholder={t('ex: A')} />
                       </div>
                       <div>
-                        <label className="block text-xs text-app-muted-light mb-1.5">Étage / Niveau</label>
-                        <input value={form.position_stage} onChange={e => setForm(f => ({ ...f, position_stage: e.target.value }))} className={inputCls} style={bdrStyle} placeholder="ex: 1" />
+                        <label className="block text-xs text-app-muted-light mb-1.5">{t('Étage / Niveau')}</label>
+                        <input value={form.position_stage} onChange={e => setForm(f => ({ ...f, position_stage: e.target.value }))} className={inputCls} style={bdrStyle} placeholder={t('ex: 1')} />
                       </div>
                       <div>
-                        <label className="block text-xs text-app-muted-light mb-1.5">Emplacement</label>
-                        <input value={form.position_slot} onChange={e => setForm(f => ({ ...f, position_slot: e.target.value }))} className={inputCls} style={bdrStyle} placeholder="ex: Milieu" />
+                        <label className="block text-xs text-app-muted-light mb-1.5">{t('Emplacement')}</label>
+                        <input value={form.position_slot} onChange={e => setForm(f => ({ ...f, position_slot: e.target.value }))} className={inputCls} style={bdrStyle} placeholder={t('ex: Milieu')} />
                       </div>
                     </div>
                   )}
@@ -1267,17 +1253,15 @@ export default function ProductFormPage() {
 
                 {/* Visibilité sur la boutique */}
                 <div className="rounded-xl border p-6" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-                  <p className="text-sm font-semibold text-app-primary mb-1">Visibilité sur la boutique</p>
-                  <p className="text-xs mb-4" style={{ color: theme.dark.muted }}>
-                    "Produit actif" (onglet Détails) contrôle si la fiche existe publiquement — ces réglages affinent ce qui s'y affiche.
-                  </p>
+                  <p className="text-sm font-semibold text-app-primary mb-1">{t('Visibilité sur la boutique')}</p>
+                  <p className="text-xs mb-4" style={{ color: theme.dark.muted }}>{t('"Produit actif" (onglet Détails) contrôle si la fiche existe publiquement — ces réglages affinent ce qui s\'y affiche.')}</p>
                   <div className="grid grid-cols-2 gap-x-8 gap-y-3">
                     {[
-                      ['Afficher le titre', 'show_title'],
-                      ['Afficher les images', 'show_images'],
-                      ['Afficher le prix hors remise (barré)', 'show_full_price'],
-                      ['Afficher le prix réduit', 'show_discounted_price'],
-                      ['Afficher un compte à rebours', 'show_countdown'],
+                      [t('Afficher le titre'), 'show_title'],
+                      [t('Afficher les images'), 'show_images'],
+                      [t('Afficher le prix hors remise (barré)'), 'show_full_price'],
+                      [t('Afficher le prix réduit'), 'show_discounted_price'],
+                      [t('Afficher un compte à rebours'), 'show_countdown'],
                     ].map(([label, name]) => (
                       <div key={name} className="flex items-center justify-between py-1">
                         <span className="text-sm text-app-primary">{label}</span>
@@ -1287,7 +1271,7 @@ export default function ProductFormPage() {
                   </div>
                   {form.show_countdown && (
                     <div className="mt-3">
-                      <label className="block text-xs text-app-muted-light mb-1.5">Fin du compte à rebours</label>
+                      <label className="block text-xs text-app-muted-light mb-1.5">{t('Fin du compte à rebours')}</label>
                       <input
                         type="datetime-local" value={form.countdown_end}
                         onChange={e => setForm(f => ({ ...f, countdown_end: e.target.value }))}
@@ -1302,18 +1286,14 @@ export default function ProductFormPage() {
             {/* Footer actions */}
             <div className="mt-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <button type="button" onClick={() => navigate('/dashboard/produits')} className="text-sm text-app-muted-light hover:text-app-primary transition">
-                  ← Retour à la liste
-                </button>
+                <button type="button" onClick={() => navigate('/dashboard/produits')} className="text-sm text-app-muted-light hover:text-app-primary transition">{t('← Retour à la liste')}</button>
                 {sectionIndex > 0 && (
                   <button
                     type="button"
                     onClick={() => setSection(SECTIONS[sectionIndex - 1])}
                     className="px-4 py-2 rounded-lg text-sm font-medium border text-app-primary hover:bg-violet-500/5 transition"
                     style={bdrStyle}
-                  >
-                    ← Précédent
-                  </button>
+                  >{t('← Précédent')}</button>
                 )}
               </div>
               <div className="flex items-center gap-3">
@@ -1323,16 +1303,14 @@ export default function ProductFormPage() {
                     onClick={() => setSection(SECTIONS[sectionIndex + 1])}
                     className="px-4 py-2 rounded-lg text-sm font-medium border text-app-primary hover:bg-violet-500/5 transition"
                     style={bdrStyle}
-                  >
-                    Suivant →
-                  </button>
+                  >{t('Suivant →')}</button>
                 )}
                 <button
                   type="submit"
                   disabled={saving}
                   className="px-6 py-2.5 rounded-lg text-sm font-semibold text-white bg-violet-600 hover:bg-violet-500 transition disabled:opacity-60"
                 >
-                  {saving ? 'Enregistrement…' : isEdit ? 'Mettre à jour' : 'Enregistrer le produit'}
+                  {saving ? tr('Enregistrement…') : isEdit ? t('Mettre à jour') : t('Enregistrer le produit')}
                 </button>
               </div>
             </div>

@@ -4,10 +4,12 @@ import StatCard from '../../../components/StatCard'
 import api from '../../../api/axios'
 import { theme } from '../../../theme'
 import { usePeriod, PeriodFilter, Spinner, money, StatsToolbar, downloadCsv } from './statsShared'
+import { useTranslation } from 'react-i18next'
+import { tt } from '../../../i18n'
 
 function pctSub(pct) {
   if (pct === null || pct === undefined) return null
-  return `${pct >= 0 ? '+' : ''}${pct}% vs préc.`
+  return `${pct >= 0 ? '+' : ''}${tt('{{pct}}% vs préc.', { pct })}`
 }
 
 function formatDuration(seconds) {
@@ -21,6 +23,7 @@ function formatDuration(seconds) {
 }
 
 function DeliveryRateDonut({ rate }) {
+  const { t } = useTranslation('dashboard')
   const r = 50
   const circumference = 2 * Math.PI * r
   return (
@@ -36,12 +39,13 @@ function DeliveryRateDonut({ rate }) {
           <span className="text-xl font-bold text-white">{rate}%</span>
         </div>
       </div>
-      <p className="text-xs mt-2" style={{ color: theme.dark.muted }}>Taux de livraison</p>
+      <p className="text-xs mt-2" style={{ color: theme.dark.muted }}>{t('Taux de livraison')}</p>
     </div>
   )
 }
 
 export default function GlobalStatsPage() {
+  const { t } = useTranslation('dashboard')
   const { period, setPeriod, dateFrom, setDateFrom, dateTo, setDateTo, queryString, ready } = usePeriod()
   const [data, setData]       = useState(null)
   const [loading, setLoading] = useState(true)
@@ -65,7 +69,7 @@ export default function GlobalStatsPage() {
   }
 
   return (
-    <DashboardLayout title="Statistiques globales" subtitle="Cette page vous donne les chiffres clés de votre activité sur la période choisie, en un seul coup d'œil : combien de commandes, quel pourcentage confirmé, combien livrées/retournées/annulées, votre chiffre d'affaires total et le montant moyen d'une commande.">
+    <DashboardLayout title={t('Statistiques globales')} subtitle={t('Cette page vous donne les chiffres clés de votre activité sur la période choisie, en un seul coup d\'œil : combien de commandes, quel pourcentage confirmé, combien livrées/retournées/annulées, votre chiffre d\'affaires total et le montant moyen d\'une commande.')}>
       <div className="flex items-center justify-between gap-3 mb-6 flex-wrap">
         <PeriodFilter period={period} setPeriod={setPeriod} dateFrom={dateFrom} setDateFrom={setDateFrom} dateTo={dateTo} setDateTo={setDateTo} />
         <StatsToolbar onRefresh={fetchData} onExport={handleExport} exporting={exporting} exportDisabled={!data?.daily?.length} />
@@ -73,13 +77,13 @@ export default function GlobalStatsPage() {
       {loading || !data ? <Spinner /> : (
         <div className="space-y-5">
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-            <StatCard label="Commandes" value={data.total_orders} color="violet" sub={pctSub(data.total_orders_delta_pct)} />
-            <StatCard label="Taux de confirmation" value={`${data.confirmation_rate}%`} color="blue" sub={pctSub(data.confirmation_rate_delta_pct)} />
-            <StatCard label="Livrées" value={data.delivered_count} color="green" />
-            <StatCard label="Retournées" value={data.returned_count} color="red" />
-            <StatCard label="Annulées" value={data.cancelled_count} color="red" />
-            <StatCard label="Chiffre d'affaires" value={money(data.revenue)} color="green" sub={pctSub(data.revenue_delta_pct)} />
-            <StatCard label="Panier moyen" value={money(data.avg_basket)} color="cyan" />
+            <StatCard label={t('Commandes')} value={data.total_orders} color="violet" sub={pctSub(data.total_orders_delta_pct)} />
+            <StatCard label={t('Taux de confirmation')} value={`${data.confirmation_rate}%`} color="blue" sub={pctSub(data.confirmation_rate_delta_pct)} />
+            <StatCard label={t('Livrées')} value={data.delivered_count} color="green" />
+            <StatCard label={t('Retournées')} value={data.returned_count} color="red" />
+            <StatCard label={t('Annulées')} value={data.cancelled_count} color="red" />
+            <StatCard label={t('Chiffre d\'affaires')} value={money(data.revenue)} color="green" sub={pctSub(data.revenue_delta_pct)} />
+            <StatCard label={t('Panier moyen')} value={money(data.avg_basket)} color="cyan" />
           </div>
 
           {/* Taux de livraison + délais moyens entre statuts */}
@@ -87,9 +91,9 @@ export default function GlobalStatsPage() {
             <DeliveryRateDonut rate={data.delivery_rate ?? 0} />
             <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-4 w-full">
               {[
-                { label: 'Confirmation → Expédition', value: data.avg_delays?.confirmation_to_shipped_seconds },
-                { label: 'Expédition → Livraison',     value: data.avg_delays?.shipped_to_delivered_seconds },
-                { label: 'Expédition → Retour',        value: data.avg_delays?.shipped_to_returned_seconds },
+                { label: t('Confirmation → Expédition'), value: data.avg_delays?.confirmation_to_shipped_seconds },
+                { label: t('Expédition → Livraison'),     value: data.avg_delays?.shipped_to_delivered_seconds },
+                { label: t('Expédition → Retour'),        value: data.avg_delays?.shipped_to_returned_seconds },
               ].map(d => (
                 <div key={d.label} className="text-center rounded-lg p-3" style={{ background: theme.dark.cardAlt }}>
                   <p className="text-lg font-bold text-app-primary">{formatDuration(d.value)}</p>
@@ -102,23 +106,23 @@ export default function GlobalStatsPage() {
           {/* Tableau quotidien avec pourcentages */}
           <div className="rounded-xl border overflow-hidden" style={{ borderColor: theme.dark.border }}>
             <div className="px-5 py-3.5 border-b" style={{ background: theme.dark.sidebar, borderColor: theme.dark.border }}>
-              <h2 className="text-sm font-semibold text-app-primary">Évolution quotidienne</h2>
+              <h2 className="text-sm font-semibold text-app-primary">{t('Évolution quotidienne')}</h2>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm min-w-160">
                 <thead style={{ background: theme.dark.sidebar }}>
-                  <tr className="text-left text-xs border-b" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
-                    <th className="px-4 py-2.5 font-medium">DATE</th>
-                    <th className="px-4 py-2.5 font-medium text-center">COMMANDES</th>
-                    <th className="px-4 py-2.5 font-medium text-center">CONFIRMÉ</th>
-                    <th className="px-4 py-2.5 font-medium text-center">EXPÉDIÉ</th>
-                    <th className="px-4 py-2.5 font-medium text-center">LIVRÉ</th>
-                    <th className="px-4 py-2.5 font-medium text-center">PAYÉ</th>
+                  <tr className="text-start text-xs border-b" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
+                    <th className="px-4 py-2.5 font-medium">{t('DATE')}</th>
+                    <th className="px-4 py-2.5 font-medium text-center">{t('COMMANDES')}</th>
+                    <th className="px-4 py-2.5 font-medium text-center">{t('CONFIRMÉ')}</th>
+                    <th className="px-4 py-2.5 font-medium text-center">{t('EXPÉDIÉ')}</th>
+                    <th className="px-4 py-2.5 font-medium text-center">{t('LIVRÉ')}</th>
+                    <th className="px-4 py-2.5 font-medium text-center">{t('PAYÉ')}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {(data.daily || []).length === 0 ? (
-                    <tr><td colSpan={6} className="px-4 py-10 text-center text-sm text-app-muted">Aucune commande sur cette période.</td></tr>
+                    <tr><td colSpan={6} className="px-4 py-10 text-center text-sm text-app-muted">{t('Aucune commande sur cette période.')}</td></tr>
                   ) : data.daily.map(d => (
                     <tr key={d.date} className="border-b last:border-0" style={{ borderColor: theme.dark.borderRowHover }}>
                       <td className="px-4 py-2.5 text-app-primary">{new Date(d.date).toLocaleDateString('fr-DZ', { day: '2-digit', month: 'short', year: 'numeric' })}</td>

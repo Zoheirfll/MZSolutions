@@ -11,15 +11,17 @@ import DeliveriesTab from './DeliveriesTab'
 import ConfirmationTab from './ConfirmationTab'
 import KpiTab from './KpiTab'
 import FilterPanel, { EMPTY_FILTERS } from './FilterPanel'
+import { tt } from '../../i18n'
+import { useTranslation } from 'react-i18next'
 
 // Pas d'onglet "Revenus" ici — c'est du profit/coûts publicitaires/dettes
 // fournisseurs à l'échelle de toute la boutique, aucune notion de "mes
 // revenus à moi" côté confirmateur (voir DashboardRevenueView.check_access,
 // volontairement resté strict owner/admin/stats_view côté serveur).
 const TABS = [
-  { key: 'deliveries',   label: 'Livraisons',    icon: LineChart },
-  { key: 'confirmation', label: 'Confirmation',  icon: CheckCircle2 },
-  { key: 'kpi',          label: 'KPI',           icon: Star },
+  { key: 'deliveries',   label: tt('Livraisons'),    icon: LineChart },
+  { key: 'confirmation', label: tt('Confirmation'),  icon: CheckCircle2 },
+  { key: 'kpi',          label: tt('KPI'),           icon: Star },
 ]
 
 function StatCard({ icon: Icon, label, value, tint }) {
@@ -48,6 +50,7 @@ function StatCard({ icon: Icon, label, value, tint }) {
 //     ConfirmationRateView côté backend), aucun paramètre côté client ne
 //     peut élargir la vue à la boutique entière ou à un autre confirmateur.
 export default function ConfirmateurDashboard() {
+  const { t: tr } = useTranslation('dashboard')
   const { user } = useAuth()
   const navigate = useNavigate()
   const [data, setData]       = useState(null)
@@ -70,36 +73,36 @@ export default function ConfirmateurDashboard() {
   }, [])
 
   return (
-    <DashboardLayout title="Tableau de bord" subtitle="Votre tableau de bord — vos commandes assignées et vos statistiques, jamais celles du reste de la boutique.">
-      <p className="text-lg text-app-primary mb-5">Bonjour, <span className="font-semibold text-violet-400">{user?.first_name}</span></p>
+    <DashboardLayout title={tr('Tableau de bord')} subtitle={tr('Votre tableau de bord — vos commandes assignées et vos statistiques, jamais celles du reste de la boutique.')}>
+      <p className="text-lg text-app-primary mb-5">{tr('Bonjour,')}{' '}<span className="font-semibold text-violet-400">{user?.first_name}</span></p>
 
       {loading ? (
-        <p className="text-sm mb-6" style={{ color: theme.dark.muted }}>Chargement…</p>
+        <p className="text-sm mb-6" style={{ color: theme.dark.muted }}>{tr('Chargement…')}</p>
       ) : !data ? (
-        <p className="text-sm mb-6" style={{ color: theme.dark.muted }}>Impossible de charger vos statistiques.</p>
+        <p className="text-sm mb-6" style={{ color: theme.dark.muted }}>{tr('Impossible de charger vos statistiques.')}</p>
       ) : (
         <>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-            <StatCard icon={ListChecks} label="À traiter (nouvelles)" value={data.pending} tint="#7c3aed" />
-            <StatCard icon={PhoneMissed} label="Relances en attente" value={data.no_answer_1 + data.no_answer_2 + data.no_answer_3} tint="#f59e0b" />
-            <StatCard icon={CheckCircle2} label="Confirmées aujourd'hui" value={data.confirmed_today} tint="#10b981" />
-            <StatCard icon={Clock} label="Total actif assigné" value={data.total_active} tint="#3b82f6" />
+            <StatCard icon={ListChecks} label={tr('À traiter (nouvelles)')} value={data.pending} tint="#7c3aed" />
+            <StatCard icon={PhoneMissed} label={tr('Relances en attente')} value={data.no_answer_1 + data.no_answer_2 + data.no_answer_3} tint="#f59e0b" />
+            <StatCard icon={CheckCircle2} label={tr('Confirmées aujourd\'hui')} value={data.confirmed_today} tint="#10b981" />
+            <StatCard icon={Clock} label={tr('Total actif assigné')} value={data.total_active} tint="#3b82f6" />
           </div>
 
           {data.urgent.length > 0 && (
             <div className="rounded-xl border overflow-hidden mb-8" style={{ borderColor: theme.dark.border }}>
               <div className="px-4 py-3 border-b" style={{ borderColor: theme.dark.border }}>
-                <p className="text-sm font-semibold text-app-primary">À traiter en priorité</p>
-                <p className="text-xs mt-0.5" style={{ color: theme.dark.muted }}>Les plus anciennes d'abord — nouvelles commandes et relances non abouties.</p>
+                <p className="text-sm font-semibold text-app-primary">{tr('À traiter en priorité')}</p>
+                <p className="text-xs mt-0.5" style={{ color: theme.dark.muted }}>{tr('Les plus anciennes d\'abord — nouvelles commandes et relances non abouties.')}</p>
               </div>
               <table className="w-full text-sm">
                 <thead style={{ background: theme.dark.sidebar }}>
-                  <tr className="text-left text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
-                    <th className="px-4 py-2.5 font-medium">CLIENT</th>
-                    <th className="px-4 py-2.5 font-medium">TÉLÉPHONE</th>
-                    <th className="px-4 py-2.5 font-medium">WILAYA</th>
-                    <th className="px-4 py-2.5 font-medium">STATUT</th>
-                    <th className="px-4 py-2.5 font-medium">TOTAL</th>
+                  <tr className="text-start text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
+                    <th className="px-4 py-2.5 font-medium">{tr('CLIENT')}</th>
+                    <th className="px-4 py-2.5 font-medium">{tr('TÉLÉPHONE')}</th>
+                    <th className="px-4 py-2.5 font-medium">{tr('WILAYA')}</th>
+                    <th className="px-4 py-2.5 font-medium">{tr('STATUT')}</th>
+                    <th className="px-4 py-2.5 font-medium">{tr('TOTAL')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -110,7 +113,7 @@ export default function ConfirmateurDashboard() {
                       <td className="px-4 py-2.5 text-app-muted-light">{o.phone}</td>
                       <td className="px-4 py-2.5 text-app-muted-light">{o.wilaya}</td>
                       <td className="px-4 py-2.5"><StatusBadge status={o.status} /></td>
-                      <td className="px-4 py-2.5 text-app-primary font-medium">{Number(o.total).toLocaleString('fr-DZ')} DZD</td>
+                      <td className="px-4 py-2.5 text-app-primary font-medium">{Number(o.total).toLocaleString('fr-DZ')}{' '}{tr('DZD')}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -142,7 +145,7 @@ export default function ConfirmateurDashboard() {
       </div>
 
       {!period.ready ? (
-        <p className="text-sm" style={{ color: theme.dark.muted }}>Choisissez une date de début et de fin.</p>
+        <p className="text-sm" style={{ color: theme.dark.muted }}>{tr('Choisissez une date de début et de fin.')}</p>
       ) : tab === 'deliveries' ? (
         <DeliveriesTab queryString={buildFilteredQuery} onFilterWilaya={(w) => navigate(`/dashboard/commandes?wilaya=${encodeURIComponent(w)}`)} />
       ) : tab === 'confirmation' ? (

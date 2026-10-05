@@ -27,15 +27,33 @@ class Store(models.Model):
     tiktok_url    = models.URLField(blank=True)
     currency        = models.CharField(max_length=3, default='DZD')
     currency_symbol = models.CharField(max_length=5, default='DA')
+    # is_active=False = boutique suspendue par l'admin plateforme : connexion du
+    # vendeur/équipe refusée, vitrine indisponible (voir stores/suspension.py).
     is_active = models.BooleanField(default=True)
+    suspended_at = models.DateTimeField(null=True, blank=True)
+    suspension_reason = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return self.name
 
 
+DEFAULT_TRIAL_DAYS = 30
+
+
 def _trial_end():
-    return timezone.now() + timedelta(days=30)
+    """Fin d'essai d'une NOUVELLE boutique — durée réglable par le superadmin
+    (PlatformSettings.trial_days), 30 jours par défaut. Savepoint : une table
+    absente (migrations) ne doit jamais empoisonner la transaction appelante."""
+    days = DEFAULT_TRIAL_DAYS
+    try:
+        from django.db import transaction
+        from platform_admin.system_models import PlatformSettings
+        with transaction.atomic():
+            days = PlatformSettings.load().trial_days
+    except Exception:
+        pass
+    return timezone.now() + timedelta(days=days)
 
 
 BILLING_CYCLE_CHOICES = [('monthly', 'Mensuel'), ('yearly', 'Annuel')]
@@ -269,7 +287,7 @@ class StoreAudit(models.Model):
 class SubscriptionPayment(models.Model):
     """Tentative de paiement d'abonnement via SofizPay (sans webhook : le statut
     est vérifié par interrogation). Le quota n'est mis à jour qu'à la confirmation."""
-    STATUS_CHOICES = [('pending', 'En attente'), ('success', 'Payé'), ('failed', 'Échoué')]
+    STATUS_CHOICES = [('pending', 'En attente'), ('success', 'Payé'), ('failed', 'Échoué'), ('refunded', 'Remboursé')]
 
     store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='subscription_payments')
     plan = models.ForeignKey('SubscriptionPlan', on_delete=models.PROTECT, related_name='+')
@@ -278,3 +296,7 @@ class SubscriptionPayment(models.Model):
     transaction_id = models.CharField(max_length=100, blank=True, db_index=True)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
     created_at = models.DateTimeField(auto_now_add=True)
+    # Remboursement ENREGISTRÉ par l'admin (le virement de retour se fait chez
+    # SofizPay — aucune API de remboursement n'est utilisée).
+    refunded_at = models.DateTimeField(null=True, blank=True)
+    refund_reason = models.CharField(max_length=300, blank=True)

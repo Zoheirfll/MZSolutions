@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import api from '../api/axios'
 import { theme } from '../theme'
+import { useTranslation } from 'react-i18next'
 
 function ShieldIcon(props) {
   return (
@@ -22,6 +23,7 @@ function CloseIcon(props) {
 // réutilisé par BlacklistPage (ajout/édition) ainsi que ClientsPage et
 // AtRiskCustomersPage (blocage direct depuis la liste, téléphone pré-rempli).
 export default function BlockPhoneModal({ entry, initialPhone, onClose, onSaved }) {
+  const { t, t: tr } = useTranslation('dashboard')
   const isEdit = !!entry
   const [form, setForm] = useState({ phone: entry?.phone || initialPhone || '', message: entry?.message || '' })
   const [saving, setSaving] = useState(false)
@@ -49,26 +51,26 @@ export default function BlockPhoneModal({ entry, initialPhone, onClose, onSaved 
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: 'rgba(0,0,0,0.7)' }} onClick={onClose}>
       <div className="w-full max-w-md rounded-xl border p-6" style={{ background: theme.dark.card, borderColor: theme.dark.border }} onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
-          <h3 className="font-semibold text-app-primary">{isEdit ? 'Modifier le message' : 'Bloquer un numéro de téléphone'}</h3>
+          <h3 className="font-semibold text-app-primary">{isEdit ? t('Modifier le message') : t('Bloquer un numéro de téléphone')}</h3>
           <button onClick={onClose} className="text-app-muted hover:text-app-primary transition cursor-pointer"><CloseIcon /></button>
         </div>
         <form onSubmit={submit} className="space-y-4">
           <div>
-            <label className="block text-xs text-app-muted-light mb-1.5">Message</label>
+            <label className="block text-xs text-app-muted-light mb-1.5">{t('Message')}</label>
             <textarea value={form.message} onChange={e => setForm(f => ({ ...f, message: e.target.value }))} rows={3}
               className={`${inputCls} resize-none`} style={bdrStyle}
-              placeholder="Entrez un message que vous devez montrer au client" />
+              placeholder={t('Entrez un message que vous devez montrer au client')} />
           </div>
           <div>
-            <label className="block text-xs text-app-muted-light mb-1.5">Numéro de téléphone *</label>
+            <label className="block text-xs text-app-muted-light mb-1.5">{t('Numéro de téléphone *')}</label>
             <input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} required
-              disabled={isEdit} className={inputCls + (isEdit ? ' opacity-60' : '')} style={bdrStyle} placeholder="Entrez un numéro de téléphone à bloquer" />
+              disabled={isEdit} className={inputCls + (isEdit ? ' opacity-60' : '')} style={bdrStyle} placeholder={t('Entrez un numéro de téléphone à bloquer')} />
             {errors.phone && <p className="text-red-400 text-xs mt-1">{errors.phone}</p>}
           </div>
           <div className="flex justify-end gap-3 pt-1">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-app-muted-light hover:text-app-primary cursor-pointer transition">Fermer</button>
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-app-muted-light hover:text-app-primary cursor-pointer transition">{t('Fermer')}</button>
             <button type="submit" disabled={saving} className="px-5 py-2 rounded-lg text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 cursor-pointer transition flex items-center gap-1.5">
-              <ShieldIcon /> {saving ? '…' : isEdit ? 'Enregistrer' : 'Bloquer'}
+              <ShieldIcon /> {saving ? '…' : isEdit ? tr('Enregistrer') : tr('Bloquer')}
             </button>
           </div>
         </form>

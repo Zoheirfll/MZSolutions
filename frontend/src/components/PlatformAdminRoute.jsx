@@ -10,8 +10,26 @@ export default function PlatformAdminRoute({ children }) {
   const { user, loading } = useAuth()
   if (loading) return null
   if (!user) return <Navigate to="/auth" replace />
-  if (!user.is_platform_admin) return <Navigate to="/dashboard" replace />
+  if (!user.platform_level) return <Navigate to="/dashboard" replace />
   return children
+}
+
+// Niveau superadmin : prix, réglages, remboursements, gestion des admins et des
+// confirmateurs. Un simple admin est renvoyé vers sa vue d'ensemble.
+function PlatformSuperadminRoute({ children }) {
+  const { user, loading } = useAuth()
+  if (loading) return null
+  if (!user) return <Navigate to="/auth" replace />
+  if (user.platform_level !== 'superadmin') return <Navigate to="/platform-admin" replace />
+  return children
+}
+
+export function PSA({ children }) {
+  return (
+    <PrivateRoute>
+      <PlatformSuperadminRoute>{children}</PlatformSuperadminRoute>
+    </PrivateRoute>
+  )
 }
 
 export function PA({ children }) {

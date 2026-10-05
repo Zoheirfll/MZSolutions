@@ -3,10 +3,13 @@ import DashboardLayout from '../../components/DashboardLayout'
 import EmptyState from '../../components/EmptyState'
 import api from '../../api/axios'
 import { theme } from '../../theme'
+import { useTranslation } from 'react-i18next'
+import { sfx } from '../../i18n'
 
 const INCOMING_REASONS = 'order_return,order_cancelled,exchange_return'
 
 export default function BackToSellerPage() {
+  const { t } = useTranslation('dashboard')
   const [data, setData] = useState({ results: [], count: 0 })
   const [search, setSearch] = useState('')
   const [dateFrom, setDateFrom] = useState('')
@@ -35,12 +38,12 @@ export default function BackToSellerPage() {
   const bdrStyle = { borderColor: theme.dark.border }
 
   return (
-    <DashboardLayout title="Retour au vendeur" subtitle="Marchandise remise en stock : retours de commande validés, annulations et retours d'échange. Même registre que « Mouvement des stocks », filtré sur les entrées uniquement.">
+    <DashboardLayout title={t('Retour au vendeur')} subtitle={t('Marchandise remise en stock : retours de commande validés, annulations et retours d\'échange. Même registre que « Mouvement des stocks », filtré sur les entrées uniquement.')}>
       <div className="flex flex-wrap items-center gap-2 mb-5">
         <input
           value={search}
           onChange={e => setSearch(e.target.value)}
-          placeholder="Rechercher un produit…"
+          placeholder={t('Rechercher un produit…')}
           className={inputCls} style={{ ...bdrStyle, width: 220 }}
         />
         <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className={inputCls} style={bdrStyle} />
@@ -48,19 +51,19 @@ export default function BackToSellerPage() {
         <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className={inputCls} style={bdrStyle} />
       </div>
 
-      <p className="text-sm mb-3" style={{ color: theme.dark.muted }}>{data.count} retour{data.count !== 1 ? 's' : ''} en stock.</p>
+      <p className="text-sm mb-3" style={{ color: theme.dark.muted }}>{t('{{count}} retour', { count: data.count })}{data.count !== 1 ? sfx('s') : ''}{' '}{t('en stock.')}</p>
 
       <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border }}>
         <table className="w-full text-sm min-w-200">
           <thead style={{ background: theme.dark.sidebar }}>
-            <tr className="text-left text-xs border-b" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
-              <th className="px-4 py-3 font-medium">PRODUIT</th>
-              <th className="px-4 py-3 font-medium">OPTION</th>
-              <th className="px-4 py-3 font-medium">QUANTITÉ</th>
-              <th className="px-4 py-3 font-medium">STOCK PRÉCÉDENT</th>
-              <th className="px-4 py-3 font-medium">NOUVEAU STOCK</th>
-              <th className="px-4 py-3 font-medium">ORIGINE</th>
-              <th className="px-4 py-3 font-medium">DATE</th>
+            <tr className="text-start text-xs border-b" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
+              <th className="px-4 py-3 font-medium">{t('PRODUIT')}</th>
+              <th className="px-4 py-3 font-medium">{t('OPTION')}</th>
+              <th className="px-4 py-3 font-medium">{t('QUANTITÉ')}</th>
+              <th className="px-4 py-3 font-medium">{t('STOCK PRÉCÉDENT')}</th>
+              <th className="px-4 py-3 font-medium">{t('NOUVEAU STOCK')}</th>
+              <th className="px-4 py-3 font-medium">{t('ORIGINE')}</th>
+              <th className="px-4 py-3 font-medium">{t('DATE')}</th>
             </tr>
           </thead>
           <tbody>
@@ -70,13 +73,11 @@ export default function BackToSellerPage() {
                   <svg className="w-5 h-5 animate-spin text-violet-500" viewBox="0 0 24 24" fill="none">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-                  </svg>
-                  Chargement…
-                </div>
+                  </svg>{t('Chargement…')}</div>
               </td></tr>
             ) : data.results.length === 0 ? (
               <tr><td colSpan={7}>
-                <EmptyState title="Aucun retour" description="Aucune marchandise remise en stock pour ces filtres." />
+                <EmptyState title={t('Aucun retour')} description={t('Aucune marchandise remise en stock pour ces filtres.')} />
               </td></tr>
             ) : data.results.map(m => {
               const line = m.lines?.[0]
@@ -100,9 +101,9 @@ export default function BackToSellerPage() {
 
       {data.count > perPage && (
         <div className="flex items-center justify-end gap-2 mt-4 text-sm" style={{ color: theme.dark.muted }}>
-          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">← Précédent</button>
+          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">{t('← Précédent')}</button>
           <span className={theme.badge.info}>{page}/{totalPages}</span>
-          <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">Suivant →</button>
+          <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">{t('Suivant →')}</button>
         </div>
       )}
     </DashboardLayout>

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { theme } from '../theme'
+import { useTranslation } from 'react-i18next'
 
 function CopyIcon(props) {
   return (
@@ -23,10 +24,11 @@ function CheckIcon(props) {
 // échecs...). "Non attribué" tant qu'aucune expédition n'a été créée
 // (`Order.carrier_tracking_number` vide).
 export default function TrackingBadge({ trackingNumber, carrierLabel }) {
+  const { t } = useTranslation('dashboard')
   const [copied, setCopied] = useState(false)
 
   if (!trackingNumber) {
-    return <span className={theme.badge.neutral}>Non attribué</span>
+    return <span className={theme.badge.neutral}>{t('Non attribué')}</span>
   }
 
   const copy = async (e) => {
@@ -41,7 +43,7 @@ export default function TrackingBadge({ trackingNumber, carrierLabel }) {
   return (
     <button
       onClick={copy}
-      title={carrierLabel ? `${carrierLabel} — cliquer pour copier` : 'Cliquer pour copier'}
+      title={carrierLabel ? `${carrierLabel} — cliquer pour copier` : t('Cliquer pour copier')}
       className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-mono transition cursor-pointer
         ${copied ? 'bg-emerald-500/15 text-emerald-400' : 'bg-violet-500/10 text-app-primary hover:bg-violet-500/15'}`}
     >

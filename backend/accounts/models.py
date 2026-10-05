@@ -35,6 +35,9 @@ class User(AbstractUser):
     # is_staff/is_superuser (accès admin Django) et de is_owner_or_admin
     # (scopé à une seule boutique via team.TeamMember).
     is_platform_admin = models.BooleanField(default=False)
+    # Niveau supérieur de l'espace /platform-admin (prix, réglages, remboursements,
+    # gestion des admins) — implique is_platform_admin côté helpers.
+    is_platform_superadmin = models.BooleanField(default=False)
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['first_name', 'last_name']

@@ -2,15 +2,17 @@ import { useEffect, useState } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
 import api from '../../api/axios'
 import { theme } from '../../theme'
+import { useTranslation } from 'react-i18next'
 
 function Spinner() {
+  const { t } = useTranslation('dashboard')
   return (
     <div className="flex flex-col items-center justify-center gap-2 py-12 text-app-muted">
       <svg className="animate-spin" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
         <circle cx="12" cy="12" r="9" opacity="0.25" />
         <path d="M21 12a9 9 0 0 0-9-9" strokeLinecap="round" />
       </svg>
-      <span className="text-xs">Chargement…</span>
+      <span className="text-xs">{t('Chargement…')}</span>
     </div>
   )
 }
@@ -18,6 +20,7 @@ function Spinner() {
 const money = v => `${Number(v || 0).toLocaleString('fr-DZ')} DZD`
 
 export default function DropshipperMyProductsPage() {
+  const { t, t: tr } = useTranslation('dashboard')
   const [selected, setSelected]   = useState([])
   const [search, setSearch]       = useState('')
   const [catalog, setCatalog]     = useState([])
@@ -62,26 +65,24 @@ export default function DropshipperMyProductsPage() {
   const bdrStyle = { borderColor: theme.dark.border }
 
   return (
-    <DashboardLayout title="Mes produits" subtitle={`En tant que dropshipper, cette page vous permet de choisir quels produits du catalogue du vendeur vous voulez proposer à vos propres clients (par exemple sur vos réseaux sociaux). Cliquez sur "Ajouter" pour un produit que vous voulez vendre, ou "Retirer" pour ne plus le proposer. Vous n'avez aucun stock à gérer vous-même : quand vous vendez un produit, c'est le stock du vendeur principal qui diminue, pas le vôtre.`}>
-      <p className="text-sm mb-4" style={{ color: theme.dark.muted }}>
-        Choisissez les produits du catalogue que vous souhaitez promouvoir et vendre. Vous ne gérez pas de stock — le stock reste celui du vendeur.
-      </p>
-      <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher un produit…" className={`${inputCls} mb-5 max-w-md`} style={bdrStyle} />
+    <DashboardLayout title={t('Mes produits')} subtitle={t('En tant que dropshipper, cette page vous permet de choisir quels produits du catalogue du vendeur vous voulez proposer à vos propres clients (par exemple sur vos réseaux sociaux). Cliquez sur "Ajouter" pour un produit que vous voulez vendre, ou "Retirer" pour ne plus le proposer. Vous n\'avez aucun stock à gérer vous-même : quand vous vendez un produit, c\'est le stock du vendeur principal qui diminue, pas le vôtre.')}>
+      <p className="text-sm mb-4" style={{ color: theme.dark.muted }}>{t('Choisissez les produits du catalogue que vous souhaitez promouvoir et vendre. Vous ne gérez pas de stock — le stock reste celui du vendeur.')}</p>
+      <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('Rechercher un produit…')} className={`${inputCls} mb-5 max-w-md`} style={bdrStyle} />
 
       {loading ? <Spinner /> : (
         <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border }}>
           <table className="w-full text-sm min-w-140">
             <thead style={{ background: theme.dark.sidebar }}>
-              <tr className="text-left text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
-                <th className="px-4 py-3 font-medium">PRODUIT</th>
-                <th className="px-4 py-3 font-medium">PRIX COÛTANT</th>
-                <th className="px-4 py-3 font-medium">PRIX MIN. DE VENTE</th>
-                <th className="px-4 py-3 font-medium">ACTIONS</th>
+              <tr className="text-start text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
+                <th className="px-4 py-3 font-medium">{t('PRODUIT')}</th>
+                <th className="px-4 py-3 font-medium">{t('PRIX COÛTANT')}</th>
+                <th className="px-4 py-3 font-medium">{t('PRIX MIN. DE VENTE')}</th>
+                <th className="px-4 py-3 font-medium">{t('ACTIONS')}</th>
               </tr>
             </thead>
             <tbody>
               {catalog.length === 0 ? (
-                <tr><td colSpan={4} className="px-4 py-8 text-center text-sm text-app-muted">Aucun produit trouvé.</td></tr>
+                <tr><td colSpan={4} className="px-4 py-8 text-center text-sm text-app-muted">{t('Aucun produit trouvé.')}</td></tr>
               ) : catalog.map(p => {
                 const isSelected = selectedProductIds.has(p.id)
                 return (
@@ -98,7 +99,7 @@ export default function DropshipperMyProductsPage() {
                         }`}
                         style={isSelected ? { borderColor: theme.dark.border } : {}}
                       >
-                        {busyId === p.id ? '…' : isSelected ? 'Retirer' : 'Ajouter'}
+                        {busyId === p.id ? '…' : isSelected ? tr('Retirer') : tr('Ajouter')}
                       </button>
                     </td>
                   </tr>

@@ -51,3 +51,28 @@ class PermissionHelpersTests(TestCase):
         from team.models import RolePermission
         RolePermission.objects.create(store=self.store, role='confirmateur', permission='costs_view', enabled=True)
         self.assertTrue(has_permission(_req(self.conf_user), 'costs_view'))
+
+
+class ApiLanguageMiddlewareTests(TestCase):
+    """Les messages d'API sont traduits en arabe sur Accept-Language: ar, sinon inchangés."""
+
+    def test_exact_message_translated(self):
+        from core.i18n_middleware import translate
+        self.assertEqual(translate('Panier vide.'), 'السلة فارغة.')
+
+    def test_prefix_message_keeps_dynamic_value(self):
+        from core.i18n_middleware import translate
+        self.assertEqual(translate('Rôle invalide. Valeurs : admin, confirmateur'), 'دور غير صالح. القيم المسموحة: admin, confirmateur')
+
+    def test_unknown_message_untouched(self):
+        from core.i18n_middleware import translate
+        self.assertEqual(translate('Message inconnu.'), 'Message inconnu.')
+
+    def test_login_error_arabic_only_when_requested(self):
+        from rest_framework.test import APIClient
+        c = APIClient()
+        body = {'email': 'nobody@example.com', 'password': 'x'}
+        fr = c.post('/api/auth/login/', body, format='json')
+        ar = c.post('/api/auth/login/', body, format='json', HTTP_ACCEPT_LANGUAGE='ar')
+        self.assertNotEqual(fr.content, ar.content)
+        self.assertIn('غير صحيحة', ar.content.decode('utf-8'))

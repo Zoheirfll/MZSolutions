@@ -5,9 +5,11 @@ import Toast from '../../components/Toast'
 import api from '../../api/axios'
 import { theme } from '../../theme'
 import { useAuth } from '../../context/AuthContext'
+import { tt } from '../../i18n'
+import { useTranslation } from 'react-i18next'
 
 const PAGE_TYPE_LABELS = {
-  about: 'À propos', faq: 'FAQ', terms: 'Conditions', custom: 'Libre',
+  about: tt('À propos'), faq: 'FAQ', terms: 'Conditions', custom: 'Libre',
 }
 
 const PAGE_TYPE_BADGES = {
@@ -15,6 +17,7 @@ const PAGE_TYPE_BADGES = {
 }
 
 export default function PagesPage() {
+  const { t, t: tr } = useTranslation('dashboard')
   const { user } = useAuth()
   const [pages,   setPages]   = useState([])
   const [loading, setLoading] = useState(true)
@@ -29,12 +32,12 @@ export default function PagesPage() {
   useEffect(load, [])
 
   const remove = async (id) => {
-    if (!confirm('Supprimer cette page ?')) return
+    if (!confirm(t('Supprimer cette page ?'))) return
     setDeleting(id)
     try {
       const { data } = await api.delete(`/stores/pages/${id}/`)
       if (data?.menu_links_removed) {
-        setToast({ type: 'info', message: `Page supprimée. ${data.menu_links_removed} lien(s) pointant vers cette page ont aussi été retirés du menu de la boutique.` })
+        setToast({ type: 'info', message: t('Page supprimée. {{menu_links_removed}} lien(s) pointant vers cette page ont aussi été retirés du menu de la boutique.', { menu_links_removed: data.menu_links_removed }) })
       }
     } catch {}
     setDeleting(null)
@@ -42,14 +45,10 @@ export default function PagesPage() {
   }
 
   return (
-    <DashboardLayout title="Pages personnalisées" subtitle={`Cette page permet de créer vos propres pages de contenu pour la boutique, comme "À propos de nous", "Conditions générales de vente" ou une FAQ. Vous écrivez le texte avec un éditeur simple (comme Word), et la page devient immédiatement consultable par vos clients à une adresse dédiée. Une fois créée, vous pouvez l'ajouter au menu de navigation de la boutique depuis la page "Éditeur de menu", pour que les clients la trouvent facilement.`}>
+    <DashboardLayout title={t('Pages personnalisées')} subtitle={t('Cette page permet de créer vos propres pages de contenu pour la boutique, comme "À propos de nous", "Conditions générales de vente" ou une FAQ. Vous écrivez le texte avec un éditeur simple (comme Word), et la page devient immédiatement consultable par vos clients à une adresse dédiée. Une fois créée, vous pouvez l\'ajouter au menu de navigation de la boutique depuis la page "Éditeur de menu", pour que les clients la trouvent facilement.')}>
       <div className="flex items-center justify-between mb-5">
-        <p className="text-sm" style={{ color: theme.dark.muted }}>
-          Créez des pages statiques visibles sur votre boutique (À propos, FAQ, CGV…)
-        </p>
-        <Link to="/dashboard/boutique/pages/nouvelle" className={theme.btn.primary}>
-          + Nouvelle page
-        </Link>
+        <p className="text-sm" style={{ color: theme.dark.muted }}>{t('Créez des pages statiques visibles sur votre boutique (À propos, FAQ, CGV…)')}</p>
+        <Link to="/dashboard/boutique/pages/nouvelle" className={theme.btn.primary}>{t('+ Nouvelle page')}</Link>
       </div>
 
       <div className="rounded-2xl border overflow-hidden" style={{ borderColor: theme.dark.border }}>
@@ -57,7 +56,7 @@ export default function PagesPage() {
           <thead>
             <tr style={{ background: theme.dark.card, borderBottom: `1px solid ${theme.dark.border}` }}>
               {['Titre', 'Type', 'Slug', 'Statut', 'Actions'].map(h => (
-                <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-app-muted">{h}</th>
+                <th key={h} className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wide text-app-muted">{h}</th>
               ))}
             </tr>
           </thead>
@@ -74,9 +73,7 @@ export default function PagesPage() {
               ))
             ) : pages.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-4 py-16 text-center" style={{ color: theme.dark.muted }}>
-                  Aucune page. Créez votre première page personnalisée.
-                </td>
+                <td colSpan={5} className="px-4 py-16 text-center" style={{ color: theme.dark.muted }}>{t('Aucune page. Créez votre première page personnalisée.')}</td>
               </tr>
             ) : pages.map(page => (
               <tr key={page.id}
@@ -92,29 +89,25 @@ export default function PagesPage() {
                 <td className="px-4 py-3 font-mono text-xs text-app-muted">/{page.slug}</td>
                 <td className="px-4 py-3">
                   {page.is_published
-                    ? <span className={theme.badge.success}>Publiée</span>
-                    : <span className={theme.badge.neutral}>Brouillon</span>}
+                    ? <span className={theme.badge.success}>{t('Publiée')}</span>
+                    : <span className={theme.badge.neutral}>{t('Brouillon')}</span>}
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
                     {page.is_published && user?.store_slug && (
                       <a href={`/store/${user.store_slug}/pages/${page.slug}`} target="_blank" rel="noreferrer"
                         className="text-xs px-3 py-1 rounded-lg border transition-colors cursor-pointer"
-                        style={{ color: theme.dark.mutedLight, borderColor: theme.dark.border }}>
-                        Aperçu
-                      </a>
+                        style={{ color: theme.dark.mutedLight, borderColor: theme.dark.border }}>{t('Aperçu')}</a>
                     )}
                     <Link to={`/dashboard/boutique/pages/${page.id}/modifier`}
                       className="text-xs px-3 py-1 rounded-lg border transition-colors cursor-pointer"
                       style={{ color: theme.dark.mutedLight, borderColor: theme.dark.border }}
                       onMouseEnter={e => { e.currentTarget.style.color = '#7c3aed'; e.currentTarget.style.borderColor = '#7c3aed' }}
-                      onMouseLeave={e => { e.currentTarget.style.color = theme.dark.mutedLight; e.currentTarget.style.borderColor = theme.dark.border }}>
-                      Modifier
-                    </Link>
+                      onMouseLeave={e => { e.currentTarget.style.color = theme.dark.mutedLight; e.currentTarget.style.borderColor = theme.dark.border }}>{t('Modifier')}</Link>
                     <button onClick={() => remove(page.id)} disabled={deleting === page.id}
                       className="text-xs px-3 py-1 rounded-lg border transition-colors cursor-pointer"
                       style={{ color: '#f87171', borderColor: 'rgba(248,113,113,0.3)' }}>
-                      {deleting === page.id ? '…' : 'Supprimer'}
+                      {deleting === page.id ? '…' : tr('Supprimer')}
                     </button>
                   </div>
                 </td>

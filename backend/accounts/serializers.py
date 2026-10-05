@@ -19,6 +19,8 @@ class UserSerializer(serializers.ModelSerializer):
     is_online      = serializers.SerializerMethodField()
     store_is_paused = serializers.SerializerMethodField()
     is_platform_confirmateur = serializers.SerializerMethodField()
+    platform_level = serializers.SerializerMethodField()
+    is_platform_admin = serializers.SerializerMethodField()
     impersonating  = serializers.SerializerMethodField()
 
     class Meta:
@@ -26,7 +28,7 @@ class UserSerializer(serializers.ModelSerializer):
         fields = ['id', 'email', 'first_name', 'last_name', 'phone', 'avatar',
                   'store_slug', 'store_name', 'team_role', 'team_member_id', 'permissions',
                   'is_email_verified', 'is_online', 'store_is_paused',
-                  'is_platform_admin', 'is_platform_confirmateur', 'impersonating']
+                  'is_platform_admin', 'platform_level', 'is_platform_confirmateur', 'impersonating']
 
     def _request_context_for(self, obj):
         """Le contexte de requête n'est fiable que pour SE décrire soi-même
@@ -94,6 +96,16 @@ class UserSerializer(serializers.ModelSerializer):
             return obj.team_membership.is_online
         except Exception:
             return None
+
+    def get_is_platform_admin(self, obj):
+        # Vrai pour les deux niveaux (admin et superadmin) — les contrôles frontend
+        # historiques (landing, lien « Espace Superadmin ») continuent de fonctionner.
+        return bool(obj.is_platform_admin or obj.is_platform_superadmin)
+
+    def get_platform_level(self, obj):
+        if obj.is_platform_superadmin:
+            return 'superadmin'
+        return 'admin' if obj.is_platform_admin else None
 
     def get_is_platform_confirmateur(self, obj):
         try:
@@ -200,6 +212,10 @@ class LoginSerializer(serializers.Serializer):
             )
         if not user.is_active:
             raise serializers.ValidationError("Ce compte est désactivé.")
+        from stores.suspension import suspended_store_for_user, suspension_message
+        suspended = suspended_store_for_user(user)
+        if suspended is not None:
+            raise serializers.ValidationError(suspension_message(suspended), code='store_suspended')
         data['user'] = user
         return data
 

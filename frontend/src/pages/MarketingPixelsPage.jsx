@@ -3,15 +3,17 @@ import DashboardLayout from '../components/DashboardLayout'
 import { useAuth } from '../context/AuthContext'
 import api from '../api/axios'
 import { theme } from '../theme'
+import { tt } from '../i18n'
+import { useTranslation } from 'react-i18next'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 const TABS = [
-  { value: 'facebook',            label: 'Facebook Pixel' },
-  { value: 'facebook_catalog',    label: 'Facebook Catalog' },
-  { value: 'tiktok',              label: 'TikTok Pixel' },
-  { value: 'google_tag_manager',  label: 'Google Tag Manager' },
-  { value: 'google_analytics',    label: 'Google Analytics' },
+  { value: 'facebook',            label: tt('Facebook Pixel') },
+  { value: 'facebook_catalog',    label: tt('Facebook Catalog') },
+  { value: 'tiktok',              label: tt('TikTok Pixel') },
+  { value: 'google_tag_manager',  label: tt('Google Tag Manager') },
+  { value: 'google_analytics',    label: tt('Google Analytics') },
 ]
 
 // Champs affichés par type de pixel — alignés sur les capacités réelles de
@@ -20,39 +22,38 @@ const TABS = [
 // domaine = balise Meta Business ; GA4 garde ses propres champs).
 const FIELD_SETS = {
   facebook: [
-    { key: 'label', label: 'Nom du pixel', placeholder: 'Ex : Compte pub principal' },
-    { key: 'access_token', label: "Jeton d'accès", secret: true, placeholder: 'Conversions API (optionnel)' },
-    { key: 'pixel_id', label: 'Identifiant du pixel', required: true, placeholder: 'Ex : 1234567890123456' },
-    { key: 'domain_verification', label: 'Vérification du domaine', placeholder: 'Balise facebook-domain-verification' },
+    { key: 'label', label: tt('Nom du pixel'), placeholder: tt('Ex : Compte pub principal') },
+    { key: 'access_token', label: tt('Jeton d\'accès'), secret: true, placeholder: tt('Conversions API (optionnel)') },
+    { key: 'pixel_id', label: tt('Identifiant du pixel'), required: true, placeholder: tt('Ex : 1234567890123456') },
+    { key: 'domain_verification', label: tt('Vérification du domaine'), placeholder: tt('Balise facebook-domain-verification') },
   ],
   tiktok: [
-    { key: 'label', label: 'Nom du pixel', placeholder: 'Ex : Compte pub principal' },
-    { key: 'access_token', label: "Jeton d'accès", secret: true, placeholder: 'Events API (optionnel)' },
-    { key: 'pixel_id', label: 'Identifiant du pixel', required: true, placeholder: 'Ex : C4A1B2C3D4E5F6G7H8I9' },
+    { key: 'label', label: tt('Nom du pixel'), placeholder: tt('Ex : Compte pub principal') },
+    { key: 'access_token', label: tt('Jeton d\'accès'), secret: true, placeholder: tt('Events API (optionnel)') },
+    { key: 'pixel_id', label: tt('Identifiant du pixel'), required: true, placeholder: tt('Ex : C4A1B2C3D4E5F6G7H8I9') },
   ],
   google_tag_manager: [
-    { key: 'pixel_id', label: 'Identifiant', required: true, placeholder: 'Ex : GTM-XXXXXXX' },
+    { key: 'pixel_id', label: tt('Identifiant'), required: true, placeholder: tt('Ex : GTM-XXXXXXX') },
   ],
   google_analytics: [
-    { key: 'label', label: 'Nom', placeholder: 'Ex : Propriété principale' },
-    { key: 'ga_view_id', label: "Identifiant de vue d'analyse", placeholder: 'Optionnel' },
-    { key: 'pixel_id', label: 'Mesure GA', required: true, placeholder: 'Ex : G-XXXXXXXXXX' },
-    { key: 'ga_api_secret', label: 'Secret API (Measurement Protocol)', secret: true, placeholder: "Envoi réel de l'évènement purchase — GA4 Admin → Flux de données → Measurement Protocol" },
-    { key: 'ga_service_account_json', label: "JSON des informations d'identification du compte de service", secret: true, textarea: true, placeholder: 'Optionnel — réservé à une future intégration de rapports (non lié à l\'envoi d\'évènements)' },
+    { key: 'label', label: tt('Nom'), placeholder: tt('Ex : Propriété principale') },
+    { key: 'ga_view_id', label: tt('Identifiant de vue d\'analyse'), placeholder: tt('Optionnel') },
+    { key: 'pixel_id', label: tt('Mesure GA'), required: true, placeholder: tt('Ex : G-XXXXXXXXXX') },
+    { key: 'ga_api_secret', label: tt('Secret API (Measurement Protocol)'), secret: true, placeholder: tt('Envoi réel de l\'évènement purchase — GA4 Admin → Flux de données → Measurement Protocol') },
+    { key: 'ga_service_account_json', label: tt('JSON des informations d\'identification du compte de service'), secret: true, textarea: true, placeholder: tt('Optionnel — réservé à une future intégration de rapports (non lié à l\'envoi d\'évènements)') },
   ],
 }
 
 const EMPTY_ROW = { label: '', access_token: '', pixel_id: '', domain_verification: '', ga_view_id: '', ga_service_account_json: '', ga_api_secret: '', is_active: true }
 
 function Spinner() {
+  const { t: tr } = useTranslation('dashboard')
   return (
     <div className="flex items-center justify-center gap-2 text-app-muted py-10">
       <svg className="w-5 h-5 animate-spin text-violet-500" viewBox="0 0 24 24" fill="none">
         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-      </svg>
-      Chargement…
-    </div>
+      </svg>{tr('Chargement…')}</div>
   )
 }
 
@@ -75,6 +76,7 @@ function Toggle({ value, onChange }) {
 }
 
 function PixelRow({ pixelType, pixel, onSaved, onDeleted, isNew, onCancelNew }) {
+  const { t: tr } = useTranslation('dashboard')
   const [form, setForm] = useState(pixel ? { ...EMPTY_ROW, ...pixel } : EMPTY_ROW)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -110,12 +112,12 @@ function PixelRow({ pixelType, pixel, onSaved, onDeleted, isNew, onCancelNew }) 
       }
       onSaved()
     } catch (err) {
-      setError(err.response?.data?.detail || err.response?.data?.pixel_id?.[0] || "Erreur lors de l'enregistrement.")
+      setError(err.response?.data?.detail || err.response?.data?.pixel_id?.[0] || tr('Erreur lors de l\'enregistrement.'))
     } finally { setSaving(false) }
   }
 
   const remove = async () => {
-    if (!confirm('Supprimer ?')) return
+    if (!confirm(tr('Supprimer ?'))) return
     setDeleting(true)
     try {
       await api.delete(`/stores/me/pixels/${pixel.id}/`)
@@ -132,7 +134,7 @@ function PixelRow({ pixelType, pixel, onSaved, onDeleted, isNew, onCancelNew }) 
             {f.textarea ? (
               <textarea
                 value={form[f.key]} onChange={e => set(f.key)(e.target.value)} rows={3}
-                placeholder={f.secret && pixel?.[`${f.key}_configured`] ? 'Déjà configuré — laisser vide pour ne pas changer' : f.placeholder}
+                placeholder={f.secret && pixel?.[`${f.key}_configured`] ? tr('Déjà configuré — laisser vide pour ne pas changer') : f.placeholder}
                 className={inputCls + ' resize-none font-mono text-xs'} style={bdrStyle}
               />
             ) : (
@@ -150,14 +152,14 @@ function PixelRow({ pixelType, pixel, onSaved, onDeleted, isNew, onCancelNew }) 
       <div className="flex items-center justify-between">
         <Toggle value={form.is_active} onChange={() => set('is_active')(!form.is_active)} />
         <div className="flex items-center gap-2">
-          {isNew && <button onClick={onCancelNew} className="px-3 py-2 text-sm text-app-muted-light hover:text-app-primary transition cursor-pointer">Annuler</button>}
+          {isNew && <button onClick={onCancelNew} className="px-3 py-2 text-sm text-app-muted-light hover:text-app-primary transition cursor-pointer">{tr('Annuler')}</button>}
           {!isNew && (
             <button onClick={remove} disabled={deleting} className={theme.btn.danger + ' text-sm disabled:opacity-50'}>
-              {deleting ? '…' : 'Supprimer'}
+              {deleting ? '…' : tr('Supprimer')}
             </button>
           )}
           <button onClick={save} disabled={saving} className={theme.btn.primary + ' text-sm disabled:opacity-50'}>
-            {saving ? '…' : isNew ? 'Ajouter' : 'Sauvegarder'}
+            {saving ? '…' : isNew ? tr('Ajouter') : tr('Sauvegarder')}
           </button>
         </div>
       </div>
@@ -166,6 +168,7 @@ function PixelRow({ pixelType, pixel, onSaved, onDeleted, isNew, onCancelNew }) 
 }
 
 export default function MarketingPixelsPage() {
+  const { t: tr } = useTranslation('dashboard')
   const { user } = useAuth()
   const [tab, setTab]         = useState('facebook')
   const [pixels, setPixels]   = useState([])
@@ -194,7 +197,7 @@ export default function MarketingPixelsPage() {
   }
 
   return (
-    <DashboardLayout title="Marketing" subtitle={`Cette page sert à brancher vos outils de publicité en ligne (Facebook Ads, TikTok Ads, Google Analytics) sur votre boutique. Le script client (déjà injecté automatiquement sur la boutique) suffit pour la plupart des besoins ; le jeton d'accès est optionnel et permet en plus un envoi d'évènements côté serveur (Conversions API), plus fiable face aux bloqueurs de publicité. Vous pouvez ajouter plusieurs identifiants du même type si vous gérez plusieurs comptes publicitaires.`}>
+    <DashboardLayout title={tr('Marketing')} subtitle={tr('Cette page sert à brancher vos outils de publicité en ligne (Facebook Ads, TikTok Ads, Google Analytics) sur votre boutique. Le script client (déjà injecté automatiquement sur la boutique) suffit pour la plupart des besoins ; le jeton d\'accès est optionnel et permet en plus un envoi d\'évènements côté serveur (Conversions API), plus fiable face aux bloqueurs de publicité. Vous pouvez ajouter plusieurs identifiants du même type si vous gérez plusieurs comptes publicitaires.')}>
       <div className="flex items-center gap-2 mb-6 flex-wrap">
         {TABS.map(t => (
           <button key={t.value} onClick={() => setTab(t.value)}
@@ -207,13 +210,11 @@ export default function MarketingPixelsPage() {
 
       {tab === 'facebook_catalog' ? (
         <div className="rounded-xl border p-5" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-          <p className="text-xs mb-4" style={{ color: theme.dark.muted }}>
-            Copiez cette URL dans Meta Commerce Manager (Catalogue → Ajouter des articles → Flux de données programmé). Déjà disponible depuis Canaux de vente → Meta Commerce.
-          </p>
+          <p className="text-xs mb-4" style={{ color: theme.dark.muted }}>{tr('Copiez cette URL dans Meta Commerce Manager (Catalogue → Ajouter des articles → Flux de données programmé). Déjà disponible depuis Canaux de vente → Meta Commerce.')}</p>
           <div className="flex items-center gap-2">
             <input readOnly value={catalogUrl} className="flex-1 px-3.5 py-2.5 rounded-lg border text-sm text-app-primary bg-transparent outline-none" style={{ borderColor: theme.dark.border }} />
             <button onClick={copyCatalogUrl} className={theme.btn.primary + ' text-sm shrink-0 flex items-center gap-1.5 cursor-pointer'}>
-              {copied ? <><CheckIcon /> Copié</> : 'Copier'}
+              {copied ? <><CheckIcon />{' '}{tr('Copié')}</> : tr('Copier')}
             </button>
           </div>
         </div>
@@ -228,13 +229,11 @@ export default function MarketingPixelsPage() {
           )}
 
           {currentPixels.length === 0 && !addingNew && (
-            <p className="text-sm text-app-muted text-center py-4">Aucun pixel configuré pour l'instant.</p>
+            <p className="text-sm text-app-muted text-center py-4">{tr('Aucun pixel configuré pour l\'instant.')}</p>
           )}
 
           {!addingNew && (
-            <button onClick={() => setAddingNew(true)} className={theme.btn.primary + ' w-full cursor-pointer flex items-center justify-center gap-1.5'}>
-              + Ajouter
-            </button>
+            <button onClick={() => setAddingNew(true)} className={theme.btn.primary + ' w-full cursor-pointer flex items-center justify-center gap-1.5'}>{tr('+ Ajouter')}</button>
           )}
         </div>
       )}

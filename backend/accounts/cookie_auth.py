@@ -10,11 +10,28 @@ priorité (clients API non-navigateur, tests backend qui construisent leurs
 propres tokens — `core/test_utils.py::auth_client`) ; le cookie n'est
 consulté que si aucun header n'est fourni, ce qui couvre le navigateur."""
 from django.conf import settings
+from rest_framework.exceptions import PermissionDenied
 from rest_framework_simplejwt.authentication import JWTAuthentication
+
+
+class StoreSuspended(PermissionDenied):
+    default_code = 'store_suspended'
 
 
 class CookieJWTAuthentication(JWTAuthentication):
     def authenticate(self, request):
+        result = self._authenticate(request)
+        if result is not None:
+            # Boutique suspendue par l'admin plateforme : toute requête du vendeur
+            # ou de son équipe est refusée (403), y compris avec un jeton encore
+            # valide — la suspension prend effet immédiatement.
+            from stores.suspension import suspended_store_for_user, suspension_message
+            store = suspended_store_for_user(result[0])
+            if store is not None:
+                raise StoreSuspended(detail=suspension_message(store), code='store_suspended')
+        return result
+
+    def _authenticate(self, request):
         header = self.get_header(request)
         if header is not None:
             return super().authenticate(request)

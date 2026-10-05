@@ -6,6 +6,10 @@ import Logo from './Logo'
 import { theme } from '../theme'
 import { useTheme } from '../hooks/useTheme'
 import { getPageHelp } from '../api/aiApi'
+import { useTranslation } from 'react-i18next'
+import LanguageSwitcher from './LanguageSwitcher'
+import AnnouncementBanner from './AnnouncementBanner'
+import { sfx } from '../i18n'
 
 let sidebarScrollTop = 0
 
@@ -152,6 +156,7 @@ const ICONS = {
 }
 
 function PageInfoButton({ text }) {
+  const { t: tr } = useTranslation('dashboard')
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
 
@@ -174,7 +179,7 @@ function PageInfoButton({ text }) {
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
-        aria-label="Informations sur cette page"
+        aria-label={tr('Informations sur cette page')}
         aria-expanded={open}
         className="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold border border-(--border-color-hover) text-app-muted-light hover:text-violet-400 hover:border-violet-500/40 hover:bg-violet-500/10 transition-colors duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
       >
@@ -182,10 +187,10 @@ function PageInfoButton({ text }) {
       </button>
       {open && (
         <div
-          className="absolute z-50 top-7 left-0 w-[calc(100vw-2.5rem)] max-w-md rounded-xl border p-4 text-sm leading-relaxed text-app-primary shadow-xl space-y-2"
+          className="absolute z-50 top-7 start-0 w-[calc(100vw-2.5rem)] max-w-md rounded-xl border p-4 text-sm leading-relaxed text-app-primary shadow-xl space-y-2"
           style={{ background: theme.dark.sidebar, borderColor: theme.dark.borderHover, boxShadow: '0 12px 32px rgba(0,0,0,0.35)' }}
         >
-          <p className="text-[11px] font-semibold tracking-widest text-violet-400">À QUOI SERT CETTE PAGE</p>
+          <p className="text-[11px] font-semibold tracking-widest text-violet-400">{tr('À QUOI SERT CETTE PAGE')}</p>
           <div className="whitespace-pre-line">{text}</div>
         </div>
       )}
@@ -194,6 +199,8 @@ function PageInfoButton({ text }) {
 }
 
 export default function DashboardLayout({ children, title, subtitle }) {
+  const { t: tr } = useTranslation('dashboard')
+  const { t } = useTranslation()
   const { user, logout, refresh } = useAuth()
   const { theme: currentTheme, toggleTheme } = useTheme()
   const teamRole = user?.team_role || null
@@ -213,7 +220,7 @@ export default function DashboardLayout({ children, title, subtitle }) {
     // refléter l'état réel plutôt que de laisser l'UI dans un état incertain.
     try { await api.post('/platform-admin/leave/') } catch {}
     const fresh = await refresh()
-    navigate(fresh?.is_platform_admin ? '/platform-admin/boutiques' : '/platform-admin/ma-file')
+    navigate(fresh?.is_platform_admin ? '/platform-admin/apercu' : '/platform-admin/ma-file')
   }
   const [profileOpen, setProfileOpen] = useState(false)
   const profileRef = useRef(null)
@@ -295,7 +302,7 @@ export default function DashboardLayout({ children, title, subtitle }) {
             setNewOrderPulse(true)
             setTimeout(() => setNewOrderPulse(false), 4000)
             if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-              new Notification('Nouvelle commande reçue', {
+              new Notification(tr('Nouvelle commande reçue'), {
                 body: `${count - pendingOrdersRef.current} nouvelle(s) commande(s) en attente de confirmation.`,
                 icon: '/favicon.ico',
               })
@@ -384,7 +391,7 @@ export default function DashboardLayout({ children, title, subtitle }) {
       {({ isActive }) => (
         <>
           {isActive && (
-            <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-full bg-violet-500" />
+            <span className="absolute start-0 top-1.5 bottom-1.5 w-0.5 rounded-full bg-violet-500" />
           )}
           <span className={`shrink-0 ${isActive ? 'text-violet-400' : ''}`}>{icon}</span>
           <span className="flex-1">{label}</span>
@@ -420,9 +427,9 @@ export default function DashboardLayout({ children, title, subtitle }) {
       {/* ── Sidebar ── */}
       <aside
         ref={sidebarRef}
-        className={`w-72 sm:w-64 shrink-0 flex flex-col border-r overflow-y-auto fixed lg:static inset-y-0 left-0 z-40
+        className={`w-72 sm:w-64 shrink-0 flex flex-col border-e overflow-y-auto fixed lg:static inset-y-0 start-0 z-40
           transition-transform duration-300 ease-in-out
-          ${mobileNavOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
+          ${mobileNavOpen ? 'translate-x-0' : '-translate-x-full rtl:translate-x-full lg:translate-x-0'}`}
         style={{ background: theme.dark.sidebar, borderColor: theme.dark.border }}>
 
         {/* Logo */}
@@ -430,7 +437,7 @@ export default function DashboardLayout({ children, title, subtitle }) {
           <div className="min-w-0 flex items-center gap-2.5">
             <Logo className="w-11 h-auto shrink-0 text-violet-400" />
             <div className="min-w-0">
-              <p className="text-base font-semibold text-app-primary tracking-tight leading-none">MZSolutions</p>
+              <p className="text-base font-semibold text-app-primary tracking-tight leading-none">{tr('MZSolutions')}</p>
               <p className="text-xs mt-1.5 truncate" style={{ color: theme.dark.muted }}>
                 {user?.store_name ?? user?.email}
               </p>
@@ -450,14 +457,14 @@ export default function DashboardLayout({ children, title, subtitle }) {
           {/* ACCÈS RAPIDE */}
           <div>
             <ul className="space-y-0.5">
-              {(can('dashboard_view') || teamRole === 'confirmateur') && <li>{mainLink('/dashboard', ICONS.dashboard, 'Tableau de bord', true)}</li>}
-              {can('inbox_view') && <li>{mainLink('/dashboard/boite-reception', ICONS.inbox, 'Boîte de réception', false, inboxUnreadCount)}</li>}
+              {(can('dashboard_view') || teamRole === 'confirmateur') && <li>{mainLink('/dashboard', ICONS.dashboard, tr('Tableau de bord'), true)}</li>}
+              {can('inbox_view') && <li>{mainLink('/dashboard/boite-reception', ICONS.inbox, tr('Boîte de réception'), false, inboxUnreadCount)}</li>}
             </ul>
           </div>
 
           {/* VENTES */}
           <div>
-            <p className="text-[10px] font-semibold px-2 mb-2 tracking-widest" style={{ color: theme.dark.muted }}>VENTES</p>
+            <p className="text-[10px] font-semibold px-2 mb-2 tracking-widest" style={{ color: theme.dark.muted }}>{tr('VENTES')}</p>
             <ul className="space-y-0.5">
 
               {/* Commandes — expandable */}
@@ -468,7 +475,7 @@ export default function DashboardLayout({ children, title, subtitle }) {
                     location.pathname.startsWith('/dashboard/commandes') ? 'bg-violet-500/10 text-app-primary font-medium' : 'text-app-muted-light hover:text-app-primary hover:bg-violet-500/5'
                   }`}
                 >
-                  <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.orders}</span>Commandes</span>
+                  <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.orders}</span>{tr('Commandes')}</span>
                   <span className="flex items-center gap-1.5 shrink-0">
                     {pendingOrdersCount > 0 && (
                       <span className={`w-5 h-5 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center font-bold ${newOrderPulse ? 'animate-pulse' : ''}`}>
@@ -481,12 +488,12 @@ export default function DashboardLayout({ children, title, subtitle }) {
                   </span>
                 </button>
                 {expanded.commandes && (
-                  <ul className="mt-0.5 ml-5 space-y-0.5 border-l pl-3" style={{ borderColor: theme.dark.border }}>
-                    <li>{link('/dashboard/commandes', 'Toutes les commandes', true)}</li>
-                    {can('orders_scheduled_view') && <li>{link('/dashboard/commandes/programmees', 'Commandes programmées')}</li>}
-                    {can('orders_create_view') && <li>{link('/dashboard/commandes/nouvelle', 'Nouvelle commande')}</li>}
-                    {can('confirmation_rate_view') && <li>{link('/dashboard/commandes/taux-confirmation', 'Taux de confirmation')}</li>}
-                    {can('abandoned_carts_view') && <li>{link('/dashboard/commandes/paniers-abandonnes', 'Paniers abandonnés')}</li>}
+                  <ul className="mt-0.5 ms-5 space-y-0.5 border-s ps-3" style={{ borderColor: theme.dark.border }}>
+                    <li>{link('/dashboard/commandes', tr('Toutes les commandes'), true)}</li>
+                    {can('orders_scheduled_view') && <li>{link('/dashboard/commandes/programmees', tr('Commandes programmées'))}</li>}
+                    {can('orders_create_view') && <li>{link('/dashboard/commandes/nouvelle', tr('Nouvelle commande'))}</li>}
+                    {can('confirmation_rate_view') && <li>{link('/dashboard/commandes/taux-confirmation', tr('Taux de confirmation'))}</li>}
+                    {can('abandoned_carts_view') && <li>{link('/dashboard/commandes/paniers-abandonnes', tr('Paniers abandonnés'))}</li>}
                     {/* Annulation — expandable */}
                     {(can('cancellation_requests_view') || can('cancellation_confirmed_view')) && (
                       <li>
@@ -494,15 +501,15 @@ export default function DashboardLayout({ children, title, subtitle }) {
                           onClick={() => setExpanded(e => ({ ...e, annulation: !e.annulation }))}
                           className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-sm transition-colors duration-200 text-app-muted-light hover:text-app-primary hover:bg-violet-500/5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
                         >
-                          <span>Annulation</span>
+                          <span>{tr('Annulation')}</span>
                           <svg className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${expanded.annulation ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                           </svg>
                         </button>
                         {expanded.annulation && (
-                          <ul className="mt-0.5 ml-4 space-y-0.5 border-l pl-3" style={{ borderColor: theme.dark.border }}>
-                            {can('cancellation_requests_view') && <li>{link('/dashboard/commandes/annulations/demandes', "Demande d'annulation")}</li>}
-                            {can('cancellation_confirmed_view') && <li>{link('/dashboard/commandes/annulations/confirmees', 'Annulation confirmée')}</li>}
+                          <ul className="mt-0.5 ms-4 space-y-0.5 border-s ps-3" style={{ borderColor: theme.dark.border }}>
+                            {can('cancellation_requests_view') && <li>{link('/dashboard/commandes/annulations/demandes', tr('Demande d\'annulation'))}</li>}
+                            {can('cancellation_confirmed_view') && <li>{link('/dashboard/commandes/annulations/confirmees', tr('Annulation confirmée'))}</li>}
                           </ul>
                         )}
                       </li>
@@ -520,16 +527,16 @@ export default function DashboardLayout({ children, title, subtitle }) {
                       location.pathname.startsWith('/dashboard/dispatch') ? 'bg-violet-500/10 text-app-primary font-medium' : 'text-app-muted-light hover:text-app-primary hover:bg-violet-500/5'
                     }`}
                   >
-                    <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.tracking}</span>Dispatch Commandes</span>
+                    <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.tracking}</span>{tr('Dispatch Commandes')}</span>
                     <svg className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${expanded.dispatch ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
                   </button>
                   {expanded.dispatch && (
-                    <ul className="mt-0.5 ml-5 space-y-0.5 border-l pl-3" style={{ borderColor: theme.dark.border }}>
-                      {can('dispatch_confirmateur_view') && <li>{link('/dashboard/dispatch/confirmateur', 'Par confirmateur')}</li>}
-                      {can('dispatch_carrier_view') && <li>{link('/dashboard/dispatch/transporteur', 'Par société de livraison')}</li>}
-                      {can('dispatch_wilaya_view') && <li>{link('/dashboard/dispatch/wilaya', 'Par wilaya')}</li>}
+                    <ul className="mt-0.5 ms-5 space-y-0.5 border-s ps-3" style={{ borderColor: theme.dark.border }}>
+                      {can('dispatch_confirmateur_view') && <li>{link('/dashboard/dispatch/confirmateur', tr('Par confirmateur'))}</li>}
+                      {can('dispatch_carrier_view') && <li>{link('/dashboard/dispatch/transporteur', tr('Par société de livraison'))}</li>}
+                      {can('dispatch_wilaya_view') && <li>{link('/dashboard/dispatch/wilaya', tr('Par wilaya'))}</li>}
                     </ul>
                   )}
                 </li>
@@ -545,7 +552,7 @@ export default function DashboardLayout({ children, title, subtitle }) {
                         ? 'bg-violet-500/10 text-app-primary font-medium' : 'text-app-muted-light hover:text-app-primary hover:bg-violet-500/5'
                     }`}
                   >
-                    <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.tracking}</span>Suivi des commandes</span>
+                    <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.tracking}</span>{tr('Suivi des commandes')}</span>
                     <span className="flex items-center gap-1.5 shrink-0">
                       {openExchangesCount > 0 && (
                         <span className="w-5 h-5 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center font-bold">
@@ -558,12 +565,12 @@ export default function DashboardLayout({ children, title, subtitle }) {
                     </span>
                   </button>
                   {expanded.suivi && (
-                    <ul className="mt-0.5 ml-5 space-y-0.5 border-l pl-3" style={{ borderColor: theme.dark.border }}>
-                      {can('failure_reasons_view') && <li>{link('/dashboard/commandes/raisons-echec', 'Gestion des échecs')}</li>}
+                    <ul className="mt-0.5 ms-5 space-y-0.5 border-s ps-3" style={{ borderColor: theme.dark.border }}>
+                      {can('failure_reasons_view') && <li>{link('/dashboard/commandes/raisons-echec', tr('Gestion des échecs'))}</li>}
                       {can('exchanges_view') && (
                         <li className="flex items-center justify-between">
-                          {link('/dashboard/echanges', 'Gestion échanges')}
-                          {openExchangesCount > 0 && <span className="mr-1 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] flex items-center justify-center font-bold shrink-0">{openExchangesCount > 9 ? '9+' : openExchangesCount}</span>}
+                          {link('/dashboard/echanges', tr('Gestion échanges'))}
+                          {openExchangesCount > 0 && <span className="me-1 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] flex items-center justify-center font-bold shrink-0">{openExchangesCount > 9 ? '9+' : openExchangesCount}</span>}
                         </li>
                       )}
                     </ul>
@@ -582,39 +589,39 @@ export default function DashboardLayout({ children, title, subtitle }) {
                       prodActive ? 'bg-violet-500/10 text-app-primary font-medium' : 'text-app-muted-light hover:text-app-primary hover:bg-violet-500/5'
                     }`}
                   >
-                    <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.products}</span>Produits & Catégories</span>
+                    <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.products}</span>{tr('Produits & Catégories')}</span>
                     <svg className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${expanded.produits ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
                   </button>
                   {expanded.produits && (
-                    <ul className="mt-0.5 ml-5 space-y-0.5 border-l pl-3" style={{ borderColor: theme.dark.border }}>
-                      {can('products_view') && <li>{link('/dashboard/produits', 'Tous les produits', true)}</li>}
-                      {can('products_view') && <li>{link('/dashboard/produits/nouveau', 'Ajouter produit')}</li>}
-                      {can('categories_view') && <li>{link('/dashboard/produits/categories', 'Catégories')}</li>}
+                    <ul className="mt-0.5 ms-5 space-y-0.5 border-s ps-3" style={{ borderColor: theme.dark.border }}>
+                      {can('products_view') && <li>{link('/dashboard/produits', tr('Tous les produits'), true)}</li>}
+                      {can('products_view') && <li>{link('/dashboard/produits/nouveau', tr('Ajouter produit'))}</li>}
+                      {can('categories_view') && <li>{link('/dashboard/produits/categories', tr('Catégories'))}</li>}
                       {(can('suppliers_view') || can('supplier_credits_view') || can('supplier_payments_view')) && (
                         <li>
                           <button
                             onClick={() => setExpanded(e => ({ ...e, fournisseurs: !e.fournisseurs }))}
                             className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-sm transition-colors duration-200 text-app-muted-light hover:text-app-primary hover:bg-violet-500/5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
                           >
-                            <span>Fournisseur</span>
+                            <span>{tr('Fournisseur')}</span>
                             <svg className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${expanded.fournisseurs ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                             </svg>
                           </button>
                           {expanded.fournisseurs && (
-                            <ul className="mt-0.5 ml-4 space-y-0.5 border-l pl-3" style={{ borderColor: theme.dark.border }}>
+                            <ul className="mt-0.5 ms-4 space-y-0.5 border-s ps-3" style={{ borderColor: theme.dark.border }}>
                               {can('suppliers_view') && <li>{link('/dashboard/produits/fournisseurs', 'Fournisseur', true)}</li>}
-                              {can('supplier_credits_view') && <li>{link('/dashboard/produits/fournisseurs/credits', 'Crédit Fournisseur')}</li>}
-                              {can('supplier_payments_view') && <li>{link('/dashboard/produits/fournisseurs/versements', 'Versement fournisseur')}</li>}
+                              {can('supplier_credits_view') && <li>{link('/dashboard/produits/fournisseurs/credits', tr('Crédit Fournisseur'))}</li>}
+                              {can('supplier_payments_view') && <li>{link('/dashboard/produits/fournisseurs/versements', tr('Versement fournisseur'))}</li>}
                             </ul>
                           )}
                         </li>
                       )}
                       {can('reviews_view') && <li>{link('/dashboard/produits/avis', 'Avis')}</li>}
                       {can('coupons_view') && <li>{link('/dashboard/produits/promotions/coupons', 'Coupons')}</li>}
-                      {can('auto_promotions_view') && <li>{link('/dashboard/produits/promotions/auto', 'Réductions automatiques')}</li>}
+                      {can('auto_promotions_view') && <li>{link('/dashboard/produits/promotions/auto', tr('Réductions automatiques'))}</li>}
                     </ul>
                   )}
                 </li>
@@ -628,16 +635,16 @@ export default function DashboardLayout({ children, title, subtitle }) {
                       location.pathname.startsWith('/dashboard/clients') ? 'bg-violet-500/10 text-app-primary font-medium' : 'text-app-muted-light hover:text-app-primary hover:bg-violet-500/5'
                     }`}
                   >
-                    <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.customers}</span>Clients</span>
+                    <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.customers}</span>{tr('Clients')}</span>
                     <svg className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${expanded.clients ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
                   </button>
                   {expanded.clients && (
-                    <ul className="mt-0.5 ml-5 space-y-0.5 border-l pl-3" style={{ borderColor: theme.dark.border }}>
+                    <ul className="mt-0.5 ms-5 space-y-0.5 border-s ps-3" style={{ borderColor: theme.dark.border }}>
                       {can('clients_view') && <li>{link('/dashboard/clients', 'Clients', true)}</li>}
-                      {can('clients_risk_view') && <li>{link('/dashboard/clients/risque', 'Clients à risque')}</li>}
-                      {can('blacklist_view') && <li>{link('/dashboard/clients/liste-noire', 'Liste noire')}</li>}
+                      {can('clients_risk_view') && <li>{link('/dashboard/clients/risque', tr('Clients à risque'))}</li>}
+                      {can('blacklist_view') && <li>{link('/dashboard/clients/liste-noire', tr('Liste noire'))}</li>}
                     </ul>
                   )}
                 </li>
@@ -647,8 +654,8 @@ export default function DashboardLayout({ children, title, subtitle }) {
               )}
               {teamRole === 'dropshipper' && (
                 <>
-                  <li>{mainLink('/dashboard/mes-produits', ICONS.dropshipping, 'Mes produits')}</li>
-                  <li>{mainLink('/dashboard/mes-commissions', ICONS.subscription, 'Mes commissions')}</li>
+                  <li>{mainLink('/dashboard/mes-produits', ICONS.dropshipping, tr('Mes produits'))}</li>
+                  <li>{mainLink('/dashboard/mes-commissions', ICONS.subscription, tr('Mes commissions'))}</li>
                 </>
               )}
             </ul>
@@ -658,7 +665,7 @@ export default function DashboardLayout({ children, title, subtitle }) {
           {(can('shipments_view') || can('labels_view') || can('prepared_orders_view') || can('predictive_returns_view') || can('return_validation_view') ||
             can('stock_view') || can('stock_movements_view') || can('stock_return_view')) && (
             <div>
-              <p className="text-[10px] font-semibold px-2 mb-2 tracking-widest" style={{ color: theme.dark.muted }}>LOGISTIQUE</p>
+              <p className="text-[10px] font-semibold px-2 mb-2 tracking-widest" style={{ color: theme.dark.muted }}>{tr('LOGISTIQUE')}</p>
               <ul className="space-y-0.5">
                 {(can('shipments_view') || can('labels_view') || can('prepared_orders_view') || can('predictive_returns_view') || can('return_validation_view')) && (
                   <li>
@@ -668,18 +675,18 @@ export default function DashboardLayout({ children, title, subtitle }) {
                         location.pathname.startsWith('/dashboard/expeditions') ? 'bg-white/6 text-app-primary font-medium' : 'text-gray-400 hover:text-app-primary hover:bg-white/5'
                       }`}
                     >
-                      <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.shipping}</span>Expéditions & Retours</span>
+                      <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.shipping}</span>{tr('Expéditions & Retours')}</span>
                       <svg className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${expanded.expeditions ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                       </svg>
                     </button>
                     {expanded.expeditions && (
-                      <ul className="mt-0.5 ml-5 space-y-0.5 border-l pl-3" style={{ borderColor: theme.dark.border }}>
-                        {can('shipments_view') && <li>{link('/dashboard/expeditions', 'Expéditions', true)}</li>}
-                        {can('labels_view') && <li>{link('/dashboard/expeditions/etiquettes', 'Étiquettes')}</li>}
-                        {can('prepared_orders_view') && <li>{link('/dashboard/expeditions/preparees', 'Commandes préparées')}</li>}
-                        {can('predictive_returns_view') && <li>{link('/dashboard/expeditions/retour-predictif', 'Retour prédictif')}</li>}
-                        {can('return_validation_view') && <li>{link('/dashboard/expeditions/retours', 'Validation des retours')}</li>}
+                      <ul className="mt-0.5 ms-5 space-y-0.5 border-s ps-3" style={{ borderColor: theme.dark.border }}>
+                        {can('shipments_view') && <li>{link('/dashboard/expeditions', tr('Expéditions'), true)}</li>}
+                        {can('labels_view') && <li>{link('/dashboard/expeditions/etiquettes', tr('Étiquettes'))}</li>}
+                        {can('prepared_orders_view') && <li>{link('/dashboard/expeditions/preparees', tr('Commandes préparées'))}</li>}
+                        {can('predictive_returns_view') && <li>{link('/dashboard/expeditions/retour-predictif', tr('Retour prédictif'))}</li>}
+                        {can('return_validation_view') && <li>{link('/dashboard/expeditions/retours', tr('Validation des retours'))}</li>}
                       </ul>
                     )}
                   </li>
@@ -692,7 +699,7 @@ export default function DashboardLayout({ children, title, subtitle }) {
                         location.pathname.startsWith('/dashboard/stock') ? 'bg-white/6 text-app-primary font-medium' : 'text-gray-400 hover:text-app-primary hover:bg-white/5'
                       }`}
                     >
-                      <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.stock}</span>Stock & Inventaire</span>
+                      <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.stock}</span>{tr('Stock & Inventaire')}</span>
                       <span className="flex items-center gap-1.5 shrink-0">
                         {lowStockCount > 0 && (
                           <span className="w-5 h-5 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center font-bold">
@@ -705,10 +712,10 @@ export default function DashboardLayout({ children, title, subtitle }) {
                       </span>
                     </button>
                     {expanded.stock && (
-                      <ul className="mt-0.5 ml-5 space-y-0.5 border-l pl-3" style={{ borderColor: theme.dark.border }}>
-                        {can('stock_view') && <li>{link('/dashboard/stock', 'Stock & Inventaire', true)}</li>}
-                        {can('stock_movements_view') && <li>{link('/dashboard/stock/mouvements', 'Mouvement des stocks')}</li>}
-                        {can('stock_return_view') && <li>{link('/dashboard/stock/retour-vendeur', 'Retour au vendeur')}</li>}
+                      <ul className="mt-0.5 ms-5 space-y-0.5 border-s ps-3" style={{ borderColor: theme.dark.border }}>
+                        {can('stock_view') && <li>{link('/dashboard/stock', tr('Stock & Inventaire'), true)}</li>}
+                        {can('stock_movements_view') && <li>{link('/dashboard/stock/mouvements', tr('Mouvement des stocks'))}</li>}
+                        {can('stock_return_view') && <li>{link('/dashboard/stock/retour-vendeur', tr('Retour au vendeur'))}</li>}
                       </ul>
                     )}
                   </li>
@@ -724,7 +731,7 @@ export default function DashboardLayout({ children, title, subtitle }) {
             can('profitability_view') || can('costs_view') ||
             can('payments_ready_view') || can('payments_collected_view') || can('payments_import_view')) && (
             <div>
-              <p className="text-[10px] font-semibold px-2 mb-2 tracking-widest" style={{ color: theme.dark.muted }}>ANALYSE</p>
+              <p className="text-[10px] font-semibold px-2 mb-2 tracking-widest" style={{ color: theme.dark.muted }}>{tr('ANALYSE')}</p>
               <ul className="space-y-0.5">
                 {(can('stats_global_view') || can('stats_orders_view') || can('stats_returns_view') || can('stats_failures_view') ||
                   can('stats_stock_sales_view') || can('stats_products_view') || can('stats_confirmateurs_view') ||
@@ -736,22 +743,22 @@ export default function DashboardLayout({ children, title, subtitle }) {
                         location.pathname.startsWith('/dashboard/stats') ? 'bg-violet-500/10 text-app-primary font-medium' : 'text-app-muted-light hover:text-app-primary hover:bg-violet-500/5'
                       }`}
                     >
-                      <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.stats}</span>Statistiques</span>
+                      <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.stats}</span>{tr('Statistiques')}</span>
                       <svg className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${expanded.stats ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                       </svg>
                     </button>
                     {expanded.stats && (
-                      <ul className="mt-0.5 ml-5 space-y-0.5 border-l pl-3" style={{ borderColor: theme.dark.border }}>
-                        {can('stats_global_view') && <li>{link('/dashboard/stats', 'Statistiques globales', true)}</li>}
-                        {can('stats_orders_view') && <li>{link('/dashboard/stats/commandes', 'Statistiques commandes')}</li>}
-                        {can('stats_returns_view') && <li>{link('/dashboard/stats/retours', 'Statistique retours')}</li>}
-                        {can('stats_failures_view') && <li>{link('/dashboard/stats/echecs', 'Statistique des échecs')}</li>}
-                        {can('stats_stock_sales_view') && <li>{link('/dashboard/stats/vente-stock', 'Statistique vente de stock')}</li>}
-                        {can('stats_products_view') && <li>{link('/dashboard/stats/produits', 'Statistiques des produits')}</li>}
-                        {can('stats_confirmateurs_view') && <li>{link('/dashboard/stats/confirmateurs', 'Statistique par confirmateur')}</li>}
-                        {can('stats_wilayas_view') && <li>{link('/dashboard/stats/wilayas', 'Statistiques par wilaya')}</li>}
-                        {can('stats_sources_view') && <li>{link('/dashboard/stats/sources', 'Statistiques des sources')}</li>}
+                      <ul className="mt-0.5 ms-5 space-y-0.5 border-s ps-3" style={{ borderColor: theme.dark.border }}>
+                        {can('stats_global_view') && <li>{link('/dashboard/stats', tr('Statistiques globales'), true)}</li>}
+                        {can('stats_orders_view') && <li>{link('/dashboard/stats/commandes', tr('Statistiques commandes'))}</li>}
+                        {can('stats_returns_view') && <li>{link('/dashboard/stats/retours', tr('Statistique retours'))}</li>}
+                        {can('stats_failures_view') && <li>{link('/dashboard/stats/echecs', tr('Statistique des échecs'))}</li>}
+                        {can('stats_stock_sales_view') && <li>{link('/dashboard/stats/vente-stock', tr('Statistique vente de stock'))}</li>}
+                        {can('stats_products_view') && <li>{link('/dashboard/stats/produits', tr('Statistiques des produits'))}</li>}
+                        {can('stats_confirmateurs_view') && <li>{link('/dashboard/stats/confirmateurs', tr('Statistique par confirmateur'))}</li>}
+                        {can('stats_wilayas_view') && <li>{link('/dashboard/stats/wilayas', tr('Statistiques par wilaya'))}</li>}
+                        {can('stats_sources_view') && <li>{link('/dashboard/stats/sources', tr('Statistiques des sources'))}</li>}
                       </ul>
                     )}
                   </li>
@@ -764,15 +771,15 @@ export default function DashboardLayout({ children, title, subtitle }) {
                         location.pathname.startsWith('/dashboard/finances') ? 'bg-violet-500/10 text-app-primary font-medium' : 'text-app-muted-light hover:text-app-primary hover:bg-violet-500/5'
                       }`}
                     >
-                      <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.stats}</span>Finances</span>
+                      <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.stats}</span>{tr('Finances')}</span>
                       <svg className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${expanded.finances ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                       </svg>
                     </button>
                     {expanded.finances && (
-                      <ul className="mt-0.5 ml-5 space-y-0.5 border-l pl-3" style={{ borderColor: theme.dark.border }}>
-                        {can('profitability_view') && <li>{link('/dashboard/finances/rentabilite', 'Rentabilité')}</li>}
-                        {can('costs_view') && <li>{link('/dashboard/finances/couts', 'Coûts')}</li>}
+                      <ul className="mt-0.5 ms-5 space-y-0.5 border-s ps-3" style={{ borderColor: theme.dark.border }}>
+                        {can('profitability_view') && <li>{link('/dashboard/finances/rentabilite', tr('Rentabilité'))}</li>}
+                        {can('costs_view') && <li>{link('/dashboard/finances/couts', tr('Coûts'))}</li>}
                       </ul>
                     )}
                   </li>
@@ -785,16 +792,16 @@ export default function DashboardLayout({ children, title, subtitle }) {
                         location.pathname.startsWith('/dashboard/paiements') ? 'bg-violet-500/10 text-app-primary font-medium' : 'text-app-muted-light hover:text-app-primary hover:bg-violet-500/5'
                       }`}
                     >
-                      <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.subscription}</span>Paiements</span>
+                      <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.subscription}</span>{tr('Paiements')}</span>
                       <svg className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${expanded.paiements ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                       </svg>
                     </button>
                     {expanded.paiements && (
-                      <ul className="mt-0.5 ml-5 space-y-0.5 border-l pl-3" style={{ borderColor: theme.dark.border }}>
-                        {can('payments_ready_view') && <li>{link('/dashboard/paiements/pret', 'Paiement prêt')}</li>}
-                        {can('payments_collected_view') && <li>{link('/dashboard/paiements/recupere', 'Paiement récupéré')}</li>}
-                        {can('payments_import_view') && <li>{link('/dashboard/paiements/import-excel', 'Importer un fichier Excel')}</li>}
+                      <ul className="mt-0.5 ms-5 space-y-0.5 border-s ps-3" style={{ borderColor: theme.dark.border }}>
+                        {can('payments_ready_view') && <li>{link('/dashboard/paiements/pret', tr('Paiement prêt'))}</li>}
+                        {can('payments_collected_view') && <li>{link('/dashboard/paiements/recupere', tr('Paiement récupéré'))}</li>}
+                        {can('payments_import_view') && <li>{link('/dashboard/paiements/import-excel', tr('Importer un fichier Excel'))}</li>}
                       </ul>
                     )}
                   </li>
@@ -806,16 +813,16 @@ export default function DashboardLayout({ children, title, subtitle }) {
           {/* IA — regroupe toutes les fonctionnalités IA du dashboard, présentes et à venir */}
           {(can('ai_assistant_view') || can('stats_forecast_view') || can('stats_returns_forecast_view') || can('recommendations_view') || can('store_audit_view') || can('confirmateur_monitoring_view')) && (
             <div>
-              <p className="text-[10px] font-semibold px-2 mb-2 tracking-widest" style={{ color: theme.dark.muted }}>IA</p>
+              <p className="text-[10px] font-semibold px-2 mb-2 tracking-widest" style={{ color: theme.dark.muted }}>{tr('IA')}</p>
               <ul className="space-y-0.5">
                 {can('ai_assistant_view') && (
-                  <li>{mainLink('/dashboard/assistant-ia', ICONS.marketing, 'Assistant IA')}</li>
+                  <li>{mainLink('/dashboard/assistant-ia', ICONS.marketing, tr('Assistant IA'))}</li>
                 )}
                 {isOwnerOrAdmin && (
-                  <li>{link('/dashboard/produits/scanner', 'Scanner un produit')}</li>
+                  <li>{link('/dashboard/produits/scanner', tr('Scanner un produit'))}</li>
                 )}
                 {isOwnerOrAdmin && (
-                  <li>{link('/dashboard/produits/brouillons-ia', 'Brouillons de produits (scan)')}</li>
+                  <li>{link('/dashboard/produits/brouillons-ia', tr('Brouillons de produits (scan)'))}</li>
                 )}
                 {(can('stats_forecast_view') || can('stats_returns_forecast_view')) && (
                   <li>
@@ -826,16 +833,16 @@ export default function DashboardLayout({ children, title, subtitle }) {
                           ? 'bg-violet-500/10 text-app-primary font-medium' : 'text-app-muted-light hover:text-app-primary hover:bg-violet-500/5'
                       }`}
                     >
-                      <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.stats}</span>Prévisions</span>
+                      <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.stats}</span>{tr('Prévisions')}</span>
                       <svg className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${expanded.iaPrevisions ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                       </svg>
                     </button>
                     {expanded.iaPrevisions && (
-                      <ul className="mt-0.5 ml-5 space-y-0.5 border-l pl-3" style={{ borderColor: theme.dark.border }}>
-                        {can('stats_forecast_view') && <li>{link('/dashboard/previsions-ventes', 'Prévision de ventes')}</li>}
-                        {can('stock_view') && <li>{link('/dashboard/stock', 'Prévision de rupture de stock')}</li>}
-                        {can('stats_returns_forecast_view') && <li>{link('/dashboard/previsions-retours', 'Prévision de taux de retour')}</li>}
+                      <ul className="mt-0.5 ms-5 space-y-0.5 border-s ps-3" style={{ borderColor: theme.dark.border }}>
+                        {can('stats_forecast_view') && <li>{link('/dashboard/previsions-ventes', tr('Prévision de ventes'))}</li>}
+                        {can('stock_view') && <li>{link('/dashboard/stock', tr('Prévision de rupture de stock'))}</li>}
+                        {can('stats_returns_forecast_view') && <li>{link('/dashboard/previsions-retours', tr('Prévision de taux de retour'))}</li>}
                       </ul>
                     )}
                   </li>
@@ -849,16 +856,16 @@ export default function DashboardLayout({ children, title, subtitle }) {
                           ? 'bg-violet-500/10 text-app-primary font-medium' : 'text-app-muted-light hover:text-app-primary hover:bg-violet-500/5'
                       }`}
                     >
-                      <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.stats}</span>Analyse</span>
+                      <span className="flex items-center gap-2.5"><span className="shrink-0">{ICONS.stats}</span>{tr('Analyse')}</span>
                       <svg className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${expanded.iaAnalyse ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                       </svg>
                     </button>
                     {expanded.iaAnalyse && (
-                      <ul className="mt-0.5 ml-5 space-y-0.5 border-l pl-3" style={{ borderColor: theme.dark.border }}>
+                      <ul className="mt-0.5 ms-5 space-y-0.5 border-s ps-3" style={{ borderColor: theme.dark.border }}>
                         {can('recommendations_view') && <li>{link('/dashboard/recommandations', 'Recommandations')}</li>}
-                        {can('store_audit_view') && <li>{link('/dashboard/audit-boutique', 'Audit de la boutique')}</li>}
-                        {can('confirmateur_monitoring_view') && <li>{link('/dashboard/suivi-confirmateurs', 'Suivi des confirmateurs')}</li>}
+                        {can('store_audit_view') && <li>{link('/dashboard/audit-boutique', tr('Audit de la boutique'))}</li>}
+                        {can('confirmateur_monitoring_view') && <li>{link('/dashboard/suivi-confirmateurs', tr('Suivi des confirmateurs'))}</li>}
                       </ul>
                     )}
                   </li>
@@ -870,10 +877,10 @@ export default function DashboardLayout({ children, title, subtitle }) {
           {/* INTÉGRATIONS */}
           {(can('channels_view') || can('marketing_view') || can('webhooks_view')) && (
             <div>
-              <p className="text-[10px] font-semibold px-2 mb-2 tracking-widest" style={{ color: theme.dark.muted }}>INTÉGRATIONS</p>
+              <p className="text-[10px] font-semibold px-2 mb-2 tracking-widest" style={{ color: theme.dark.muted }}>{tr('INTÉGRATIONS')}</p>
               <ul className="space-y-0.5">
                 {can('channels_view') && (
-                  <li>{mainLink('/dashboard/canaux-vente', ICONS.channels, 'Canaux de vente')}</li>
+                  <li>{mainLink('/dashboard/canaux-vente', ICONS.channels, tr('Canaux de vente'))}</li>
                 )}
                 {can('marketing_view') && (
                   <li>{mainLink('/dashboard/marketing', ICONS.marketing, 'Marketing')}</li>
@@ -889,13 +896,13 @@ export default function DashboardLayout({ children, title, subtitle }) {
           {(can('store_view') || can('store_theme_view') || can('store_pages_view') || can('store_menu_view') || can('store_files_view') ||
             can('shipping_settings_view') || can('team_view') || can('audit_view') || can('subscription_view') || !teamRole || teamRole === 'admin') && (
             <div>
-              <p className="text-[10px] font-semibold px-2 mb-2 tracking-widest" style={{ color: theme.dark.muted }}>PARAMÈTRES</p>
+              <p className="text-[10px] font-semibold px-2 mb-2 tracking-widest" style={{ color: theme.dark.muted }}>{tr('PARAMÈTRES')}</p>
               <ul className="space-y-0.5">
                 {(can('store_view') || can('store_theme_view') || can('store_pages_view') || can('store_menu_view') || can('store_files_view')) && (
                   <li>
-                    {mainLink('/dashboard/boutique', ICONS.store, 'Ma boutique')}
-                    <ul className="ml-7 mt-0.5 space-y-0.5">
-                      {can('store_theme_view') && <li>{link('/dashboard/boutique/theme',   'Thème & Apparence')}</li>}
+                    {mainLink('/dashboard/boutique', ICONS.store, tr('Ma boutique'))}
+                    <ul className="ms-7 mt-0.5 space-y-0.5">
+                      {can('store_theme_view') && <li>{link('/dashboard/boutique/theme',   tr('Thème & Apparence'))}</li>}
                       {can('store_pages_view') && <li>{link('/dashboard/boutique/pages',   'Pages')}</li>}
                       {can('store_menu_view') && <li>{link('/dashboard/boutique/menu',    'Menu')}</li>}
                       {can('store_files_view') && <li>{link('/dashboard/boutique/fichiers','Fichiers')}</li>}
@@ -903,13 +910,13 @@ export default function DashboardLayout({ children, title, subtitle }) {
                   </li>
                 )}
                 {can('shipping_settings_view') && (
-                  <li>{mainLink('/dashboard/parametres-livraison', ICONS.shipping, 'Paramètres livraison')}</li>
+                  <li>{mainLink('/dashboard/parametres-livraison', ICONS.shipping, tr('Paramètres livraison'))}</li>
                 )}
                 {can('team_view') && (
-                  <li>{mainLink('/dashboard/equipe', ICONS.team, 'Équipe')}</li>
+                  <li>{mainLink('/dashboard/equipe', ICONS.team, tr('Équipe'))}</li>
                 )}
                 {(!teamRole || teamRole === 'admin') && (
-                  <li>{mainLink('/dashboard/equipe/permissions', ICONS.team, 'Permissions par rôle')}</li>
+                  <li>{mainLink('/dashboard/equipe/permissions', ICONS.team, tr('Permissions par rôle'))}</li>
                 )}
                 {can('audit_view') && (
                   <li>{mainLink('/dashboard/audit', ICONS.tracking, 'Audit')}</li>
@@ -934,9 +941,7 @@ export default function DashboardLayout({ children, title, subtitle }) {
             </div>
           </div>
           <button onClick={handleLogout}
-            className="mt-3 w-full text-xs py-1.5 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500">
-            Déconnexion
-          </button>
+            className="mt-3 w-full text-xs py-1.5 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500">{tr('Déconnexion')}</button>
         </div>
       </aside>
 
@@ -945,13 +950,10 @@ export default function DashboardLayout({ children, title, subtitle }) {
         {user?.impersonating && (
           <div className="flex items-center justify-between gap-3 px-5 sm:px-8 py-2 shrink-0 text-sm"
             style={{ background: 'rgba(139,92,246,0.15)', borderBottom: '1px solid rgba(139,92,246,0.3)' }}>
-            <span className="text-violet-200 font-medium truncate">
-              Vous gérez <strong>{user.impersonating.store_name}</strong> {user.impersonating.is_admin ? 'en tant que superadmin' : 'via le service de confirmation'}.
+            <span className="text-violet-200 font-medium truncate">{tr('Vous gérez')}{' '}<strong>{user.impersonating.store_name}</strong> {user.impersonating.is_admin ? 'en tant que superadmin' : 'via le service de confirmation'}.
             </span>
             <button onClick={handleLeaveImpersonation}
-              className="shrink-0 px-3 py-1 rounded-lg text-xs font-semibold bg-violet-600 text-white hover:bg-violet-500 transition cursor-pointer">
-              Quitter
-            </button>
+              className="shrink-0 px-3 py-1 rounded-lg text-xs font-semibold bg-violet-600 text-white hover:bg-violet-500 transition cursor-pointer">{tr('Quitter')}</button>
           </div>
         )}
         <header className="flex items-center justify-between gap-2 px-5 sm:px-8 py-4 border-b shrink-0"
@@ -979,10 +981,10 @@ export default function DashboardLayout({ children, title, subtitle }) {
                 style={isOnline
                   ? { borderColor: 'rgba(34,197,94,0.35)', color: '#22c55e', background: 'rgba(34,197,94,0.06)' }
                   : { borderColor: theme.dark.border, color: theme.dark.muted }}
-                title={isOnline ? 'Vous recevez des commandes automatiquement' : 'Vous ne recevez aucune commande automatique'}
+                title={isOnline ? tr('Vous recevez des commandes automatiquement') : tr('Vous ne recevez aucune commande automatique')}
               >
                 <span className="w-1.5 h-1.5 rounded-full" style={{ background: isOnline ? '#22c55e' : '#6b7280' }} />
-                {isOnline ? 'Disponible' : 'Indisponible'}
+                {isOnline ? tr('Disponible') : tr('Indisponible')}
               </button>
             )}
             {/* Cloche — mène à la boîte de réception (US "tout doit y arriver", 2026-08) */}
@@ -990,11 +992,11 @@ export default function DashboardLayout({ children, title, subtitle }) {
               onClick={() => navigate('/dashboard/boite-reception')}
               className="relative w-9 h-9 rounded-lg border flex items-center justify-center text-app-muted-light hover:text-app-primary hover:bg-violet-500/5 transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
               style={{ borderColor: theme.dark.border }}
-              title="Boîte de réception"
+              title={tr('Boîte de réception')}
             >
               {ICONS.bell}
               {inboxUnreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-600 text-white text-[9px] flex items-center justify-center font-bold">
+                <span className="absolute -top-1 -end-1 w-4 h-4 rounded-full bg-red-600 text-white text-[9px] flex items-center justify-center font-bold">
                   {inboxUnreadCount > 9 ? '9+' : inboxUnreadCount}
                 </span>
               )}
@@ -1006,7 +1008,7 @@ export default function DashboardLayout({ children, title, subtitle }) {
             <button
               onClick={toggleTheme}
               data-testid="theme-toggle"
-              aria-label={currentTheme === 'dark' ? 'Passer en mode clair' : 'Passer en mode sombre'}
+              aria-label={currentTheme === 'dark' ? tr('Passer en mode clair') : tr('Passer en mode sombre')}
               className="w-9 h-9 rounded-lg border-app flex items-center justify-center text-app-muted hover:text-app-primary hover:bg-violet-500/5 transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
               style={{ borderWidth: 1, borderStyle: 'solid' }}
             >
@@ -1024,9 +1026,7 @@ export default function DashboardLayout({ children, title, subtitle }) {
               href={user?.store_slug ? `/store/${user.store_slug}` : '#'}
               target="_blank" rel="noreferrer"
               className="hidden sm:inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg border border-violet-500/20 text-violet-500 hover:bg-violet-500/5 hover:border-violet-500/30 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
-            >
-              Voir ma boutique
-              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            >{tr('Voir ma boutique')}<svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
               </svg>
             </a>
@@ -1036,7 +1036,7 @@ export default function DashboardLayout({ children, title, subtitle }) {
               <button
                 onClick={() => setProfileOpen(o => !o)}
                 className="w-9 h-9 rounded-full bg-violet-700 text-white flex items-center justify-center text-xs font-bold shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
-                title="Profil"
+                title={tr('Profil')}
                 aria-haspopup="true"
                 aria-expanded={profileOpen}
               >
@@ -1044,7 +1044,7 @@ export default function DashboardLayout({ children, title, subtitle }) {
               </button>
               {profileOpen && (
                 <div
-                  className="absolute right-0 z-50 mt-2 w-64 rounded-xl border shadow-xl py-2"
+                  className="absolute end-0 z-50 mt-2 w-64 rounded-xl border shadow-xl py-2"
                   style={{ background: theme.dark.sidebar, borderColor: theme.dark.border }}
                 >
                   <div className="px-4 py-3 border-b" style={{ borderColor: theme.dark.border }}>
@@ -1055,81 +1055,65 @@ export default function DashboardLayout({ children, title, subtitle }) {
                     href={user?.store_slug ? `/store/${user.store_slug}` : '#'}
                     target="_blank" rel="noreferrer"
                     className="flex items-center gap-2.5 px-4 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition-colors duration-100"
-                  >
-                    Voir ma boutique
-                  </a>
+                  >{tr('Voir ma boutique')}</a>
                   {can('store_view') && (
                     <button onClick={() => { setProfileOpen(false); navigate('/dashboard/boutique') }}
-                      className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition-colors duration-100 text-left cursor-pointer">
-                      Ma boutique
-                    </button>
+                      className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition-colors duration-100 text-start cursor-pointer">{tr('Ma boutique')}</button>
                   )}
                   <button onClick={() => { setProfileOpen(false); navigate('/dashboard/parametres') }}
-                    className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition-colors duration-100 text-left cursor-pointer">
-                    Paramètres
-                  </button>
+                    className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition-colors duration-100 text-start cursor-pointer">{tr('Paramètres')}</button>
                   {can('shipping_settings_view') && (
                     <button onClick={() => { setProfileOpen(false); navigate('/dashboard/parametres-livraison') }}
-                      className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition-colors duration-100 text-left cursor-pointer">
-                      Paramètres livraison
-                    </button>
+                      className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition-colors duration-100 text-start cursor-pointer">{tr('Paramètres livraison')}</button>
                   )}
                   {can('team_view') && (
                     <button onClick={() => { setProfileOpen(false); navigate('/dashboard/equipe') }}
-                      className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition-colors duration-100 text-left cursor-pointer">
-                      Équipe
-                    </button>
+                      className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition-colors duration-100 text-start cursor-pointer">{tr('Équipe')}</button>
                   )}
                   {can('subscription_view') && (
                     <button onClick={() => { setProfileOpen(false); navigate('/dashboard/abonnement') }}
-                      className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition-colors duration-100 text-left cursor-pointer">
-                      Abonnement
-                    </button>
+                      className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition-colors duration-100 text-start cursor-pointer">{tr('Abonnement')}</button>
                   )}
                   {(user?.is_platform_admin || user?.is_platform_confirmateur) && (
                     <>
                       <div className="my-1.5 border-t" style={{ borderColor: theme.dark.border }} />
                       {user?.is_platform_admin && (
                         <button onClick={() => { setProfileOpen(false); navigate('/platform-admin/boutiques') }}
-                          className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-violet-400 hover:bg-violet-500/10 transition-colors duration-100 text-left cursor-pointer">
-                          Espace superadmin
-                        </button>
+                          className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-violet-400 hover:bg-violet-500/10 transition-colors duration-100 text-start cursor-pointer">{tr('Espace superadmin')}</button>
                       )}
                       {user?.is_platform_confirmateur && (
                         <button onClick={() => { setProfileOpen(false); navigate('/platform-admin/ma-file') }}
-                          className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-violet-400 hover:bg-violet-500/10 transition-colors duration-100 text-left cursor-pointer">
-                          Ma file de confirmation
-                        </button>
+                          className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-violet-400 hover:bg-violet-500/10 transition-colors duration-100 text-start cursor-pointer">{tr('Ma file de confirmation')}</button>
                       )}
                     </>
                   )}
                   <div className="my-1.5 border-t" style={{ borderColor: theme.dark.border }} />
                   <button onClick={() => { setProfileOpen(false); navigate('/dashboard/contact') }}
-                    className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition-colors duration-100 text-left cursor-pointer">
-                    Contactez-nous
+                    className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition-colors duration-100 text-start cursor-pointer">
+                    {t('profile.contact')}
                   </button>
                   <button onClick={() => { setProfileOpen(false); navigate('/dashboard/faq') }}
-                    className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition-colors duration-100 text-left cursor-pointer">
-                    FAQ
+                    className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition-colors duration-100 text-start cursor-pointer">
+                    {t('profile.faq')}
                   </button>
                   <div className="my-1.5 border-t" style={{ borderColor: theme.dark.border }} />
                   <div className="flex items-center justify-between px-4 py-2 text-sm text-app-primary">
-                    Langue
-                    <span className="text-xs px-2 py-0.5 rounded-md" style={{ color: theme.dark.muted, background: theme.dark.cardAlt }}>Français</span>
+                    {t('profile.language')}
+                    <LanguageSwitcher />
                   </div>
                   <button
                     onClick={() => { setProfileOpen(false); toggleTheme() }}
-                    className="w-full flex items-center justify-between px-4 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition-colors duration-100 text-left cursor-pointer"
+                    className="w-full flex items-center justify-between px-4 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition-colors duration-100 text-start cursor-pointer"
                   >
-                    Thème
-                    <span className="text-xs" style={{ color: theme.dark.muted }}>{currentTheme === 'dark' ? 'Sombre' : 'Clair'}</span>
+                    {t('profile.theme')}
+                    <span className="text-xs" style={{ color: theme.dark.muted }}>{currentTheme === 'dark' ? t('profile.themeDark') : t('profile.themeLight')}</span>
                   </button>
                   <div className="my-1.5 border-t" style={{ borderColor: theme.dark.border }} />
                   <button
                     onClick={() => { setProfileOpen(false); handleLogout() }}
-                    className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-red-500/10 transition-colors duration-100 cursor-pointer"
+                    className="w-full text-start px-4 py-2 text-sm text-red-400 hover:bg-red-500/10 transition-colors duration-100 cursor-pointer"
                   >
-                    Déconnexion
+                    {t('profile.logout')}
                   </button>
                 </div>
               )}
@@ -1140,17 +1124,16 @@ export default function DashboardLayout({ children, title, subtitle }) {
           <div className="flex items-center justify-between gap-3 px-5 sm:px-8 py-2.5 text-sm shrink-0 bg-red-500/10 border-b border-red-500/25">
             <span className="text-red-400">
               {usedPct >= 80 && daysLeft !== null && daysLeft <= 3
-                ? `Essai gratuit : ${quota.orders_remaining} commande${quota.orders_remaining !== 1 ? 's' : ''} restante${quota.orders_remaining !== 1 ? 's' : ''}, se termine dans ${daysLeft} jour${daysLeft !== 1 ? 's' : ''}.`
+                ? `Essai gratuit : ${quota.orders_remaining} commande${quota.orders_remaining !== 1 ? sfx('s') : ''} restante${quota.orders_remaining !== 1 ? sfx('s') : ''}, se termine dans ${daysLeft} jour${daysLeft !== 1 ? sfx('s') : ''}.`
                 : usedPct >= 80
-                ? `Essai gratuit : plus que ${quota.orders_remaining} commande${quota.orders_remaining !== 1 ? 's' : ''} sur ${quota.orders_limit}.`
-                : `Essai gratuit : se termine dans ${daysLeft} jour${daysLeft !== 1 ? 's' : ''}.`}
+                ? `Essai gratuit : plus que ${quota.orders_remaining} commande${quota.orders_remaining !== 1 ? sfx('s') : ''} sur ${quota.orders_limit}.`
+                : `Essai gratuit : se termine dans ${daysLeft} jour${daysLeft !== 1 ? sfx('s') : ''}.`}
             </span>
             <button onClick={() => navigate('/dashboard/abonnement')}
-              className="px-3 py-1 rounded-lg text-xs font-semibold bg-red-600 text-white hover:bg-red-500 transition cursor-pointer shrink-0">
-              Mettre à niveau
-            </button>
+              className="px-3 py-1 rounded-lg text-xs font-semibold bg-red-600 text-white hover:bg-red-500 transition cursor-pointer shrink-0">{tr('Mettre à niveau')}</button>
           </div>
         )}
+        <AnnouncementBanner />
         <main className="relative flex-1 overflow-y-auto overflow-x-hidden p-5 sm:p-8">
           {showExpiredGate ? (
             <div className="absolute inset-0 z-20 flex items-center justify-center p-6" style={{ background: theme.dark.app }}>
@@ -1160,24 +1143,22 @@ export default function DashboardLayout({ children, title, subtitle }) {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M12 9v3.75m0 3.75h.008M10.29 3.86 1.82 18a1.5 1.5 0 0 0 1.29 2.25h17.78a1.5 1.5 0 0 0 1.29-2.25L13.71 3.86a1.5 1.5 0 0 0-2.42 0Z" />
                   </svg>
                 </div>
-                <h2 className="text-lg font-semibold text-app-primary mb-2">Abonnement expiré</h2>
+                <h2 className="text-lg font-semibold text-app-primary mb-2">{tr('Abonnement expiré')}</h2>
                 <p className="text-sm mb-1" style={{ color: theme.dark.muted }}>
                   {isOwnerOrAdmin
-                    ? "Votre période d'essai ou votre abonnement est terminé. Renouvelez pour continuer à utiliser MZSolutions — vos données sont conservées, en sécurité."
-                    : "L'abonnement de cette boutique est expiré. Contactez le propriétaire pour le renouveler."}
+                    ? tr('Votre période d\'essai ou votre abonnement est terminé. Renouvelez pour continuer à utiliser MZSolutions — vos données sont conservées, en sécurité.')
+                    : tr('L\'abonnement de cette boutique est expiré. Contactez le propriétaire pour le renouveler.')}
                 </p>
                 {quota && (
                   <p className="text-xs mb-6" style={{ color: theme.dark.muted }}>
-                    {quota.plan ? `Plan ${quota.plan.name} — période terminée` : `Essai gratuit terminé (${quota.orders_used}/${quota.orders_limit} commandes utilisées)`}
+                    {quota.plan ? tr('Plan {{name}} — période terminée', { name: quota.plan.name }) : tr('Essai gratuit terminé ({{orders_used}}/{{orders_limit}} commandes utilisées)', { orders_used: quota.orders_used, orders_limit: quota.orders_limit })}
                   </p>
                 )}
                 {!quota && <div className="mb-6" />}
                 {isOwnerOrAdmin && (
                   <button onClick={() => navigate('/dashboard/abonnement')}
                     className="w-full py-2.5 rounded-lg text-sm font-semibold text-white transition cursor-pointer"
-                    style={{ background: theme.dark.primary || '#7c3aed' }}>
-                    Renouveler mon abonnement
-                  </button>
+                    style={{ background: theme.dark.primary || '#7c3aed' }}>{tr('Renouveler mon abonnement')}</button>
                 )}
               </div>
             </div>

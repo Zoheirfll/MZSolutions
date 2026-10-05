@@ -266,3 +266,12 @@ Vérifié via le client de test Django (les 4 en-têtes présents sur une répon
 
 ## À venir
 En attente du point n°15 à auditer (fourni par l'utilisateur).
+
+
+## 2026-10-04 — Espace `/platform-admin` à deux niveaux (admin / superadmin)
+
+**Verdict** : avant, un seul drapeau (`is_platform_admin`) donnait accès à toutes les actions d'administration de la plateforme (activer le service de confirmation, inviter des confirmateurs, modifier les permissions d'assignation). **Modifié** : un second niveau `is_platform_superadmin` est ajouté ; les écritures sensibles sont désormais réservées au superadmin **côté serveur** (403 pour un admin simple), vérifié par tests d'intégration route par route (`platform_admin/tests.py::SuperadminOnlyRoutesTests`). Le frontend ne fait que masquer les liens. Les comptes déjà `is_platform_admin` ont été promus superadmin par migration (aucune perte d'accès). Nouvel endpoint `overview/` en lecture seule, niveau admin.
+
+## 2026-10-04 — Suspension d'une boutique et gestion des administrateurs (admin plateforme, phase 2)
+
+**Verdict** : aucun moyen de couper l'accès d'un vendeur abusif ou impayé. **Modifié** : suspension avec motif obligatoire, appliquée à chaque requête authentifiée (403 immédiat même avec un jeton valide, `stores/suspension.py`) et à la connexion, sessions révoquées. Un admin plateforme n'est jamais bloqué par la suspension d'une boutique qu'il posséderait. Réinitialisation de mot de passe par lien email uniquement (jamais de mot de passe choisi/visible par l'admin). Gestion des admins réservée au superadmin avec garde-fous serveur : pas de modification de son propre compte, pas de retrait du dernier superadmin, création = nouveau compte seulement. Toutes ces actions sont journalisées (`AuditLog`, `store` nullable pour les actions sans boutique). Limite connue : le jeton d'accès déjà émis reste valable jusqu'à son expiration pour une « déconnexion forcée » d'une boutique non suspendue (seuls les refresh tokens sont révoqués).

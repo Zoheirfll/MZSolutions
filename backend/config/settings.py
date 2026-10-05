@@ -57,6 +57,9 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'core.middleware.SecurityHeadersMiddleware',
+    'core.i18n_middleware.ApiLanguageMiddleware',
+    'platform_admin.middleware.AdminLoginThrottleMiddleware',
+    'platform_admin.middleware.ErrorLogMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -122,6 +125,7 @@ REST_FRAMEWORK = {
         'password_reset':   '5/min',
         'promo':            '20/min',
         'payment_verify':   '30/min',
+        'contact':          '5/hour',
         'incoming_webhook': '30/min',
         'order':            '10/min',
         'exchange':         '10/min',

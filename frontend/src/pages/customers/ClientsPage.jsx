@@ -5,6 +5,9 @@ import ClientOrdersModal from '../../components/ClientOrdersModal'
 import BlockPhoneModal from '../../components/BlockPhoneModal'
 import api from '../../api/axios'
 import { theme } from '../../theme'
+import { useTranslation } from 'react-i18next'
+import { sfx } from '../../i18n'
+import { tt } from '../../i18n'
 
 const PER_PAGE_OPTIONS = [10, 25, 50]
 
@@ -42,7 +45,8 @@ function ShieldIcon(props) {
   )
 }
 
-function Spinner({ label = 'Chargement…' }) {
+function Spinner({ label = tt('Chargement…') }) {
+  const { t: tr } = useTranslation('dashboard')
   return (
     <div className="flex flex-col items-center justify-center gap-2 py-12 text-app-muted">
       <svg className="animate-spin" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -65,6 +69,7 @@ function EmptyState({ icon, title, subtitle }) {
 }
 
 export default function ClientsPage() {
+  const { t } = useTranslation('dashboard')
   const [data, setData]       = useState({ results: [], count: 0, page: 1, per_page: 10 })
   const [search, setSearch]   = useState('')
   const [page, setPage]       = useState(1)
@@ -99,31 +104,31 @@ export default function ClientsPage() {
   const totalPages = Math.max(1, Math.ceil(data.count / perPage))
 
   return (
-    <DashboardLayout title="Clients" subtitle={`Cette page rassemble tous les clients qui vous ont déjà commandé, même s'ils n'ont pas de compte — chaque client est reconnu simplement par son numéro de téléphone. Pour chacun, vous voyez combien de fois il a commandé, sa wilaya et sa commune, et s'il est marqué comme "à risque" (trop de commandes annulées ou retournées). Cliquez sur un client pour ouvrir l'historique complet de toutes ses commandes passées — pratique pour vérifier la fiabilité d'un client avant de le rappeler.`}>
+    <DashboardLayout title={t('Clients')} subtitle={t('Cette page rassemble tous les clients qui vous ont déjà commandé, même s\'ils n\'ont pas de compte — chaque client est reconnu simplement par son numéro de téléphone. Pour chacun, vous voyez combien de fois il a commandé, sa wilaya et sa commune, et s\'il est marqué comme "à risque" (trop de commandes annulées ou retournées). Cliquez sur un client pour ouvrir l\'historique complet de toutes ses commandes passées — pratique pour vérifier la fiabilité d\'un client avant de le rappeler.')}>
       <div className="flex items-center justify-between mb-5 gap-3 flex-wrap">
         <input
           value={search}
           onChange={e => { setSearch(e.target.value); setPage(1) }}
-          placeholder="Recherche par nom ou téléphone"
+          placeholder={t('Recherche par nom ou téléphone')}
           className="px-4 py-2 rounded-lg text-sm text-app-primary border outline-none focus:border-violet-500 transition w-full sm:w-72"
           style={{ background: theme.dark.card, borderColor: theme.dark.border }}
         />
-        <p className="text-sm" style={{ color: theme.dark.muted }}>{data.count} client{data.count !== 1 ? 's' : ''}</p>
+        <p className="text-sm" style={{ color: theme.dark.muted }}>{t('{{count}} client', { count: data.count })}{data.count !== 1 ? sfx('s') : ''}</p>
       </div>
 
       <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border }}>
         <table className="w-full text-sm min-w-200">
           <thead style={{ background: theme.dark.sidebar }}>
-            <tr className="text-left text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
-              <th className="px-4 py-3 font-medium">NOM COMPLET</th>
-              <th className="px-4 py-3 font-medium">EMAIL</th>
-              <th className="px-4 py-3 font-medium">TÉLÉPHONE</th>
-              <th className="px-4 py-3 font-medium">COMMANDES</th>
-              <th className="px-4 py-3 font-medium">WILAYA</th>
-              <th className="px-4 py-3 font-medium">COMMUNE</th>
-              <th className="px-4 py-3 font-medium">STATUT</th>
-              <th className="px-4 py-3 font-medium">CRÉÉ LE</th>
-              <th className="px-4 py-3 font-medium">ACTIONS</th>
+            <tr className="text-start text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
+              <th className="px-4 py-3 font-medium">{t('NOM COMPLET')}</th>
+              <th className="px-4 py-3 font-medium">{t('EMAIL')}</th>
+              <th className="px-4 py-3 font-medium">{t('TÉLÉPHONE')}</th>
+              <th className="px-4 py-3 font-medium">{t('COMMANDES')}</th>
+              <th className="px-4 py-3 font-medium">{t('WILAYA')}</th>
+              <th className="px-4 py-3 font-medium">{t('COMMUNE')}</th>
+              <th className="px-4 py-3 font-medium">{t('STATUT')}</th>
+              <th className="px-4 py-3 font-medium">{t('CRÉÉ LE')}</th>
+              <th className="px-4 py-3 font-medium">{t('ACTIONS')}</th>
             </tr>
           </thead>
           <tbody>
@@ -131,7 +136,7 @@ export default function ClientsPage() {
               <tr><td colSpan={9}><Spinner /></td></tr>
             ) : data.results.length === 0 ? (
               <tr><td colSpan={9}>
-                <EmptyState icon={<UsersIcon />} title="Aucun client" subtitle="Les clients apparaissent ici après leur première commande." />
+                <EmptyState icon={<UsersIcon />} title={t('Aucun client')} subtitle={t('Les clients apparaissent ici après leur première commande.')} />
               </td></tr>
             ) : data.results.map(c => (
               <tr key={c.phone} className="border-b hover:bg-violet-500/5 transition" style={{ borderColor: theme.dark.borderRowHover }}>
@@ -146,27 +151,27 @@ export default function ClientsPage() {
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     {c.is_risky
-                      ? <span className={theme.badge.danger}>À risque{c.manual_risk ? ' (manuel)' : ''}</span>
-                      : <span className={theme.badge.neutral}>Normal</span>}
-                    {c.is_blacklisted && <span className={theme.badge.danger}>Bloqué</span>}
+                      ? <span className={theme.badge.danger}>{t('À risque')}{c.manual_risk ? ' (manuel)' : ''}</span>
+                      : <span className={theme.badge.neutral}>{t('Normal')}</span>}
+                    {c.is_blacklisted && <span className={theme.badge.danger}>{t('Bloqué')}</span>}
                   </div>
                 </td>
                 <td className="px-4 py-3 text-app-muted text-xs">{new Date(c.created_at).toLocaleDateString('fr-DZ')}</td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-1">
-                    <button onClick={() => setHistoryClient(c)} className="p-1.5 rounded text-violet-300 hover:bg-violet-600/20 transition cursor-pointer" title="Historique des commandes">
+                    <button onClick={() => setHistoryClient(c)} className="p-1.5 rounded text-violet-300 hover:bg-violet-600/20 transition cursor-pointer" title={t('Historique des commandes')}>
                       <HistoryIcon />
                     </button>
                     <button
                       onClick={() => toggleManualRisk(c.phone)}
                       disabled={togglingPhone === c.phone}
                       className="p-1.5 rounded text-amber-400 hover:bg-amber-500/20 transition cursor-pointer disabled:opacity-50"
-                      title={c.manual_risk ? 'Retirer le flag de risque' : 'Marquer à risque'}
+                      title={c.manual_risk ? t('Retirer le flag de risque') : t('Marquer à risque')}
                     >
                       <AlertTriangleIcon />
                     </button>
                     {!c.is_blacklisted && (
-                      <button onClick={() => setBlockingClient(c)} className="p-1.5 rounded text-red-400 hover:bg-red-900/20 transition cursor-pointer" title="Bloquer ce numéro">
+                      <button onClick={() => setBlockingClient(c)} className="p-1.5 rounded text-red-400 hover:bg-red-900/20 transition cursor-pointer" title={t('Bloquer ce numéro')}>
                         <ShieldIcon />
                       </button>
                     )}
@@ -180,17 +185,15 @@ export default function ClientsPage() {
 
       {data.count > 0 && (
         <div className="flex items-center justify-between mt-4 text-sm" style={{ color: theme.dark.muted }}>
-          <div className="flex items-center gap-2 text-xs">
-            Lignes par page :
-            <Select value={perPage} onChange={v => { setPerPage(Number(v)); setPage(1) }}
+          <div className="flex items-center gap-2 text-xs">{t('Lignes par page :')}<Select value={perPage} onChange={v => { setPerPage(Number(v)); setPage(1) }}
               options={PER_PAGE_OPTIONS.map(n => ({ value: n, label: n }))}
               className="px-2 py-1 rounded-lg border text-app-primary text-xs"
               style={{ background: theme.dark.card, borderColor: theme.dark.border, minWidth: 64 }} />
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">← Précédent</button>
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">{t('← Précédent')}</button>
             <span className={theme.badge.info}>{page}</span>
-            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">Suivant →</button>
+            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">{t('Suivant →')}</button>
           </div>
         </div>
       )}

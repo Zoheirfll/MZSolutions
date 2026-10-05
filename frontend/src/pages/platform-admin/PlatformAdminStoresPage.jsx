@@ -6,29 +6,32 @@ import Select from '../../components/Select'
 import Toast from '../../components/Toast'
 import StatCard from '../../components/StatCard'
 import { useAuth } from '../../context/AuthContext'
+import { tt } from '../../i18n'
+import { useTranslation } from 'react-i18next'
+import { sfx } from '../../i18n'
 
 const SERVICE_OPTIONS = [
-  { value: '',         label: 'Tous les statuts' },
-  { value: 'active',   label: 'Service actif' },
-  { value: 'inactive', label: 'Service inactif' },
+  { value: '',         label: tt('Tous les statuts') },
+  { value: 'active',   label: tt('Service actif') },
+  { value: 'inactive', label: tt('Service inactif') },
 ]
 
 const MODE_FILTER_OPTIONS = [
-  { value: '',        label: 'Tous les modes' },
-  { value: 'replace', label: 'Remplace' },
-  { value: 'augment', label: 'Coexiste' },
+  { value: '',        label: tt('Tous les modes') },
+  { value: 'replace', label: tt('Remplace') },
+  { value: 'augment', label: tt('Coexiste') },
 ]
 
 const MODE_OPTIONS = [
-  { value: 'replace', label: 'Remplace les confirmateurs internes' },
-  { value: 'augment', label: 'Coexiste avec les confirmateurs internes' },
+  { value: 'replace', label: tt('Remplace les confirmateurs internes') },
+  { value: 'augment', label: tt('Coexiste avec les confirmateurs internes') },
 ]
 
 // Libellés courts pour la cellule du tableau (place limitée) — le libellé
 // complet reste affiché ailleurs (filtre, etc.).
 const MODE_OPTIONS_SHORT = [
-  { value: 'replace', label: 'Remplace' },
-  { value: 'augment', label: 'Coexiste' },
+  { value: 'replace', label: tt('Remplace') },
+  { value: 'augment', label: tt('Coexiste') },
 ]
 
 const PER_PAGE_OPTIONS = [10, 20, 50]
@@ -80,8 +83,12 @@ function SearchIcon(props) {
 }
 
 export default function PlatformAdminStoresPage() {
+  const { t, t: tr } = useTranslation('dashboard')
   const navigate = useNavigate()
-  const { refresh } = useAuth()
+  const { refresh, user } = useAuth()
+  // Les écritures (activer le service, mode, actions groupées) sont réservées au
+  // superadmin côté serveur — le front les désactive seulement pour un simple admin.
+  const isSuper = user?.platform_level === 'superadmin'
   const [entering, setEntering] = useState(null)
   const [stores, setStores]     = useState([])
   const [stats, setStats]       = useState(null)
@@ -107,7 +114,7 @@ export default function PlatformAdminStoresPage() {
       },
     })
       .then(({ data }) => { setStores(data.results); setStats(data.stats); setCount(data.count) })
-      .catch(() => setToast({ type: 'error', message: 'Erreur de chargement des boutiques.' }))
+      .catch(() => setToast({ type: 'error', message: t('Erreur de chargement des boutiques.') }))
       .finally(() => setLoading(false))
   }, [search, serviceF, modeF, page, perPage])
 
@@ -125,7 +132,7 @@ export default function PlatformAdminStoresPage() {
       await refresh()
       navigate('/dashboard')
     } catch {
-      setToast({ type: 'error', message: "Impossible d'entrer dans cette boutique." })
+      setToast({ type: 'error', message: t('Impossible d\'entrer dans cette boutique.') })
       setEntering(null)
     }
   }
@@ -135,10 +142,10 @@ export default function PlatformAdminStoresPage() {
     try {
       const { data } = await api.post(`/platform-admin/stores/${store.id}/toggle/`, { is_active: nowActive })
       setStores(prev => prev.map(s => s.id === store.id ? { ...s, confirmation: data } : s))
-      setToast({ type: 'success', message: nowActive ? `Service activé pour ${store.name}.` : `Service désactivé pour ${store.name}.` })
+      setToast({ type: 'success', message: nowActive ? t('Service activé pour {{name}}.', { name: store.name }) : t('Service désactivé pour {{name}}.', { name: store.name }) })
       load()
     } catch {
-      setToast({ type: 'error', message: 'Échec de la mise à jour.' })
+      setToast({ type: 'error', message: t('Échec de la mise à jour.') })
     }
   }
 
@@ -147,7 +154,7 @@ export default function PlatformAdminStoresPage() {
       const { data } = await api.post(`/platform-admin/stores/${store.id}/toggle/`, { mode })
       setStores(prev => prev.map(s => s.id === store.id ? { ...s, confirmation: data } : s))
     } catch {
-      setToast({ type: 'error', message: 'Échec de la mise à jour du mode.' })
+      setToast({ type: 'error', message: t('Échec de la mise à jour du mode.') })
     }
   }
 
@@ -163,11 +170,11 @@ export default function PlatformAdminStoresPage() {
     setBulkBusy(true)
     try {
       await api.post('/platform-admin/stores/bulk-toggle/', { store_ids: [...selected], is_active: isActive })
-      setToast({ type: 'success', message: `${selected.size} boutique(s) ${isActive ? 'activée(s)' : 'désactivée(s)'}.` })
+      setToast({ type: 'success', message: `${selected.size} boutique(s) ${isActive ? t('activée(s)') : t('désactivée(s)')}.` })
       setSelected(new Set())
       load()
     } catch {
-      setToast({ type: 'error', message: 'Échec de la mise à jour groupée.' })
+      setToast({ type: 'error', message: t('Échec de la mise à jour groupée.') })
     } finally {
       setBulkBusy(false)
     }
@@ -182,53 +189,45 @@ export default function PlatformAdminStoresPage() {
   return (
     <div className="max-w-7xl mx-auto flex flex-col gap-6">
       <div>
-        <h1 className="text-xl font-bold text-app-primary">Boutiques</h1>
-        <p className="text-sm text-app-muted mt-1 max-w-3xl">
-          Activez le service de confirmation payant pour une boutique — décision unilatérale du superadmin, indépendante de ce que le vendeur souhaite. En mode « Remplace », le round-robin interne de la boutique est sauté ; en mode « Coexiste », les deux tournent en parallèle.
-        </p>
+        <h1 className="text-xl font-bold text-app-primary">{t('Boutiques')}</h1>
+        <p className="text-sm text-app-muted mt-1 max-w-3xl">{t('Activez le service de confirmation payant pour une boutique — décision unilatérale du superadmin, indépendante de ce que le vendeur souhaite. En mode « Remplace », le round-robin interne de la boutique est sauté ; en mode « Coexiste », les deux tournent en parallèle.')}</p>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Boutiques MZSolutions" value={stats?.total ?? '—'} icon={StoreIcon} color="blue" />
-        <StatCard label="Service actif" value={stats?.active ?? '—'} sub={stats?.total ? `${Math.round((stats.active / stats.total) * 100)}%` : undefined} icon={CheckCircleIcon} color="green" />
-        <StatCard label="Mode « Remplace »" value={stats?.replace ?? '—'} icon={ShieldIcon} color="violet" />
-        <StatCard label="Mode « Coexiste »" value={stats?.augment ?? '—'} icon={UsersIcon} color="orange" />
+        <StatCard label={t('Boutiques MZSolutions')} value={stats?.total ?? '—'} icon={StoreIcon} color="blue" />
+        <StatCard label={t('Service actif')} value={stats?.active ?? '—'} sub={stats?.total ? `${Math.round((stats.active / stats.total) * 100)}%` : undefined} icon={CheckCircleIcon} color="green" />
+        <StatCard label={t('Mode « Remplace »')} value={stats?.replace ?? '—'} icon={ShieldIcon} color="violet" />
+        <StatCard label={t('Mode « Coexiste »')} value={stats?.augment ?? '—'} icon={UsersIcon} color="orange" />
       </div>
 
       {/* Barre d'actions / filtres */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         {selected.size > 0 ? (
           <div className="flex items-center gap-2.5 flex-wrap">
-            <span className={theme.badge.info}>{selected.size} sélectionnée{selected.size > 1 ? 's' : ''}</span>
-            <button onClick={() => handleBulkToggle(true)} disabled={bulkBusy} className={theme.btn.secondary}>
-              Activer le service
-            </button>
-            <button onClick={() => handleBulkToggle(false)} disabled={bulkBusy} className={theme.btn.ghost}>
-              Désactiver le service
-            </button>
+            <span className={theme.badge.info}>{t('{{size}} sélectionnée', { size: selected.size })}{selected.size > 1 ? sfx('s') : ''}</span>
+            <button onClick={() => handleBulkToggle(true)} disabled={bulkBusy} className={theme.btn.secondary}>{t('Activer le service')}</button>
+            <button onClick={() => handleBulkToggle(false)} disabled={bulkBusy} className={theme.btn.ghost}>{t('Désactiver le service')}</button>
           </div>
         ) : (
           <div className="flex items-center gap-3 flex-wrap w-full sm:w-auto">
             <div className="relative">
-              <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-app-muted-light pointer-events-none" />
+              <SearchIcon className="absolute start-3 top-1/2 -translate-y-1/2 text-app-muted-light pointer-events-none" />
               <input
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder="Boutique ou propriétaire…"
-                className={theme.inputDark + ' pl-9 w-full sm:w-64'}
+                placeholder={t('Boutique ou propriétaire…')}
+                className={theme.inputDark + ' ps-9 w-full sm:w-64'}
               />
             </div>
             <Select value={serviceF} onChange={setServiceF} options={SERVICE_OPTIONS} className={theme.inputDark + ' w-48'} />
             <Select value={modeF} onChange={setModeF} options={MODE_FILTER_OPTIONS} className={theme.inputDark + ' w-44'} />
             {activeFilterCount > 0 && (
-              <button onClick={() => { setSearch(''); setServiceF(''); setModeF('') }} className="text-xs text-app-muted-light hover:text-app-primary underline underline-offset-2">
-                Réinitialiser
-              </button>
+              <button onClick={() => { setSearch(''); setServiceF(''); setModeF('') }} className="text-xs text-app-muted-light hover:text-app-primary underline underline-offset-2">{t('Réinitialiser')}</button>
             )}
           </div>
         )}
         <button onClick={load} className="w-9 h-9 rounded-lg border flex items-center justify-center text-app-muted-light hover:text-app-primary hover:bg-violet-500/5 transition shrink-0"
-          style={{ borderColor: 'var(--border-color)' }} title="Actualiser">
+          style={{ borderColor: 'var(--border-color)' }} title={t('Actualiser')}>
           <RefreshIcon className={loading ? 'animate-spin' : ''} />
         </button>
       </div>
@@ -236,15 +235,15 @@ export default function PlatformAdminStoresPage() {
       <div className="rounded-xl border overflow-x-auto" style={{ borderColor: 'var(--border-color)', background: 'var(--bg-card)' }}>
         <table className="w-full text-sm min-w-225">
           <thead style={{ background: theme.dark.sidebar }}>
-            <tr className="text-left text-xs font-semibold uppercase tracking-wide text-app-muted-light border-b" style={{ borderColor: 'var(--border-color)' }}>
-              <th className="px-4 py-3 w-10"><input type="checkbox" checked={allChecked} onChange={toggleAll} className="accent-violet-600 w-4 h-4 cursor-pointer" aria-label="Tout sélectionner" /></th>
-              <th className="px-4 py-3">Boutique</th>
-              <th className="px-4 py-3">Propriétaire</th>
-              <th className="px-4 py-3">Service</th>
-              <th className="px-4 py-3">Mode</th>
-              <th className="px-4 py-3">Confirmateurs</th>
-              <th className="px-4 py-3">Activé le</th>
-              <th className="px-4 py-3 sticky right-0" style={{ background: theme.dark.sidebar }}>Accès</th>
+            <tr className="text-start text-xs font-semibold uppercase tracking-wide text-app-muted-light border-b" style={{ borderColor: 'var(--border-color)' }}>
+              <th className="px-4 py-3 w-10"><input type="checkbox" disabled={!isSuper} checked={allChecked} onChange={toggleAll} className="accent-violet-600 w-4 h-4 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed" aria-label={t('Tout sélectionner')} /></th>
+              <th className="px-4 py-3">{t('Boutique')}</th>
+              <th className="px-4 py-3">{t('Propriétaire')}</th>
+              <th className="px-4 py-3">{t('Service')}</th>
+              <th className="px-4 py-3">{t('Mode')}</th>
+              <th className="px-4 py-3">{t('Confirmateurs')}</th>
+              <th className="px-4 py-3">{t('Activé le')}</th>
+              <th className="px-4 py-3 sticky end-0" style={{ background: theme.dark.sidebar }}>{t('Accès')}</th>
             </tr>
           </thead>
           <tbody>
@@ -254,16 +253,14 @@ export default function PlatformAdminStoresPage() {
                   <svg className="w-5 h-5 animate-spin text-violet-500" viewBox="0 0 24 24" fill="none">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-                  </svg>
-                  Chargement…
-                </div>
+                  </svg>{t('Chargement…')}</div>
               </td></tr>
             )}
             {!loading && stores.length === 0 && (
               <tr><td colSpan={8}>
                 <div className={theme.emptyState}>
                   <StoreIcon className="w-12 h-12 mb-3 opacity-40" />
-                  <p>Aucune boutique ne correspond à ces filtres.</p>
+                  <p>{t('Aucune boutique ne correspond à ces filtres.')}</p>
                 </div>
               </td></tr>
             )}
@@ -272,7 +269,7 @@ export default function PlatformAdminStoresPage() {
               return (
                 <tr key={store.id} className="border-b last:border-0 hover:bg-violet-500/5 transition-colors" style={{ borderColor: theme.dark.borderRowHover }}>
                   <td className="px-4 py-3">
-                    <input type="checkbox" checked={selected.has(store.id)} onChange={() => toggleRow(store.id)} className="accent-violet-600 w-4 h-4 cursor-pointer" />
+                    <input type="checkbox" disabled={!isSuper} checked={selected.has(store.id)} onChange={() => toggleRow(store.id)} className="accent-violet-600 w-4 h-4 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed" />
                   </td>
                   <td className="px-4 py-3">
                     <p className="text-app-primary font-medium">{store.name}</p>
@@ -282,11 +279,12 @@ export default function PlatformAdminStoresPage() {
                   <td className="px-4 py-3">
                     <button
                       onClick={() => toggleActive(store)}
+                      disabled={!isSuper}
                       className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
                         active ? theme.badge.success : theme.badge.neutral
                       }`}
                     >
-                      {active ? 'Actif' : 'Inactif'}
+                      {active ? tr('Actif') : tr('Inactif')}
                     </button>
                   </td>
                   <td className="px-4 py-3 w-36">
@@ -294,7 +292,7 @@ export default function PlatformAdminStoresPage() {
                       value={store.confirmation?.mode || 'replace'}
                       onChange={v => changeMode(store, v)}
                       options={MODE_OPTIONS_SHORT}
-                      disabled={!active}
+                      disabled={!active || !isSuper}
                       className={theme.inputDark + ' py-1.5 text-xs'}
                     />
                   </td>
@@ -304,16 +302,16 @@ export default function PlatformAdminStoresPage() {
                   <td className="px-4 py-3 text-app-muted-light whitespace-nowrap">
                     {store.confirmation?.activated_at ? new Date(store.confirmation.activated_at).toLocaleDateString('fr-DZ') : '—'}
                   </td>
-                  <td className="px-4 py-3 sticky right-0" style={{ background: 'var(--bg-card)' }}>
+                  <td className="px-4 py-3 sticky end-0" style={{ background: 'var(--bg-card)' }}>
                     {active ? (
                       <div className="flex flex-col items-start gap-1.5 min-w-32">
                         <button onClick={() => handleEnter(store)} disabled={entering === store.id}
                           className="w-full text-xs font-semibold px-2.5 py-1.5 rounded-md bg-violet-600 text-white hover:bg-violet-500 transition disabled:opacity-50 cursor-pointer whitespace-nowrap">
-                          {entering === store.id ? 'Entrée…' : 'Gérer la boutique'}
+                          {entering === store.id ? t('Entrée…') : t('Gérer la boutique')}
                         </button>
                         <div className="flex items-center gap-2.5">
-                          <Link to={`/platform-admin/boutiques/${store.id}/commandes`} className="text-violet-400 hover:text-violet-300 text-xs font-medium">Commandes</Link>
-                          <Link to={`/platform-admin/boutiques/${store.id}/produits`} className="text-violet-400 hover:text-violet-300 text-xs font-medium">Produits</Link>
+                          <Link to={`/platform-admin/boutiques/${store.id}/commandes`} className="text-violet-400 hover:text-violet-300 text-xs font-medium">{t('Commandes')}</Link>
+                          <Link to={`/platform-admin/boutiques/${store.id}/produits`} className="text-violet-400 hover:text-violet-300 text-xs font-medium">{t('Produits')}</Link>
                         </div>
                       </div>
                     ) : <span className="text-app-muted text-xs">—</span>}
@@ -327,11 +325,9 @@ export default function PlatformAdminStoresPage() {
 
       {/* Pagination */}
       <div className="flex items-center justify-between text-sm" style={{ color: theme.dark.muted }}>
-        <p>{count} boutique{count > 1 ? 's' : ''} au total</p>
+        <p>{t('{{count}} boutique', { count })}{count > 1 ? sfx('s') : ''}{' '}{t('au total')}</p>
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 text-xs">
-            Lignes par page :
-            <Select value={perPage} onChange={v => setPerPage(Number(v))}
+          <div className="flex items-center gap-2 text-xs">{t('Lignes par page :')}<Select value={perPage} onChange={v => setPerPage(Number(v))}
               options={PER_PAGE_OPTIONS.map(n => ({ value: n, label: n }))}
               className="px-2 py-1 rounded-lg border text-app-primary text-xs" style={{ background: theme.dark.card, borderColor: theme.dark.border, minWidth: 64 }} />
           </div>

@@ -4,8 +4,10 @@ import DashboardLayout from '../../../components/DashboardLayout'
 import api from '../../../api/axios'
 import { theme } from '../../../theme'
 import { usePeriod, PeriodFilter, Spinner, StatsToolbar, TrendBadge, StatsPagination, downloadCsv } from './statsShared'
+import { useTranslation } from 'react-i18next'
 
 export default function ProductsStatsPage() {
+  const { t } = useTranslation('dashboard')
   const navigate = useNavigate()
   const { period, setPeriod, dateFrom, setDateFrom, dateTo, setDateTo, queryString, resolvedRange, ready } = usePeriod()
   const [data, setData]       = useState({ results: [], count: 0 })
@@ -40,7 +42,7 @@ export default function ProductsStatsPage() {
   const results = data.results || []
 
   return (
-    <DashboardLayout title="Statistiques des produits" subtitle="Cette page analyse la performance de chaque produit individuellement sur la période choisie : combien de fois il a été commandé, son taux de confirmation, dans quelle wilaya il se vend le mieux, et par quel canal (boutique en ligne, dropshipper...) il est le plus demandé.">
+    <DashboardLayout title={t('Statistiques des produits')} subtitle={t('Cette page analyse la performance de chaque produit individuellement sur la période choisie : combien de fois il a été commandé, son taux de confirmation, dans quelle wilaya il se vend le mieux, et par quel canal (boutique en ligne, dropshipper...) il est le plus demandé.')}>
       <div className="flex items-center justify-between gap-3 mb-6 flex-wrap">
         <PeriodFilter period={period} setPeriod={setPeriod} dateFrom={dateFrom} setDateFrom={setDateFrom} dateTo={dateTo} setDateTo={setDateTo} />
         <StatsToolbar onRefresh={fetchData} onExport={handleExport} exporting={exporting} exportDisabled={results.length === 0} />
@@ -50,17 +52,17 @@ export default function ProductsStatsPage() {
           <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border }}>
             <table className="w-full text-sm min-w-180">
               <thead style={{ background: theme.dark.sidebar }}>
-                <tr className="text-left text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
-                  <th className="px-4 py-3 font-medium">PRODUIT</th>
-                  <th className="px-4 py-3 font-medium">MEILLEURE WILAYA</th>
-                  <th className="px-4 py-3 font-medium">MEILLEURE SOURCE</th>
-                  <th className="px-4 py-3 font-medium">COMMANDES</th>
-                  <th className="px-4 py-3 font-medium">CONFIRMÉES</th>
+                <tr className="text-start text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
+                  <th className="px-4 py-3 font-medium">{t('PRODUIT')}</th>
+                  <th className="px-4 py-3 font-medium">{t('MEILLEURE WILAYA')}</th>
+                  <th className="px-4 py-3 font-medium">{t('MEILLEURE SOURCE')}</th>
+                  <th className="px-4 py-3 font-medium">{t('COMMANDES')}</th>
+                  <th className="px-4 py-3 font-medium">{t('CONFIRMÉES')}</th>
                 </tr>
               </thead>
               <tbody>
                 {results.length === 0 ? (
-                  <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-app-muted">Aucune commande sur cette période.</td></tr>
+                  <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-app-muted">{t('Aucune commande sur cette période.')}</td></tr>
                 ) : results.map(r => (
                   <tr key={r.product_id} onClick={() => goToProductOrders(r.product_name)}
                     className="border-b hover:bg-violet-500/5 transition cursor-pointer" style={{ borderColor: theme.dark.borderRowHover }}>

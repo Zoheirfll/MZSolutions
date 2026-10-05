@@ -6,19 +6,22 @@ import { Spinner, money } from '../orders/stats/statsShared'
 import api from '../../api/axios'
 import { theme } from '../../theme'
 import AISummaryCard from '../../components/AISummaryCard'
+import { tt } from '../../i18n'
+import { useTranslation } from 'react-i18next'
 
 const CARDS = [
-  { key: 'profit',            label: 'Bénéfices',            color: 'violet', icon: Wallet },
-  { key: 'revenue',           label: "Chiffre d'affaires",   color: 'green',  icon: DollarSign },
-  { key: 'ads_cost',          label: 'Coût des publicités',  color: 'blue',   icon: Megaphone },
-  { key: 'delivery_variance', label: 'Écarts de livraison',  color: 'orange', icon: Route },
-  { key: 'confirmation_fees', label: 'Frais de confirmation', color: 'cyan',  icon: PhoneCall },
-  { key: 'return_cost',       label: 'Coût de retour',       color: 'red',    icon: RotateCcw },
-  { key: 'product_debts',     label: 'Dettes de produits',   color: 'orange', icon: Package },
-  { key: 'other_debts',       label: 'Autres dettes',        color: 'red',    icon: AlertCircle },
+  { key: 'profit',            label: tt('Bénéfices'),            color: 'violet', icon: Wallet },
+  { key: 'revenue',           label: tt('Chiffre d\'affaires'),   color: 'green',  icon: DollarSign },
+  { key: 'ads_cost',          label: tt('Coût des publicités'),  color: 'blue',   icon: Megaphone },
+  { key: 'delivery_variance', label: tt('Écarts de livraison'),  color: 'orange', icon: Route },
+  { key: 'confirmation_fees', label: tt('Frais de confirmation'), color: 'cyan',  icon: PhoneCall },
+  { key: 'return_cost',       label: tt('Coût de retour'),       color: 'red',    icon: RotateCcw },
+  { key: 'product_debts',     label: tt('Dettes de produits'),   color: 'orange', icon: Package },
+  { key: 'other_debts',       label: tt('Autres dettes'),        color: 'red',    icon: AlertCircle },
 ]
 
 export default function RevenueTab({ queryString }) {
+  const { t } = useTranslation('dashboard')
   const navigate = useNavigate()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -34,7 +37,7 @@ export default function RevenueTab({ queryString }) {
   useEffect(() => { fetchData() }, [fetchData])
 
   if (loading) return <Spinner />
-  if (!data) return <p className="text-sm" style={{ color: theme.dark.muted }}>Impossible de charger les statistiques.</p>
+  if (!data) return <p className="text-sm" style={{ color: theme.dark.muted }}>{t('Impossible de charger les statistiques.')}</p>
 
   return (
     <div className="space-y-6">
@@ -46,12 +49,8 @@ export default function RevenueTab({ queryString }) {
       </div>
 
       <div className="rounded-2xl border p-5 flex items-center justify-between gap-4" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-        <p className="text-sm" style={{ color: theme.dark.muted }}>
-          Les écarts de livraison, frais de confirmation, coût de retour et autres dettes sont saisis manuellement — comme un coût opérationnel ou marketing.
-        </p>
-        <button onClick={() => navigate('/dashboard/finances/couts')} className={theme.btn.secondary + ' shrink-0'}>
-          Gérer les coûts
-        </button>
+        <p className="text-sm" style={{ color: theme.dark.muted }}>{t('Les écarts de livraison, frais de confirmation, coût de retour et autres dettes sont saisis manuellement — comme un coût opérationnel ou marketing.')}</p>
+        <button onClick={() => navigate('/dashboard/finances/couts')} className={theme.btn.secondary + ' shrink-0'}>{t('Gérer les coûts')}</button>
       </div>
     </div>
   )

@@ -45,11 +45,25 @@ def _send_verification_email(user, code):
     )
 
 
+def _registration_closed():
+    """403 si le superadmin a fermé les inscriptions (PlatformSettings.allow_registration)."""
+    try:
+        from platform_admin.system_models import PlatformSettings
+        if not PlatformSettings.load().allow_registration:
+            return Response({'detail': 'Les inscriptions sont momentanément fermées.', 'code': 'registration_closed'}, status=status.HTTP_403_FORBIDDEN)
+    except Exception:
+        pass
+    return None
+
+
 class RegisterView(APIView):
     permission_classes = [AllowAny]
     throttle_scope = 'register'
 
     def post(self, request):
+        closed = _registration_closed()
+        if closed:
+            return closed
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.create(serializer.validated_data)
@@ -153,6 +167,8 @@ class LoginView(APIView):
                     {'detail': str(errors[0]), 'code': 'email_not_verified', 'email': request.data.get('email')},
                     status=status.HTTP_403_FORBIDDEN,
                 )
+            if code == 'store_suspended':
+                return Response({'detail': str(errors[0]), 'code': 'store_suspended'}, status=status.HTTP_403_FORBIDDEN)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         user = serializer.validated_data['user']
@@ -339,6 +355,9 @@ class GoogleRegisterView(APIView):
 
     @transaction.atomic
     def post(self, request):
+        closed = _registration_closed()
+        if closed:
+            return closed
         access_token = request.data.get('access_token', '')
         store_name = request.data.get('store_name', '').strip()
         store_slug = slugify(request.data.get('store_slug', '').strip())

@@ -3,6 +3,9 @@ import DashboardLayout from '../../components/DashboardLayout'
 import Select from '../../components/Select'
 import api from '../../api/axios'
 import { theme } from '../../theme'
+import { tt } from '../../i18n'
+import { useTranslation } from 'react-i18next'
+import { sfx } from '../../i18n'
 
 function EditIcon(props) {
   return (
@@ -59,13 +62,14 @@ function ChevronIcon({ open, ...props }) {
 }
 
 function Spinner() {
+  const { t: tr } = useTranslation('dashboard')
   return (
     <div className="flex items-center justify-center gap-2 py-12 text-app-muted">
       <svg className="animate-spin" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
         <circle cx="12" cy="12" r="9" opacity="0.25" />
         <path d="M21 12a9 9 0 0 0-9-9" strokeLinecap="round" />
       </svg>
-      <span className="text-xs">Chargement…</span>
+      <span className="text-xs">{tr('Chargement…')}</span>
     </div>
   )
 }
@@ -81,15 +85,16 @@ function EmptyState({ icon, title, subtitle }) {
 }
 
 const TABS = [
-  { label: 'Tous',       value: '' },
-  { label: 'Publié',     value: 'publie' },
-  { label: 'Désactivé',  value: 'desactive' },
-  { label: 'Corbeille',  value: 'corbeille' },
+  { label: tt('Tous'),       value: '' },
+  { label: tt('Publié'),     value: 'publie' },
+  { label: tt('Désactivé'),  value: 'desactive' },
+  { label: tt('Corbeille'),  value: 'corbeille' },
 ]
 
 const PER_PAGE_OPTS = [10, 25, 50]
 
 function Modal({ cat, parentOptions, onClose, onSaved }) {
+  const { t: tr } = useTranslation('dashboard')
   const isEdit = !!cat?.id
   const [form, setForm]   = useState({
     name:      cat?.name      || '',
@@ -122,7 +127,7 @@ function Modal({ cat, parentOptions, onClose, onSaved }) {
       onSaved()
     } catch (err) {
       const data = err.response?.data
-      const msg = data ? Object.entries(data).map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(' ') : v}`).join(' — ') : "Échec de l'enregistrement."
+      const msg = data ? Object.entries(data).map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(' ') : v}`).join(' — ') : tr('Échec de l\'enregistrement.')
       setError(msg)
     } finally { setSaving(false) }
   }
@@ -131,38 +136,38 @@ function Modal({ cat, parentOptions, onClose, onSaved }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
       <div className="w-full max-w-md rounded-xl border p-6" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
         <div className="flex items-center justify-between mb-5">
-          <h3 className="font-semibold text-app-primary">{isEdit ? 'Modifier' : 'Nouvelle'} catégorie</h3>
+          <h3 className="font-semibold text-app-primary">{isEdit ? tr('Modifier') : tr('Nouvelle')}{' '}{tr('catégorie')}</h3>
           <button onClick={onClose} className="text-app-muted hover:text-app-primary transition cursor-pointer"><CloseIcon /></button>
         </div>
         <form onSubmit={submit} className="space-y-4">
           {error && <p className="text-sm text-red-400 rounded-lg border border-red-500/40 bg-red-950/20 px-3 py-2">{error}</p>}
           <div>
-            <label className="block text-xs text-app-muted-light mb-1.5">Nom *</label>
-            <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required className={inputCls} style={bdrStyle} placeholder="Nom de la catégorie" />
+            <label className="block text-xs text-app-muted-light mb-1.5">{tr('Nom *')}</label>
+            <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required className={inputCls} style={bdrStyle} placeholder={tr('Nom de la catégorie')} />
           </div>
           <div>
-            <label className="block text-xs text-app-muted-light mb-1.5">Catégorie parente (optionnel)</label>
+            <label className="block text-xs text-app-muted-light mb-1.5">{tr('Catégorie parente (optionnel)')}</label>
             <Select
               value={form.parent}
               onChange={v => setForm(f => ({ ...f, parent: v }))}
               options={parentOptions.filter(p => p.id !== cat?.id).map(p => ({ value: p.id, label: p.name }))}
-              placeholder="Aucune (catégorie racine)"
+              placeholder={tr('Aucune (catégorie racine)')}
               className={inputCls}
               style={{ ...bdrStyle, background: theme.dark.sidebar }}
             />
           </div>
           <div>
-            <label className="block text-xs text-app-muted-light mb-1.5">Image</label>
+            <label className="block text-xs text-app-muted-light mb-1.5">{tr('Image')}</label>
             <input type="file" accept="image/*" onChange={e => setImage(e.target.files[0])} className="text-xs text-app-muted-light" />
           </div>
           <div className="flex items-center gap-3">
             <input type="checkbox" id="active" checked={form.is_active} onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} className="accent-violet-500 cursor-pointer" />
-            <label htmlFor="active" className="text-sm text-app-primary">Catégorie active</label>
+            <label htmlFor="active" className="text-sm text-app-primary">{tr('Catégorie active')}</label>
           </div>
           <div className="flex justify-end gap-3 pt-2">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-app-muted-light hover:text-app-primary transition cursor-pointer">Annuler</button>
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-app-muted-light hover:text-app-primary transition cursor-pointer">{tr('Annuler')}</button>
             <button type="submit" disabled={saving} className={theme.btn.primary + ' text-sm px-5 py-2'}>
-              {saving ? 'Enregistrement…' : isEdit ? 'Mettre à jour' : 'Créer'}
+              {saving ? tr('Enregistrement…') : isEdit ? tr('Mettre à jour') : tr('Créer')}
             </button>
           </div>
         </form>
@@ -172,6 +177,7 @@ function Modal({ cat, parentOptions, onClose, onSaved }) {
 }
 
 export default function CategoriesPage() {
+  const { t: tr } = useTranslation('dashboard')
   const [data, setData]         = useState({ results: [], count: 0, page: 1, per_page: 10 })
   const [tab, setTab]           = useState('')
   const [page, setPage]         = useState(1)
@@ -228,7 +234,7 @@ export default function CategoriesPage() {
       setQuickAddValue('')
     } catch (err) {
       const data = err.response?.data
-      setQuickAddError(data ? Object.values(data).flat().join(' — ') : "Échec de l'ajout.")
+      setQuickAddError(data ? Object.values(data).flat().join(' — ') : tr('Échec de l\'ajout.'))
     } finally { setQuickAdding(false) }
   }
 
@@ -239,7 +245,7 @@ export default function CategoriesPage() {
   }
 
   const handleDelete = async (id) => {
-    const label = tab === 'corbeille' ? 'Supprimer définitivement ?' : 'Mettre en corbeille ?'
+    const label = tab === 'corbeille' ? tr('Supprimer définitivement ?') : tr('Mettre en corbeille ?')
     if (!confirm(label)) return
     await api.delete(`/products/categories/${id}/`)
     fetchCats()
@@ -252,7 +258,7 @@ export default function CategoriesPage() {
   }
 
   const handleBulkDelete = async () => {
-    if (!confirm(`Mettre ${selected.length} catégorie(s) en corbeille ?`)) return
+    if (!confirm(tr('Mettre {{length}} catégorie(s) en corbeille ?', { length: selected.length }))) return
     await Promise.all(selected.map(id => api.delete(`/products/categories/${id}/`)))
     fetchCats()
     setChildren({})
@@ -269,7 +275,7 @@ export default function CategoriesPage() {
   const CatRow = ({ cat, indent = false }) => (
     <>
       <div
-        className={`flex items-center gap-3 px-4 py-3 border-b hover:bg-violet-500/5 transition ${indent ? 'pl-10' : ''}`}
+        className={`flex items-center gap-3 px-4 py-3 border-b hover:bg-violet-500/5 transition ${indent ? 'ps-10' : ''}`}
         style={{ borderColor: theme.dark.borderRowHover }}
       >
         {!indent && (
@@ -291,15 +297,14 @@ export default function CategoriesPage() {
             onClick={() => handleToggle(cat)}
             className={`w-9 h-5 rounded-full transition-colors relative shrink-0 cursor-pointer ${cat.is_active ? 'bg-violet-600' : 'bg-(--border-color-hover)'}`}
           >
-            <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${cat.is_active ? 'left-4' : 'left-0.5'}`} />
+            <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${cat.is_active ? 'start-4' : 'start-0.5'}`} />
           </button>
         )}
 
         <span className="flex-1 text-app-primary text-sm font-medium">
           {cat.name}
           {cat.children_count > 0 && (
-            <span className="ml-2 text-xs" style={{ color: theme.dark.muted }}>
-              ( {cat.children_count} Sous-Catégorie{cat.children_count > 1 ? 's' : ''} )
+            <span className="ms-2 text-xs" style={{ color: theme.dark.muted }}>{tt('( {{children_count}} Sous-Catégorie', { children_count: cat.children_count })}{cat.children_count > 1 ? sfx('s') : ''} )
             </span>
           )}
         </span>
@@ -310,18 +315,16 @@ export default function CategoriesPage() {
 
         <div className="flex items-center gap-1">
           {tab === 'corbeille' ? (
-            <button onClick={() => handleRestore(cat.id)} className={theme.badge.success + ' cursor-pointer hover:opacity-80 transition'}>
-              Restaurer
-            </button>
+            <button onClick={() => handleRestore(cat.id)} className={theme.badge.success + ' cursor-pointer hover:opacity-80 transition'}>{tt('Restaurer')}</button>
           ) : (
             <>
               {!indent && (
-                <button onClick={() => startQuickAdd(cat.id)} className="w-7 h-7 rounded flex items-center justify-center text-app-muted-light hover:bg-violet-500/10 transition cursor-pointer" title="Ajouter une sous-catégorie"><PlusIcon width={14} height={14} /></button>
+                <button onClick={() => startQuickAdd(cat.id)} className="w-7 h-7 rounded flex items-center justify-center text-app-muted-light hover:bg-violet-500/10 transition cursor-pointer" title={tt('Ajouter une sous-catégorie')}><PlusIcon width={14} height={14} /></button>
               )}
-              <button onClick={() => setModal(cat)} className="w-7 h-7 rounded flex items-center justify-center text-emerald-400 hover:bg-emerald-900/20 transition cursor-pointer" title="Modifier"><EditIcon /></button>
+              <button onClick={() => setModal(cat)} className="w-7 h-7 rounded flex items-center justify-center text-emerald-400 hover:bg-emerald-900/20 transition cursor-pointer" title={tt('Modifier')}><EditIcon /></button>
             </>
           )}
-          <button onClick={() => handleDelete(cat.id)} className="w-7 h-7 rounded flex items-center justify-center text-red-400 hover:bg-red-900/20 transition cursor-pointer" title="Supprimer"><TrashIcon /></button>
+          <button onClick={() => handleDelete(cat.id)} className="w-7 h-7 rounded flex items-center justify-center text-red-400 hover:bg-red-900/20 transition cursor-pointer" title={tt('Supprimer')}><TrashIcon /></button>
           {!indent && cat.children_count > 0 && (
             <button onClick={() => fetchChildren(cat.id)} className="w-7 h-7 rounded flex items-center justify-center text-app-muted-light hover:bg-violet-500/10 transition cursor-pointer">
               <ChevronIcon open={!!expanded[cat.id]} />
@@ -333,7 +336,7 @@ export default function CategoriesPage() {
         <CatRow key={child.id} cat={child} indent />
       ))}
       {quickAddFor === cat.id && (
-        <div className="flex flex-col gap-1 px-4 py-2 pl-10 border-b" style={{ borderColor: theme.dark.borderRowHover }}>
+        <div className="flex flex-col gap-1 px-4 py-2 ps-10 border-b" style={{ borderColor: theme.dark.borderRowHover }}>
           <div className="flex items-center gap-3">
             <TagIcon width={14} height={14} className="text-app-muted shrink-0" />
             <input
@@ -344,24 +347,24 @@ export default function CategoriesPage() {
                 if (e.key === 'Enter') submitQuickAdd(cat.id)
                 if (e.key === 'Escape') setQuickAddFor(null)
               }}
-              placeholder="Nom de la sous-catégorie…"
+              placeholder={tt('Nom de la sous-catégorie…')}
               disabled={quickAdding}
               className="flex-1 bg-transparent text-sm text-app-primary outline-none border-b py-1"
               style={{ borderColor: theme.dark.border }}
             />
             <button onClick={() => submitQuickAdd(cat.id)} disabled={quickAdding || !quickAddValue.trim()} className={theme.btn.primary + ' text-xs px-3 py-1.5 cursor-pointer disabled:opacity-50'}>
-              {quickAdding ? '…' : 'Ajouter'}
+              {quickAdding ? '…' : tt('Ajouter')}
             </button>
             <button onClick={() => setQuickAddFor(null)} className="text-app-muted-light hover:text-app-primary transition cursor-pointer"><CloseIcon width={14} height={14} /></button>
           </div>
-          {quickAddError && <p className="text-xs text-red-400 pl-6">{quickAddError}</p>}
+          {quickAddError && <p className="text-xs text-red-400 ps-6">{quickAddError}</p>}
         </div>
       )}
     </>
   )
 
   return (
-    <DashboardLayout title="Catégories" subtitle={`Cette page organise votre catalogue en rayons, comme dans un magasin : créez des catégories ("Vêtements", "Électronique"...) et éventuellement des sous-catégories à l'intérieur ("Vêtements > Homme"). Cela aide vos clients à naviguer plus facilement sur votre boutique. Si vous supprimez une catégorie, elle passe d'abord par une Corbeille — vous pouvez encore la restaurer avant qu'elle ne soit définitivement effacée.`}>
+    <DashboardLayout title={tr('Catégories')} subtitle={tr('Cette page organise votre catalogue en rayons, comme dans un magasin : créez des catégories ("Vêtements", "Électronique"...) et éventuellement des sous-catégories à l\'intérieur ("Vêtements > Homme"). Cela aide vos clients à naviguer plus facilement sur votre boutique. Si vous supprimez une catégorie, elle passe d\'abord par une Corbeille — vous pouvez encore la restaurer avant qu\'elle ne soit définitivement effacée.')}>
       {modal !== null && (
         <Modal
           cat={modal?.id ? modal : null}
@@ -382,8 +385,7 @@ export default function CategoriesPage() {
         </div>
         {tab !== 'corbeille' && (
           <button onClick={() => setModal({})} className={theme.btn.primary + ' text-sm shrink-0'}>
-            <PlusIcon width={16} height={16} /> Ajouter une nouvelle
-          </button>
+            <PlusIcon width={16} height={16} />{' '}{tr('Ajouter une nouvelle')}</button>
         )}
       </div>
 
@@ -396,14 +398,14 @@ export default function CategoriesPage() {
             onChange={toggleAll}
             className="accent-violet-500 cursor-pointer"
           />
-          <span className="flex-1">NOM</span>
-          <span className="mr-24">DATE</span>
+          <span className="flex-1">{tr('NOM')}</span>
+          <span className="me-24">{tr('DATE')}</span>
         </div>
 
         {loading ? (
           <Spinner />
         ) : (data.results || []).length === 0 ? (
-          <EmptyState icon={<TagIcon />} title="Aucune catégorie" subtitle="Créez votre première catégorie pour organiser vos produits." />
+          <EmptyState icon={<TagIcon />} title={tr('Aucune catégorie')} subtitle={tr('Créez votre première catégorie pour organiser vos produits.')} />
         ) : (
           <div className="min-w-120">
             {(data.results || []).map(cat => <CatRow key={cat.id} cat={cat} />)}
@@ -414,12 +416,12 @@ export default function CategoriesPage() {
       {/* Footer pagination */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-4">
         <div className="flex items-center gap-4 text-xs flex-wrap" style={{ color: theme.dark.muted }}>
-          <span>{selected.length} de {data.count} sélectionné{selected.length > 1 ? 's' : ''}</span>
+          <span>{tr('{{length}} de {{count}} sélectionné', { length: selected.length, count: data.count })}{selected.length > 1 ? sfx('s') : ''}</span>
           {selected.length > 0 && tab !== 'corbeille' && (
-            <button onClick={handleBulkDelete} className="text-red-400 hover:underline cursor-pointer">Mettre en corbeille</button>
+            <button onClick={handleBulkDelete} className="text-red-400 hover:underline cursor-pointer">{tr('Mettre en corbeille')}</button>
           )}
           <div className="flex items-center gap-2">
-            <span>Lignes par page :</span>
+            <span>{tr('Lignes par page :')}</span>
             <Select
               value={perPage}
               onChange={v => { setPerPage(Number(v)); setPage(1) }}
@@ -435,7 +437,7 @@ export default function CategoriesPage() {
             onClick={() => setPage(p => Math.max(1, p - 1))}
             disabled={page === 1}
             className="px-3 py-1.5 rounded text-sm text-app-muted-light hover:text-app-primary disabled:opacity-40 transition cursor-pointer disabled:cursor-not-allowed"
-          >← Précédent</button>
+          >{tr('← Précédent')}</button>
           {Array.from({ length: totalPages }, (_, i) => i + 1).slice(
             Math.max(0, page - 3), Math.min(totalPages, page + 2)
           ).map(n => (
@@ -450,7 +452,7 @@ export default function CategoriesPage() {
             onClick={() => setPage(p => Math.min(totalPages, p + 1))}
             disabled={page === totalPages}
             className="px-3 py-1.5 rounded text-sm text-app-muted-light hover:text-app-primary disabled:opacity-40 transition cursor-pointer disabled:cursor-not-allowed"
-          >Suivant →</button>
+          >{tr('Suivant →')}</button>
         </div>
       </div>
     </DashboardLayout>

@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 
 function PackageIcon(props) {
   return (
@@ -22,6 +23,7 @@ function TruckIcon(props) {
 }
 
 export default function ProductCard({ product, slug }) {
+  const { t } = useTranslation('storefront')
   return (
     <Link to={`/store/${slug}/products/${product.slug || product.id}`}
       className="group rounded-2xl overflow-hidden border transition-all duration-300 hover:-translate-y-0.5 block"
@@ -41,7 +43,7 @@ export default function ProductCard({ product, slug }) {
           <p className="text-sm font-medium truncate" style={{ color: 'var(--sf-text)' }}>{product.name}</p>
         )}
         <div className="flex items-center gap-2 mt-1">
-          <span className="font-semibold" style={{ color: 'var(--sf-primary)' }}>{Number(product.price).toLocaleString('fr-DZ')} DZD</span>
+          <span className="font-semibold" style={{ color: 'var(--sf-primary)' }}>{Number(product.price).toLocaleString('fr-DZ')} {t('common.currency')}</span>
           {product.original_price ? (
             <span className="text-xs line-through" style={{ color: 'var(--sf-text-muted)' }}>{Number(product.original_price).toLocaleString('fr-DZ')}</span>
           ) : product.compare_price && (
@@ -50,7 +52,7 @@ export default function ProductCard({ product, slug }) {
         </div>
         {product.free_shipping && (
           <span className="inline-flex items-center gap-1 mt-2 text-[10px] font-semibold px-2 py-0.5 rounded-full ring-1 ring-inset ring-emerald-400/40" style={{ background: 'rgba(16,185,129,0.14)', color: '#6ee7b7' }}>
-            <TruckIcon className="w-3 h-3" /> Livraison gratuite
+            <TruckIcon className="w-3 h-3" /> {t('product.freeShipping')}
           </span>
         )}
       </div>

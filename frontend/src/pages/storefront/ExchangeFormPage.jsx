@@ -4,6 +4,7 @@ import StorefrontLayout from './StorefrontLayout'
 import Select from '../../components/Select'
 import publicApi from '../../api/publicApi'
 import { theme } from '../../theme'
+import { useTranslation } from 'react-i18next'
 
 function CheckIcon(props) {
   return (
@@ -14,6 +15,7 @@ function CheckIcon(props) {
 }
 
 export default function ExchangeFormPage() {
+  const { t } = useTranslation('storefront')
   const { slug } = useParams()
 
   const [orderId, setOrderId] = useState('')
@@ -40,9 +42,9 @@ export default function ExchangeFormPage() {
       const { data } = await publicApi.get(`/store/${slug}/order-items/`, { params: { order_id: orderId, phone } })
       setItems(data.items)
       if (data.items.length === 1) setSelectedItemId(data.items[0].id)
-      if (data.items.length === 0) setSearchError("Cette commande ne contient aucun article échangeable (variantes).")
+      if (data.items.length === 0) setSearchError(t('exchange.noItems'))
     } catch (err) {
-      setSearchError(err.response?.data?.detail || 'Une erreur est survenue.')
+      setSearchError(err.response?.data?.detail || t('common.genericError'))
     } finally {
       setSearching(false)
     }
@@ -59,7 +61,7 @@ export default function ExchangeFormPage() {
       })
       setSent(true)
     } catch (err) {
-      setError(err.response?.data?.detail || "Une erreur est survenue lors de l'envoi.")
+      setError(err.response?.data?.detail || t('common.sendError'))
     } finally {
       setSaving(false)
     }
@@ -72,10 +74,10 @@ export default function ExchangeFormPage() {
           <div className={`${theme.badge.success} inline-flex! w-16! h-16! rounded-full! p-0! items-center justify-center mb-4`}>
             <CheckIcon className="w-8 h-8" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Demande d'échange envoyée</h1>
-          <p className="text-gray-500 mb-6">Le vendeur va examiner votre demande et vous recontactera.</p>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">{t('exchange.sentTitle')}</h1>
+          <p className="text-gray-500 mb-6">{t('exchange.sentText')}</p>
           <Link to={`/store/${slug}`} className={theme.btn.primary}>
-            Retour à la boutique
+            {t('common.backToStore')}
           </Link>
         </div>
       </StorefrontLayout>
@@ -85,24 +87,24 @@ export default function ExchangeFormPage() {
   return (
     <StorefrontLayout>
       <div className="max-w-lg mx-auto px-4 py-10">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Demander un échange</h1>
-        <p className="text-sm text-gray-500 mb-8">Un article ne convient pas (mauvaise taille, couleur...) ? Retrouvez votre commande pour choisir l'article à échanger et la variante souhaitée.</p>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">{t('exchange.title')}</h1>
+        <p className="text-sm text-gray-500 mb-8">{t('exchange.intro')}</p>
 
         {/* Étape 1 — retrouver la commande */}
         <form onSubmit={searchOrder} className={`${theme.panel} space-y-4 mb-6`}>
           <div>
-            <label className={theme.label}>Téléphone utilisé pour la commande *</label>
+            <label className={theme.label}>{t('common.phoneLabel')}</label>
             <input value={phone} onChange={e => setPhone(e.target.value)} required
               className={theme.input} placeholder="+213…" />
           </div>
           <div>
-            <label className={theme.label}>Numéro de commande (optionnel)</label>
+            <label className={theme.label}>{t('common.orderNumberOptional')}</label>
             <input value={orderId} onChange={e => setOrderId(e.target.value)}
-              className={theme.input} placeholder="Laissez vide pour votre commande la plus récente" />
+              className={theme.input} placeholder={t("exchange.orderPlaceholder")} />
           </div>
           {searchError && <p className={theme.errorText}>{searchError}</p>}
           <button type="submit" disabled={searching} className={`${theme.btn.outlineLight} w-full`}>
-            {searching ? 'Recherche…' : 'Retrouver ma commande'}
+            {searching ? t('exchange.searching') : t('exchange.findOrder')}
           </button>
         </form>
 
@@ -110,7 +112,7 @@ export default function ExchangeFormPage() {
         {items?.length > 0 && (
           <form onSubmit={handleSubmit} className={`${theme.panel} space-y-4`}>
             <div>
-              <label className={theme.label}>Article à échanger *</label>
+              <label className={theme.label}>{t('exchange.itemLabel')}</label>
               <div className="space-y-2">
                 {items.map(item => (
                   <label key={item.id} className={`flex items-center gap-3 cursor-pointer rounded-xl border p-3 transition ${
@@ -128,15 +130,15 @@ export default function ExchangeFormPage() {
 
             {selectedItem && (
               <div>
-                <label className={theme.label}>Variante souhaitée *</label>
+                <label className={theme.label}>{t('exchange.variantLabel')}</label>
                 {selectedItem.replacement_options.length === 0 ? (
-                  <p className="text-xs text-gray-400">Aucune autre variante disponible pour cet article.</p>
+                  <p className="text-xs text-gray-400">{t('exchange.noVariant')}</p>
                 ) : (
                   <Select
                     value={selectedOptionId}
                     onChange={setSelectedOptionId}
                     options={selectedItem.replacement_options.map(o => ({ value: o.id, label: `${o.variant_name} : ${o.value}` }))}
-                    placeholder="Choisir une variante"
+                    placeholder={t("exchange.chooseVariant")}
                     className={theme.input}
                     variant="light"
                   />
@@ -145,15 +147,15 @@ export default function ExchangeFormPage() {
             )}
 
             <div>
-              <label className={theme.label}>Motif *</label>
+              <label className={theme.label}>{t('exchange.reason')}</label>
               <textarea value={reason} onChange={e => setReason(e.target.value)} required rows={4}
-                className={theme.input} placeholder="Ex. Trop petit, je voudrais une taille au-dessus" />
+                className={theme.input} placeholder={t("exchange.reasonPlaceholder")} />
             </div>
 
             {error && <p className={theme.errorText}>{error}</p>}
 
             <button type="submit" disabled={saving || !selectedItemId || !selectedOptionId} className={`${theme.btn.primary} w-full disabled:opacity-50`}>
-              {saving ? 'Envoi…' : "Envoyer la demande d'échange"}
+              {saving ? t('common.sending') : t('exchange.submit')}
             </button>
           </form>
         )}

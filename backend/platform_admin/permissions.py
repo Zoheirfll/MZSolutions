@@ -1,9 +1,17 @@
 def is_platform_admin(request):
-    """True uniquement pour un compte superadmin (accounts.User.is_platform_admin),
-    complètement indépendant du système de rôles par boutique (team.TeamMember) —
+    """Niveau « admin » de l'espace /platform-admin : un admin OU un superadmin.
+    Complètement indépendant du système de rôles par boutique (team.TeamMember) —
     ce compte n'appartient à aucun Store."""
     user = getattr(request, 'user', None)
-    return bool(user and user.is_authenticated and getattr(user, 'is_platform_admin', False))
+    return bool(user and user.is_authenticated and (
+        getattr(user, 'is_platform_admin', False) or getattr(user, 'is_platform_superadmin', False)))
+
+
+def is_platform_superadmin(request):
+    """Niveau « superadmin » : prix, réglages, remboursements, gestion des admins,
+    activation du service de confirmation."""
+    user = getattr(request, 'user', None)
+    return bool(user and user.is_authenticated and getattr(user, 'is_platform_superadmin', False))
 
 
 def get_platform_confirmateur(request):

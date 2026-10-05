@@ -18,8 +18,19 @@ import MarketingPixelsPage from './pages/MarketingPixelsPage'
 import WebhooksPage from './pages/WebhooksPage'
 import SubscriptionPage from './pages/SubscriptionPage'
 import AcceptInvitation from './pages/AcceptInvitation'
-import { PA, PC } from './components/PlatformAdminRoute'
+import { PA, PC, PSA } from './components/PlatformAdminRoute'
 import PlatformAdminLayout from './pages/platform-admin/PlatformAdminLayout'
+import PlatformAdminOverviewPage from './pages/platform-admin/PlatformAdminOverviewPage'
+import PlatformAdminAccountsPage from './pages/platform-admin/PlatformAdminAccountsPage'
+import PlatformAdminAccountDetailPage from './pages/platform-admin/PlatformAdminAccountDetailPage'
+import PlatformAdminAdminsPage from './pages/platform-admin/PlatformAdminAdminsPage'
+import PlatformAdminPaymentsPage from './pages/platform-admin/PlatformAdminPaymentsPage'
+import PlatformAdminPlansPage from './pages/platform-admin/PlatformAdminPlansPage'
+import PlatformAdminSystemPage from './pages/platform-admin/PlatformAdminSystemPage'
+import PlatformAdminAnnouncementsPage from './pages/platform-admin/PlatformAdminAnnouncementsPage'
+import PlatformAdminMessagesPage from './pages/platform-admin/PlatformAdminMessagesPage'
+import PlatformAdminIntegrationsPage from './pages/platform-admin/PlatformAdminIntegrationsPage'
+import PlatformAdminSettingsPage from './pages/platform-admin/PlatformAdminSettingsPage'
 import PlatformAdminStoresPage from './pages/platform-admin/PlatformAdminStoresPage'
 import PlatformAdminStoreOrdersPage from './pages/platform-admin/PlatformAdminStoreOrdersPage'
 import PlatformAdminStoreProductsPage from './pages/platform-admin/PlatformAdminStoreProductsPage'
@@ -151,11 +162,22 @@ function App() {
           <Route path="/platform-admin/accept-invitation" element={<PlatformAdminAcceptInvitation />} />
 
           <Route path="/platform-admin" element={<PA><PlatformAdminLayout /></PA>}>
-            <Route index element={<Navigate to="boutiques" replace />} />
+            <Route index element={<Navigate to="apercu" replace />} />
+            <Route path="apercu" element={<PlatformAdminOverviewPage />} />
             <Route path="boutiques" element={<PlatformAdminStoresPage />} />
             <Route path="boutiques/:storeId/commandes" element={<PlatformAdminStoreOrdersPage />} />
             <Route path="boutiques/:storeId/produits" element={<PlatformAdminStoreProductsPage />} />
-            <Route path="confirmateurs" element={<PlatformAdminConfirmateursPage />} />
+            <Route path="confirmateurs" element={<PSA><PlatformAdminConfirmateursPage /></PSA>} />
+            <Route path="comptes" element={<PlatformAdminAccountsPage />} />
+            <Route path="comptes/:storeId" element={<PlatformAdminAccountDetailPage />} />
+            <Route path="messages" element={<PlatformAdminMessagesPage />} />
+            <Route path="annonces" element={<PSA><PlatformAdminAnnouncementsPage /></PSA>} />
+            <Route path="integrations" element={<PlatformAdminIntegrationsPage />} />
+            <Route path="systeme" element={<PlatformAdminSystemPage />} />
+            <Route path="reglages" element={<PSA><PlatformAdminSettingsPage /></PSA>} />
+            <Route path="paiements" element={<PlatformAdminPaymentsPage />} />
+            <Route path="paliers" element={<PSA><PlatformAdminPlansPage /></PSA>} />
+            <Route path="administrateurs" element={<PSA><PlatformAdminAdminsPage /></PSA>} />
             <Route path="journal" element={<PlatformAdminAuditPage />} />
           </Route>
 

@@ -5,13 +5,16 @@ import EmptyState from '../../components/EmptyState'
 import Select from '../../components/Select'
 import api from '../../api/axios'
 import { theme } from '../../theme'
+import { tt } from '../../i18n'
+import { useTranslation } from 'react-i18next'
+import { sfx } from '../../i18n'
 
 const SUBSTATUS_OPTIONS = [
-  { value: '',                    label: 'Tous les sous-statuts' },
-  { value: 'pending_processing',  label: 'En attente de traitement' },
-  { value: 'accepted',            label: 'Accepté' },
-  { value: 'cancelled',           label: 'Annulé' },
-  { value: 'unreachable',         label: 'Injoignable' },
+  { value: '',                    label: tt('Tous les sous-statuts') },
+  { value: 'pending_processing',  label: tt('En attente de traitement') },
+  { value: 'accepted',            label: tt('Accepté') },
+  { value: 'cancelled',           label: tt('Annulé') },
+  { value: 'unreachable',         label: tt('Injoignable') },
 ]
 
 function RefreshIcon(props) {
@@ -32,6 +35,7 @@ function CheckIcon(props) {
 }
 
 export default function ReturnValidationPage() {
+  const { t } = useTranslation('dashboard')
   const navigate = useNavigate()
   const [data, setData] = useState({ results: [], count: 0 })
   const [search, setSearch] = useState('')
@@ -76,16 +80,12 @@ export default function ReturnValidationPage() {
   }
 
   return (
-    <DashboardLayout title="Validation des retours" subtitle={`Commandes réellement retournées par le transporteur (pas simplement annulées) — confirmez ici que vous avez physiquement reçu et vérifié le colis. La case "Remettre en stock" (cochée par défaut) recrédite automatiquement les articles ; décochez-la si la marchandise revient abîmée ou invendable. Le filtre "sous-statut" reprend le même tag manuel que la page Suivi transporteur.`}>
+    <DashboardLayout title={t('Validation des retours')} subtitle={t('Commandes réellement retournées par le transporteur (pas simplement annulées) — confirmez ici que vous avez physiquement reçu et vérifié le colis. La case "Remettre en stock" (cochée par défaut) recrédite automatiquement les articles ; décochez-la si la marchandise revient abîmée ou invendable. Le filtre "sous-statut" reprend le même tag manuel que la page Suivi transporteur.')}>
       <div className="flex items-center gap-1 mb-6 p-1 rounded-xl w-fit" style={{ background: theme.dark.card, border: `1px solid ${theme.dark.border}` }}>
         <button onClick={() => setShowValidated(false)}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer ${!showValidated ? 'bg-violet-600 text-white shadow-sm' : 'text-app-muted-light hover:text-app-primary'}`}>
-          À valider
-        </button>
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer ${!showValidated ? 'bg-violet-600 text-white shadow-sm' : 'text-app-muted-light hover:text-app-primary'}`}>{t('À valider')}</button>
         <button onClick={() => setShowValidated(true)}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer ${showValidated ? 'bg-violet-600 text-white shadow-sm' : 'text-app-muted-light hover:text-app-primary'}`}>
-          Validés
-        </button>
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer ${showValidated ? 'bg-violet-600 text-white shadow-sm' : 'text-app-muted-light hover:text-app-primary'}`}>{t('Validés')}</button>
       </div>
 
       <div className="flex items-center justify-between mb-5 gap-3 flex-wrap">
@@ -93,7 +93,7 @@ export default function ReturnValidationPage() {
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Rechercher nom, téléphone ou suivi…"
+            placeholder={t('Rechercher nom, téléphone ou suivi…')}
             className="px-3.5 py-2.5 rounded-lg border text-sm text-app-primary bg-transparent outline-none focus:border-violet-500 transition w-full sm:w-72"
             style={{ borderColor: theme.dark.border }}
           />
@@ -108,29 +108,27 @@ export default function ReturnValidationPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={fetchData} className={theme.btn.icon} title="Rafraîchir">
+          <button onClick={fetchData} className={theme.btn.icon} title={t('Rafraîchir')}>
             <RefreshIcon />
           </button>
-          <button onClick={() => navigate('/dashboard/commandes/nouvelle')} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white bg-violet-600 hover:bg-violet-500 transition">
-            + Créer une commande
-          </button>
+          <button onClick={() => navigate('/dashboard/commandes/nouvelle')} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white bg-violet-600 hover:bg-violet-500 transition">{t('+ Créer une commande')}</button>
         </div>
       </div>
 
-      <p className="text-sm mb-3" style={{ color: theme.dark.muted }}>{data.count} commande{data.count !== 1 ? 's' : ''}.</p>
+      <p className="text-sm mb-3" style={{ color: theme.dark.muted }}>{t('{{count}} commande', { count: data.count })}{data.count !== 1 ? sfx('s') : ''}.</p>
 
       <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border }}>
         <table className="w-full text-sm min-w-200">
           <thead style={{ background: theme.dark.sidebar }}>
-            <tr className="text-left text-xs border-b" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
-              <th className="px-4 py-3 font-medium">ID</th>
-              <th className="px-4 py-3 font-medium">NOM</th>
-              <th className="px-4 py-3 font-medium">TÉLÉPHONE</th>
-              <th className="px-4 py-3 font-medium">EMPLACEMENT</th>
-              <th className="px-4 py-3 font-medium">PRIX TOTAL</th>
-              <th className="px-4 py-3 font-medium">SUIVI</th>
-              <th className="px-4 py-3 font-medium">SOCIÉTÉ</th>
-              <th className="px-4 py-3 font-medium text-right">ACTIONS</th>
+            <tr className="text-start text-xs border-b" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
+              <th className="px-4 py-3 font-medium">{t('ID')}</th>
+              <th className="px-4 py-3 font-medium">{t('NOM')}</th>
+              <th className="px-4 py-3 font-medium">{t('TÉLÉPHONE')}</th>
+              <th className="px-4 py-3 font-medium">{t('EMPLACEMENT')}</th>
+              <th className="px-4 py-3 font-medium">{t('PRIX TOTAL')}</th>
+              <th className="px-4 py-3 font-medium">{t('SUIVI')}</th>
+              <th className="px-4 py-3 font-medium">{t('SOCIÉTÉ')}</th>
+              <th className="px-4 py-3 font-medium text-end">{t('ACTIONS')}</th>
             </tr>
           </thead>
           <tbody>
@@ -140,13 +138,11 @@ export default function ReturnValidationPage() {
                   <svg className="w-5 h-5 animate-spin text-violet-500" viewBox="0 0 24 24" fill="none">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-                  </svg>
-                  Chargement…
-                </div>
+                  </svg>{t('Chargement…')}</div>
               </td></tr>
             ) : data.results.length === 0 ? (
               <tr><td colSpan={8}>
-                <EmptyState title="Aucune donnée" description="Rien à valider pour l'instant." />
+                <EmptyState title={t('Aucune donnée')} description={t('Rien à valider pour l\'instant.')} />
               </td></tr>
             ) : data.results.map(o => (
               <tr key={o.id} className="border-b hover:bg-violet-500/5 transition" style={{ borderColor: theme.dark.borderRowHover }}>
@@ -154,14 +150,14 @@ export default function ReturnValidationPage() {
                 <td className="px-4 py-3 text-app-primary font-medium cursor-pointer" onClick={() => navigate(`/dashboard/commandes/${o.id}`)}>{o.first_name} {o.last_name}</td>
                 <td className="px-4 py-3 font-mono text-xs text-app-muted-light">{o.phone}</td>
                 <td className="px-4 py-3 text-app-primary">{o.wilaya}</td>
-                <td className="px-4 py-3 text-app-primary">{Number(o.total).toLocaleString('fr-DZ')} DZD</td>
+                <td className="px-4 py-3 text-app-primary">{Number(o.total).toLocaleString('fr-DZ')}{' '}{t('DZD')}</td>
                 <td className="px-4 py-3 font-mono text-xs text-violet-300">{o.carrier_tracking_number || '—'}</td>
                 <td className="px-4 py-3 text-app-muted-light">{o.carrier_label || '—'}</td>
-                <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>
+                <td className="px-4 py-3 text-end" onClick={e => e.stopPropagation()}>
                   {o.return_validated_at ? (
                     <div className="flex flex-col items-end gap-1">
-                      <span className={theme.badge.success}>Validé</span>
-                      {o.restocked_at && <span className="text-[11px]" style={{ color: theme.dark.muted }}>Remis en stock</span>}
+                      <span className={theme.badge.success}>{t('Validé')}</span>
+                      {o.restocked_at && <span className="text-[11px]" style={{ color: theme.dark.muted }}>{t('Remis en stock')}</span>}
                     </div>
                   ) : (
                     <div className="flex flex-col items-end gap-1.5">
@@ -171,11 +167,9 @@ export default function ReturnValidationPage() {
                           checked={!!restockChecked[o.id]}
                           onChange={e => setRestockChecked(prev => ({ ...prev, [o.id]: e.target.checked }))}
                           className="accent-violet-600 w-3.5 h-3.5 cursor-pointer"
-                        />
-                        Remettre en stock
-                      </label>
+                        />{t('Remettre en stock')}</label>
                       <button onClick={() => validateReturn(o.id)} disabled={validatingId === o.id} className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded text-emerald-400 border border-emerald-800 hover:bg-emerald-900/20 transition disabled:opacity-50 cursor-pointer">
-                        <CheckIcon /> {validatingId === o.id ? '…' : 'Confirmer réception'}
+                        <CheckIcon /> {validatingId === o.id ? '…' : t('Confirmer réception')}
                       </button>
                     </div>
                   )}
@@ -188,9 +182,9 @@ export default function ReturnValidationPage() {
 
       {data.count > perPage && (
         <div className="flex items-center justify-end gap-2 mt-4 text-sm" style={{ color: theme.dark.muted }}>
-          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">← Précédent</button>
+          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">{t('← Précédent')}</button>
           <span className={theme.badge.info}>{page}/{totalPages}</span>
-          <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">Suivant →</button>
+          <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">{t('Suivant →')}</button>
         </div>
       )}
     </DashboardLayout>

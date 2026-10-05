@@ -5,22 +5,26 @@ import Select from '../../components/Select'
 import Toast from '../../components/Toast'
 import api from '../../api/axios'
 import { theme } from '../../theme'
+import { tt } from '../../i18n'
+import { useTranslation } from 'react-i18next'
+import { sfx } from '../../i18n'
 
 const COMMISSION_TYPE_OPTIONS = [
-  { value: 'percentage', label: 'Pourcentage (%)' },
-  { value: 'fixed',      label: 'Montant fixe / unité' },
+  { value: 'percentage', label: tt('Pourcentage (%)') },
+  { value: 'fixed',      label: tt('Montant fixe / unité') },
 ]
 
 const money = v => `${Number(v || 0).toLocaleString('fr-DZ')} DZD`
 
 function Spinner() {
+  const { t } = useTranslation('dashboard')
   return (
     <div className="flex flex-col items-center justify-center gap-2 py-12 text-app-muted">
       <svg className="animate-spin" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
         <circle cx="12" cy="12" r="9" opacity="0.25" />
         <path d="M21 12a9 9 0 0 0-9-9" strokeLinecap="round" />
       </svg>
-      <span className="text-xs">Chargement…</span>
+      <span className="text-xs">{t('Chargement…')}</span>
     </div>
   )
 }
@@ -37,6 +41,7 @@ function TrashIcon(props) {
 }
 
 function CommissionRow({ dropshipperId, item, commission, onSaved }) {
+  const { t, t: tr } = useTranslation('dashboard')
   const [type, setType]     = useState(commission?.commission_type || 'percentage')
   const [value, setValue]   = useState(commission?.value ?? '')
   const [saving, setSaving] = useState(false)
@@ -56,14 +61,14 @@ function CommissionRow({ dropshipperId, item, commission, onSaved }) {
       })
       onSaved()
     } catch (err) {
-      setError(err.response?.data?.detail || 'Erreur lors de l\'enregistrement.')
+      setError(err.response?.data?.detail || t('Erreur lors de l\'enregistrement.'))
     } finally {
       setSaving(false)
     }
   }
 
   const remove = async () => {
-    if (!commission || !confirm('Supprimer cette commission ?')) return
+    if (!commission || !confirm(t('Supprimer cette commission ?'))) return
     setDeleting(true)
     try {
       await api.delete(`/dropshipping/commissions/${commission.id}/`)
@@ -93,10 +98,10 @@ function CommissionRow({ dropshipperId, item, commission, onSaved }) {
       <td className="px-4 py-3">
         <div className="flex items-center gap-1.5">
           <button onClick={save} disabled={saving} className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-violet-600 hover:bg-violet-500 disabled:opacity-60 cursor-pointer transition">
-            {saving ? '…' : 'Enregistrer'}
+            {saving ? '…' : tr('Enregistrer')}
           </button>
           {commission && (
-            <button onClick={remove} disabled={deleting} className="p-1.5 rounded text-red-400 hover:bg-red-900/20 transition cursor-pointer disabled:opacity-50" title="Supprimer la commission">
+            <button onClick={remove} disabled={deleting} className="p-1.5 rounded text-red-400 hover:bg-red-900/20 transition cursor-pointer disabled:opacity-50" title={t('Supprimer la commission')}>
               <TrashIcon />
             </button>
           )}
@@ -107,6 +112,7 @@ function CommissionRow({ dropshipperId, item, commission, onSaved }) {
 }
 
 export default function DropshipperDetailPage() {
+  const { t, t: tr } = useTranslation('dashboard')
   const { id } = useParams()
   const navigate = useNavigate()
   const [detail, setDetail]           = useState(null)
@@ -135,7 +141,7 @@ export default function DropshipperDetailPage() {
   useEffect(() => { fetchAll() }, [id, entriesPage, paymentsPage])
 
   const handlePay = async () => {
-    if (!confirm(`Marquer ${money(detail.balance)} comme payé à ${detail.first_name} ${detail.last_name} ?`)) return
+    if (!confirm(tt('Marquer {{amount}} comme payé à {{name}} ?', { amount: money(detail.balance), name: `${detail.first_name} ${detail.last_name}` }))) return
     setPaying(true)
     try {
       await api.post(`/dropshipping/dropshippers/${id}/pay/`, { note: payNote })
@@ -143,7 +149,7 @@ export default function DropshipperDetailPage() {
       setPaymentsPage(1)
       fetchAll()
     } catch (err) {
-      setToast({ type: 'error', message: err.response?.data?.detail || 'Erreur lors du paiement.' })
+      setToast({ type: 'error', message: err.response?.data?.detail || t('Erreur lors du paiement.') })
     } finally {
       setPaying(false)
     }
@@ -154,63 +160,61 @@ export default function DropshipperDetailPage() {
   const bdrStyle = { borderColor: theme.dark.border }
 
   if (loading || !detail) {
-    return <DashboardLayout title="Dropshipper" subtitle={`Cette page vous permet de définir combien ce dropshipper précis touche pour chaque produit qu'il a sélectionné dans sa liste : soit un pourcentage du prix de vente, soit un montant fixe par unité vendue. Vous y voyez aussi tout l'historique de ses ventes et de ses paiements déjà reçus. Quand vous voulez le payer, cliquez sur "Marquer comme payé" : cela règle automatiquement tout le solde qu'il vous reste à lui devoir.`}><Spinner /></DashboardLayout>
+    return <DashboardLayout title={t('Dropshipper')} subtitle={t('Cette page vous permet de définir combien ce dropshipper précis touche pour chaque produit qu\'il a sélectionné dans sa liste : soit un pourcentage du prix de vente, soit un montant fixe par unité vendue. Vous y voyez aussi tout l\'historique de ses ventes et de ses paiements déjà reçus. Quand vous voulez le payer, cliquez sur "Marquer comme payé" : cela règle automatiquement tout le solde qu\'il vous reste à lui devoir.')}><Spinner /></DashboardLayout>
   }
 
   const entriesTotalPages  = Math.max(1, Math.ceil((detail.entries_count || 0) / 10))
   const paymentsTotalPages = Math.max(1, Math.ceil((detail.payments_count || 0) / 10))
 
   return (
-    <DashboardLayout title={`${detail.first_name} ${detail.last_name}`} subtitle="Configurez la commission (pourcentage ou montant fixe) de ce dropshipper pour chaque produit sélectionné, consultez son solde et son historique, et marquez son solde comme payé.">
-      <button onClick={() => navigate('/dashboard/dropshipping')} className="text-xs text-app-muted hover:text-app-primary transition mb-5 cursor-pointer">
-        ← Retour à la liste des dropshippers
-      </button>
+    <DashboardLayout title={`${detail.first_name} ${detail.last_name}`} subtitle={t('Configurez la commission (pourcentage ou montant fixe) de ce dropshipper pour chaque produit sélectionné, consultez son solde et son historique, et marquez son solde comme payé.')}>
+      <button onClick={() => navigate('/dashboard/dropshipping')} className="text-xs text-app-muted hover:text-app-primary transition mb-5 cursor-pointer">{t('← Retour à la liste des dropshippers')}</button>
 
       <p className="text-xs mb-5" style={{ color: theme.dark.muted }}>
-        {detail.phone || 'Téléphone non renseigné'}{detail.wilaya ? ` · ${detail.wilaya}` : ''}{detail.commune ? `, ${detail.commune}` : ''}
+        {detail.phone || t('Téléphone non renseigné')}{detail.wilaya ? ` · ${detail.wilaya}` : ''}{detail.commune ? `, ${detail.commune}` : ''}
       </p>
 
       {/* Solde */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <div className="rounded-xl border p-4" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-          <p className="text-xs mb-1" style={{ color: theme.dark.muted }}>Total gagné</p>
+          <p className="text-xs mb-1" style={{ color: theme.dark.muted }}>{t('Total gagné')}</p>
           <p className="text-xl font-semibold text-app-primary">{money(detail.total_earned)}</p>
         </div>
         <div className="rounded-xl border p-4" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-          <p className="text-xs mb-1" style={{ color: theme.dark.muted }}>Total payé</p>
+          <p className="text-xs mb-1" style={{ color: theme.dark.muted }}>{t('Total payé')}</p>
           <p className="text-xl font-semibold text-app-primary">{money(detail.total_paid)}</p>
         </div>
         <div className="rounded-xl border p-4" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-          <p className="text-xs mb-1" style={{ color: theme.dark.muted }}>Solde à payer</p>
+          <p className="text-xs mb-1" style={{ color: theme.dark.muted }}>{t('Solde à payer')}</p>
           <p className={`text-xl font-semibold ${Number(detail.balance) > 0 ? 'text-amber-400' : 'text-app-primary'}`}>{money(detail.balance)}</p>
         </div>
       </div>
 
       {Number(detail.balance) > 0 && (
         <div className="rounded-xl border p-4 mb-6 flex flex-col sm:flex-row items-start sm:items-center gap-3" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
-          <input value={payNote} onChange={e => setPayNote(e.target.value)} placeholder="Note (optionnel)" className={`${inputCls} flex-1`} style={bdrStyle} />
+          <input value={payNote} onChange={e => setPayNote(e.target.value)} placeholder={t('Note (optionnel)')} className={`${inputCls} flex-1`} style={bdrStyle} />
           <button onClick={handlePay} disabled={paying} className="px-5 py-2.5 rounded-lg text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 cursor-pointer transition shrink-0">
-            {paying ? 'Paiement…' : `Marquer ${money(detail.balance)} comme payé`}
+            {paying ? tr('Paiement…') : tt('Marquer {{amount}} comme payé', { amount: money(detail.balance) })}
           </button>
         </div>
       )}
 
       {/* Commissions par produit */}
-      <h2 className="font-semibold text-app-primary mb-3">Commissions par produit sélectionné</h2>
+      <h2 className="font-semibold text-app-primary mb-3">{t('Commissions par produit sélectionné')}</h2>
       <div className="rounded-xl border overflow-x-auto mb-6" style={{ borderColor: theme.dark.border }}>
         <table className="w-full text-sm min-w-180">
           <thead style={{ background: theme.dark.sidebar }}>
-            <tr className="text-left text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
-              <th className="px-4 py-3 font-medium">PRODUIT</th>
-              <th className="px-4 py-3 font-medium">PRIX</th>
-              <th className="px-4 py-3 font-medium">TYPE</th>
-              <th className="px-4 py-3 font-medium">VALEUR</th>
-              <th className="px-4 py-3 font-medium">ACTIONS</th>
+            <tr className="text-start text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
+              <th className="px-4 py-3 font-medium">{t('PRODUIT')}</th>
+              <th className="px-4 py-3 font-medium">{t('PRIX')}</th>
+              <th className="px-4 py-3 font-medium">{t('TYPE')}</th>
+              <th className="px-4 py-3 font-medium">{t('VALEUR')}</th>
+              <th className="px-4 py-3 font-medium">{t('ACTIONS')}</th>
             </tr>
           </thead>
           <tbody>
             {products.length === 0 ? (
-              <tr><td colSpan={5} className="px-4 py-8 text-center text-sm text-app-muted">Ce dropshipper n'a encore sélectionné aucun produit.</td></tr>
+              <tr><td colSpan={5} className="px-4 py-8 text-center text-sm text-app-muted">{t('Ce dropshipper n\'a encore sélectionné aucun produit.')}</td></tr>
             ) : products.map(item => (
               <CommissionRow key={item.id} dropshipperId={id} item={item} commission={commissionByProduct[item.product]} onSaved={fetchAll} />
             ))}
@@ -220,22 +224,22 @@ export default function DropshipperDetailPage() {
 
       {/* Historique commissions */}
       <div className="flex items-center justify-between mb-3">
-        <h2 className="font-semibold text-app-primary">Historique des commissions</h2>
-        {detail.entries_count > 0 && <span className="text-xs" style={{ color: theme.dark.muted }}>{detail.entries_count} entrée{detail.entries_count !== 1 ? 's' : ''}</span>}
+        <h2 className="font-semibold text-app-primary">{t('Historique des commissions')}</h2>
+        {detail.entries_count > 0 && <span className="text-xs" style={{ color: theme.dark.muted }}>{t('{{entries_count}} entrée', { entries_count: detail.entries_count })}{detail.entries_count !== 1 ? sfx('s') : ''}</span>}
       </div>
       <div className="rounded-xl border overflow-x-auto mb-2" style={{ borderColor: theme.dark.border }}>
         <table className="w-full text-sm min-w-140">
           <thead style={{ background: theme.dark.sidebar }}>
-            <tr className="text-left text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
-              <th className="px-4 py-3 font-medium">COMMANDE</th>
-              <th className="px-4 py-3 font-medium">PRODUIT</th>
-              <th className="px-4 py-3 font-medium">MONTANT</th>
-              <th className="px-4 py-3 font-medium">DATE</th>
+            <tr className="text-start text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
+              <th className="px-4 py-3 font-medium">{t('COMMANDE')}</th>
+              <th className="px-4 py-3 font-medium">{t('PRODUIT')}</th>
+              <th className="px-4 py-3 font-medium">{t('MONTANT')}</th>
+              <th className="px-4 py-3 font-medium">{t('DATE')}</th>
             </tr>
           </thead>
           <tbody>
             {detail.entries.length === 0 ? (
-              <tr><td colSpan={4} className="px-4 py-8 text-center text-sm text-app-muted">Aucune commission calculée pour l'instant.</td></tr>
+              <tr><td colSpan={4} className="px-4 py-8 text-center text-sm text-app-muted">{t('Aucune commission calculée pour l\'instant.')}</td></tr>
             ) : detail.entries.map(e => (
               <tr key={e.id} className="border-b hover:bg-violet-500/5 transition" style={{ borderColor: theme.dark.borderRowHover }}>
                 <td className="px-4 py-3 text-app-primary">
@@ -251,29 +255,29 @@ export default function DropshipperDetailPage() {
       </div>
       {detail.entries_count > 10 && (
         <div className="flex items-center justify-end gap-2 mb-6 text-sm" style={{ color: theme.dark.muted }}>
-          <button onClick={() => setEntriesPage(p => Math.max(1, p - 1))} disabled={entriesPage === 1} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">← Précédent</button>
+          <button onClick={() => setEntriesPage(p => Math.max(1, p - 1))} disabled={entriesPage === 1} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">{t('← Précédent')}</button>
           <span className={theme.badge.info}>{entriesPage}/{entriesTotalPages}</span>
-          <button onClick={() => setEntriesPage(p => Math.min(entriesTotalPages, p + 1))} disabled={entriesPage >= entriesTotalPages} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">Suivant →</button>
+          <button onClick={() => setEntriesPage(p => Math.min(entriesTotalPages, p + 1))} disabled={entriesPage >= entriesTotalPages} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">{t('Suivant →')}</button>
         </div>
       )}
 
       {/* Historique paiements */}
       <div className="flex items-center justify-between mb-3">
-        <h2 className="font-semibold text-app-primary">Historique des paiements</h2>
-        {detail.payments_count > 0 && <span className="text-xs" style={{ color: theme.dark.muted }}>{detail.payments_count} paiement{detail.payments_count !== 1 ? 's' : ''}</span>}
+        <h2 className="font-semibold text-app-primary">{t('Historique des paiements')}</h2>
+        {detail.payments_count > 0 && <span className="text-xs" style={{ color: theme.dark.muted }}>{t('{{payments_count}} paiement', { payments_count: detail.payments_count })}{detail.payments_count !== 1 ? sfx('s') : ''}</span>}
       </div>
       <div className="rounded-xl border overflow-x-auto mb-2" style={{ borderColor: theme.dark.border }}>
         <table className="w-full text-sm min-w-140">
           <thead style={{ background: theme.dark.sidebar }}>
-            <tr className="text-left text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
-              <th className="px-4 py-3 font-medium">MONTANT</th>
-              <th className="px-4 py-3 font-medium">NOTE</th>
-              <th className="px-4 py-3 font-medium">DATE</th>
+            <tr className="text-start text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
+              <th className="px-4 py-3 font-medium">{t('MONTANT')}</th>
+              <th className="px-4 py-3 font-medium">{t('NOTE')}</th>
+              <th className="px-4 py-3 font-medium">{t('DATE')}</th>
             </tr>
           </thead>
           <tbody>
             {detail.payments.length === 0 ? (
-              <tr><td colSpan={3} className="px-4 py-8 text-center text-sm text-app-muted">Aucun paiement enregistré.</td></tr>
+              <tr><td colSpan={3} className="px-4 py-8 text-center text-sm text-app-muted">{t('Aucun paiement enregistré.')}</td></tr>
             ) : detail.payments.map(p => (
               <tr key={p.id} className="border-b hover:bg-violet-500/5 transition" style={{ borderColor: theme.dark.borderRowHover }}>
                 <td className="px-4 py-3 text-app-primary">{money(p.amount)}</td>
@@ -286,9 +290,9 @@ export default function DropshipperDetailPage() {
       </div>
       {detail.payments_count > 10 && (
         <div className="flex items-center justify-end gap-2 text-sm" style={{ color: theme.dark.muted }}>
-          <button onClick={() => setPaymentsPage(p => Math.max(1, p - 1))} disabled={paymentsPage === 1} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">← Précédent</button>
+          <button onClick={() => setPaymentsPage(p => Math.max(1, p - 1))} disabled={paymentsPage === 1} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">{t('← Précédent')}</button>
           <span className={theme.badge.info}>{paymentsPage}/{paymentsTotalPages}</span>
-          <button onClick={() => setPaymentsPage(p => Math.min(paymentsTotalPages, p + 1))} disabled={paymentsPage >= paymentsTotalPages} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">Suivant →</button>
+          <button onClick={() => setPaymentsPage(p => Math.min(paymentsTotalPages, p + 1))} disabled={paymentsPage >= paymentsTotalPages} className="px-3 py-1.5 rounded-lg disabled:opacity-30 hover:bg-violet-500/5 transition">{t('Suivant →')}</button>
         </div>
       )}
       <Toast toast={toast} onClose={() => setToast(null)} />

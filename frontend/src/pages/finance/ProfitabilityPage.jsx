@@ -3,11 +3,14 @@ import DashboardLayout from '../../components/DashboardLayout'
 import StatCard from '../../components/StatCard'
 import api from '../../api/axios'
 import { theme } from '../../theme'
+import { tt } from '../../i18n'
+import { useTranslation } from 'react-i18next'
+import { sfx } from '../../i18n'
 
 const GROUP_OPTIONS = [
-  { value: 'product', label: 'Par produit' },
-  { value: 'wilaya',  label: 'Par wilaya' },
-  { value: 'source',  label: 'Par source' },
+  { value: 'product', label: tt('Par produit') },
+  { value: 'wilaya',  label: tt('Par wilaya') },
+  { value: 'source',  label: tt('Par source') },
 ]
 
 const money = v => `${Number(v || 0).toLocaleString('fr-DZ')} DZD`
@@ -18,7 +21,7 @@ function trendLabel(current, previous) {
   const curr = Number(current)
   if (prev === 0) return null
   const pct = ((curr - prev) / Math.abs(prev)) * 100
-  return `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}% vs préc.`
+  return `${pct >= 0 ? '+' : ''}${tt('{{pct}}% vs préc.', { pct: pct.toFixed(1) })}`
 }
 
 function DownloadIcon(props) {
@@ -32,6 +35,7 @@ function DownloadIcon(props) {
 }
 
 export default function ProfitabilityPage() {
+  const { t, t: tr } = useTranslation('dashboard')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo,   setDateTo]   = useState('')
   const [groupBy,  setGroupBy]  = useState('product')
@@ -86,31 +90,29 @@ export default function ProfitabilityPage() {
   }
 
   return (
-    <DashboardLayout title="Rentabilité" subtitle={`Cette page calcule combien vous gagnez réellement, pas juste combien vous vendez. Elle ne compte que les commandes déjà livrées (une commande annulée ou en cours ne compte pas encore) : pour chacune, elle soustrait le prix d'achat du produit et la commission éventuelle d'un dropshipper. Vous pouvez voir ce détail par produit, par wilaya ou par canal de vente. En haut, un résumé global va plus loin en retirant aussi vos coûts opérationnels et marketing saisis dans la page "Coûts", pour obtenir votre profit net réel sur la période.`}>
+    <DashboardLayout title={t('Rentabilité')} subtitle={t('Cette page calcule combien vous gagnez réellement, pas juste combien vous vendez. Elle ne compte que les commandes déjà livrées (une commande annulée ou en cours ne compte pas encore) : pour chacune, elle soustrait le prix d\'achat du produit et la commission éventuelle d\'un dropshipper. Vous pouvez voir ce détail par produit, par wilaya ou par canal de vente. En haut, un résumé global va plus loin en retirant aussi vos coûts opérationnels et marketing saisis dans la page "Coûts", pour obtenir votre profit net réel sur la période.')}>
       <div className="flex flex-wrap items-center gap-2 mb-6">
         <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className={inputCls} style={bdrStyle} />
         <span className="text-app-muted text-sm">→</span>
         <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className={inputCls} style={bdrStyle} />
         {(dateFrom || dateTo) && (
-          <button onClick={() => { setDateFrom(''); setDateTo('') }} className="text-xs text-app-muted hover:text-app-primary transition cursor-pointer">Réinitialiser</button>
+          <button onClick={() => { setDateFrom(''); setDateTo('') }} className="text-xs text-app-muted hover:text-app-primary transition cursor-pointer">{t('Réinitialiser')}</button>
         )}
       </div>
 
       {loading || !summary ? (
-        <p className="text-app-muted text-sm py-10 text-center">Chargement…</p>
+        <p className="text-app-muted text-sm py-10 text-center">{t('Chargement…')}</p>
       ) : (
         <>
-          <p className="text-xs mb-3" style={{ color: theme.dark.muted }}>
-            Basé sur {summary.orders_count} commande{summary.orders_count !== 1 ? 's' : ''} livrée{summary.orders_count !== 1 ? 's' : ''} sur la période sélectionnée.
-          </p>
+          <p className="text-xs mb-3" style={{ color: theme.dark.muted }}>{t('Basé sur {{orders_count}} commande', { orders_count: summary.orders_count })}{summary.orders_count !== 1 ? sfx('s') : ''}{' '}{t('livrée')}{summary.orders_count !== 1 ? sfx('s') : ''}{' '}{t('sur la période sélectionnée.')}</p>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
-            <StatCard label="Revenus" value={money(summary.revenue)} color="blue"
+            <StatCard label={t('Revenus')} value={money(summary.revenue)} color="blue"
               sub={summary.previous_period ? trendLabel(summary.revenue, summary.previous_period.revenue) : null} />
-            <StatCard label="Coût produit" value={money(summary.product_cost)} color="orange" />
-            <StatCard label="Commission dropshipper" value={money(summary.commission)} color="cyan" />
-            <StatCard label="Coût opérationnel" value={money(summary.operational_cost)} color="orange" />
-            <StatCard label="Coût marketing" value={money(summary.marketing_cost)} color="orange" />
-            <StatCard label="Profit net" value={money(summary.net_profit)} color={summary.net_profit >= 0 ? 'green' : 'red'}
+            <StatCard label={t('Coût produit')} value={money(summary.product_cost)} color="orange" />
+            <StatCard label={t('Commission dropshipper')} value={money(summary.commission)} color="cyan" />
+            <StatCard label={t('Coût opérationnel')} value={money(summary.operational_cost)} color="orange" />
+            <StatCard label={t('Coût marketing')} value={money(summary.marketing_cost)} color="orange" />
+            <StatCard label={t('Profit net')} value={money(summary.net_profit)} color={summary.net_profit >= 0 ? 'green' : 'red'}
               sub={summary.previous_period ? trendLabel(summary.net_profit, summary.previous_period.net_profit) : null} />
           </div>
 
@@ -127,28 +129,26 @@ export default function ProfitabilityPage() {
             <button onClick={handleExport} disabled={exporting || rows.length === 0}
               className="px-3.5 py-1.5 rounded-lg text-sm font-medium border text-app-primary hover:bg-violet-500/5 disabled:opacity-50 transition cursor-pointer flex items-center gap-1.5"
               style={{ borderColor: theme.dark.border }}>
-              <DownloadIcon /> {exporting ? 'Export…' : 'Exporter en CSV'}
+              <DownloadIcon /> {exporting ? tr('Export…') : t('Exporter en CSV')}
             </button>
           </div>
-          <p className="text-xs mb-3" style={{ color: theme.dark.muted }}>
-            Ne comprend que les coûts directement attribuables (produit + commission) — les coûts opérationnels/marketing ne sont pas ventilés ici, voir le résumé global ci-dessus.
-          </p>
+          <p className="text-xs mb-3" style={{ color: theme.dark.muted }}>{t('Ne comprend que les coûts directement attribuables (produit + commission) — les coûts opérationnels/marketing ne sont pas ventilés ici, voir le résumé global ci-dessus.')}</p>
 
           <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border }}>
             <table className="w-full text-sm min-w-180">
               <thead style={{ background: theme.dark.sidebar }}>
-                <tr className="text-left text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
+                <tr className="text-start text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
                   <th className="px-4 py-3 font-medium">{GROUP_OPTIONS.find(o => o.value === groupBy).label.replace('Par ', '').toUpperCase()}</th>
-                  <th className="px-4 py-3 font-medium">COMMANDES</th>
-                  <th className="px-4 py-3 font-medium">REVENUS</th>
-                  <th className="px-4 py-3 font-medium">COÛT PRODUIT</th>
-                  <th className="px-4 py-3 font-medium">COMMISSION</th>
-                  <th className="px-4 py-3 font-medium">PROFIT</th>
+                  <th className="px-4 py-3 font-medium">{t('COMMANDES')}</th>
+                  <th className="px-4 py-3 font-medium">{t('REVENUS')}</th>
+                  <th className="px-4 py-3 font-medium">{t('COÛT PRODUIT')}</th>
+                  <th className="px-4 py-3 font-medium">{t('COMMISSION')}</th>
+                  <th className="px-4 py-3 font-medium">{t('PROFIT')}</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.length === 0 ? (
-                  <tr><td colSpan={6} className="px-4 py-10 text-center text-sm text-app-muted">Aucune commande livrée sur cette période.</td></tr>
+                  <tr><td colSpan={6} className="px-4 py-10 text-center text-sm text-app-muted">{t('Aucune commande livrée sur cette période.')}</td></tr>
                 ) : rows.map((r, i) => (
                   <tr key={i} className="border-b hover:bg-violet-500/5 transition" style={{ borderColor: theme.dark.borderRowHover }}>
                     <td className="px-4 py-3 text-app-primary">{r.label}</td>

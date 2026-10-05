@@ -4,6 +4,9 @@ import Select from '../../components/Select'
 import CheckboxList from '../../components/CheckboxList'
 import api from '../../api/axios'
 import { theme } from '../../theme'
+import { tt } from '../../i18n'
+import { useTranslation } from 'react-i18next'
+import { sfx } from '../../i18n'
 
 const EMPTY_FORM = {
   name: '', code: '', discount_type: 'percentage', discount_value: '',
@@ -11,8 +14,8 @@ const EMPTY_FORM = {
 }
 
 const DISCOUNT_TYPE_OPTIONS = [
-  { value: 'percentage', label: 'Pourcentage (%)' },
-  { value: 'fixed',      label: 'Montant fixe (DZD)' },
+  { value: 'percentage', label: tt('Pourcentage (%)') },
+  { value: 'fixed',      label: tt('Montant fixe (DZD)') },
 ]
 
 function TagIcon(props) {
@@ -60,7 +63,8 @@ function CloseIcon(props) {
   )
 }
 
-function Spinner({ label = 'Chargement…' }) {
+function Spinner({ label = tt('Chargement…') }) {
+  const { t: tr } = useTranslation('dashboard')
   return (
     <div className="flex flex-col items-center justify-center gap-2 py-12 text-app-muted">
       <svg className="animate-spin" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -88,6 +92,7 @@ function toDatetimeLocal(value) {
 }
 
 function CouponModal({ coupon, products, categories, onClose, onSaved }) {
+  const { t } = useTranslation('dashboard')
   const [form, setForm] = useState(coupon?.id ? {
     name: coupon.name,
     code: coupon.code,
@@ -142,61 +147,59 @@ function CouponModal({ coupon, products, categories, onClose, onSaved }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
       <div className="w-full max-w-lg rounded-xl border p-6 max-h-[90vh] overflow-y-auto" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
         <div className="flex items-center justify-between mb-5">
-          <h3 className="font-semibold text-app-primary">{coupon?.id ? 'Modifier le coupon' : 'Nouveau coupon'}</h3>
+          <h3 className="font-semibold text-app-primary">{coupon?.id ? t('Modifier le coupon') : t('Nouveau coupon')}</h3>
           <button onClick={onClose} className="text-app-muted hover:text-app-primary transition cursor-pointer"><CloseIcon /></button>
         </div>
         <form onSubmit={submit} className="space-y-4">
           <div>
-            <label className="block text-xs text-app-muted-light mb-1.5">Nom *</label>
-            <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required className={inputCls} style={bdrStyle} placeholder="Soldes d'été" />
+            <label className="block text-xs text-app-muted-light mb-1.5">{t('Nom *')}</label>
+            <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required className={inputCls} style={bdrStyle} placeholder={t('Soldes d\'été')} />
             {errors.name && <p className="text-red-400 text-xs mt-1">{errors.name}</p>}
           </div>
           <div>
-            <label className="block text-xs text-app-muted-light mb-1.5">Code *</label>
-            <input value={form.code} onChange={e => setForm(f => ({ ...f, code: e.target.value.toUpperCase() }))} required className={`${inputCls} font-mono uppercase`} style={bdrStyle} placeholder="ETE2026" />
+            <label className="block text-xs text-app-muted-light mb-1.5">{t('Code *')}</label>
+            <input value={form.code} onChange={e => setForm(f => ({ ...f, code: e.target.value.toUpperCase() }))} required className={`${inputCls} font-mono uppercase`} style={bdrStyle} placeholder={t('ETE2026')} />
             {errors.code && <p className="text-red-400 text-xs mt-1">{errors.code}</p>}
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs text-app-muted-light mb-1.5">Type de réduction</label>
+              <label className="block text-xs text-app-muted-light mb-1.5">{t('Type de réduction')}</label>
               <Select value={form.discount_type} onChange={v => setForm(f => ({ ...f, discount_type: v }))} options={DISCOUNT_TYPE_OPTIONS} className={inputCls} style={bdrStyle} />
             </div>
             <div>
-              <label className="block text-xs text-app-muted-light mb-1.5">Valeur *</label>
+              <label className="block text-xs text-app-muted-light mb-1.5">{t('Valeur *')}</label>
               <input type="number" min="0" step="0.01" value={form.discount_value} onChange={e => setForm(f => ({ ...f, discount_value: e.target.value }))} required className={inputCls} style={bdrStyle} placeholder={form.discount_type === 'percentage' ? '10' : '500'} />
               {errors.discount_value && <p className="text-red-400 text-xs mt-1">{errors.discount_value}</p>}
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs text-app-muted-light mb-1.5">Début (optionnel)</label>
+              <label className="block text-xs text-app-muted-light mb-1.5">{t('Début (optionnel)')}</label>
               <input type="datetime-local" value={form.starts_at} onChange={e => setForm(f => ({ ...f, starts_at: e.target.value }))} className={inputCls} style={bdrStyle} />
             </div>
             <div>
-              <label className="block text-xs text-app-muted-light mb-1.5">Fin (optionnel)</label>
+              <label className="block text-xs text-app-muted-light mb-1.5">{t('Fin (optionnel)')}</label>
               <input type="datetime-local" value={form.ends_at} onChange={e => setForm(f => ({ ...f, ends_at: e.target.value }))} className={inputCls} style={bdrStyle} />
             </div>
           </div>
           <div>
-            <label className="block text-xs text-app-muted-light mb-1.5">Nombre d'utilisations maximum (optionnel)</label>
-            <input type="number" min="1" value={form.max_uses} onChange={e => setForm(f => ({ ...f, max_uses: e.target.value }))} className={inputCls} style={bdrStyle} placeholder="Illimité" />
+            <label className="block text-xs text-app-muted-light mb-1.5">{t('Nombre d\'utilisations maximum (optionnel)')}</label>
+            <input type="number" min="1" value={form.max_uses} onChange={e => setForm(f => ({ ...f, max_uses: e.target.value }))} className={inputCls} style={bdrStyle} placeholder={t('Illimité')} />
           </div>
           <div>
-            <label className="block text-xs text-app-muted-light mb-1.5">Limiter à des produits (optionnel — sinon s'applique à tout le panier)</label>
-            <CheckboxList items={products} selected={form.products} onToggle={toggleProduct} emptyLabel="Aucun produit disponible." />
+            <label className="block text-xs text-app-muted-light mb-1.5">{t('Limiter à des produits (optionnel — sinon s\'applique à tout le panier)')}</label>
+            <CheckboxList items={products} selected={form.products} onToggle={toggleProduct} emptyLabel={tt("Aucun produit disponible.")} />
           </div>
           <div>
-            <label className="block text-xs text-app-muted-light mb-1.5">Limiter à des catégories (optionnel)</label>
-            <CheckboxList items={categories} selected={form.categories} onToggle={toggleCategory} emptyLabel="Aucune catégorie disponible." />
+            <label className="block text-xs text-app-muted-light mb-1.5">{t('Limiter à des catégories (optionnel)')}</label>
+            <CheckboxList items={categories} selected={form.categories} onToggle={toggleCategory} emptyLabel={tt("Aucune catégorie disponible.")} />
           </div>
-          <label className="flex items-center justify-between text-sm text-app-primary">
-            Actif
-            <input type="checkbox" checked={form.is_active} onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} className="w-4 h-4 accent-violet-600 cursor-pointer" />
+          <label className="flex items-center justify-between text-sm text-app-primary">{t('Actif')}<input type="checkbox" checked={form.is_active} onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} className="w-4 h-4 accent-violet-600 cursor-pointer" />
           </label>
           <div className="flex justify-end gap-3 pt-1">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-app-muted-light hover:text-app-primary cursor-pointer transition">Annuler</button>
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-app-muted-light hover:text-app-primary cursor-pointer transition">{t('Annuler')}</button>
             <button type="submit" disabled={saving} className="px-5 py-2 rounded-lg text-sm font-semibold text-white bg-violet-600 hover:bg-violet-500 disabled:opacity-60 cursor-pointer transition">
-              {saving ? '…' : coupon?.id ? 'Mettre à jour' : 'Créer'}
+              {saving ? '…' : coupon?.id ? t('Mettre à jour') : t('Créer')}
             </button>
           </div>
         </form>
@@ -206,6 +209,7 @@ function CouponModal({ coupon, products, categories, onClose, onSaved }) {
 }
 
 export default function CouponsPage() {
+  const { t, t: tr } = useTranslation('dashboard')
   const [coupons, setCoupons]     = useState([])
   const [products, setProducts]   = useState([])
   const [categories, setCategories] = useState([])
@@ -228,7 +232,7 @@ export default function CouponsPage() {
   }, [])
 
   const handleDelete = async (id) => {
-    if (!confirm('Supprimer ce coupon ?')) return
+    if (!confirm(t('Supprimer ce coupon ?'))) return
     await api.delete(`/products/promotions/${id}/`)
     fetchCoupons()
   }
@@ -241,7 +245,7 @@ export default function CouponsPage() {
   }
 
   return (
-    <DashboardLayout title="Coupons" subtitle={`Un coupon, c'est un code que le client doit taper lui-même au moment de payer sur votre boutique (par exemple "BIENVENUE10" pour 10% de réduction). Cette page vous permet d'en créer : choisissez le montant de réduction, une date de début et de fin si besoin, un nombre maximum d'utilisations, et éventuellement de le limiter à certains produits ou catégories seulement. Le code se copie facilement pour le partager à vos clients sur les réseaux sociaux.`}>
+    <DashboardLayout title={t('Coupons')} subtitle={t('Un coupon, c\'est un code que le client doit taper lui-même au moment de payer sur votre boutique (par exemple "BIENVENUE10" pour 10% de réduction). Cette page vous permet d\'en créer : choisissez le montant de réduction, une date de début et de fin si besoin, un nombre maximum d\'utilisations, et éventuellement de le limiter à certains produits ou catégories seulement. Le code se copie facilement pour le partager à vos clients sur les réseaux sociaux.')}>
       {modal !== null && (
         <CouponModal
           coupon={modal?.id ? modal : null}
@@ -253,24 +257,23 @@ export default function CouponsPage() {
       )}
 
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-5">
-        <p className="text-sm" style={{ color: theme.dark.muted }}>{coupons.length} coupon{coupons.length !== 1 ? 's' : ''}</p>
+        <p className="text-sm" style={{ color: theme.dark.muted }}>{t('{{length}} coupon', { length: coupons.length })}{coupons.length !== 1 ? sfx('s') : ''}</p>
         <button onClick={() => setModal({})} className={theme.btn.primary + ' text-sm shrink-0'}>
-          <PlusIcon /> Ajouter un coupon
-        </button>
+          <PlusIcon />{' '}{t('Ajouter un coupon')}</button>
       </div>
 
       <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border }}>
         <table className="w-full text-sm min-w-180">
           <thead style={{ background: theme.dark.sidebar }}>
-            <tr className="text-left text-xs border-b" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
-              <th className="px-4 py-3 font-medium">NOM</th>
-              <th className="px-4 py-3 font-medium">CODE</th>
-              <th className="px-4 py-3 font-medium">RÉDUCTION</th>
-              <th className="px-4 py-3 font-medium">CIBLE</th>
-              <th className="px-4 py-3 font-medium">VALIDITÉ</th>
-              <th className="px-4 py-3 font-medium">UTILISATIONS</th>
-              <th className="px-4 py-3 font-medium">STATUT</th>
-              <th className="px-4 py-3 font-medium">ACTIONS</th>
+            <tr className="text-start text-xs border-b" style={{ color: theme.dark.muted, borderColor: theme.dark.border }}>
+              <th className="px-4 py-3 font-medium">{t('NOM')}</th>
+              <th className="px-4 py-3 font-medium">{t('CODE')}</th>
+              <th className="px-4 py-3 font-medium">{t('RÉDUCTION')}</th>
+              <th className="px-4 py-3 font-medium">{t('CIBLE')}</th>
+              <th className="px-4 py-3 font-medium">{t('VALIDITÉ')}</th>
+              <th className="px-4 py-3 font-medium">{t('UTILISATIONS')}</th>
+              <th className="px-4 py-3 font-medium">{t('STATUT')}</th>
+              <th className="px-4 py-3 font-medium">{t('ACTIONS')}</th>
             </tr>
           </thead>
           <tbody>
@@ -278,14 +281,14 @@ export default function CouponsPage() {
               <tr><td colSpan={8}><Spinner /></td></tr>
             ) : coupons.length === 0 ? (
               <tr><td colSpan={8}>
-                <EmptyState icon={<TagIcon />} title="Aucun coupon" subtitle="Créez votre premier code promo pour commencer." />
+                <EmptyState icon={<TagIcon />} title={t('Aucun coupon')} subtitle={t('Créez votre premier code promo pour commencer.')} />
               </td></tr>
             ) : coupons.map(c => (
               <tr key={c.id} className="border-b hover:bg-violet-500/5 transition" style={{ borderColor: theme.dark.borderRowHover }}>
                 <td className="px-4 py-3 text-app-primary font-medium">{c.name}</td>
                 <td className="px-4 py-3">
                   <button onClick={() => copyCode(c)} className="font-mono text-xs px-2.5 py-1.5 rounded-lg bg-violet-500/10 text-app-primary hover:bg-violet-500/15 transition cursor-pointer">
-                    {copiedId === c.id ? 'Copié !' : c.code}
+                    {copiedId === c.id ? t('Copié !') : c.code}
                   </button>
                 </td>
                 <td className="px-4 py-3 text-app-primary">
@@ -293,7 +296,7 @@ export default function CouponsPage() {
                 </td>
                 <td className="px-4 py-3">
                   {c.product_names.length === 0 && c.category_names.length === 0 ? (
-                    <span className="text-app-muted text-xs">Tout le panier</span>
+                    <span className="text-app-muted text-xs">{t('Tout le panier')}</span>
                   ) : (
                     <div className="flex flex-wrap gap-1 max-w-56">
                       {c.product_names.map(n => <span key={n} className={theme.badge.info}>{n}</span>)}
@@ -306,12 +309,12 @@ export default function CouponsPage() {
                 </td>
                 <td className="px-4 py-3 text-app-muted-light">{c.uses_count} / {c.max_uses ?? '∞'}</td>
                 <td className="px-4 py-3">
-                  <span className={c.is_active ? theme.badge.success : theme.badge.neutral}>{c.is_active ? 'Actif' : 'Inactif'}</span>
+                  <span className={c.is_active ? theme.badge.success : theme.badge.neutral}>{c.is_active ? tr('Actif') : tr('Inactif')}</span>
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
-                    <button onClick={() => setModal(c)} className="p-1.5 rounded text-violet-300 hover:bg-violet-600/20 transition cursor-pointer" title="Modifier"><EditIcon /></button>
-                    <button onClick={() => handleDelete(c.id)} className="p-1.5 rounded text-red-400 hover:bg-red-900/20 transition cursor-pointer" title="Supprimer"><TrashIcon /></button>
+                    <button onClick={() => setModal(c)} className="p-1.5 rounded text-violet-300 hover:bg-violet-600/20 transition cursor-pointer" title={t('Modifier')}><EditIcon /></button>
+                    <button onClick={() => handleDelete(c.id)} className="p-1.5 rounded text-red-400 hover:bg-red-900/20 transition cursor-pointer" title={t('Supprimer')}><TrashIcon /></button>
                   </div>
                 </td>
               </tr>

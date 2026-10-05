@@ -5,6 +5,9 @@ import Select from '../../components/Select'
 import api from '../../api/axios'
 import { theme } from '../../theme'
 import { useAuth } from '../../context/AuthContext'
+import { useTranslation } from 'react-i18next'
+import { sfx } from '../../i18n'
+import { tt } from '../../i18n'
 
 const PER_PAGE_OPTIONS = [10, 25, 50]
 
@@ -63,7 +66,8 @@ function AlertIcon(props) {
   )
 }
 
-function Spinner({ label = 'Chargement…' }) {
+function Spinner({ label = tt('Chargement…') }) {
+  const { t: tr } = useTranslation('dashboard')
   return (
     <div className="flex flex-col items-center justify-center gap-2 py-12 text-app-muted">
       <svg className="animate-spin" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -86,6 +90,7 @@ function EmptyState({ icon, title, subtitle }) {
 }
 
 export default function ProductsPage() {
+  const { t, t: tr } = useTranslation('dashboard')
   const navigate = useNavigate()
   const { user } = useAuth()
   const [data, setData]         = useState({ results: [], count: 0, page: 1, per_page: 10 })
@@ -126,7 +131,7 @@ export default function ProductsPage() {
   const variantCount = (p) => (p.variants || []).reduce((s, v) => s + (v.options?.length || 0), 0)
 
   const handleDelete = async (id) => {
-    if (!confirm('Supprimer ce produit ?')) return
+    if (!confirm(t('Supprimer ce produit ?'))) return
     await api.delete(`/products/${id}/`)
     fetchProducts()
   }
@@ -151,7 +156,7 @@ export default function ProductsPage() {
   }
 
   const handleBulkDelete = async () => {
-    if (!confirm(`Supprimer ${selected.size} produit(s) ?`)) return
+    if (!confirm(t('Supprimer {{size}} produit(s) ?', { size: selected.size }))) return
     setBulkBusy(true)
     try {
       await Promise.all([...selected].map(id => api.delete(`/products/${id}/`)))
@@ -162,29 +167,29 @@ export default function ProductsPage() {
   const firstImage = (p) => p.images?.[0]?.image_url
 
   return (
-    <DashboardLayout title="Produits" subtitle="C'est la liste complète de tous les produits que vous vendez, avec leur prix, leur stock et leur catégorie. Recherchez un produit par son nom, ou cliquez dessus pour modifier ses photos, son prix, ses variantes ou le désactiver temporairement sans le supprimer.">
+    <DashboardLayout title={t('Produits')} subtitle={t('C\'est la liste complète de tous les produits que vous vendez, avec leur prix, leur stock et leur catégorie. Recherchez un produit par son nom, ou cliquez dessus pour modifier ses photos, son prix, ses variantes ou le désactiver temporairement sans le supprimer.')}>
       {/* Header */}
       <div className="flex items-center justify-between mb-5 gap-3 flex-wrap">
         {selected.size > 0 ? (
           <div className="flex items-center gap-2.5 flex-wrap">
-            <span className={theme.badge.info}>{selected.size} sélectionné{selected.size > 1 ? 's' : ''}</span>
-            <button onClick={() => handleBulkToggle(true)} disabled={bulkBusy} className={theme.btn.secondary}>Activer</button>
-            <button onClick={() => handleBulkToggle(false)} disabled={bulkBusy} className={theme.btn.secondary}>Désactiver</button>
-            <button onClick={handleBulkDelete} disabled={bulkBusy} className={theme.btn.danger}>Supprimer</button>
+            <span className={theme.badge.info}>{t('{{size}} sélectionné', { size: selected.size })}{selected.size > 1 ? sfx('s') : ''}</span>
+            <button onClick={() => handleBulkToggle(true)} disabled={bulkBusy} className={theme.btn.secondary}>{t('Activer')}</button>
+            <button onClick={() => handleBulkToggle(false)} disabled={bulkBusy} className={theme.btn.secondary}>{t('Désactiver')}</button>
+            <button onClick={handleBulkDelete} disabled={bulkBusy} className={theme.btn.danger}>{t('Supprimer')}</button>
           </div>
         ) : (
         <div className="flex gap-3 flex-wrap">
           <input
             value={search}
             onChange={e => { setSearch(e.target.value); setPage(1) }}
-            placeholder="Recherche par produit"
+            placeholder={t('Recherche par produit')}
             className="px-4 py-2 rounded-lg text-sm text-app-primary border outline-none focus:border-violet-500 transition w-full sm:w-55"
             style={{ background: theme.dark.card, borderColor: theme.dark.border }}
           />
           <Select
             value={catSearch}
             onChange={v => { setCatSearch(v); setPage(1) }}
-            options={[{ value: '', label: 'Toutes les catégories' }, ...categories.map(c => ({ value: c.name, label: c.name }))]}
+            options={[{ value: '', label: t('Toutes les catégories') }, ...categories.map(c => ({ value: c.name, label: c.name }))]}
             className="px-4 py-2 rounded-lg text-sm text-app-primary border w-full sm:w-55"
             style={{ background: theme.dark.card, borderColor: theme.dark.border }}
           />
@@ -194,29 +199,28 @@ export default function ProductsPage() {
           onClick={() => navigate('/dashboard/produits/nouveau')}
           className={theme.btn.primary + ' text-sm shrink-0'}
         >
-          <PlusIcon /> Ajouter un produit
-        </button>
+          <PlusIcon />{' '}{t('Ajouter un produit')}</button>
       </div>
 
       {/* Table */}
       <div className="rounded-xl border overflow-x-auto" style={{ borderColor: theme.dark.border }}>
         <table className="w-full text-sm min-w-260">
           <thead style={{ background: theme.dark.sidebar }}>
-            <tr className="text-left text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
+            <tr className="text-start text-xs text-app-muted border-b" style={{ borderColor: theme.dark.border }}>
               <th className="px-4 py-3 w-10"><input type="checkbox" checked={allChecked} onChange={toggleAll} className="accent-violet-600" /></th>
-              <th className="px-4 py-3 font-medium w-10">ID</th>
-              <th className="px-4 py-3 font-medium w-16">IMAGE</th>
-              <th className="px-4 py-3 font-medium">NOM</th>
-              <th className="px-4 py-3 font-medium">PRIX</th>
-              <th className="px-4 py-3 font-medium">PRIX PROMO</th>
-              <th className="px-4 py-3 font-medium">CATÉGORIE</th>
-              <th className="px-4 py-3 font-medium">VARIANTES</th>
-              <th className="px-4 py-3 font-medium">QUANTITÉ</th>
-              <th className="px-4 py-3 font-medium">VENDU</th>
-              <th className="px-4 py-3 font-medium">STATUT</th>
-              <th className="px-4 py-3 font-medium">CATALOGUE</th>
-              <th className="px-4 py-3 font-medium">AFFICHER</th>
-              <th className="px-4 py-3 font-medium">ACTIONS</th>
+              <th className="px-4 py-3 font-medium w-10">{t('ID')}</th>
+              <th className="px-4 py-3 font-medium w-16">{t('IMAGE')}</th>
+              <th className="px-4 py-3 font-medium">{t('NOM')}</th>
+              <th className="px-4 py-3 font-medium">{t('PRIX')}</th>
+              <th className="px-4 py-3 font-medium">{t('PRIX PROMO')}</th>
+              <th className="px-4 py-3 font-medium">{t('CATÉGORIE')}</th>
+              <th className="px-4 py-3 font-medium">{t('VARIANTES')}</th>
+              <th className="px-4 py-3 font-medium">{t('QUANTITÉ')}</th>
+              <th className="px-4 py-3 font-medium">{t('VENDU')}</th>
+              <th className="px-4 py-3 font-medium">{t('STATUT')}</th>
+              <th className="px-4 py-3 font-medium">{t('CATALOGUE')}</th>
+              <th className="px-4 py-3 font-medium">{t('AFFICHER')}</th>
+              <th className="px-4 py-3 font-medium">{t('ACTIONS')}</th>
             </tr>
           </thead>
           <tbody>
@@ -224,7 +228,7 @@ export default function ProductsPage() {
               <tr><td colSpan={14}><Spinner /></td></tr>
             ) : data.results.length === 0 ? (
               <tr><td colSpan={14}>
-                <EmptyState icon={<ImageIcon />} title="Aucun produit trouvé" subtitle="Ajoutez votre premier produit pour commencer." />
+                <EmptyState icon={<ImageIcon />} title={t('Aucun produit trouvé')} subtitle={t('Ajoutez votre premier produit pour commencer.')} />
               </td></tr>
             ) : data.results.map(p => {
               const stockQty = p.total_stock ?? p.stock
@@ -242,11 +246,11 @@ export default function ProductsPage() {
                   }
                 </td>
                 <td className="px-4 py-3 text-app-primary font-medium max-w-45 truncate">{p.name}</td>
-                <td className="px-4 py-3 text-violet-300 font-semibold">{Number(p.price).toLocaleString('fr-DZ')} DZD</td>
+                <td className="px-4 py-3 text-violet-300 font-semibold">{Number(p.price).toLocaleString('fr-DZ')}{' '}{t('DZD')}</td>
                 <td className="px-4 py-3">
                   {p.active_promotion ? (
                     <div className="flex items-center gap-1.5">
-                      <span className="text-emerald-400 font-semibold">{Number(p.active_promotion.discounted_price).toLocaleString('fr-DZ')} DZD</span>
+                      <span className="text-emerald-400 font-semibold">{Number(p.active_promotion.discounted_price).toLocaleString('fr-DZ')}{' '}{t('DZD')}</span>
                       <span className={theme.badge.danger} title={p.active_promotion.name}>
                         -{p.active_promotion.discount_type === 'percentage'
                           ? `${Number(p.active_promotion.discount_value)}%`
@@ -262,7 +266,7 @@ export default function ProductsPage() {
                 </td>
                 <td className="px-4 py-3">
                   {variantCount(p) > 0 ? (
-                    <span className={theme.badge.info}>{variantCount(p)} variante{variantCount(p) > 1 ? 's' : ''}</span>
+                    <span className={theme.badge.info}>{variantCount(p)}{' '}{t('variante')}{variantCount(p) > 1 ? sfx('s') : ''}</span>
                   ) : <span className="text-app-muted">—</span>}
                 </td>
                 <td className="px-4 py-3">
@@ -276,12 +280,12 @@ export default function ProductsPage() {
                   <button
                     onClick={() => handleToggle(p)}
                     className={(p.is_active ? theme.badge.success : theme.badge.neutral) + ' cursor-pointer hover:opacity-80 transition'}
-                  >{p.is_active ? 'Actif' : 'Inactif'}</button>
+                  >{p.is_active ? tr('Actif') : tr('Inactif')}</button>
                 </td>
                 <td className="px-4 py-3">
                   {p.is_active
-                    ? <span className={theme.badge.success} title="Inclus dans le flux catalogue Meta/Google (produits actifs uniquement)">Inclus</span>
-                    : <span className={theme.badge.neutral} title="Exclu du flux catalogue tant que le produit est inactif">Exclu</span>
+                    ? <span className={theme.badge.success} title={t('Inclus dans le flux catalogue Meta/Google (produits actifs uniquement)')}>{t('Inclus')}</span>
+                    : <span className={theme.badge.neutral} title={t('Exclu du flux catalogue tant que le produit est inactif')}>{t('Exclu')}</span>
                   }
                 </td>
                 <td className="px-4 py-3">
@@ -291,7 +295,7 @@ export default function ProductsPage() {
                       target="_blank" rel="noreferrer"
                       onClick={e => e.stopPropagation()}
                       className="p-1.5 rounded text-app-muted-light hover:text-violet-300 transition inline-flex"
-                      title="Aperçu sur la boutique publique"
+                      title={t('Aperçu sur la boutique publique')}
                     ><EyeIcon /></a>
                   ) : <span className="text-app-muted">—</span>}
                 </td>
@@ -300,12 +304,12 @@ export default function ProductsPage() {
                     <button
                       onClick={() => navigate(`/dashboard/produits/${p.id}/modifier`)}
                       className="p-1.5 rounded text-violet-300 hover:bg-violet-600/20 transition cursor-pointer"
-                      title="Modifier"
+                      title={t('Modifier')}
                     ><EditIcon /></button>
                     <button
                       onClick={() => handleDelete(p.id)}
                       className="p-1.5 rounded text-red-400 hover:bg-red-900/20 transition cursor-pointer"
-                      title="Supprimer"
+                      title={t('Supprimer')}
                     ><TrashIcon /></button>
                   </div>
                 </td>
@@ -318,7 +322,7 @@ export default function ProductsPage() {
       {/* Pagination */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-4">
         <div className="flex items-center gap-2 text-xs text-app-muted">
-          <span>Lignes par page :</span>
+          <span>{t('Lignes par page :')}</span>
           <Select
             value={perPage}
             onChange={v => { setPerPage(Number(v)); setPage(1) }}
@@ -326,14 +330,14 @@ export default function ProductsPage() {
             className="px-2 py-1 rounded border text-app-primary text-xs"
             style={{ background: theme.dark.card, borderColor: theme.dark.border, minWidth: 64 }}
           />
-          <span>{data.count} produit{data.count !== 1 ? 's' : ''}</span>
+          <span>{t('{{count}} produit', { count: data.count })}{data.count !== 1 ? sfx('s') : ''}</span>
         </div>
         <div className="flex items-center gap-1">
           <button
             onClick={() => setPage(p => Math.max(1, p - 1))}
             disabled={page === 1}
             className="px-3 py-1.5 rounded text-sm text-app-muted-light hover:text-app-primary disabled:opacity-40 transition cursor-pointer disabled:cursor-not-allowed"
-          >← Précédent</button>
+          >{t('← Précédent')}</button>
           {Array.from({ length: totalPages }, (_, i) => i + 1).slice(
             Math.max(0, page - 3), Math.min(totalPages, page + 2)
           ).map(n => (
@@ -348,7 +352,7 @@ export default function ProductsPage() {
             onClick={() => setPage(p => Math.min(totalPages, p + 1))}
             disabled={page === totalPages}
             className="px-3 py-1.5 rounded text-sm text-app-muted-light hover:text-app-primary disabled:opacity-40 transition cursor-pointer disabled:cursor-not-allowed"
-          >Suivant →</button>
+          >{t('Suivant →')}</button>
         </div>
       </div>
     </DashboardLayout>

@@ -3,6 +3,7 @@ import { useParams, useSearchParams } from 'react-router-dom'
 import StorefrontLayout from './StorefrontLayout'
 import publicApi from '../../api/publicApi'
 import ProductCard from '../../components/storefront/ProductCard'
+import { useTranslation } from 'react-i18next'
 
 function SearchIcon(props) {
   return (
@@ -33,6 +34,7 @@ const inputCls = 'w-full px-3 py-2 rounded-lg text-sm outline-none transition-co
 const inputStyle = { background: 'var(--sf-card-bg)', border: '1px solid var(--sf-header-border)', color: 'var(--sf-text)' }
 
 export default function StorefrontProductsPage() {
+  const { t } = useTranslation('storefront')
   const { slug }                    = useParams()
   const [searchParams, setSearchParams] = useSearchParams()
 
@@ -80,11 +82,11 @@ export default function StorefrontProductsPage() {
         {/* Sidebar filtres */}
         <aside className="w-full md:w-56 shrink-0 space-y-6">
           <div>
-            <h3 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--sf-text-muted)' }}>Catégories</h3>
+            <h3 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--sf-text-muted)' }}>{t('products.categories')}</h3>
             <div className="space-y-1.5">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="radio" name="cat" checked={!category} onChange={() => { setCategory(''); setPage(1) }} className="accent-violet-600" />
-                <span className="text-sm" style={{ color: 'var(--sf-text)' }}>Toutes</span>
+                <span className="text-sm" style={{ color: 'var(--sf-text)' }}>{t('products.all')}</span>
               </label>
               {categories.map(c => (
                 <label key={c.id} className="flex items-center gap-2 cursor-pointer">
@@ -96,14 +98,14 @@ export default function StorefrontProductsPage() {
           </div>
 
           <div>
-            <h3 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--sf-text-muted)' }}>Prix (DZD)</h3>
+            <h3 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--sf-text-muted)' }}>{t('products.price')}</h3>
             <div className="flex md:flex-col gap-2">
-              <input value={minPrice} onChange={e => { setMinPrice(e.target.value); setPage(1) }} type="number" min="0" placeholder="Min" className={inputCls} style={inputStyle} />
-              <input value={maxPrice} onChange={e => { setMaxPrice(e.target.value); setPage(1) }} type="number" min="0" placeholder="Max" className={inputCls} style={inputStyle} />
+              <input value={minPrice} onChange={e => { setMinPrice(e.target.value); setPage(1) }} type="number" min="0" placeholder={t("products.min")} className={inputCls} style={inputStyle} />
+              <input value={maxPrice} onChange={e => { setMaxPrice(e.target.value); setPage(1) }} type="number" min="0" placeholder={t("products.max")} className={inputCls} style={inputStyle} />
             </div>
             {(minPrice || maxPrice) && (
               <button onClick={() => { setMinPrice(''); setMaxPrice(''); setPage(1) }} className="mt-2 text-xs hover:underline" style={{ color: 'var(--sf-primary)' }}>
-                Effacer les prix
+                {t('products.clearPrices')}
               </button>
             )}
           </div>
@@ -112,7 +114,7 @@ export default function StorefrontProductsPage() {
         {/* Grille produits */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between mb-5">
-            <p className="text-sm" style={{ color: 'var(--sf-text-muted)' }}>{total} produit{total !== 1 ? 's' : ''}</p>
+            <p className="text-sm" style={{ color: 'var(--sf-text-muted)' }}>{t('products.count', { count: total })}</p>
           </div>
 
           {loading ? (
@@ -130,7 +132,7 @@ export default function StorefrontProductsPage() {
           ) : products.length === 0 ? (
             <div className="flex flex-col items-center justify-center text-center py-16 px-6" style={{ color: 'var(--sf-text-muted)' }}>
               <SearchIcon className="w-12 h-12 mb-3 opacity-30" />
-              <p>Aucun produit trouvé.</p>
+              <p>{t('products.none')}</p>
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
@@ -143,7 +145,7 @@ export default function StorefrontProductsPage() {
             <div className="flex items-center justify-center gap-2 mt-8 flex-wrap">
               <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="p-2 rounded-lg border disabled:opacity-30 transition"
                 style={{ borderColor: 'var(--sf-header-border)', color: 'var(--sf-text-muted)' }}>
-                <ChevronLeft className="w-4 h-4" />
+                <ChevronLeft className="w-4 h-4 rtl:rotate-180" />
               </button>
               {[...Array(totalPages)].map((_, i) => (
                 <button key={i} onClick={() => setPage(i + 1)} className={pillCls(page === i + 1)} style={pillStyle(page === i + 1)}>
@@ -152,7 +154,7 @@ export default function StorefrontProductsPage() {
               ))}
               <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="p-2 rounded-lg border disabled:opacity-30 transition"
                 style={{ borderColor: 'var(--sf-header-border)', color: 'var(--sf-text-muted)' }}>
-                <ChevronRight className="w-4 h-4" />
+                <ChevronRight className="w-4 h-4 rtl:rotate-180" />
               </button>
             </div>
           )}

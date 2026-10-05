@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import api from '../api/axios'
 import Logo from '../components/Logo'
 import { theme } from '../theme'
+import { useTranslation } from 'react-i18next'
 
 function Field({ label, error, children }) {
   return (
@@ -17,6 +18,7 @@ function Field({ label, error, children }) {
 }
 
 function GoogleButton({ onClick, loading, children }) {
+  const { t: tr } = useTranslation('dashboard')
   return (
     <button type="button" onClick={onClick} disabled={loading}
       className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-gray-200
@@ -36,7 +38,7 @@ function GoogleButton({ onClick, loading, children }) {
           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.4 0 0 5.4 0 12h4z"/>
         </svg>
       )}
-      {loading ? 'Connexion...' : children}
+      {loading ? tr('Connexion...') : children}
     </button>
   )
 }
@@ -52,7 +54,7 @@ function landingPathFor(user) {
   // confirmation n'a le plus souvent aucune boutique (pas de Store/team_membership)
   // — /dashboard planterait ou n'aurait rien à afficher. Prioritaire sur les
   // autres cas puisque ces comptes n'ont normalement pas de team_role.
-  if (user?.is_platform_admin) return '/platform-admin/boutiques'
+  if (user?.is_platform_admin) return '/platform-admin/apercu'
   if (user?.is_platform_confirmateur) return '/platform-admin/ma-file'
   // /dashboard affiche un tableau de bord dédié (commandes assignées) pour
   // un confirmateur sans stats_view — donc toujours accessible pour lui.
@@ -67,12 +69,13 @@ function StepIndicator({ step, total, label }) {
       {Array.from({ length: total }, (_, i) => (
         <span key={i} className={`h-1.5 rounded-full transition-all ${i < step ? 'w-6 bg-violet-600' : 'w-3 bg-gray-200'}`} />
       ))}
-      <span className="text-xs font-medium text-gray-500 ml-1">{label}</span>
+      <span className="text-xs font-medium text-gray-500 ms-1">{label}</span>
     </div>
   )
 }
 
 function VerifyEmailStep({ email, onVerified }) {
+  const { t: tr } = useTranslation('dashboard')
   const [codes, setCodes] = useState(['', '', '', '', '', ''])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -99,7 +102,7 @@ function VerifyEmailStep({ email, onVerified }) {
       const { data } = await api.post('/auth/verify-email/', { email, code })
       onVerified(data.user)
     } catch (err) {
-      setError(err.response?.data?.detail || 'Code incorrect.')
+      setError(err.response?.data?.detail || tr('Code incorrect.'))
     } finally { setLoading(false) }
   }
   const handleResend = async () => {
@@ -112,16 +115,15 @@ function VerifyEmailStep({ email, onVerified }) {
 
   return (
     <div className="flex flex-col items-center gap-5 max-w-sm text-center">
-      <StepIndicator step={2} total={2} label="Étape 2 sur 2" />
+      <StepIndicator step={2} total={2} label={tr('Étape 2 sur 2')} />
       <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-100 to-violet-50 border border-violet-200 flex items-center justify-center shadow-sm">
         <svg className="w-8 h-8 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
         </svg>
       </div>
       <div>
-        <h2 className="text-lg font-bold text-gray-900 mb-1">Vérifiez votre email</h2>
-        <p className="text-sm text-gray-600">
-          Code à 6 chiffres envoyé à<br />
+        <h2 className="text-lg font-bold text-gray-900 mb-1">{tr('Vérifiez votre email')}</h2>
+        <p className="text-sm text-gray-600">{tr('Code à 6 chiffres envoyé à')}<br />
           <span className="font-semibold text-violet-700">{email}</span>
         </p>
       </div>
@@ -139,29 +141,24 @@ function VerifyEmailStep({ email, onVerified }) {
       </div>
 
       {error && <p className="text-red-600 text-sm bg-red-50 px-4 py-2 rounded-xl w-full">{error}</p>}
-      {resent && <p className="text-emerald-600 text-sm bg-emerald-50 px-4 py-2 rounded-xl w-full">Nouveau code envoyé !</p>}
+      {resent && <p className="text-emerald-600 text-sm bg-emerald-50 px-4 py-2 rounded-xl w-full">{tr('Nouveau code envoyé !')}</p>}
 
       <button onClick={handleVerify} disabled={loading || codes.join('').length < 6}
         className={`w-full py-3 ${theme.btn.primary}`}>
         {loading ? (
           <span className="flex items-center justify-center gap-2">
-            <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.4 0 0 5.4 0 12h4z"/></svg>
-            Vérification...
-          </span>
-        ) : 'Vérifier le code'}
+            <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.4 0 0 5.4 0 12h4z"/></svg>{tr('Vérification...')}</span>
+        ) : tr('Vérifier le code')}
       </button>
 
-      <p className="text-sm text-gray-600">
-        Pas reçu le code ?{' '}
-        <button onClick={handleResend} className="text-violet-600 font-semibold hover:underline cursor-pointer">
-          Renvoyer
-        </button>
+      <p className="text-sm text-gray-600">{tr('Pas reçu le code ?')}<button onClick={handleResend} className="text-violet-600 font-semibold hover:underline cursor-pointer">{tr('Renvoyer')}</button>
       </p>
     </div>
   )
 }
 
 function GoogleStoreStep({ googleToken, userInfo, onDone }) {
+  const { t: tr } = useTranslation('dashboard')
   const [storeName, setStoreName] = useState('')
   const [storeSlug, setStoreSlug] = useState('')
   const [error, setError] = useState('')
@@ -176,13 +173,13 @@ function GoogleStoreStep({ googleToken, userInfo, onDone }) {
       })
       onDone(data.user)
     } catch (err) {
-      setError(err.response?.data?.detail || 'Erreur lors de la création du compte.')
+      setError(err.response?.data?.detail || tr('Erreur lors de la création du compte.'))
     } finally { setLoading(false) }
   }
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4 max-w-sm w-full">
-      <StepIndicator step={2} total={2} label="Dernière étape" />
+      <StepIndicator step={2} total={2} label={tr('Dernière étape')} />
       <div className="flex items-center gap-3 bg-violet-50 border border-violet-100 rounded-xl px-4 py-3">
         <div className="w-9 h-9 rounded-full bg-violet-600 text-white flex items-center justify-center font-bold text-sm shrink-0">
           {userInfo.name[0]}
@@ -192,30 +189,29 @@ function GoogleStoreStep({ googleToken, userInfo, onDone }) {
           <p className="text-gray-600 text-xs truncate">{userInfo.email}</p>
         </div>
       </div>
-      <p className="text-sm text-gray-600 font-medium">Plus qu'une étape — nommez votre boutique :</p>
-      <Field label="Nom de la boutique *">
-        <input type="text" placeholder="Ma Super Boutique" className={theme.input}
+      <p className="text-sm text-gray-600 font-medium">{tr('Plus qu\'une étape — nommez votre boutique :')}</p>
+      <Field label={tr('Nom de la boutique *')}>
+        <input type="text" placeholder={tr('Ma Super Boutique')} className={theme.input}
           value={storeName} onChange={e => { setStoreName(e.target.value); setStoreSlug(autoSlug(e.target.value)) }} required />
       </Field>
-      <Field label="URL de la boutique *">
+      <Field label={tr('URL de la boutique *')}>
         <div className="flex border border-gray-300 rounded-xl overflow-hidden focus-within:border-violet-500 focus-within:ring-2 focus-within:ring-violet-100 transition">
-          <span className="px-3 py-2.5 bg-violet-50 text-violet-700 text-xs border-r border-gray-300 whitespace-nowrap flex items-center font-medium">
-            mzsolutions.app/
-          </span>
-          <input type="text" placeholder="ma-boutique"
+          <span className="px-3 py-2.5 bg-violet-50 text-violet-700 text-xs border-e border-gray-300 whitespace-nowrap flex items-center font-medium">{tr('mzsolutions.app/')}</span>
+          <input type="text" placeholder={tr('ma-boutique')}
             className="flex-1 px-3 py-2.5 text-sm text-gray-900 outline-none bg-white"
             value={storeSlug} onChange={e => setStoreSlug(autoSlug(e.target.value))} required />
         </div>
       </Field>
       {error && <p className="text-red-600 text-sm bg-red-50 border border-red-200 rounded-xl px-4 py-2.5">{error}</p>}
       <button type="submit" disabled={loading} className={`w-full py-3 ${theme.btn.primary}`}>
-        {loading ? 'Création...' : 'Créer ma boutique'}
+        {loading ? tr('Création...') : tr('Créer ma boutique')}
       </button>
     </form>
   )
 }
 
 export default function Auth() {
+  const { t: tr } = useTranslation('dashboard')
   const [tab, setTab] = useState('login')
   const [errors, setErrors] = useState({})
   const [loading, setLoading] = useState(false)
@@ -247,9 +243,9 @@ export default function Auth() {
         // hors ligne, navigateur intégré Instagram/Facebook qui bloque la
         // requête...) — ne jamais afficher "Identifiants invalides" dans ce
         // cas, ça égare complètement le diagnostic.
-        setErrors({ general: "Impossible de contacter le serveur. Vérifiez votre connexion, ou essayez depuis Chrome/Safari si vous êtes dans le navigateur d'une autre app (Instagram, Facebook...)." })
+        setErrors({ general: tr('Impossible de contacter le serveur. Vérifiez votre connexion, ou essayez depuis Chrome/Safari si vous êtes dans le navigateur d\'une autre app (Instagram, Facebook...).') })
       } else {
-        setErrors({ general: data?.detail || data?.non_field_errors?.[0] || 'Identifiants invalides.' })
+        setErrors({ general: data?.detail || data?.non_field_errors?.[0] || tr('Identifiants invalides.') })
       }
     } finally { setLoading(false) }
   }
@@ -279,13 +275,13 @@ export default function Auth() {
         setUser(data.user); navigate(landingPathFor(data.user))
       } catch (err) {
         if (err.response?.status === 404) {
-          setErrors({ general: "Aucun compte Google associé. Veuillez vous inscrire d'abord." })
+          setErrors({ general: tr('Aucun compte Google associé. Veuillez vous inscrire d\'abord.') })
         } else {
-          setErrors({ general: err.response?.data?.detail || 'Erreur Google.' })
+          setErrors({ general: err.response?.data?.detail || tr('Erreur Google.') })
         }
       } finally { setGLoading(false) }
     },
-    onError: () => setErrors({ general: 'Connexion Google annulée.' }),
+    onError: () => setErrors({ general: tr('Connexion Google annulée.') }),
   })
 
   const googleRegister = useGoogleLogin({
@@ -298,10 +294,10 @@ export default function Auth() {
         const userInfo = await userInfoRes.json()
         setGoogleStep({ token: tokenResp.access_token, userInfo: { name: `${userInfo.given_name} ${userInfo.family_name}`, email: userInfo.email } })
       } catch {
-        setErrors({ general: 'Erreur lors de la récupération du profil Google.' })
+        setErrors({ general: tr('Erreur lors de la récupération du profil Google.') })
       } finally { setGLoading(false) }
     },
-    onError: () => setErrors({ general: 'Inscription Google annulée.' }),
+    onError: () => setErrors({ general: tr('Inscription Google annulée.') }),
   })
 
   const onVerified = (user) => { setUser(user); navigate(landingPathFor(user)) }
@@ -316,9 +312,7 @@ export default function Auth() {
         {/* Logo */}
         <div className="flex items-center gap-2.5 mb-10">
           <Logo className="w-12 h-auto shrink-0 text-violet-600" />
-          <span className="text-xl font-bold bg-gradient-to-r from-violet-700 to-violet-500 bg-clip-text text-transparent">
-            MZSolutions
-          </span>
+          <span className="text-xl font-bold bg-gradient-to-r from-violet-700 to-violet-500 bg-clip-text text-transparent">{tr('MZSolutions')}</span>
         </div>
 
         {/* Bandeau de confiance — visible uniquement sur mobile/tablette, là où
@@ -329,15 +323,11 @@ export default function Auth() {
           <span className="flex items-center gap-1.5">
             <svg className="w-3.5 h-3.5 text-emerald-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-            </svg>
-            Paiement sécurisé (SofizPay)
-          </span>
+            </svg>{tr('Paiement sécurisé (SofizPay)')}</span>
           <span className="flex items-center gap-1.5">
             <svg className="w-3.5 h-3.5 text-emerald-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 4.556-3.04 8.526-7.5 9.75A9.717 9.717 0 0112 22.5c-4.556-1.224-7.5-5.194-7.5-9.75V6.75l7.5-3.75 7.5 3.75V12z" />
-            </svg>
-            Essai gratuit — 50 commandes
-          </span>
+            </svg>{tr('Essai gratuit — 50 commandes')}</span>
         </div>
 
         {/* Tabs — volontairement discrète (petite, fond neutre, pas d'ombre)
@@ -353,7 +343,7 @@ export default function Auth() {
                   ? 'bg-white text-violet-700 shadow-sm'
                   : 'text-gray-500 hover:text-gray-700'
               }`}>
-              {t === 'login' ? 'Se connecter' : "S'inscrire"}
+              {t === 'login' ? tr('Se connecter') : tr('S\'inscrire')}
             </button>
           ))}
         </div>
@@ -362,43 +352,39 @@ export default function Auth() {
         {tab === 'login' && (
           <div className="flex flex-col gap-5 max-w-sm">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Bon retour !</h1>
-              <p className="text-sm text-gray-600 mt-1.5">Connectez-vous à votre espace vendeur.</p>
+              <h1 className="text-3xl font-bold text-gray-900">{tr('Bon retour !')}</h1>
+              <p className="text-sm text-gray-600 mt-1.5">{tr('Connectez-vous à votre espace vendeur.')}</p>
             </div>
 
-            <GoogleButton onClick={() => googleLogin()} loading={gLoading}>
-              Se connecter avec Google
-            </GoogleButton>
+            <GoogleButton onClick={() => googleLogin()} loading={gLoading}>{tr('Se connecter avec Google')}</GoogleButton>
 
             <div className="flex items-center gap-3">
               <div className="flex-1 h-px bg-gray-100" />
-              <span className="text-sm text-gray-600 font-medium">ou par email</span>
+              <span className="text-sm text-gray-600 font-medium">{tr('ou par email')}</span>
               <div className="flex-1 h-px bg-gray-100" />
             </div>
 
             <form onSubmit={handleLogin} className="flex flex-col gap-4">
-              <Field label="Adresse email">
-                <input type="email" placeholder="votre@email.com" className={theme.input}
+              <Field label={tr('Adresse email')}>
+                <input type="email" placeholder={tr('votre@email.com')} className={theme.input}
                   value={loginForm.email} autoComplete="email"
                   onChange={e => setLoginForm({ ...loginForm, email: e.target.value })} required />
               </Field>
-              <Field label="Mot de passe">
+              <Field label={tr('Mot de passe')}>
                 <div className="relative">
-                  <input type={showPassword ? 'text' : 'password'} placeholder="Votre mot de passe"
-                    className={theme.input + ' pr-10'}
+                  <input type={showPassword ? 'text' : 'password'} placeholder={tr('Votre mot de passe')}
+                    className={theme.input + ' pe-10'}
                     value={loginForm.password} autoComplete="current-password"
                     onChange={e => setLoginForm({ ...loginForm, password: e.target.value })} required />
                   <button type="button" onClick={() => setShowPassword(p => !p)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer focus-visible:outline-none">
+                    className="absolute end-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer focus-visible:outline-none">
                     {showPassword
                       ? <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg>
                       : <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                     }
                   </button>
                 </div>
-                <Link to="/forgot-password" className="text-sm font-medium text-violet-600 hover:text-violet-700 hover:underline self-end mt-0.5">
-                  Mot de passe oublié ?
-                </Link>
+                <Link to="/forgot-password" className="text-sm font-medium text-violet-600 hover:text-violet-700 hover:underline self-end mt-0.5">{tr('Mot de passe oublié ?')}</Link>
               </Field>
 
               {errors.general && (
@@ -406,9 +392,7 @@ export default function Auth() {
                   {errors.general}
                   {errors.email_not_verified && (
                     <button type="button" onClick={() => setPendingEmail(errors.email)}
-                      className="block mt-1 text-violet-600 font-semibold underline text-xs cursor-pointer">
-                      Renvoyer le code de vérification
-                    </button>
+                      className="block mt-1 text-violet-600 font-semibold underline text-xs cursor-pointer">{tr('Renvoyer le code de vérification')}</button>
                   )}
                 </div>
               )}
@@ -419,20 +403,14 @@ export default function Auth() {
                   <button type="submit" disabled={loading} className={`w-full py-3 ${theme.btn.primary}`}>
                     {loading ? (
                       <span className="flex items-center justify-center gap-2">
-                        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.4 0 0 5.4 0 12h4z"/></svg>
-                        Connexion...
-                      </span>
-                    ) : 'Se connecter →'}
+                        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.4 0 0 5.4 0 12h4z"/></svg>{tr('Connexion...')}</span>
+                    ) : tr('Se connecter →')}
                   </button>
                 )
               }
             </form>
 
-            <p className="text-sm text-gray-600 text-center">
-              Pas encore de compte ?{' '}
-              <button onClick={() => switchTab('register')} className="text-violet-600 font-semibold cursor-pointer hover:underline">
-                S'inscrire gratuitement
-              </button>
+            <p className="text-sm text-gray-600 text-center">{tr('Pas encore de compte ?')}<button onClick={() => switchTab('register')} className="text-violet-600 font-semibold cursor-pointer hover:underline">{tr('S\'inscrire gratuitement')}</button>
             </p>
           </div>
         )}
@@ -447,67 +425,63 @@ export default function Auth() {
             ) : (
               <>
                 <div>
-                  <h1 className="text-2xl font-bold text-gray-900">Créez votre boutique</h1>
-                  <p className="text-sm text-gray-600 mt-1">Essai gratuit — 50 commandes incluses.</p>
+                  <h1 className="text-2xl font-bold text-gray-900">{tr('Créez votre boutique')}</h1>
+                  <p className="text-sm text-gray-600 mt-1">{tr('Essai gratuit — 50 commandes incluses.')}</p>
                 </div>
 
-                <GoogleButton onClick={() => googleRegister()} loading={gLoading}>
-                  S'inscrire avec Google
-                </GoogleButton>
+                <GoogleButton onClick={() => googleRegister()} loading={gLoading}>{tr('S\'inscrire avec Google')}</GoogleButton>
 
                 <div className="flex items-center gap-3">
                   <div className="flex-1 h-px bg-gray-100" />
-                  <span className="text-sm text-gray-600 font-medium">ou par email</span>
+                  <span className="text-sm text-gray-600 font-medium">{tr('ou par email')}</span>
                   <div className="flex-1 h-px bg-gray-100" />
                 </div>
 
                 <form onSubmit={handleRegister} className="flex flex-col gap-3.5">
                   <div className="flex gap-3">
-                    <Field label="Prénom *" error={errors.first_name}>
-                      <input type="text" placeholder="Prénom" className={theme.input} autoComplete="given-name"
+                    <Field label={tr('Prénom *')} error={errors.first_name}>
+                      <input type="text" placeholder={tr('Prénom')} className={theme.input} autoComplete="given-name"
                         value={registerForm.first_name}
                         onChange={e => setRegisterForm({ ...registerForm, first_name: e.target.value })} required />
                     </Field>
-                    <Field label="Nom *" error={errors.last_name}>
-                      <input type="text" placeholder="Nom" className={theme.input} autoComplete="family-name"
+                    <Field label={tr('Nom *')} error={errors.last_name}>
+                      <input type="text" placeholder={tr('Nom')} className={theme.input} autoComplete="family-name"
                         value={registerForm.last_name}
                         onChange={e => setRegisterForm({ ...registerForm, last_name: e.target.value })} required />
                     </Field>
                   </div>
-                  <Field label="Email *" error={errors.email}>
-                    <input type="email" placeholder="votre@email.com" className={theme.input} autoComplete="email"
+                  <Field label={tr('Email *')} error={errors.email}>
+                    <input type="email" placeholder={tr('votre@email.com')} className={theme.input} autoComplete="email"
                       value={registerForm.email}
                       onChange={e => setRegisterForm({ ...registerForm, email: e.target.value })} required />
                   </Field>
-                  <Field label="Téléphone" error={errors.phone}>
-                    <input type="tel" placeholder="+213 6xx xxx xxx" className={theme.input} autoComplete="tel"
+                  <Field label={tr('Téléphone')} error={errors.phone}>
+                    <input type="tel" placeholder={tr('+213 6xx xxx xxx')} className={theme.input} autoComplete="tel"
                       value={registerForm.phone}
                       onChange={e => setRegisterForm({ ...registerForm, phone: e.target.value })} />
                   </Field>
-                  <Field label="Nom de la boutique *" error={errors.store_name}>
-                    <input type="text" placeholder="Ma Super Boutique" className={theme.input}
+                  <Field label={tr('Nom de la boutique *')} error={errors.store_name}>
+                    <input type="text" placeholder={tr('Ma Super Boutique')} className={theme.input}
                       value={registerForm.store_name}
                       onChange={e => setRegisterForm({ ...registerForm, store_name: e.target.value, store_slug: autoSlug(e.target.value) })} required />
                   </Field>
-                  <Field label="URL de la boutique *" error={errors.store_slug}>
+                  <Field label={tr('URL de la boutique *')} error={errors.store_slug}>
                     <div className="flex border border-gray-300 rounded-xl overflow-hidden focus-within:border-violet-500 focus-within:ring-2 focus-within:ring-violet-100 transition">
-                      <span className="px-3 py-2.5 bg-violet-50 text-violet-700 text-xs border-r border-gray-200 whitespace-nowrap flex items-center font-medium">
-                        mzsolutions.app/
-                      </span>
-                      <input type="text" placeholder="ma-boutique"
+                      <span className="px-3 py-2.5 bg-violet-50 text-violet-700 text-xs border-e border-gray-200 whitespace-nowrap flex items-center font-medium">{tr('mzsolutions.app/')}</span>
+                      <input type="text" placeholder={tr('ma-boutique')}
                         className="flex-1 px-3 py-2.5 text-sm text-gray-900 outline-none bg-white"
                         value={registerForm.store_slug}
                         onChange={e => setRegisterForm({ ...registerForm, store_slug: autoSlug(e.target.value) })} required />
                     </div>
                   </Field>
-                  <Field label="Mot de passe *" error={errors.password}>
+                  <Field label={tr('Mot de passe *')} error={errors.password}>
                     <div className="relative">
-                      <input type={showPassword ? 'text' : 'password'} placeholder="Minimum 8 caractères"
-                        className={theme.input + ' pr-10'} autoComplete="new-password"
+                      <input type={showPassword ? 'text' : 'password'} placeholder={tr('Minimum 8 caractères')}
+                        className={theme.input + ' pe-10'} autoComplete="new-password"
                         value={registerForm.password}
                         onChange={e => setRegisterForm({ ...registerForm, password: e.target.value })} required minLength={8} />
                       <button type="button" onClick={() => setShowPassword(p => !p)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer focus-visible:outline-none">
+                        className="absolute end-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer focus-visible:outline-none">
                         {showPassword
                           ? <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg>
                           : <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
@@ -520,9 +494,7 @@ export default function Auth() {
                     <p className={`text-xs mt-1 flex items-center gap-1 ${registerForm.password.length >= 8 ? 'text-emerald-600' : 'text-gray-500'}`}>
                       {registerForm.password.length >= 8 && (
                         <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                      )}
-                      Au moins 8 caractères
-                    </p>
+                      )}{tr('Au moins 8 caractères')}</p>
                   </Field>
                   {errors.general && (
                     <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-4 py-3">{errors.general}</p>
@@ -530,18 +502,12 @@ export default function Auth() {
                   <button type="submit" disabled={loading} className={`w-full py-3 mt-1 ${theme.btn.primary}`}>
                     {loading ? (
                       <span className="flex items-center justify-center gap-2">
-                        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.4 0 0 5.4 0 12h4z"/></svg>
-                        Création...
-                      </span>
-                    ) : 'Créer mon compte gratuitement →'}
+                        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.4 0 0 5.4 0 12h4z"/></svg>{tr('Création...')}</span>
+                    ) : tr('Créer mon compte gratuitement →')}
                   </button>
                 </form>
 
-                <p className="text-sm text-gray-600 text-center">
-                  Déjà un compte ?{' '}
-                  <button onClick={() => switchTab('login')} className="text-violet-600 font-semibold cursor-pointer hover:underline">
-                    Se connecter
-                  </button>
+                <p className="text-sm text-gray-600 text-center">{tr('Déjà un compte ?')}<button onClick={() => switchTab('login')} className="text-violet-600 font-semibold cursor-pointer hover:underline">{tr('Se connecter')}</button>
                 </p>
               </>
             )}
@@ -554,30 +520,25 @@ export default function Auth() {
         style={{ background: 'linear-gradient(145deg, #1a0533 0%, #2e1065 40%, #4c1d95 70%, #6d28d9 100%)' }}>
 
         {/* Decorative circles */}
-        <div className="absolute top-[-80px] right-[-80px] w-72 h-72 rounded-full opacity-20"
+        <div className="absolute top-[-80px] end-[-80px] w-72 h-72 rounded-full opacity-20"
           style={{ background: 'radial-gradient(circle, #a78bfa, transparent)' }} />
-        <div className="absolute bottom-[-60px] left-[-60px] w-64 h-64 rounded-full opacity-15"
+        <div className="absolute bottom-[-60px] start-[-60px] w-64 h-64 rounded-full opacity-15"
           style={{ background: 'radial-gradient(circle, #7c3aed, transparent)' }} />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full opacity-5"
+        <div className="absolute top-1/2 start-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full opacity-5"
           style={{ background: 'radial-gradient(circle, #c4b5fd, transparent)' }} />
 
         <div className="relative text-white max-w-sm z-10">
           <span className="inline-flex items-center gap-1.5 bg-white/10 border border-white/20 text-white/90 text-xs font-semibold px-3 py-1.5 rounded-full mb-8">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            Made in Algeria
-          </span>
-          <h1 className="text-[2.1rem] font-bold leading-tight mb-4">
-            Gérez votre boutique en ligne avec <span className="text-violet-300">MZSolutions</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />{tr('Made in Algeria')}</span>
+          <h1 className="text-[2.1rem] font-bold leading-tight mb-4">{tr('Gérez votre boutique en ligne avec')}{' '}<span className="text-violet-300">{tr('MZSolutions')}</span>
           </h1>
-          <p className="text-white/65 text-sm leading-relaxed mb-8">
-            La plateforme e-commerce conçue pour les vendeurs algériens. Commandes, livraison, paiements — tout en un.
-          </p>
+          <p className="text-white/65 text-sm leading-relaxed mb-8">{tr('La plateforme e-commerce conçue pour les vendeurs algériens. Commandes, livraison, paiements — tout en un.')}</p>
           <ul className="space-y-3.5">
             {[
-              'Essai gratuit — 50 commandes incluses',
-              'Intégration Yalidine & ZR Express',
-              'Paiement SofizPay intégré',
-              'Dashboard vendeur en temps réel',
+              tr('Essai gratuit — 50 commandes incluses'),
+              tr('Intégration Yalidine & ZR Express'),
+              tr('Paiement SofizPay intégré'),
+              tr('Dashboard vendeur en temps réel'),
             ].map((f) => (
               <li key={f} className="flex items-center gap-3 text-white/80 text-sm">
                 <span className="w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center shrink-0">
@@ -600,9 +561,7 @@ export default function Auth() {
                 </div>
               ))}
             </div>
-            <p className="text-xs text-white/60">
-              Rejoignez des <span className="text-white/90 font-semibold">centaines de vendeurs</span> algériens
-            </p>
+            <p className="text-xs text-white/60">{tr('Rejoignez des')}{' '}<span className="text-white/90 font-semibold">{tr('centaines de vendeurs')}</span>{' '}{tr('algériens')}</p>
           </div>
         </div>
       </div>

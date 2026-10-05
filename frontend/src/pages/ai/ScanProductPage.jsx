@@ -4,6 +4,7 @@ import { UploadCloud, ImageOff, FileImage, Sparkles, X, Package, Receipt } from 
 import DashboardLayout from '../../components/DashboardLayout'
 import { theme } from '../../theme'
 import { scanProduct } from '../../api/aiApi'
+import { useTranslation } from 'react-i18next'
 
 function formatSize(bytes) {
   if (bytes < 1024) return `${bytes} o`
@@ -26,6 +27,7 @@ function ModeCard({ icon: Icon, title, description }) {
 }
 
 export default function ScanProductPage() {
+  const { t, t: tr } = useTranslation('dashboard')
   const navigate = useNavigate()
   const [file, setFile] = useState(null)
   const [previewUrl, setPreviewUrl] = useState(null)
@@ -72,20 +74,20 @@ export default function ScanProductPage() {
         })
       }
     } catch (e) {
-      setError(e?.response?.data?.detail || 'Assistant IA indisponible')
+      setError(e?.response?.data?.detail || t('Assistant IA indisponible'))
     } finally {
       setBusy(false)
     }
   }
 
   return (
-    <DashboardLayout title="Scanner un produit" subtitle="Laissez l'IA remplir la fiche produit à votre place à partir d'une photo.">
+    <DashboardLayout title={t('Scanner un produit')} subtitle={t('Laissez l\'IA remplir la fiche produit à votre place à partir d\'une photo.')}>
       <div className="max-w-2xl space-y-5">
         <div className="grid sm:grid-cols-2 gap-3">
-          <ModeCard icon={Package} title="Photo d'un seul article"
-            description="La fiche produit s'ouvre déjà remplie (nom, prix, description) — il ne vous reste qu'à vérifier et enregistrer." />
-          <ModeCard icon={Receipt} title="Facture ou catalogue fournisseur"
-            description="Chaque ligne détectée devient un brouillon à valider, un par un ou en lot." />
+          <ModeCard icon={Package} title={t('Photo d\'un seul article')}
+            description={t('La fiche produit s\'ouvre déjà remplie (nom, prix, description) — il ne vous reste qu\'à vérifier et enregistrer.')} />
+          <ModeCard icon={Receipt} title={t('Facture ou catalogue fournisseur')}
+            description={t('Chaque ligne détectée devient un brouillon à valider, un par un ou en lot.')} />
         </div>
 
         <div className="rounded-xl border border-app bg-app-card p-5 space-y-4">
@@ -102,10 +104,10 @@ export default function ScanProductPage() {
                 <UploadCloud size={22} />
               </div>
               <div>
-                <p className="text-sm font-medium text-app-primary">Glissez une image ici, ou cliquez pour choisir un fichier</p>
-                <p className="text-xs text-app-muted mt-1">JPG, PNG ou WEBP — 5 Mo maximum</p>
+                <p className="text-sm font-medium text-app-primary">{t('Glissez une image ici, ou cliquez pour choisir un fichier')}</p>
+                <p className="text-xs text-app-muted mt-1">{t('JPG, PNG ou WEBP — 5 Mo maximum')}</p>
               </div>
-              <input ref={inputRef} type="file" accept="image/*" aria-label="Choisir une image"
+              <input ref={inputRef} type="file" accept="image/*" aria-label={t('Choisir une image')}
                 onChange={e => acceptFile(e.target.files?.[0])}
                 className="sr-only" />
             </label>
@@ -113,7 +115,7 @@ export default function ScanProductPage() {
             <div className="flex items-center gap-4 rounded-xl border border-app bg-app-card-alt/40 p-3">
               <div className="w-16 h-16 rounded-lg overflow-hidden bg-app-card-alt flex items-center justify-center shrink-0">
                 {previewUrl
-                  ? <img src={previewUrl} alt="Aperçu" className="w-full h-full object-cover" />
+                  ? <img src={previewUrl} alt={tr('Aperçu')} className="w-full h-full object-cover" />
                   : <ImageOff size={20} className="text-app-muted" />}
               </div>
               <div className="flex-1 min-w-0">
@@ -122,7 +124,7 @@ export default function ScanProductPage() {
                 </p>
                 <p className="text-xs text-app-muted mt-0.5">{formatSize(file.size)}</p>
               </div>
-              <button type="button" onClick={clearFile} disabled={busy} aria-label="Retirer le fichier"
+              <button type="button" onClick={clearFile} disabled={busy} aria-label={t('Retirer le fichier')}
                 className="w-7 h-7 rounded-lg flex items-center justify-center text-app-muted hover:text-red-400 hover:bg-red-500/10 transition disabled:opacity-40 shrink-0">
                 <X size={15} />
               </button>
@@ -135,13 +137,9 @@ export default function ScanProductPage() {
             className={theme.btn.primary + ' text-sm w-full sm:w-auto disabled:opacity-40 flex items-center justify-center gap-2'}>
             {busy
               ? <>
-                  <span className="w-3.5 h-3.5 rounded-full border-2 border-white/40 border-t-white animate-spin" />
-                  Analyse en cours…
-                </>
+                  <span className="w-3.5 h-3.5 rounded-full border-2 border-white/40 border-t-white animate-spin" />{t('Analyse en cours…')}</>
               : <>
-                  <Sparkles size={15} />
-                  Analyser avec l'IA
-                </>}
+                  <Sparkles size={15} />{t('Analyser avec l\'IA')}</>}
           </button>
         </div>
       </div>
