@@ -149,7 +149,7 @@ class PlatformErrorResolveView(APIView):
 def _settings_row(s):
     from core.features import FEATURES
     return {'trial_days': s.trial_days, 'allow_registration': s.allow_registration, 'updated_at': s.updated_at,
-            'disabled_features': [k for k in s.disabled_features if k in FEATURES], 'ai_daily_limit': s.ai_daily_limit,
+            'disabled_features': [k for k in s.disabled_features if k in FEATURES], 'ai_daily_limit': s.ai_daily_limit, 'ai_weekly_limit': s.ai_weekly_limit,
             'features': [{'key': k, 'label': v} for k, v in FEATURES.items()]}
 
 
@@ -194,12 +194,20 @@ class PlatformSettingsView(APIView):
                 s.ai_daily_limit = limit
             except (TypeError, ValueError):
                 errors.append("Limite IA invalide (0 = illimite, maximum 100000).")
+        if 'ai_weekly_limit' in request.data:
+            try:
+                weekly = int(request.data['ai_weekly_limit'])
+                if not 0 <= weekly <= 1000000:
+                    raise ValueError
+                s.ai_weekly_limit = weekly
+            except (TypeError, ValueError):
+                errors.append("Limite IA hebdomadaire invalide (0 = illimite).")
         if errors:
             return Response({'detail': ' '.join(errors)}, status=400)
         s.save()
         from core.features import clear_cache
         clear_cache()
         after = _settings_row(s)
-        changes = {k: {'before': str(before[k]), 'after': str(after[k])} for k in ('trial_days', 'allow_registration', 'disabled_features', 'ai_daily_limit') if before[k] != after[k]}
+        changes = {k: {'before': str(before[k]), 'after': str(after[k])} for k in ('trial_days', 'allow_registration', 'disabled_features', 'ai_daily_limit', 'ai_weekly_limit') if before[k] != after[k]}
         log_platform_audit(request, 'platform.settings_updated', target=s, description='Réglages de la plateforme modifiés', metadata={'changes': changes})
         return Response(after)

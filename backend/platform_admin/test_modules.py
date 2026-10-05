@@ -151,3 +151,48 @@ class SettingsAndUsageTests(ModulesBase):
         self.assertEqual(sum(d['calls'] for d in data['last_7_days']), 14)
         self.assertEqual(data['top_stores_today'][0], {'store_id': self.store.id, 'store_name': self.store.name, 'calls': 7})
         self.assertEqual(auth_client(self.owner).get(f'{BASE}/ai-usage/').status_code, 403)
+
+
+class PlanAiLimitsTests(ModulesBase):
+    def _plan(self, daily, weekly):
+        from stores.models import SubscriptionPlan
+        plan = SubscriptionPlan.objects.create(name='P', price_monthly=1, price_yearly=1, ai_daily_limit=daily, ai_weekly_limit=weekly)
+        q = self.store.quota
+        q.plan = plan
+        q.save()
+        return plan
+
+    def test_plan_daily_limit_applies_to_the_whole_store_not_per_account(self):
+        self._plan(2, 0)
+        member, _m = make_team_member(self.store, 'admin')
+        self.assertEqual(self._ai_chat().status_code, 200)
+        self.assertEqual(self._ai_chat(auth_client(member)).status_code, 200)
+        third = self._ai_chat()
+        self.assertEqual((third.status_code, third.data['period']), (429, 'daily'))
+
+    def test_plan_weekly_limit_is_rolling_and_counts_previous_days(self):
+        self._plan(0, 3)
+        today = timezone.localdate()
+        AIUsageDay.objects.create(store=self.store, day=today - timedelta(days=3), calls=2)
+        self.assertEqual(self._ai_chat().status_code, 200)
+        weekly = self._ai_chat()
+        self.assertEqual((weekly.status_code, weekly.data['period']), (429, 'weekly'))
+        AIUsageDay.objects.filter(day=today - timedelta(days=3)).update(day=today - timedelta(days=8))
+        self.assertEqual(self._ai_chat().status_code, 200)
+
+    def test_plan_limits_override_global_and_trial_uses_global(self):
+        PlatformSettings.objects.update_or_create(pk=1, defaults={'ai_daily_limit': 1})
+        cache.clear()
+        self.assertEqual(self._ai_chat().status_code, 200)
+        self.assertEqual(self._ai_chat().status_code, 429)  # essai : plafond global
+        self._plan(0, 0)  # palier illimité : le plafond global ne s'applique plus
+        self.assertEqual(self._ai_chat().status_code, 200)
+
+    def test_admin_configures_plan_limits(self):
+        plan = self._plan(0, 0)
+        url = f'{BASE}/plans/{plan.id}/'
+        self.assertEqual(self.admin_c.put(url, {'ai_daily_limit': 5}, format='json').status_code, 403)
+        self.assertEqual(self.super_c.put(url, {'ai_daily_limit': -1}, format='json').status_code, 400)
+        r = self.super_c.put(url, {'ai_daily_limit': 5, 'ai_weekly_limit': 20}, format='json')
+        self.assertEqual((r.data['ai_daily_limit'], r.data['ai_weekly_limit']), (5, 20))
+        self.assertEqual(self.super_c.put(f'{BASE}/settings/', {'ai_weekly_limit': 30}, format='json').data['ai_weekly_limit'], 30)

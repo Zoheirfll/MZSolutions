@@ -47,6 +47,7 @@ def _plan_row(plan, subscribers=None):
         'id': plan.id, 'name': plan.name, 'orders_limit': plan.orders_limit,
         'price_monthly': plan.price_monthly, 'price_yearly': plan.price_yearly,
         'features': plan.features, 'is_active': plan.is_active, 'order': plan.order,
+        'ai_daily_limit': plan.ai_daily_limit, 'ai_weekly_limit': plan.ai_weekly_limit,
         'subscribers': subscribers if subscribers is not None else plan.subscribers.count(),
     }
 
@@ -91,6 +92,16 @@ def _validate_plan(data, partial=False):
             errors.append('Caractéristiques : liste de 10 textes maximum (100 caractères chacun).')
         else:
             out['features'] = [f.strip() for f in features if f.strip()]
+
+    for field, label in (('ai_daily_limit', 'quotidienne'), ('ai_weekly_limit', 'hebdomadaire')):
+        if field in data:
+            try:
+                value = int(data.get(field) or 0)
+                if not 0 <= value <= 1_000_000:
+                    raise ValueError
+                out[field] = value
+            except (TypeError, ValueError):
+                errors.append(f'Limite IA {label} invalide (0 = illimité).')
 
     if 'is_active' in data:
         out['is_active'] = bool(data.get('is_active'))

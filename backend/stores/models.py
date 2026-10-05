@@ -73,6 +73,9 @@ class SubscriptionPlan(models.Model):
     features       = models.JSONField(default=list, help_text="Liste de textes affichés sous le palier")
     is_active      = models.BooleanField(default=True)
     order          = models.PositiveIntegerField(default=0)
+    # Plafonds d'appels IA du PALIER, pour la boutique entière (jamais par compte). 0 = illimité.
+    ai_daily_limit  = models.PositiveIntegerField(default=0)
+    ai_weekly_limit = models.PositiveIntegerField(default=0)
 
     class Meta:
         ordering = ['order']

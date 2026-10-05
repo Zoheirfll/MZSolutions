@@ -13,6 +13,7 @@ export default function PlatformAdminSettingsPage() {
   const [data, setData] = useState(null)
   const [trialDays, setTrialDays] = useState('')
   const [aiLimit, setAiLimit] = useState('')
+  const [aiWeekly, setAiWeekly] = useState('')
   const [usage, setUsage] = useState(null)
   const [error, setError] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -20,7 +21,7 @@ export default function PlatformAdminSettingsPage() {
 
   const load = useCallback(() => (
     api.get('/platform-admin/settings/')
-      .then(({ data: d }) => { setData(d); setTrialDays(String(d.trial_days)); setAiLimit(String(d.ai_daily_limit ?? 0)); setError(false) })
+      .then(({ data: d }) => { setData(d); setTrialDays(String(d.trial_days)); setAiLimit(String(d.ai_daily_limit ?? 0)); setAiWeekly(String(d.ai_weekly_limit ?? 0)); setError(false) })
       .catch(() => setError(true))
   ), [])
 
@@ -41,6 +42,7 @@ export default function PlatformAdminSettingsPage() {
       setData(d)
       setTrialDays(String(d.trial_days))
       setAiLimit(String(d.ai_daily_limit ?? 0))
+      setAiWeekly(String(d.ai_weekly_limit ?? 0))
       setToast({ type: 'success', message: okMessage })
     } catch (err) {
       setToast({ type: 'error', message: err.response?.data?.detail || t('Action impossible.') })
@@ -101,10 +103,15 @@ export default function PlatformAdminSettingsPage() {
 
         <div className="rounded-xl border p-5" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
           <label className="block text-sm font-medium text-app-primary mb-1" htmlFor="ai-limit">{t('Limite d’appels IA par boutique et par jour')}</label>
-          <p className="text-xs text-app-muted mb-3">{t('0 = illimité. Au-delà, l’assistant répond que la limite du jour est atteinte.')}</p>
+          <p className="text-xs text-app-muted mb-3">{t('Pour les boutiques sans palier (essai). Les boutiques abonnées suivent les limites de leur palier (page Paliers). 0 = illimité.')}</p>
           <div className="flex items-center gap-3">
             <input id="ai-limit" type="number" min={0} max={100000} value={aiLimit} onChange={(e) => setAiLimit(e.target.value)} className={`${theme.inputDark} w-32`} />
             <button disabled={busy || aiLimit === '' || Number(aiLimit) === data.ai_daily_limit} onClick={() => save({ ai_daily_limit: Number(aiLimit) }, t('Limite IA mise à jour.'))} className={theme.btn.primary}>{t('Enregistrer')}</button>
+          </div>
+          <div className="flex items-center gap-3 mt-3">
+            <label className="text-sm text-app-primary" htmlFor="ai-weekly">{t('Par semaine')}</label>
+            <input id="ai-weekly" type="number" min={0} max={1000000} value={aiWeekly} onChange={(e) => setAiWeekly(e.target.value)} className={`${theme.inputDark} w-32`} />
+            <button disabled={busy || aiWeekly === '' || Number(aiWeekly) === (data.ai_weekly_limit ?? 0)} onClick={() => save({ ai_weekly_limit: Number(aiWeekly) }, t('Limite IA hebdomadaire mise à jour.'))} className={theme.btn.primary}>{t('Enregistrer')}</button>
           </div>
           {usage && (
             <div className="mt-4 text-xs text-app-muted-light">

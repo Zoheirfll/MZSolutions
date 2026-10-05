@@ -34,8 +34,11 @@ describe('Settings — modules and AI quota', () => {
     await waitFor(() => expect(screen.getByLabelText(/limite d.appels IA/i)).toBeInTheDocument())
     await waitFor(() => expect(screen.getByText('Alpha — 9')).toBeInTheDocument())
     fireEvent.change(screen.getByLabelText(/limite d.appels IA/i), { target: { value: '50' } })
-    fireEvent.click(screen.getAllByRole('button', { name: 'Enregistrer' }).pop())
+    fireEvent.click(screen.getAllByRole('button', { name: 'Enregistrer' })[1])
     await waitFor(() => expect(api.put).toHaveBeenCalledWith('/platform-admin/settings/', { ai_daily_limit: 50 }))
+    fireEvent.change(screen.getByLabelText('Par semaine'), { target: { value: '200' } })
+    fireEvent.click(screen.getAllByRole('button', { name: 'Enregistrer' })[2])
+    await waitFor(() => expect(api.put).toHaveBeenCalledWith('/platform-admin/settings/', { ai_weekly_limit: 200 }))
   })
 })
 

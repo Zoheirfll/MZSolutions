@@ -40,6 +40,7 @@ class PlatformSettings(models.Model):
     # par boutique et par jour (0 = illimite)
     disabled_features = models.JSONField(default=list, blank=True)
     ai_daily_limit = models.PositiveIntegerField(default=0)
+    ai_weekly_limit = models.PositiveIntegerField(default=0)  # boutiques sans palier (essai)
     updated_at = models.DateTimeField(auto_now=True)
 
     @classmethod
