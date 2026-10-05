@@ -14,6 +14,14 @@ def is_platform_superadmin(request):
     return bool(user and user.is_authenticated and getattr(user, 'is_platform_superadmin', False))
 
 
+def is_service_admin(request):
+    """Opérateur du SERVICE DE CONFIRMATION (boutiques clientes, confirmateurs, mode
+    « Gérer cette boutique »). Séparé de l'administration de la plateforme : ni un admin ni
+    un superadmin de la plateforme n'y accède par héritage, et inversement."""
+    user = getattr(request, 'user', None)
+    return bool(user and user.is_authenticated and getattr(user, 'is_service_admin', False))
+
+
 def get_platform_confirmateur(request):
     """Renvoie le profil PlatformConfirmateur actif de l'utilisateur connecté,
     ou None — un confirmateur désactivé (is_active=False) n'a plus accès à sa

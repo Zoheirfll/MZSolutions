@@ -18,8 +18,9 @@ import MarketingPixelsPage from './pages/MarketingPixelsPage'
 import WebhooksPage from './pages/WebhooksPage'
 import SubscriptionPage from './pages/SubscriptionPage'
 import AcceptInvitation from './pages/AcceptInvitation'
-import { PA, PC, PSA } from './components/PlatformAdminRoute'
+import { PA, PC, PS, PSA } from './components/PlatformAdminRoute'
 import PlatformAdminLayout from './pages/platform-admin/PlatformAdminLayout'
+import ServiceLayout from './pages/platform-admin/ServiceLayout'
 import PlatformAdminOverviewPage from './pages/platform-admin/PlatformAdminOverviewPage'
 import PlatformAdminAccountsPage from './pages/platform-admin/PlatformAdminAccountsPage'
 import PlatformAdminAccountDetailPage from './pages/platform-admin/PlatformAdminAccountDetailPage'
@@ -161,22 +162,29 @@ function App() {
           <Route path="/accept-invitation" element={<AcceptInvitation />} />
           <Route path="/platform-admin/accept-invitation" element={<PlatformAdminAcceptInvitation />} />
 
-          <Route path="/platform-admin" element={<PA><PlatformAdminLayout /></PA>}>
-            <Route index element={<Navigate to="apercu" replace />} />
-            <Route path="apercu" element={<PlatformAdminOverviewPage />} />
+          {/* SERVICE DE CONFIRMATION (is_service_admin) — boutiques clientes + confirmateurs */}
+          <Route path="/platform-admin" element={<PS><ServiceLayout /></PS>}>
+            <Route index element={<Navigate to="boutiques" replace />} />
             <Route path="boutiques" element={<PlatformAdminStoresPage />} />
             <Route path="boutiques/:storeId/commandes" element={<PlatformAdminStoreOrdersPage />} />
             <Route path="boutiques/:storeId/produits" element={<PlatformAdminStoreProductsPage />} />
-            <Route path="confirmateurs" element={<PSA><PlatformAdminConfirmateursPage /></PSA>} />
+            <Route path="confirmateurs" element={<PlatformAdminConfirmateursPage />} />
+            <Route path="journal" element={<PlatformAdminAuditPage />} />
+          </Route>
+
+          {/* ADMINISTRATION DE LA PLATEFORME (admin / superadmin) — séparée du service ci-dessus */}
+          <Route path="/plateforme" element={<PA><PlatformAdminLayout /></PA>}>
+            <Route index element={<Navigate to="apercu" replace />} />
+            <Route path="apercu" element={<PlatformAdminOverviewPage />} />
             <Route path="comptes" element={<PlatformAdminAccountsPage />} />
             <Route path="comptes/:storeId" element={<PlatformAdminAccountDetailPage />} />
+            <Route path="integrations" element={<PlatformAdminIntegrationsPage />} />
             <Route path="messages" element={<PlatformAdminMessagesPage />} />
             <Route path="annonces" element={<PSA><PlatformAdminAnnouncementsPage /></PSA>} />
-            <Route path="integrations" element={<PlatformAdminIntegrationsPage />} />
-            <Route path="systeme" element={<PlatformAdminSystemPage />} />
-            <Route path="reglages" element={<PSA><PlatformAdminSettingsPage /></PSA>} />
             <Route path="paiements" element={<PlatformAdminPaymentsPage />} />
             <Route path="paliers" element={<PSA><PlatformAdminPlansPage /></PSA>} />
+            <Route path="systeme" element={<PlatformAdminSystemPage />} />
+            <Route path="reglages" element={<PSA><PlatformAdminSettingsPage /></PSA>} />
             <Route path="administrateurs" element={<PSA><PlatformAdminAdminsPage /></PSA>} />
             <Route path="journal" element={<PlatformAdminAuditPage />} />
           </Route>

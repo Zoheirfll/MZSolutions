@@ -25,26 +25,24 @@ const ICON = {
 // Groupes du menu — `superOnly` : lien visible uniquement pour un superadmin
 // (le contrôle réel reste côté serveur, le front masque seulement).
 const GROUPS = [
-  { group: 'Principal', items: [{ to: '/platform-admin/apercu', label: tt('Vue d’ensemble'), icon: ICON.overview, badge: true }] },
-  { group: 'Boutiques', items: [
-    { to: '/platform-admin/boutiques', label: tt('Boutiques'), icon: ICON.stores },
-    { to: '/platform-admin/comptes', label: tt('Comptes'), icon: ICON.accounts },
-    { to: '/platform-admin/integrations', label: tt('Intégrations'), icon: ICON.plugs },
-    { to: '/platform-admin/confirmateurs', label: tt('Confirmateurs'), icon: ICON.team, superOnly: true },
+  { group: 'Principal', items: [{ to: '/plateforme/apercu', label: tt('Vue d’ensemble'), icon: ICON.overview, badge: true }] },
+  { group: 'Vendeurs', items: [
+    { to: '/plateforme/comptes', label: tt('Comptes'), icon: ICON.accounts },
+    { to: '/plateforme/integrations', label: tt('Intégrations'), icon: ICON.plugs },
   ] },
   { group: tt('Communication'), items: [
-    { to: '/platform-admin/messages', label: tt('Messages'), icon: ICON.mail },
-    { to: '/platform-admin/annonces', label: tt('Annonces'), icon: ICON.megaphone, superOnly: true },
+    { to: '/plateforme/messages', label: tt('Messages'), icon: ICON.mail },
+    { to: '/plateforme/annonces', label: tt('Annonces'), icon: ICON.megaphone, superOnly: true },
   ] },
   { group: tt('Finances'), items: [
-    { to: '/platform-admin/paiements', label: tt('Paiements'), icon: ICON.payments },
-    { to: '/platform-admin/paliers', label: tt('Paliers'), icon: ICON.plans, superOnly: true },
+    { to: '/plateforme/paiements', label: tt('Paiements'), icon: ICON.payments },
+    { to: '/plateforme/paliers', label: tt('Paliers'), icon: ICON.plans, superOnly: true },
   ] },
   { group: tt('Système'), items: [
-    { to: '/platform-admin/systeme', label: tt('Santé et erreurs'), icon: ICON.health },
-    { to: '/platform-admin/reglages', label: tt('Réglages'), icon: ICON.settings, superOnly: true },
-    { to: '/platform-admin/administrateurs', label: tt('Administrateurs'), icon: ICON.shield, superOnly: true },
-    { to: '/platform-admin/journal', label: tt('Journal d\'audit'), icon: ICON.audit },
+    { to: '/plateforme/systeme', label: tt('Santé et erreurs'), icon: ICON.health },
+    { to: '/plateforme/reglages', label: tt('Réglages'), icon: ICON.settings, superOnly: true },
+    { to: '/plateforme/administrateurs', label: tt('Administrateurs'), icon: ICON.shield, superOnly: true },
+    { to: '/plateforme/journal', label: tt('Journal d\'audit'), icon: ICON.audit },
   ] },
 ]
 
@@ -83,7 +81,7 @@ export default function PlatformAdminLayout() {
     <>
       <div className="px-5 py-5 border-b" style={{ borderColor: theme.dark.border }}>
         <p className="text-base font-bold text-app-primary">{t('MZSolutions')}</p>
-        <p className="text-xs text-violet-400 font-medium mt-0.5">{isSuper ? t('Espace Superadmin') : t('Espace Admin')}</p>
+        <p className="text-xs text-violet-400 font-medium mt-0.5">{isSuper ? t('Administration — superadmin') : t('Administration de la plateforme')}</p>
       </div>
 
       <nav className="flex-1 px-3 py-4 flex flex-col gap-4 overflow-y-auto">
@@ -108,13 +106,6 @@ export default function PlatformAdminLayout() {
           )
         })}
 
-        {user?.is_platform_confirmateur && (
-          <NavLink to="/platform-admin/ma-file" className={navClass}>
-            <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-            </svg>{t('Ma file de confirmation')}
-          </NavLink>
-        )}
       </nav>
 
       <div className="px-3 py-4 border-t" style={{ borderColor: theme.dark.border }}>

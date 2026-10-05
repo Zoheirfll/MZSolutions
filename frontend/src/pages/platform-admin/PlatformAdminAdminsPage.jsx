@@ -27,7 +27,13 @@ export default function PlatformAdminAdminsPage() {
   const [created, setCreated] = useState(null) // { email, link } juste après une création
   const [busy, setBusy] = useState(false)
 
-  const levelOptions = [{ value: 'admin', label: t('Admin') }, { value: 'superadmin', label: t('Superadmin') }]
+  // Trois types de comptes, exclusifs : le service de confirmation et l'administration de la
+  // plateforme sont deux accès distincts (un « admin de service » ne voit rien de la plateforme).
+  const levelOptions = [
+    { value: 'service', label: t('Admin de service de confirmation') },
+    { value: 'admin', label: t('Admin de la plateforme') },
+    { value: 'superadmin', label: t('Superadmin de la plateforme') },
+  ]
 
   const load = useCallback(() => {
     return api.get('/platform-admin/admins/')
@@ -80,7 +86,7 @@ export default function PlatformAdminAdminsPage() {
     { key: 'email', label: t('Email') },
     { key: 'level', label: t('Niveau'), render: (r) => (
       <Select value={r.level} onChange={(v) => changeLevel(r, v)} options={levelOptions} disabled={r.id === user?.id}
-        className={`${theme.inputDark} w-36 py-1.5 text-xs`} />
+        className={`${theme.inputDark} w-60 py-1.5 text-xs`} />
     ) },
     { key: 'last_login', label: t('Dernière connexion'), render: (r) => date(r.last_login) },
   ]
@@ -88,9 +94,9 @@ export default function PlatformAdminAdminsPage() {
   return (
     <div>
       <Toast toast={toast} onClose={() => setToast(null)} />
-      <AdminPageHeader pageKey="admins" title={t('Administrateurs')} subtitle={t('Accès à l\'espace d\'administration de la plateforme')}
+      <AdminPageHeader pageKey="admins" title={t('Comptes administrateurs')} subtitle={t('Service de confirmation et administration de la plateforme')}
         actions={<button onClick={() => setForm({ ...EMPTY })} className={theme.btn.primary}>{t('Ajouter un administrateur')}</button>}
-        help={t('Un admin peut consulter et modérer (suspendre une boutique, déconnecter, réinitialiser un mot de passe). Un superadmin peut en plus gérer les administrateurs, les prix et les réglages. La personne ajoutée reçoit un lien pour définir son mot de passe.')} />
+        help={t('Trois types de comptes, chacun avec un accès distinct. Admin de service de confirmation : gère les boutiques clientes et les confirmateurs (espace « Service de confirmation »), sans voir l’administration de la plateforme. Admin de la plateforme : consulte et modère (suspendre, déconnecter, réinitialiser un mot de passe). Superadmin de la plateforme : tout cela, plus les prix, remboursements, annonces, réglages et la création de comptes. Un compte n’a qu’un seul type à la fois. La personne reçoit un lien pour définir son mot de passe.')} />
 
       <AdminList columns={columns} rows={rows} total={rows.length} page={1} perPage={rows.length || 1} loading={loading} error={error} onRetry={load}
         rowActions={(r) => (

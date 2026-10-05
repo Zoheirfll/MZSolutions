@@ -17,9 +17,8 @@ def make_platform_admin():
         email=f'platform-admin-{n}@test.com', password='TestPass123',
         first_name='Super', last_name='Admin', is_active=True, is_email_verified=True,
     )
-    user.is_platform_admin = True
-    user.is_platform_superadmin = True
-    user.save(update_fields=['is_platform_admin', 'is_platform_superadmin'])
+    user.is_service_admin = True  # opérateur du service de confirmation (séparé de l'admin plateforme)
+    user.save(update_fields=['is_service_admin'])
     return user
 
 
@@ -614,31 +613,51 @@ class PlatformLevelTests(TestCase):
             self.assertEqual(resp.data['platform_level'], expected)
 
 
-class SuperadminOnlyRoutesTests(TestCase):
+class ServiceVsPlatformSeparationTests(TestCase):
+    """Le service de confirmation (is_service_admin) et l'administration de la plateforme
+    (admin / superadmin) sont deux accès DISTINCTS : jamais l'un par héritage de l'autre."""
+
     def setUp(self):
         clear_throttle_cache()
         self.owner, self.store = make_owner()
+        self.service = make_user('svc@test.com', is_service_admin=True)
         self.admin = make_user('lvl-admin@test.com', is_platform_admin=True)
         self.superadmin = make_user('lvl-super@test.com', is_platform_superadmin=True)
+        self.service_urls = ['/api/platform-admin/stores/', '/api/platform-admin/confirmateurs/', '/api/platform-admin/assignments/']
+        self.platform_urls = ['/api/platform-admin/overview/', '/api/platform-admin/accounts/', '/api/platform-admin/payments/',
+                              '/api/platform-admin/plans/', '/api/platform-admin/health/']
 
-    def test_admin_can_read_stores(self):
-        self.assertEqual(auth_client(self.admin).get('/api/platform-admin/stores/').status_code, 200)
-
-    def test_admin_cannot_toggle_service(self):
-        resp = auth_client(self.admin).post(f'/api/platform-admin/stores/{self.store.id}/toggle/', {'is_active': True}, format='json')
-        self.assertEqual(resp.status_code, 403)
-
-    def test_superadmin_can_toggle_service(self):
-        resp = auth_client(self.superadmin).post(f'/api/platform-admin/stores/{self.store.id}/toggle/', {'is_active': True}, format='json')
+    def test_service_operator_has_the_whole_service(self):
+        c = auth_client(self.service)
+        for url in self.service_urls:
+            self.assertEqual(c.get(url).status_code, 200, url)
+        resp = c.post(f'/api/platform-admin/stores/{self.store.id}/toggle/', {'is_active': True}, format='json')
         self.assertEqual(resp.status_code, 200)
+        resp = c.post('/api/platform-admin/confirmateurs/', {'first_name': 'X', 'last_name': 'Y', 'email': 'x@test.com'}, format='json')
+        self.assertEqual(resp.status_code, 201)
 
-    def test_admin_cannot_bulk_toggle(self):
-        resp = auth_client(self.admin).post('/api/platform-admin/stores/bulk-toggle/', {'store_ids': [self.store.id], 'is_active': True}, format='json')
-        self.assertEqual(resp.status_code, 403)
+    def test_service_operator_has_no_platform_administration(self):
+        c = auth_client(self.service)
+        for url in self.platform_urls:
+            self.assertEqual(c.get(url).status_code, 403, url)
 
-    def test_admin_cannot_invite_confirmateur(self):
-        resp = auth_client(self.admin).post('/api/platform-admin/confirmateurs/', {'first_name': 'X', 'last_name': 'Y', 'email': 'x@test.com'}, format='json')
-        self.assertEqual(resp.status_code, 403)
+    def test_platform_admins_have_no_service_access(self):
+        for user in (self.admin, self.superadmin):
+            c = auth_client(user)
+            for url in self.service_urls:
+                self.assertEqual(c.get(url).status_code, 403, (user.email, url))
+            resp = c.post(f'/api/platform-admin/stores/{self.store.id}/toggle/', {'is_active': True}, format='json')
+            self.assertEqual(resp.status_code, 403)
 
-    def test_admin_can_list_confirmateurs(self):
-        self.assertEqual(auth_client(self.admin).get('/api/platform-admin/confirmateurs/').status_code, 200)
+    def test_me_exposes_the_service_flag_separately(self):
+        me = auth_client(self.service).get('/api/auth/me/').data
+        self.assertTrue(me['is_service_admin'])
+        self.assertIsNone(me['platform_level'])
+        me = auth_client(self.superadmin).get('/api/auth/me/').data
+        self.assertFalse(me['is_service_admin'])
+        self.assertEqual(me['platform_level'], 'superadmin')
+
+    def test_audit_journal_is_readable_by_both_spaces(self):
+        for user in (self.service, self.admin, self.superadmin):
+            self.assertEqual(auth_client(user).get('/api/platform-admin/audit-logs/').status_code, 200, user.email)
+        self.assertEqual(auth_client(self.owner).get('/api/platform-admin/audit-logs/').status_code, 403)

@@ -220,7 +220,7 @@ export default function DashboardLayout({ children, title, subtitle }) {
     // refléter l'état réel plutôt que de laisser l'UI dans un état incertain.
     try { await api.post('/platform-admin/leave/') } catch {}
     const fresh = await refresh()
-    navigate(fresh?.is_platform_admin ? '/platform-admin/apercu' : '/platform-admin/ma-file')
+    navigate(fresh?.is_service_admin ? '/platform-admin/boutiques' : '/platform-admin/ma-file')
   }
   const [profileOpen, setProfileOpen] = useState(false)
   const profileRef = useRef(null)
@@ -1074,12 +1074,16 @@ export default function DashboardLayout({ children, title, subtitle }) {
                     <button onClick={() => { setProfileOpen(false); navigate('/dashboard/abonnement') }}
                       className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-app-primary hover:bg-violet-500/5 transition-colors duration-100 text-start cursor-pointer">{tr('Abonnement')}</button>
                   )}
-                  {(user?.is_platform_admin || user?.is_platform_confirmateur) && (
+                  {(user?.is_service_admin || user?.platform_level || user?.is_platform_confirmateur) && (
                     <>
                       <div className="my-1.5 border-t" style={{ borderColor: theme.dark.border }} />
-                      {user?.is_platform_admin && (
+                      {user?.platform_level && (
+                        <button onClick={() => { setProfileOpen(false); navigate('/plateforme/apercu') }}
+                          className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-violet-400 hover:bg-violet-500/10 transition-colors duration-100 text-start cursor-pointer">{tr('Administration de la plateforme')}</button>
+                      )}
+                      {user?.is_service_admin && (
                         <button onClick={() => { setProfileOpen(false); navigate('/platform-admin/boutiques') }}
-                          className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-violet-400 hover:bg-violet-500/10 transition-colors duration-100 text-start cursor-pointer">{tr('Espace superadmin')}</button>
+                          className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-violet-400 hover:bg-violet-500/10 transition-colors duration-100 text-start cursor-pointer">{tr('Service de confirmation')}</button>
                       )}
                       {user?.is_platform_confirmateur && (
                         <button onClick={() => { setProfileOpen(false); navigate('/platform-admin/ma-file') }}

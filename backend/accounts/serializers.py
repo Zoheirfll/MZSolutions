@@ -29,7 +29,7 @@ class UserSerializer(serializers.ModelSerializer):
         fields = ['id', 'email', 'first_name', 'last_name', 'phone', 'avatar',
                   'store_slug', 'store_name', 'team_role', 'team_member_id', 'permissions',
                   'is_email_verified', 'is_online', 'store_is_paused',
-                  'is_platform_admin', 'is_django_admin', 'platform_level', 'is_platform_confirmateur', 'impersonating']
+                  'is_platform_admin', 'is_service_admin', 'is_django_admin', 'platform_level', 'is_platform_confirmateur', 'impersonating']
 
     def _request_context_for(self, obj):
         """Le contexte de requête n'est fiable que pour SE décrire soi-même

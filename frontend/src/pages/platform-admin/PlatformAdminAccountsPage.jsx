@@ -72,7 +72,7 @@ export default function PlatformAdminAccountsPage() {
 
       <AdminList columns={columns} rows={rows} total={total} page={page} perPage={PER_PAGE}
         onPage={(p) => update({ page: p > 1 ? String(p) : '' })} loading={loading} error={error} onRetry={load}
-        rowActions={(r) => <Link to={`/platform-admin/comptes/${r.id}`} className="text-violet-400 hover:text-violet-300 text-xs font-medium">{t('Ouvrir')}</Link>} />
+        rowActions={(r) => <Link to={`/plateforme/comptes/${r.id}`} className="text-violet-400 hover:text-violet-300 text-xs font-medium">{t('Ouvrir')}</Link>} />
     </div>
   )
 }

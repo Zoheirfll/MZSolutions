@@ -277,8 +277,24 @@ class PlatformAccountResetPasswordView(APIView):
 
 # ─── Gestion des administrateurs (superadmin) ──────────────────────────────
 
+# Trois types de comptes, EXCLUSIFS (un compte n'en a qu'un via cette interface) :
+#   service    = opérateur du service de confirmation (is_service_admin)
+#   admin      = administration de la plateforme, niveau admin (is_platform_admin)
+#   superadmin = administration de la plateforme, niveau superadmin (is_platform_superadmin)
+LEVELS = ('service', 'admin', 'superadmin')
+ACCESS_FIELDS = ['is_platform_admin', 'is_platform_superadmin', 'is_service_admin']
+
+
 def _level(user):
-    return 'superadmin' if user.is_platform_superadmin else 'admin'
+    if user.is_platform_superadmin:
+        return 'superadmin'
+    if user.is_platform_admin:
+        return 'admin'
+    return 'service'
+
+
+def _with_access():
+    return Q(is_platform_admin=True) | Q(is_platform_superadmin=True) | Q(is_service_admin=True)
 
 
 def _admin_row(u):
@@ -289,6 +305,7 @@ def _admin_row(u):
 def _apply_level(user, level):
     user.is_platform_superadmin = level == 'superadmin'
     user.is_platform_admin = level == 'admin'
+    user.is_service_admin = level == 'service'
 
 
 class PlatformAdminListCreateView(APIView):
@@ -297,7 +314,7 @@ class PlatformAdminListCreateView(APIView):
     def get(self, request):
         if not is_platform_superadmin(request):
             return _forbidden(True)
-        qs = User.objects.filter(Q(is_platform_admin=True) | Q(is_platform_superadmin=True)).order_by('email')
+        qs = User.objects.filter(_with_access()).order_by('email')
         return Response({'count': qs.count(), 'results': [_admin_row(u) for u in qs]})
 
     def post(self, request):
@@ -307,16 +324,17 @@ class PlatformAdminListCreateView(APIView):
         level = request.data.get('level')
         first = (request.data.get('first_name') or '').strip()
         last = (request.data.get('last_name') or '').strip()
-        if not email or '@' not in email or level not in ('admin', 'superadmin'):
-            return Response({'detail': 'Email valide et niveau (admin ou superadmin) requis.'}, status=400)
+        if not email or '@' not in email or level not in LEVELS:
+            return Response({'detail': 'Email valide et type de compte (service, admin ou superadmin) requis.'}, status=400)
         if User.objects.filter(email__iexact=email).exists():
             return Response({'detail': 'Un compte existe déjà avec cet email.'}, status=409)
         user = User.objects.create_user(email=email, password=None, first_name=first, last_name=last,
                                         is_active=True, is_email_verified=True)
         _apply_level(user, level)
-        user.save(update_fields=['is_platform_admin', 'is_platform_superadmin'])
-        _send_password_link(user, 'MZSolutions — Invitation administrateur',
-                            "Vous avez été ajouté(e) comme administrateur de la plateforme. Définissez votre mot de passe :")
+        user.save(update_fields=ACCESS_FIELDS)
+        intro = ('Vous avez été ajouté(e) comme opérateur du service de confirmation. Définissez votre mot de passe :' if level == 'service'
+                 else 'Vous avez été ajouté(e) comme administrateur de la plateforme. Définissez votre mot de passe :')
+        _send_password_link(user, 'MZSolutions — Invitation', intro)
         log_platform_audit(request, 'platform.admin_created', target=user, description=f'Administrateur créé ({level})',
                            metadata={'email': email, 'level': level})
         # Le lien est AUSSI renvoyé au superadmin (seul à atteindre cette route) : si l'adresse
@@ -330,7 +348,7 @@ class PlatformAdminDetailView(APIView):
     def _target(self, request, pk):
         if not is_platform_superadmin(request):
             return None, _forbidden(True)
-        user = User.objects.filter(Q(is_platform_admin=True) | Q(is_platform_superadmin=True), pk=pk).first()
+        user = User.objects.filter(_with_access(), pk=pk).first()
         if not user:
             return None, Response({'detail': 'Administrateur introuvable.'}, status=404)
         if user.pk == request.user.pk:
@@ -342,13 +360,13 @@ class PlatformAdminDetailView(APIView):
         if err:
             return err
         level = request.data.get('level')
-        if level not in ('admin', 'superadmin'):
-            return Response({'detail': 'Niveau invalide.'}, status=400)
-        if user.is_platform_superadmin and level == 'admin' and not self._other_superadmin(user):
+        if level not in LEVELS:
+            return Response({'detail': 'Type de compte invalide.'}, status=400)
+        if user.is_platform_superadmin and level != 'superadmin' and not self._other_superadmin(user):
             return Response({'detail': 'Impossible de rétrograder le dernier superadmin.'}, status=400)
         before = _level(user)
         _apply_level(user, level)
-        user.save(update_fields=['is_platform_admin', 'is_platform_superadmin'])
+        user.save(update_fields=ACCESS_FIELDS)
         log_platform_audit(request, 'platform.admin_level_changed', target=user,
                            description=f'Niveau changé de {before} à {level}', metadata={'before': before, 'after': level})
         return Response(_admin_row(user))
@@ -363,7 +381,8 @@ class PlatformAdminDetailView(APIView):
         before = _level(user)
         user.is_platform_admin = False
         user.is_platform_superadmin = False
-        user.save(update_fields=['is_platform_admin', 'is_platform_superadmin'])
+        user.is_service_admin = False
+        user.save(update_fields=ACCESS_FIELDS)
         revoked = _revoke_tokens([user])
         log_platform_audit(request, 'platform.admin_revoked', target=user, description=f'Accès administrateur retiré ({before})',
                            metadata={'level': before, 'revoked_sessions': revoked})

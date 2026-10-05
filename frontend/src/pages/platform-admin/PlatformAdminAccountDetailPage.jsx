@@ -126,7 +126,7 @@ export default function PlatformAdminAccountDetailPage() {
   return (
     <div>
       <Toast toast={toast} onClose={() => setToast(null)} />
-      <Link to="/platform-admin/comptes" className={`${theme.btn.ghost} mb-4`}>{t('← Comptes')}</Link>
+      <Link to="/plateforme/comptes" className={`${theme.btn.ghost} mb-4`}>{t('← Comptes')}</Link>
       <AdminPageHeader pageKey="account-detail" title={data.name} subtitle={`/${data.slug}`} actions={actions}
         help={t('Fiche de la boutique : coordonnées du propriétaire, quota, activité et derniers paiements d\'abonnement. Toutes les actions de cette page sont enregistrées dans le journal d\'audit.')} />
 

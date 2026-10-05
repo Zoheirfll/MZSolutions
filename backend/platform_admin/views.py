@@ -18,7 +18,7 @@ from products.models import Product
 from products.serializers import ProductSerializer
 
 from .models import PlatformConfirmationAccount, PlatformConfirmateur, PlatformConfirmateurAssignment, PlatformOrderAssignment, PlatformAssignmentPermission, get_effective_platform_permissions
-from .permissions import is_platform_admin, is_platform_superadmin, get_platform_confirmateur
+from .permissions import is_platform_admin, is_platform_superadmin, is_service_admin, get_platform_confirmateur
 from .impersonation import set_impersonation_cookie, clear_impersonation_cookie
 from .serializers import (
     StoreListItemSerializer, StoreConfirmationSerializer,
@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 
 def _forbidden():
-    return Response({'detail': 'Accès réservé au superadmin.'}, status=403)
+    return Response({'detail': "Accès réservé à l'opérateur du service de confirmation."}, status=403)
 
 
 def _send_invite_email(confirmateur):
@@ -61,7 +61,7 @@ class PlatformStoreListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        if not is_platform_admin(request):
+        if not is_service_admin(request):
             return _forbidden()
         base_qs = Store.objects.select_related('owner', 'platform_confirmation_account')
 
@@ -112,7 +112,7 @@ class PlatformStoreToggleView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, store_id):
-        if not is_platform_superadmin(request):
+        if not is_service_admin(request):
             return _forbidden()
         try:
             store = Store.objects.get(pk=store_id)
@@ -146,7 +146,7 @@ class PlatformStoreBulkToggleView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        if not is_platform_superadmin(request):
+        if not is_service_admin(request):
             return _forbidden()
         store_ids = request.data.get('store_ids') or []
         if not store_ids:
@@ -182,7 +182,7 @@ class PlatformStoreOrdersView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, store_id):
-        if not is_platform_admin(request):
+        if not is_service_admin(request):
             return _forbidden()
         account = _get_active_account_or_404(store_id)
         if not account:
@@ -212,7 +212,7 @@ class PlatformStoreProductsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, store_id):
-        if not is_platform_admin(request):
+        if not is_service_admin(request):
             return _forbidden()
         account = _get_active_account_or_404(store_id)
         if not account:
@@ -238,7 +238,7 @@ class PlatformConfirmateurListCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        if not is_platform_admin(request):
+        if not is_service_admin(request):
             return _forbidden()
         qs = PlatformConfirmateur.objects.all().order_by('first_name', 'last_name')
         is_active = request.query_params.get('is_active')
@@ -247,7 +247,7 @@ class PlatformConfirmateurListCreateView(APIView):
         return Response(PlatformConfirmateurSerializer(qs, many=True).data)
 
     def post(self, request):
-        if not is_platform_superadmin(request):
+        if not is_service_admin(request):
             return _forbidden()
         serializer = PlatformConfirmateurInviteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -264,7 +264,7 @@ class PlatformConfirmateurDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
     def put(self, request, pk):
-        if not is_platform_superadmin(request):
+        if not is_service_admin(request):
             return _forbidden()
         try:
             confirmateur = PlatformConfirmateur.objects.get(pk=pk)
@@ -279,7 +279,7 @@ class PlatformConfirmateurDetailView(APIView):
         """Désactive (interrupteur global) plutôt que de supprimer — cohérent
         avec team.TeamMemberDetailView.delete, garde l'historique des
         assignations intact."""
-        if not is_platform_superadmin(request):
+        if not is_service_admin(request):
             return _forbidden()
         try:
             confirmateur = PlatformConfirmateur.objects.get(pk=pk)
@@ -294,7 +294,7 @@ class PlatformConfirmateurResendInviteView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, pk):
-        if not is_platform_superadmin(request):
+        if not is_service_admin(request):
             return _forbidden()
         try:
             confirmateur = PlatformConfirmateur.objects.get(pk=pk, user__isnull=True)
@@ -342,7 +342,7 @@ class PlatformConfirmateurAssignmentListCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        if not is_platform_admin(request):
+        if not is_service_admin(request):
             return _forbidden()
         qs = PlatformConfirmateurAssignment.objects.select_related('confirmateur', 'account__store')
         account_id = request.query_params.get('account')
@@ -354,7 +354,7 @@ class PlatformConfirmateurAssignmentListCreateView(APIView):
         return Response(PlatformConfirmateurAssignmentSerializer(qs, many=True).data)
 
     def post(self, request):
-        if not is_platform_superadmin(request):
+        if not is_service_admin(request):
             return _forbidden()
         confirmateur_id = request.data.get('confirmateur')
         account_id = request.data.get('account')
@@ -377,7 +377,7 @@ class PlatformConfirmateurAssignmentDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
     def put(self, request, pk):
-        if not is_platform_superadmin(request):
+        if not is_service_admin(request):
             return _forbidden()
         try:
             assignment = PlatformConfirmateurAssignment.objects.get(pk=pk)
@@ -389,7 +389,7 @@ class PlatformConfirmateurAssignmentDetailView(APIView):
         return Response(PlatformConfirmateurAssignmentSerializer(assignment).data)
 
     def delete(self, request, pk):
-        if not is_platform_superadmin(request):
+        if not is_service_admin(request):
             return _forbidden()
         try:
             assignment = PlatformConfirmateurAssignment.objects.get(pk=pk)
@@ -504,7 +504,7 @@ class PlatformStoreEnterView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, store_id):
-        if not is_platform_admin(request):
+        if not is_service_admin(request):
             return _forbidden()
         try:
             account = PlatformConfirmationAccount.objects.select_related('store').get(store_id=store_id, is_active=True)
@@ -558,8 +558,7 @@ class PlatformAssignmentPermissionsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def _get_assignment(self, request, pk, write=False):
-        allowed = is_platform_superadmin(request) if write else is_platform_admin(request)
-        if not allowed:
+        if not is_service_admin(request):
             return None, _forbidden()
         try:
             return PlatformConfirmateurAssignment.objects.select_related('confirmateur', 'account__store').get(pk=pk), None
@@ -683,7 +682,7 @@ class PlatformAuditLogListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        if not is_platform_admin(request):
+        if not (is_service_admin(request) or is_platform_admin(request)):
             return _forbidden()
 
         from audit.models import AuditLog

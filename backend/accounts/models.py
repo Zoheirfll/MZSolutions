@@ -38,6 +38,11 @@ class User(AbstractUser):
     # Niveau supérieur de l'espace /platform-admin (prix, réglages, remboursements,
     # gestion des admins) — implique is_platform_admin côté helpers.
     is_platform_superadmin = models.BooleanField(default=False)
+    # Opérateur du SERVICE DE CONFIRMATION en marque blanche (boutiques clientes gérées avec
+    # les confirmateurs de MZSolutions, mode « Gérer cette boutique »). **Totalement séparé**
+    # de l'administration de la plateforme ci-dessus : un compte peut avoir l'un, l'autre, ou
+    # aucun — jamais l'un par héritage de l'autre.
+    is_service_admin = models.BooleanField(default=False)
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['first_name', 'last_name']

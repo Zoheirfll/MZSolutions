@@ -234,3 +234,70 @@ class DjangoAdminFlagTests(TestCase):
         regular = make_user('regular@test.com')
         self.assertTrue(auth_client(staff).get('/api/auth/me/').data['is_django_admin'])
         self.assertFalse(auth_client(regular).get('/api/auth/me/').data['is_django_admin'])
+
+
+class AccountTypesTests(AccountsBase):
+    """Le superadmin crée trois types de comptes EXCLUSIFS : service, admin, superadmin."""
+
+    def _create(self, email, level):
+        return self.super_c.post(f'{BASE}/admins/', {'email': email, 'first_name': 'N', 'last_name': 'A', 'level': level}, format='json')
+
+    def test_each_type_sets_exactly_one_access_flag(self):
+        expected = {'service': (False, False, True), 'admin': (True, False, False), 'superadmin': (False, True, False)}
+        for level, flags in expected.items():
+            self.assertEqual(self._create(f'{level}@types.test', level).status_code, 201)
+            u = User.objects.get(email=f'{level}@types.test')
+            self.assertEqual((u.is_platform_admin, u.is_platform_superadmin, u.is_service_admin), flags, level)
+
+    def test_service_account_is_listed_with_its_type(self):
+        self._create('svc@types.test', 'service')
+        rows = {r['email']: r for r in self.super_c.get(f'{BASE}/admins/').data['results']}
+        self.assertEqual(rows['svc@types.test']['level'], 'service')
+
+    def test_service_account_gets_service_but_not_platform_access(self):
+        self._create('svc2@types.test', 'service')
+        c = auth_client(User.objects.get(email='svc2@types.test'))
+        self.assertEqual(c.get(f'{BASE}/stores/').status_code, 200)       # service de confirmation
+        self.assertEqual(c.get(f'{BASE}/accounts/').status_code, 403)     # administration plateforme
+
+    def test_platform_account_gets_no_service_access(self):
+        self._create('adm@types.test', 'admin')
+        c = auth_client(User.objects.get(email='adm@types.test'))
+        self.assertEqual(c.get(f'{BASE}/accounts/').status_code, 200)
+        self.assertEqual(c.get(f'{BASE}/stores/').status_code, 403)
+
+    def test_changing_type_is_exclusive(self):
+        self._create('chg@types.test', 'admin')
+        u = User.objects.get(email='chg@types.test')
+        resp = self.super_c.put(f'{BASE}/admins/{u.id}/', {'level': 'service'}, format='json')
+        self.assertEqual(resp.status_code, 200)
+        u.refresh_from_db()
+        self.assertEqual((u.is_platform_admin, u.is_platform_superadmin, u.is_service_admin), (False, False, True))
+
+    def test_revoke_clears_the_three_flags(self):
+        self._create('rev@types.test', 'service')
+        u = User.objects.get(email='rev@types.test')
+        self.assertEqual(self.super_c.delete(f'{BASE}/admins/{u.id}/').status_code, 200)
+        u.refresh_from_db()
+        self.assertEqual((u.is_platform_admin, u.is_platform_superadmin, u.is_service_admin), (False, False, False))
+
+    def test_only_a_platform_superadmin_can_create_any_type(self):
+        for level in ('service', 'admin', 'superadmin'):
+            resp = self.admin_c.post(f'{BASE}/admins/', {'email': f'x-{level}@types.test', 'first_name': 'N', 'last_name': 'A', 'level': level}, format='json')
+            self.assertEqual(resp.status_code, 403, level)
+        svc = make_user('svc-op@types.test', is_service_admin=True)
+        resp = auth_client(svc).post(f'{BASE}/admins/', {'email': 'y@types.test', 'first_name': 'N', 'last_name': 'A', 'level': 'service'}, format='json')
+        self.assertEqual(resp.status_code, 403)
+
+    def test_cannot_demote_the_last_superadmin(self):
+        other = make_user('only-super@types.test', is_platform_superadmin=True)
+        User.objects.filter(is_platform_superadmin=True).exclude(pk__in=[other.pk, self.superadmin.pk]).update(is_platform_superadmin=False)
+        self.super_c.put(f'{BASE}/admins/{other.id}/', {'level': 'admin'}, format='json')  # reste self.superadmin
+        resp = auth_client(other).put(f'{BASE}/admins/{self.superadmin.id}/', {'level': 'service'}, format='json')
+        self.assertIn(resp.status_code, (400, 403))
+        self.superadmin.refresh_from_db()
+        self.assertTrue(self.superadmin.is_platform_superadmin)
+
+    def test_invalid_type_rejected(self):
+        self.assertEqual(self._create('bad@types.test', 'root').status_code, 400)
+

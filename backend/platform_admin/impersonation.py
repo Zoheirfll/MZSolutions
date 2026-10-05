@@ -55,7 +55,7 @@ def resolve_impersonation(request):
     except (Store.DoesNotExist, ValueError, TypeError):
         return None
 
-    if getattr(user, 'is_platform_admin', False):
+    if getattr(user, 'is_service_admin', False):
         return {'store': store, 'is_admin': True, 'assignment': None}
 
     profile = getattr(user, 'platform_confirmateur_profile', None)

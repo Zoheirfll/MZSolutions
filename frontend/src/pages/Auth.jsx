@@ -54,7 +54,8 @@ function landingPathFor(user) {
   // confirmation n'a le plus souvent aucune boutique (pas de Store/team_membership)
   // — /dashboard planterait ou n'aurait rien à afficher. Prioritaire sur les
   // autres cas puisque ces comptes n'ont normalement pas de team_role.
-  if (user?.is_platform_admin) return '/platform-admin/apercu'
+  if (user?.is_service_admin) return '/platform-admin/boutiques'
+  if (user?.platform_level) return '/plateforme/apercu'
   if (user?.is_platform_confirmateur) return '/platform-admin/ma-file'
   // /dashboard affiche un tableau de bord dédié (commandes assignées) pour
   // un confirmateur sans stats_view — donc toujours accessible pour lui.
@@ -67,7 +68,7 @@ function landingPathFor(user) {
 // (ex. le compte technique) arrive sur /admin/ (page serveur, hors du routeur React) au
 // lieu d'un dashboard vendeur vide. Tous les autres cas gardent leur page d'arrivée.
 function goAfterAuth(navigate, user) {
-  if (user?.is_django_admin && !user.store_slug && !user.team_role && !user.platform_level && !user.is_platform_confirmateur) {
+  if (user?.is_django_admin && !user.store_slug && !user.team_role && !user.platform_level && !user.is_service_admin && !user.is_platform_confirmateur) {
     window.location.assign('/admin/')
     return
   }

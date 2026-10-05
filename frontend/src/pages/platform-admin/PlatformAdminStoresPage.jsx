@@ -85,10 +85,7 @@ function SearchIcon(props) {
 export default function PlatformAdminStoresPage() {
   const { t, t: tr } = useTranslation('dashboard')
   const navigate = useNavigate()
-  const { refresh, user } = useAuth()
-  // Les écritures (activer le service, mode, actions groupées) sont réservées au
-  // superadmin côté serveur — le front les désactive seulement pour un simple admin.
-  const isSuper = user?.platform_level === 'superadmin'
+  const { refresh } = useAuth()
   const [entering, setEntering] = useState(null)
   const [stores, setStores]     = useState([])
   const [stats, setStats]       = useState(null)
@@ -236,7 +233,7 @@ export default function PlatformAdminStoresPage() {
         <table className="w-full text-sm min-w-225">
           <thead style={{ background: theme.dark.sidebar }}>
             <tr className="text-start text-xs font-semibold uppercase tracking-wide text-app-muted-light border-b" style={{ borderColor: 'var(--border-color)' }}>
-              <th className="px-4 py-3 w-10"><input type="checkbox" disabled={!isSuper} checked={allChecked} onChange={toggleAll} className="accent-violet-600 w-4 h-4 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed" aria-label={t('Tout sélectionner')} /></th>
+              <th className="px-4 py-3 w-10"><input type="checkbox" checked={allChecked} onChange={toggleAll} className="accent-violet-600 w-4 h-4 cursor-pointer" aria-label={t('Tout sélectionner')} /></th>
               <th className="px-4 py-3">{t('Boutique')}</th>
               <th className="px-4 py-3">{t('Propriétaire')}</th>
               <th className="px-4 py-3">{t('Service')}</th>
@@ -269,7 +266,7 @@ export default function PlatformAdminStoresPage() {
               return (
                 <tr key={store.id} className="border-b last:border-0 hover:bg-violet-500/5 transition-colors" style={{ borderColor: theme.dark.borderRowHover }}>
                   <td className="px-4 py-3">
-                    <input type="checkbox" disabled={!isSuper} checked={selected.has(store.id)} onChange={() => toggleRow(store.id)} className="accent-violet-600 w-4 h-4 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed" />
+                    <input type="checkbox" checked={selected.has(store.id)} onChange={() => toggleRow(store.id)} className="accent-violet-600 w-4 h-4 cursor-pointer" />
                   </td>
                   <td className="px-4 py-3">
                     <p className="text-app-primary font-medium">{store.name}</p>
@@ -279,7 +276,6 @@ export default function PlatformAdminStoresPage() {
                   <td className="px-4 py-3">
                     <button
                       onClick={() => toggleActive(store)}
-                      disabled={!isSuper}
                       className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
                         active ? theme.badge.success : theme.badge.neutral
                       }`}
@@ -292,7 +288,7 @@ export default function PlatformAdminStoresPage() {
                       value={store.confirmation?.mode || 'replace'}
                       onChange={v => changeMode(store, v)}
                       options={MODE_OPTIONS_SHORT}
-                      disabled={!active || !isSuper}
+                      disabled={!active}
                       className={theme.inputDark + ' py-1.5 text-xs'}
                     />
                   </td>

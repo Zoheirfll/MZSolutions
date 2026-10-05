@@ -14,11 +14,11 @@ const REFRESH_MS = 60_000
 const money = (v) => `${Number(v || 0).toLocaleString('fr-DZ')} DA`
 
 const ALERTS = [
-  { key: 'trials_expiring', label: tt('Essais qui expirent sous 3 jours'), to: '/platform-admin/comptes?state=trial' },
-  { key: 'quota_high', label: tt('Quota consommé à plus de 80 %'), to: '/platform-admin/comptes' },
-  { key: 'payments_stuck', label: tt('Paiements en attente depuis plus d\'1 h'), to: '/platform-admin/paiements?status=pending' },
-  { key: 'open_errors', label: tt('Erreurs serveur ouvertes'), to: '/platform-admin/systeme' },
-  { key: 'unread_messages', label: tt('Messages non lus'), to: '/platform-admin/messages' },
+  { key: 'trials_expiring', label: tt('Essais qui expirent sous 3 jours'), to: '/plateforme/comptes?state=trial' },
+  { key: 'quota_high', label: tt('Quota consommé à plus de 80 %'), to: '/plateforme/comptes' },
+  { key: 'payments_stuck', label: tt('Paiements en attente depuis plus d\'1 h'), to: '/plateforme/paiements?status=pending' },
+  { key: 'open_errors', label: tt('Erreurs serveur ouvertes'), to: '/plateforme/systeme' },
+  { key: 'unread_messages', label: tt('Messages non lus'), to: '/plateforme/messages' },
 ]
 
 function Spinner() {

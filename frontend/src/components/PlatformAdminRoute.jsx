@@ -2,25 +2,26 @@ import { Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import PrivateRoute from './PrivateRoute'
 
-// Garde d'accès à l'espace superadmin (/platform-admin/*) — complètement
-// indépendant du système de permissions par boutique (team.RolePermission) :
-// ce compte n'appartient à aucun Store, seul accounts.User.is_platform_admin
-// donne accès.
+// DEUX espaces séparés, deux accès distincts (jamais l'un par héritage de l'autre) :
+//   - /platform-admin/*  = SERVICE DE CONFIRMATION (boutiques clientes, confirmateurs) → `is_service_admin`
+//   - /plateforme/*      = ADMINISTRATION DE LA PLATEFORME (comptes, paiements, réglages…) → `platform_level`
+// Complètement indépendants du système de permissions par boutique (team.RolePermission).
+
+// Garde de l'administration de la plateforme (admin ou superadmin).
 export default function PlatformAdminRoute({ children }) {
   const { user, loading } = useAuth()
   if (loading) return null
   if (!user) return <Navigate to="/auth" replace />
-  if (!user.platform_level) return <Navigate to="/dashboard" replace />
+  if (!user.platform_level) return <Navigate to={user.is_service_admin ? '/platform-admin/boutiques' : '/dashboard'} replace />
   return children
 }
 
-// Niveau superadmin : prix, réglages, remboursements, gestion des admins et des
-// confirmateurs. Un simple admin est renvoyé vers sa vue d'ensemble.
+// Niveau superadmin de la plateforme : prix, réglages, remboursements, gestion des admins.
 function PlatformSuperadminRoute({ children }) {
   const { user, loading } = useAuth()
   if (loading) return null
   if (!user) return <Navigate to="/auth" replace />
-  if (user.platform_level !== 'superadmin') return <Navigate to="/platform-admin" replace />
+  if (user.platform_level !== 'superadmin') return <Navigate to="/plateforme" replace />
   return children
 }
 
@@ -28,6 +29,23 @@ export function PSA({ children }) {
   return (
     <PrivateRoute>
       <PlatformSuperadminRoute>{children}</PlatformSuperadminRoute>
+    </PrivateRoute>
+  )
+}
+
+// Garde du service de confirmation (opérateur du service uniquement).
+function ServiceAdminRoute({ children }) {
+  const { user, loading } = useAuth()
+  if (loading) return null
+  if (!user) return <Navigate to="/auth" replace />
+  if (!user.is_service_admin) return <Navigate to={user.platform_level ? '/plateforme' : '/dashboard'} replace />
+  return children
+}
+
+export function PS({ children }) {
+  return (
+    <PrivateRoute>
+      <ServiceAdminRoute>{children}</ServiceAdminRoute>
     </PrivateRoute>
   )
 }
