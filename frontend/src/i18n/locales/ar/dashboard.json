@@ -2003,5 +2003,8 @@
  "Inviter un {{role}}": "دعوة {{role}}",
  "Mes factures": "فواتيري",
  "Télécharger": "تنزيل",
- "Généré le": "تم الإنشاء في"
+ "Généré le": "تم الإنشاء في",
+ "Assistant IA illimité": "مساعد الذكاء الاصطناعي غير محدود",
+ "{{n}} appels IA par jour": "{{n}} طلب ذكاء اصطناعي يوميًا",
+ "{{n}} appels IA par semaine": "{{n}} طلب ذكاء اصطناعي أسبوعيًا"
 }

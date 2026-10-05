@@ -6,7 +6,7 @@ from .models import (Store, SubscriptionQuota, SubscriptionPlan, StoreSettings, 
 class SubscriptionPlanSerializer(serializers.ModelSerializer):
     class Meta:
         model  = SubscriptionPlan
-        fields = ['id', 'name', 'orders_limit', 'price_monthly', 'price_yearly', 'features', 'order']
+        fields = ['id', 'name', 'orders_limit', 'price_monthly', 'price_yearly', 'features', 'order', 'ai_daily_limit', 'ai_weekly_limit']
 
 
 class PixelConfigSerializer(serializers.ModelSerializer):

@@ -138,6 +138,11 @@ export default function SubscriptionPage() {
                   <p className="text-xs mb-5" style={{ color: theme.dark.muted }}>
                     {plan.orders_limit ? t('Jusqu\'à {{orders_limit}} commandes', { orders_limit: plan.orders_limit }) : t('Commandes illimitées')}
                   </p>
+                  <p className="text-xs mb-5 -mt-4" style={{ color: theme.dark.muted }}>
+                    {!plan.ai_daily_limit && !plan.ai_weekly_limit
+                      ? t('Assistant IA illimité')
+                      : [plan.ai_daily_limit ? t('{{n}} appels IA par jour', { n: plan.ai_daily_limit }) : '', plan.ai_weekly_limit ? t('{{n}} appels IA par semaine', { n: plan.ai_weekly_limit }) : ''].filter(Boolean).join(' · ')}
+                  </p>
                   <button onClick={() => subscribe(plan)} disabled={subscribing === plan.id || isCurrent}
                     className={`${theme.btn.primary} justify-center mb-5 disabled:opacity-60`}>
                     {isCurrent ? t('Palier actuel') : subscribing === plan.id ? '…' : tr('Commencer')}
