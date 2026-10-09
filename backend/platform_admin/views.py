@@ -18,6 +18,7 @@ from products.models import Product
 from products.serializers import ProductSerializer
 
 from .models import PlatformConfirmationAccount, PlatformConfirmateur, PlatformConfirmateurAssignment, PlatformOrderAssignment, PlatformAssignmentPermission, get_effective_platform_permissions
+from .dispatch_models import PlatformOrderFlow
 from .permissions import is_platform_admin, is_platform_superadmin, is_service_admin, get_platform_confirmateur
 from .impersonation import set_impersonation_cookie, clear_impersonation_cookie
 from .serializers import (
@@ -450,8 +451,12 @@ class MyQueueListView(APIView):
         # boutiques à la fois, contrairement à OrdersPage.jsx (dashboard
         # boutique classique) où la boutique est implicite.
         by_id = {o.id: o.store.name for o in qs}
+        flows = {f.order_id: f for f in PlatformOrderFlow.objects.filter(order_id__in=list(by_id))}
         for row in results:
             row['store_name'] = by_id.get(row['id'])
+            flow = flows.get(row['id'])
+            row['flow_state'] = flow.state if flow else None
+            row['flow_attempts'] = flow.attempts if flow else 0
         return Response({'count': total, 'page': page, 'per_page': per_page, 'results': results})
 
 
@@ -488,6 +493,13 @@ class MyQueueOrderStatusView(APIView):
             order.store, order, new_status, changed_by=request.user,
             note=request.data.get('note', ''), carrier_id=request.data.get('carrier_id'),
         )
+        # Dispatch (spec 2026-10-09) : confirmer/annuler/etc. clôt le flux et libère une place.
+        # Best-effort — le changement de statut est déjà appliqué, jamais bloqué par le moteur.
+        try:
+            from . import dispatch
+            dispatch.finish_flow(order, new_status, confirmateur_id=confirmateur.id)
+        except Exception:
+            logger.exception('Clôture du flux de dispatch de la commande #%s en erreur', order.pk)
         data = OrderDetailSerializer(order).data
         if carrier_warning:
             data['carrier_warning'] = carrier_warning

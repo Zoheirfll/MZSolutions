@@ -10,6 +10,7 @@ from . import inspect_views as iv
 from . import tasks_views as tv
 from . import modules_views as mv
 from . import communication_views as cv
+from . import dispatch_views as dv
 
 urlpatterns = [
     path('overview/',                        PlatformOverviewView.as_view()),
@@ -87,6 +88,17 @@ urlpatterns = [
 
     path('my-queue/',                        views.MyQueueListView.as_view()),
     path('my-queue/<int:order_id>/status/',  views.MyQueueOrderStatusView.as_view()),
+    path('my-queue/<int:order_id>/call/',    dv.MyQueueCallView.as_view()),
+
+    path('dispatch/meta/',                   dv.DispatchMetaView.as_view()),
+    path('dispatch/counts/',                 dv.DispatchCountsView.as_view()),
+    path('dispatch/waiting/',                dv.DispatchWaitingView.as_view()),
+    path('dispatch/review/',                 dv.DispatchReviewView.as_view()),
+    path('dispatch/failed/',                 dv.DispatchFailedView.as_view()),
+    path('dispatch/flows/<int:order_id>/',   dv.DispatchFlowDetailView.as_view()),
+    path('dispatch/config/',                 dv.DispatchConfigListCreateView.as_view()),
+    path('dispatch/config/<int:pk>/',        dv.DispatchConfigDetailView.as_view()),
+    path('dispatch/run/',                    dv.DispatchRunView.as_view()),
     path('my-assignments/',                  views.MyAssignmentsListView.as_view()),
     path('my-dashboard/',                    views.MyDashboardSummaryView.as_view()),
 

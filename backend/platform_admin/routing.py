@@ -12,7 +12,9 @@ def route_order(order):
     round-robin INTERNE (team.TeamMember) doit être sauté — uniquement en
     mode 'replace' ; en mode 'augment' les deux coexistent, chacun avec sa
     propre assignation (OrderAssignment vs PlatformOrderAssignment)."""
-    from .models import PlatformConfirmationAccount, PlatformConfirmateurAssignment, PlatformOrderAssignment
+    import logging
+    from .dispatch import fill_slots, start_flow
+    from .models import PlatformConfirmationAccount
 
     try:
         account = order.store.platform_confirmation_account
@@ -21,29 +23,16 @@ def route_order(order):
     if not account.is_active:
         return False
 
-    candidates = list(
-        PlatformConfirmateurAssignment.objects
-        .filter(account=account, is_active=True, confirmateur__is_active=True, confirmateur__user__isnull=False)
-        .select_related('confirmateur')
-        .order_by('id')
-    )
-    if candidates:
-        last = (
-            PlatformOrderAssignment.objects
-            .filter(order__store=order.store)
-            .order_by('-assigned_at')
-            .first()
-        )
-        ids = [a.confirmateur_id for a in candidates]
-        if last and last.confirmateur_id in ids:
-            next_idx = (ids.index(last.confirmateur_id) + 1) % len(ids)
-        else:
-            next_idx = 0
-        chosen = candidates[next_idx].confirmateur
-        PlatformOrderAssignment.objects.create(order=order, confirmateur=chosen)
-    # Si aucun candidat actif : la commande reste non assignée côté
-    # superadmin, comme le fallback documenté pour le round-robin interne
-    # (team.online_confirmateurs_queryset) — pas de repli automatique sur
-    # le round-robin classique en mode 'replace'.
+    # Dispatch par flux (spec 2026-10-09) : la commande entre en « attente d'assignation », puis
+    # l'algorithme de la boutique la distribue selon la capacité des confirmateurs. Si personne
+    # n'est disponible elle reste en attente (page dédiée côté admin du service), sans repli
+    # automatique sur le round-robin interne en mode 'replace'. Best-effort : une panne du
+    # moteur ne doit jamais faire échouer la création de commande — la tâche planifiée
+    # `dispatch_waiting_orders` rattrape.
+    try:
+        start_flow(order)
+        fill_slots()
+    except Exception:
+        logging.getLogger(__name__).exception('Dispatch de la commande #%s en erreur', order.pk)
 
     return account.mode == 'replace'

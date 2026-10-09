@@ -1,4 +1,6 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import api from '../../api/axios'
 import { useAuth } from '../../context/AuthContext'
 import { theme } from '../../theme'
 import { tt } from '../../i18n'
@@ -17,6 +19,22 @@ const LINKS = [
     icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1.13a4 4 0 100-8 4 4 0 000 8zm6 0a4 4 0 10-8 0" />,
   },
   {
+    to: '/platform-admin/en-attente', label: tt('En attente d\'assignation'), badge: 'waiting',
+    icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />,
+  },
+  {
+    to: '/platform-admin/a-traiter', label: tt('À traiter'), badge: 'review',
+    icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />,
+  },
+  {
+    to: '/platform-admin/echecs', label: tt('Échecs'), badge: 'failed',
+    icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />,
+  },
+  {
+    to: '/platform-admin/dispatch', label: tt('Algorithmes de dispatch'),
+    icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />,
+  },
+  {
     to: '/platform-admin/journal', label: tt('Journal d\'audit'),
     icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />,
   },
@@ -31,6 +49,16 @@ export default function ServiceLayout() {
   const { t } = useTranslation('dashboard')
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const { pathname } = useLocation()
+  const [counts, setCounts] = useState({})
+
+  // Pastilles « en attente / à traiter / échecs » — rechargées à chaque navigation, pour que
+  // le compteur reste juste sans sondage dédié.
+  useEffect(() => {
+    api.get('/platform-admin/dispatch/counts/')
+      .then(({ data }) => { if (data && typeof data === 'object') setCounts(data) })
+      .catch(() => {})
+  }, [pathname])
 
   return (
     <div className="min-h-screen flex" style={{ background: 'var(--bg-app)' }}>
@@ -45,6 +73,9 @@ export default function ServiceLayout() {
             <NavLink key={l.to} to={l.to} className={navClass}>
               <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">{l.icon}</svg>
               {l.label}
+              {l.badge && counts[l.badge] > 0 && (
+                <span className={`ms-auto text-xs font-semibold rounded-full px-2 py-0.5 ${l.badge === 'waiting' ? 'bg-violet-500/20 text-violet-300' : 'bg-red-500/20 text-red-300'}`}>{counts[l.badge]}</span>
+              )}
             </NavLink>
           ))}
 

@@ -47,6 +47,8 @@ import PlatformAdminConfirmateursPage from './pages/platform-admin/PlatformAdmin
 import PlatformAdminAcceptInvitation from './pages/platform-admin/PlatformAdminAcceptInvitation'
 import PlatformAdminMyQueuePage from './pages/platform-admin/PlatformAdminMyQueuePage'
 import PlatformAdminAuditPage from './pages/platform-admin/PlatformAdminAuditPage'
+import { DispatchWaitingPage, DispatchReviewPage, DispatchFailedPage } from './pages/platform-admin/PlatformAdminDispatchPages'
+import PlatformAdminDispatchConfigPage from './pages/platform-admin/PlatformAdminDispatchConfigPage'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
 import StockPage from './pages/StockPage'
@@ -178,6 +180,10 @@ function App() {
             <Route path="boutiques/:storeId/commandes" element={<PlatformAdminStoreOrdersPage />} />
             <Route path="boutiques/:storeId/produits" element={<PlatformAdminStoreProductsPage />} />
             <Route path="confirmateurs" element={<PlatformAdminConfirmateursPage />} />
+            <Route path="en-attente" element={<DispatchWaitingPage />} />
+            <Route path="a-traiter" element={<DispatchReviewPage />} />
+            <Route path="echecs" element={<DispatchFailedPage />} />
+            <Route path="dispatch" element={<PlatformAdminDispatchConfigPage />} />
             <Route path="journal" element={<PlatformAdminAuditPage />} />
           </Route>
 

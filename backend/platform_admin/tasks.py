@@ -20,6 +20,7 @@ REGISTRY = {
     'check_pending_payments': ('Vérification des paiements SofizPay en attente', 10),
     'sync_carrier_tracking': ('Synchronisation du suivi des transporteurs', 15),
     'activate_scheduled_orders': ('Activation des commandes programmées', 5),
+    'dispatch_waiting_orders': ('Dispatch des commandes en attente (service de confirmation)', 1),
     'cancel_stale_calls': ('Annulation des commandes sans réponse (3 jours)', 1440),
     'send_abandoned_cart_reminders': ('Relance des paniers abandonnés', 60),
     'purge_old_login_data': ('Purge des anciennes données de connexion', 1440),

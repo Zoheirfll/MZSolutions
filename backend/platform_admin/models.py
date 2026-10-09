@@ -129,3 +129,4 @@ class PlatformOrderAssignment(models.Model):
 from .system_models import ErrorEvent, PlatformSettings, TaskRun  # noqa: E402,F401  (enregistrés pour Django)
 from .communication_models import PlatformAnnouncement, ContactMessage  # noqa: E402,F401
 from .content_models import FaqItem, LegalPage  # noqa: E402,F401
+from .dispatch_models import PlatformDispatchConfig, PlatformOrderFlow, PlatformOrderEvent  # noqa: E402,F401

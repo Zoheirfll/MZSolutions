@@ -34,6 +34,15 @@ const STATUS_OPTIONS = [
 
 const CHANGE_STATUS_OPTIONS = STATUS_OPTIONS.filter(o => o.value)
 
+// Résultat d'un appel raté : la commande repart en « attente d'assignation » puis vers un autre
+// confirmateur (délai réglé côté admin). Remplace les statuts 1ère/2ème/3ème tentative.
+const CALL_OUTCOMES = [
+  { value: 'no_answer',   label: tt('Ne répond pas') },
+  { value: 'unreachable', label: tt('Injoignable') },
+  { value: 'busy',        label: tt('Occupé') },
+  { value: 'callback',    label: tt('Rappeler plus tard') },
+]
+
 export default function PlatformAdminMyQueuePage() {
   const { t } = useTranslation('dashboard')
   const { user, logout, refresh } = useAuth()
@@ -45,6 +54,10 @@ export default function PlatformAdminMyQueuePage() {
   const [editing, setEditing] = useState(null) // order id en cours d'édition
   const [newStatus, setNewStatus] = useState('')
   const [note, setNote]       = useState('')
+  const [calling, setCalling] = useState(null) // order id dont on déclare le résultat d'appel
+  const [callOutcome, setCallOutcome] = useState('no_answer')
+  const [callbackAt, setCallbackAt] = useState('')
+  const [callNote, setCallNote] = useState('')
   const [dashboard, setDashboard] = useState(null)
   const [entering, setEntering] = useState(null)
 
@@ -93,6 +106,26 @@ export default function PlatformAdminMyQueuePage() {
       loadDashboard()
     } catch (err) {
       setToast({ type: 'error', message: err.response?.data?.detail || t('Échec de la mise à jour.') })
+    }
+  }
+
+  const startCall = (order) => {
+    setCalling(order.id); setEditing(null)
+    setCallOutcome('no_answer'); setCallbackAt(''); setCallNote('')
+  }
+
+  const submitCall = async (orderId) => {
+    try {
+      await api.post(`/platform-admin/my-queue/${orderId}/call/`, {
+        outcome: callOutcome, note: callNote,
+        callback_at: callOutcome === 'callback' && callbackAt ? new Date(callbackAt).toISOString() : undefined,
+      })
+      setToast({ type: 'success', message: t('Résultat enregistré — la commande repart en attente d\'assignation.') })
+      setCalling(null)
+      load()
+      loadDashboard()
+    } catch (err) {
+      setToast({ type: 'error', message: err.response?.data?.detail || t('Échec de l\'enregistrement.') })
     }
   }
 
@@ -195,13 +228,42 @@ export default function PlatformAdminMyQueuePage() {
                     <td className="px-4 py-3 text-app-muted">{o.status_label}</td>
                     <td className="px-4 py-3 text-app-muted">{t('{{total}} DA', { total: o.total })}</td>
                     <td className="px-4 py-3">
-                      {editing === o.id ? (
-                        <button onClick={() => setEditing(null)} className="text-xs text-app-muted-light hover:text-app-primary">{t('Annuler')}</button>
-                      ) : (
-                        <button onClick={() => startEdit(o)} className="text-violet-400 hover:text-violet-300 text-xs font-medium">{t('Changer le statut')}</button>
-                      )}
+                      <div className="flex flex-wrap items-center gap-3">
+                        {o.flow_state === 'assigned' && calling !== o.id && (
+                          <button onClick={() => startCall(o)} className="text-amber-400 hover:text-amber-300 text-xs font-medium">{t('Appel sans réponse')}</button>
+                        )}
+                        {editing === o.id ? (
+                          <button onClick={() => setEditing(null)} className="text-xs text-app-muted-light hover:text-app-primary">{t('Annuler')}</button>
+                        ) : (
+                          <button onClick={() => startEdit(o)} className="text-violet-400 hover:text-violet-300 text-xs font-medium">{t('Changer le statut')}</button>
+                        )}
+                      </div>
                     </td>
                   </tr>
+                  {calling === o.id && (
+                    <tr className="border-b" style={{ borderColor: 'var(--border-color)' }}>
+                      <td colSpan={7} className="px-4 py-4" style={{ background: 'var(--bg-card-alt)' }}>
+                        <div className="flex flex-wrap items-end gap-3">
+                          <div className="flex flex-col gap-1">
+                            <label className={theme.labelDark}>{t('Résultat de l\'appel')}</label>
+                            <Select value={callOutcome} onChange={setCallOutcome} options={CALL_OUTCOMES} className={theme.inputDark + ' w-56'} />
+                          </div>
+                          {callOutcome === 'callback' && (
+                            <div className="flex flex-col gap-1">
+                              <label className={theme.labelDark}>{t('Rappeler le')}</label>
+                              <input type="datetime-local" value={callbackAt} onChange={e => setCallbackAt(e.target.value)} className={theme.inputDark} />
+                            </div>
+                          )}
+                          <div className="flex flex-col gap-1 flex-1 min-w-[200px]">
+                            <label className={theme.labelDark}>{t('Note (optionnel)')}</label>
+                            <input value={callNote} onChange={e => setCallNote(e.target.value)} maxLength={300} className={theme.inputDark} />
+                          </div>
+                          <button onClick={() => submitCall(o.id)} className={theme.btn.primary}>{t('Valider')}</button>
+                          <button onClick={() => setCalling(null)} className="text-xs text-app-muted-light hover:text-app-primary">{t('Annuler')}</button>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
                   {editing === o.id && (
                     <tr className="border-b" style={{ borderColor: 'var(--border-color)' }}>
                       <td colSpan={7} className="px-4 py-4" style={{ background: 'var(--bg-card-alt)' }}>
