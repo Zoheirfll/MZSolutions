@@ -5,6 +5,7 @@ import api from '../../api/axios'
 import { theme } from '../../theme'
 import { tt } from '../../i18n'
 import { useTranslation } from 'react-i18next'
+import TableSkeleton from '../../components/TableSkeleton'
 
 const CATEGORY_OPTIONS = [
   { value: 'operational',       label: tt('Opérationnel') },
@@ -224,7 +225,7 @@ export default function CostsPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-app-muted">{t('Chargement…')}</td></tr>
+              <TableSkeleton rows={6} cols={5} />
             ) : costs.length === 0 ? (
               <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-app-muted">{t('Aucun coût saisi.')}</td></tr>
             ) : costs.map(c => (

@@ -4,6 +4,7 @@ import Select from '../../components/Select'
 import api from '../../api/axios'
 import { theme } from '../../theme'
 import { useTranslation } from 'react-i18next'
+import TableSkeleton from '../../components/TableSkeleton'
 
 function CloseIcon(props) {
   return (
@@ -38,19 +39,6 @@ function CreditIcon(props) {
       <rect x="2" y="5" width="20" height="14" rx="2" />
       <path d="M2 10h20" />
     </svg>
-  )
-}
-
-function Spinner() {
-  const { t } = useTranslation('dashboard')
-  return (
-    <div className="flex items-center justify-center gap-2 py-12 text-app-muted">
-      <svg className="animate-spin" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-        <circle cx="12" cy="12" r="9" opacity="0.25" />
-        <path d="M21 12a9 9 0 0 0-9-9" strokeLinecap="round" />
-      </svg>
-      <span className="text-xs">{t('Chargement…')}</span>
-    </div>
   )
 }
 
@@ -215,7 +203,7 @@ export default function SupplierCreditPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={5} className="text-center py-12 text-app-muted">{t('Chargement…')}</td></tr>
+              <TableSkeleton rows={6} cols={5} />
             ) : credits.length === 0 ? (
               <tr><td colSpan={5} className="text-center py-12 text-app-muted">{t('Aucun crédit enregistré.')}</td></tr>
             ) : credits.map(c => (

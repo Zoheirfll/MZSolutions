@@ -6,6 +6,7 @@ import { theme } from '../theme'
 import { useAuth } from '../context/AuthContext'
 import { tt } from '../i18n'
 import { useTranslation } from 'react-i18next'
+import TableSkeleton from '../components/TableSkeleton'
 
 const TABS = [
   { key: 'account',  label: tt('Informations du compte') },
@@ -341,7 +342,7 @@ function SessionsTab() {
         </thead>
         <tbody>
           {loading ? (
-            <tr><td colSpan={5} className="text-center py-12 text-app-muted">{tr('Chargement…')}</td></tr>
+            <TableSkeleton rows={6} cols={5} />
           ) : data.results.length === 0 ? (
             <tr><td colSpan={5} className="text-center py-12 text-app-muted">{tr('Aucune connexion enregistrée.')}</td></tr>
           ) : data.results.map(h => (

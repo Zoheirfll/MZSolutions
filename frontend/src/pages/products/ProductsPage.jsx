@@ -7,7 +7,7 @@ import { theme } from '../../theme'
 import { useAuth } from '../../context/AuthContext'
 import { useTranslation } from 'react-i18next'
 import { sfx } from '../../i18n'
-import { tt } from '../../i18n'
+import TableSkeleton from '../../components/TableSkeleton'
 
 const PER_PAGE_OPTIONS = [10, 25, 50]
 
@@ -63,19 +63,6 @@ function AlertIcon(props) {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="13" height="13" {...props}>
       <path d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
     </svg>
-  )
-}
-
-function Spinner({ label = tt('Chargement…') }) {
-  const { t: tr } = useTranslation('dashboard')
-  return (
-    <div className="flex flex-col items-center justify-center gap-2 py-12 text-app-muted">
-      <svg className="animate-spin" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-        <circle cx="12" cy="12" r="9" opacity="0.25" />
-        <path d="M21 12a9 9 0 0 0-9-9" strokeLinecap="round" />
-      </svg>
-      <span className="text-xs">{label}</span>
-    </div>
   )
 }
 
@@ -225,7 +212,7 @@ export default function ProductsPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={14}><Spinner /></td></tr>
+              <TableSkeleton rows={8} cols={14} />
             ) : data.results.length === 0 ? (
               <tr><td colSpan={14}>
                 <EmptyState icon={<ImageIcon />} title={t('Aucun produit trouvé')} subtitle={t('Ajoutez votre premier produit pour commencer.')} />

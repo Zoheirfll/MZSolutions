@@ -72,6 +72,24 @@ describe('StorefrontLayout', () => {
     expect(await screen.findByText('Page Produits')).toBeInTheDocument()
   })
 
+  it('opens a mobile menu listing the store links, and closes it again', async () => {
+    const user = userEvent.setup()
+    publicApi.get.mockResolvedValueOnce({ data: STORE })
+    renderPage()
+
+    await screen.findAllByText('Ma Boutique')
+    expect(document.getElementById('storefront-mobile-menu')).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: 'Ouvrir le menu' }))
+    const menu = document.getElementById('storefront-mobile-menu')
+    expect(menu).not.toBeNull()
+    expect(menu.textContent).toMatch(/Accueil/)
+    expect(menu.textContent).toMatch(/Produits/)
+
+    await user.click(screen.getByRole('button', { name: 'Fermer le menu' }))
+    expect(document.getElementById('storefront-mobile-menu')).toBeNull()
+  })
+
   it('still renders the layout when the store fetch fails', async () => {
     publicApi.get.mockRejectedValueOnce(new Error('network error'))
     renderPage()

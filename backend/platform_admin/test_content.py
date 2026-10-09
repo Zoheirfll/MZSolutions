@@ -51,8 +51,24 @@ class ContentTests(TestCase):
         self.assertIn('&lt;script&gt;', html)
         self.assertEqual(len(self.admin_c.get(f'{BASE}/legal-pages/').data), 2)
 
-    def test_privacy_falls_back_then_uses_edited_version(self):
-        self.assertIn('Shopify', self.client.get('/legal/privacy-policy/').content.decode())
+    def test_legal_pages_have_real_default_content_then_use_edited_version(self):
+        privacy = self.client.get('/legal/privacy-policy/')
+        self.assertEqual(privacy.status_code, 200)
+        html = privacy.content.decode()
+        self.assertIn('<h2>', html)
+        self.assertIn('Shopify', html)
+        self.assertIn('18-07', html)
+        terms = self.client.get('/legal/terms/')
+        self.assertEqual(terms.status_code, 200)
+        self.assertIn("Conditions d&#x27;utilisation", terms.content.decode())
         LegalPage.objects.create(slug='privacy-policy', title='Ma politique', body='Texte personnalisé de la politique.')
-        self.assertIn('Ma politique', self.client.get('/legal/privacy-policy/').content.decode())
-        self.assertEqual(self.client.get('/legal/terms/').status_code, 404)
+        edited = self.client.get('/legal/privacy-policy/').content.decode()
+        self.assertIn('Ma politique', edited)
+        self.assertNotIn('18-07', edited)
+
+    def test_legal_markup_is_structural_only_and_escaped(self):
+        LegalPage.objects.create(slug='terms', title='CGU', body='## <b>Titre</b>\n\n- un <i>point</i>\n- deux')
+        html = self.client.get('/legal/terms/').content.decode()
+        self.assertIn('<h2>&lt;b&gt;Titre&lt;/b&gt;</h2>', html)
+        self.assertIn('<li>un &lt;i&gt;point&lt;/i&gt;</li>', html)
+        self.assertNotIn('<b>', html)

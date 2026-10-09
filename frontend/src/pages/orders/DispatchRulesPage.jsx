@@ -7,6 +7,7 @@ import api from '../../api/axios'
 import { theme } from '../../theme'
 import { WILAYAS } from '../../data/wilayas'
 import { useTranslation } from 'react-i18next'
+import TableSkeleton from '../../components/TableSkeleton'
 
 // Règles de dispatch automatique (équivalent RiseCart "Dispatch Commandes") —
 // à la création d'une commande, une règle correspondante (produit ou wilaya)
@@ -125,7 +126,7 @@ export default function DispatchRulesPage({ title, subtitle, matchType, allowCon
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={6} className="text-center py-12 text-app-muted">{t('Chargement…')}</td></tr>
+              <TableSkeleton rows={6} cols={6} />
             ) : rules.length === 0 ? (
               <tr><td colSpan={6}><EmptyState title={t('Aucune donnée trouvée')} description={t('Ajoutez une règle pour router automatiquement les commandes correspondantes.')} /></td></tr>
             ) : rules.map(r => (

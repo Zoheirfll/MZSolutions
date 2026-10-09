@@ -8,6 +8,7 @@ from rest_framework.views import APIView
 
 from .account_views import log_platform_audit
 from .content_models import FaqItem, LegalPage
+from .legal_defaults import DEFAULT_PAGES, LEGAL_DEFAULTS_UPDATED
 from .permissions import is_platform_admin, is_platform_superadmin
 
 LEGAL_SLUGS = dict(LegalPage.SLUG_CHOICES)
@@ -128,15 +129,35 @@ class PlatformLegalPageUpdateView(APIView):
         return Response({'slug': slug, 'title': page.title, 'body': page.body, 'updated_at': page.updated_at})
 
 
+def _render_block(block):
+    """Un bloc de texte → HTML. TOUT est échappé ; seule la structure est
+    reconnue : « ## titre », liste (« - » sur chaque ligne), sinon paragraphe."""
+    block = block.strip()
+    if block.startswith('## '):
+        return f'<h2>{escape(block[3:].strip())}</h2>'
+    lines = block.split('\n')
+    if all(line.startswith('- ') for line in lines):
+        return '<ul>' + ''.join(f'<li>{escape(line[2:].strip())}</li>' for line in lines) + '</ul>'
+    return f'<p>{escape(block).replace(chr(10), "<br>")}</p>'
+
+
 def render_legal_page(slug):
-    """HTML public d'une page légale éditée, ou None pour retomber sur la page
-    historique. Le texte est ÉCHAPPÉ puis découpé en paragraphes."""
+    """HTML public d'une page légale : la version éditée dans l'administration,
+    sinon le texte par défaut (legal_defaults), sinon None."""
     page = LegalPage.objects.filter(slug=slug).first()
-    if not page:
+    if page:
+        title, body, updated = page.title, page.body, page.updated_at
+    elif slug in DEFAULT_PAGES:
+        (title, body), updated = DEFAULT_PAGES[slug], LEGAL_DEFAULTS_UPDATED
+    else:
         return None
-    paragraphs = ''.join(f'<p>{escape(p).replace(chr(10), "<br>")}</p>' for p in page.body.split('\n\n') if p.strip())
+    content = ''.join(_render_block(b) for b in body.split('\n\n') if b.strip())
     return HttpResponse(
         '<!doctype html><html lang="fr"><head><meta charset="utf-8">'
-        f'<title>{escape(page.title)} — MZSolutions</title><meta name="viewport" content="width=device-width, initial-scale=1">'
-        '<style>body{font-family:sans-serif;max-width:720px;margin:40px auto;padding:0 20px;line-height:1.6;color:#222}h1{font-size:1.5rem}</style>'
-        f'</head><body><h1>{escape(page.title)}</h1><p>Dernière mise à jour : {page.updated_at:%d/%m/%Y}</p>{paragraphs}</body></html>')
+        f'<title>{escape(title)} — MZSolutions</title><meta name="viewport" content="width=device-width, initial-scale=1">'
+        '<meta name="color-scheme" content="light dark">'
+        '<style>body{font-family:system-ui,sans-serif;max-width:760px;margin:40px auto;padding:0 20px 60px;line-height:1.7;color:#222;background:#fff}'
+        'h1{font-size:1.6rem}h2{font-size:1.15rem;margin-top:2rem}ul{padding-inline-start:1.4rem}a{color:#6d28d9}'
+        '@media (prefers-color-scheme:dark){body{color:#e5e7eb;background:#0a0b0c}a{color:#a78bfa}}</style>'
+        f'</head><body><p><a href="/">← MZSolutions</a></p><h1>{escape(title)}</h1>'
+        f'<p>Dernière mise à jour : {updated:%d/%m/%Y}</p>{content}</body></html>')

@@ -15,6 +15,9 @@ export default defineConfig({
     proxy: {
       '/api': 'http://localhost:8003',
       '/media': 'http://localhost:8003',
+      // Pages légales HTML servies par Django (sinon Vite renvoie l'app React → 404).
+      '/legal': 'http://localhost:8003',
+      '/admin': 'http://localhost:8003',
     },
   },
 })

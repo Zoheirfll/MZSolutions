@@ -10,6 +10,8 @@
     "currency": "دج"
   },
   "layout": {
+    "menu": "فتح القائمة",
+    "closeMenu": "إغلاق القائمة",
     "searchPlaceholder": "ابحث عن منتج…",
     "home": "الرئيسية",
     "products": "المنتجات",

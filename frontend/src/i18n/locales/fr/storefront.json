@@ -10,6 +10,8 @@
     "currency": "DZD"
   },
   "layout": {
+    "menu": "Ouvrir le menu",
+    "closeMenu": "Fermer le menu",
     "searchPlaceholder": "Rechercher un produit…",
     "home": "Accueil",
     "products": "Produits",

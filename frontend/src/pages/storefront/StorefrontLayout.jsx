@@ -36,6 +36,7 @@ export default function StorefrontLayout({ children, storeOverride }) {
   const [store, setStore]     = useState(storeOverride || null)
   const [search, setSearch]   = useState('')
   const [scrolled, setScrolled] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
   const [consent, setConsentState] = useState(getConsent)
 
   useEffect(() => {
@@ -59,6 +60,9 @@ export default function StorefrontLayout({ children, storeOverride }) {
 
   const chooseConsent = value => { setConsent(value); setConsentState(value) }
 
+  // Le menu mobile se referme à chaque navigation.
+  useEffect(() => { setMenuOpen(false) }, [location.pathname])
+
   // PageView (US-8.3.2) — à chaque navigation dans la boutique publique
   useEffect(() => {
     if (store) trackEvent('PageView', { page_path: location.pathname })
@@ -76,6 +80,21 @@ export default function StorefrontLayout({ children, storeOverride }) {
   }
 
   const cartCount = getCount(slug)
+
+  // Même liste pour le menu desktop et le menu mobile.
+  const menuItems = store?.menu_items?.length > 0
+    ? store.menu_items.map(item => ({
+        to: (item.url || '').replace('{slug}', slug),
+        label: item.label,
+        external: item.type === 'external',
+        children: (item.children || []).map(c => ({
+          to: (c.url || '').replace('{slug}', slug),
+          label: c.label,
+          external: c.type === 'external',
+        })),
+      }))
+    : [{ to: `/store/${slug}`, label: t('layout.home') }, { to: `/store/${slug}/products`, label: t('layout.products') }]
+  const mobileLinks = menuItems.flatMap(i => [i, ...(i.children || [])])
 
   return (
     <div className="min-h-dvh flex flex-col" style={{ background: 'var(--sf-body-bg)', color: 'var(--sf-text)', fontFamily: 'var(--sf-font-family, inherit)' }}>
@@ -124,19 +143,7 @@ export default function StorefrontLayout({ children, storeOverride }) {
 
           {/* Nav */}
           <nav className="flex items-center gap-1 shrink-0">
-            {(store?.menu_items?.length > 0
-              ? store.menu_items.map(item => ({
-                  to: (item.url || '').replace('{slug}', slug),
-                  label: item.label,
-                  external: item.type === 'external',
-                  children: (item.children || []).map(c => ({
-                    to: (c.url || '').replace('{slug}', slug),
-                    label: c.label,
-                    external: c.type === 'external',
-                  })),
-                }))
-              : [{ to: `/store/${slug}`, label: t('layout.home') }, { to: `/store/${slug}/products`, label: t('layout.products') }]
-            ).map(({ to, label, external, children }) => (
+            {menuItems.map(({ to, label, external, children }) => (
               <div key={to} className="relative hidden sm:block group">
                 {external
                   ? <a href={to} target="_blank" rel="noreferrer"
@@ -182,8 +189,26 @@ export default function StorefrontLayout({ children, storeOverride }) {
                 </span>
               )}
             </Link>
+            <button type="button" onClick={() => setMenuOpen(o => !o)} aria-expanded={menuOpen} aria-controls="storefront-mobile-menu"
+              aria-label={menuOpen ? t('layout.closeMenu') : t('layout.menu')}
+              className="sm:hidden h-11 w-11 inline-flex items-center justify-center rounded-xl cursor-pointer"
+              style={{ color: 'var(--sf-header-text)' }}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="w-6 h-6" aria-hidden="true">
+                {menuOpen ? <path d="M6 6l12 12M18 6L6 18" /> : <path d="M4 7h16M4 12h16M4 17h16" />}
+              </svg>
+            </button>
           </nav>
         </div>
+
+        {menuOpen && (
+          <div id="storefront-mobile-menu" className="sm:hidden border-t px-4 py-2" style={{ borderColor: 'var(--sf-header-border)' }}>
+            {mobileLinks.map(({ to, label, external }) => (
+              external
+                ? <a key={to + label} href={to} target="_blank" rel="noreferrer" className="block px-3 py-3 text-base font-medium rounded-lg" style={{ color: 'var(--sf-text)' }}>{label}</a>
+                : <Link key={to + label} to={to} className="block px-3 py-3 text-base font-medium rounded-lg" style={{ color: 'var(--sf-text)' }}>{label}</Link>
+            ))}
+          </div>
+        )}
       </header>
 
       {store?.is_paused && (

@@ -15,6 +15,7 @@ import { getCommunesForWilaya } from '../../data/communes'
 import { tt } from '../../i18n'
 import { useTranslation } from 'react-i18next'
 import { sfx } from '../../i18n'
+import TableSkeleton from '../../components/TableSkeleton'
 
 const STATUS_OPTIONS = [
   { value: '',                 label: tt('Tous les statuts') },
@@ -851,13 +852,7 @@ export default function OrdersPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={visibleCols.size + 2} className="py-16">
-                <div className="flex items-center justify-center gap-2 text-app-muted">
-                  <svg className="w-5 h-5 animate-spin text-violet-500" viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-                  </svg>{t('Chargement…')}</div>
-              </td></tr>
+              <TableSkeleton rows={8} cols={visibleCols.size + 2} />
             ) : orders.length === 0 ? (
               <tr><td colSpan={visibleCols.size + 2}>
                 <div className={theme.emptyState}>

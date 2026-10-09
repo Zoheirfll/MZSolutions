@@ -5,6 +5,7 @@ import { theme } from '../../theme'
 import { useTranslation } from 'react-i18next'
 import { sfx } from '../../i18n'
 import { tt } from '../../i18n'
+import TableSkeleton from '../../components/TableSkeleton'
 
 const EMPTY_FORM = { first_name: '', last_name: '', email: '', phone: '', address: '' }
 
@@ -52,19 +53,6 @@ function CloseIcon(props) {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18" {...props}>
       <path d="M18 6 6 18M6 6l12 12" />
     </svg>
-  )
-}
-
-function Spinner({ label = tt('Chargement…') }) {
-  const { t: tr } = useTranslation('dashboard')
-  return (
-    <div className="flex flex-col items-center justify-center gap-2 py-12 text-app-muted">
-      <svg className="animate-spin" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-        <circle cx="12" cy="12" r="9" opacity="0.25" />
-        <path d="M21 12a9 9 0 0 0-9-9" strokeLinecap="round" />
-      </svg>
-      <span className="text-xs">{label}</span>
-    </div>
   )
 }
 
@@ -213,7 +201,7 @@ export default function SuppliersPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={7}><Spinner /></td></tr>
+              <TableSkeleton rows={6} cols={7} />
             ) : suppliers.length === 0 ? (
               <tr><td colSpan={7}>
                 <EmptyState icon={<TruckIcon />} title={t('Aucun fournisseur')} subtitle={t('Ajoutez votre premier fournisseur pour commencer.')} />

@@ -4,6 +4,7 @@ import Select from '../../components/Select'
 import api from '../../api/axios'
 import { theme } from '../../theme'
 import { useTranslation } from 'react-i18next'
+import TableSkeleton from '../../components/TableSkeleton'
 
 function AddModal({ suppliers, onClose, onSaved }) {
   const { t, t: tr } = useTranslation('dashboard')
@@ -155,7 +156,7 @@ export default function SupplierPaymentPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={5} className="text-center py-12 text-app-muted">{t('Chargement…')}</td></tr>
+              <TableSkeleton rows={6} cols={5} />
             ) : payments.length === 0 ? (
               <tr><td colSpan={5} className="text-center py-12 text-app-muted">{t('Aucun versement enregistré.')}</td></tr>
             ) : payments.map(p => (

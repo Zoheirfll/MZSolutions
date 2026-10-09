@@ -5,25 +5,13 @@ import api from '../../api/axios'
 import { theme } from '../../theme'
 import { useTranslation } from 'react-i18next'
 import { sfx } from '../../i18n'
+import TableSkeleton from '../../components/TableSkeleton'
 
 function UsersIcon(props) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18" {...props}>
       <path d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1.13a4 4 0 100-8 4 4 0 000 8zm6 0a4 4 0 10-8 0" />
     </svg>
-  )
-}
-
-function Spinner() {
-  const { t } = useTranslation('dashboard')
-  return (
-    <div className="flex flex-col items-center justify-center gap-2 py-12 text-app-muted">
-      <svg className="animate-spin" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-        <circle cx="12" cy="12" r="9" opacity="0.25" />
-        <path d="M21 12a9 9 0 0 0-9-9" strokeLinecap="round" />
-      </svg>
-      <span className="text-xs">{t('Chargement…')}</span>
-    </div>
   )
 }
 
@@ -88,7 +76,7 @@ export default function DropshippersPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={8}><Spinner /></td></tr>
+              <TableSkeleton rows={6} cols={8} />
             ) : dropshippers.length === 0 ? (
               <tr><td colSpan={8}>
                 <EmptyState title={t('Aucun dropshipper')} subtitle={t('Invitez un membre d\'équipe avec le rôle Dropshipper depuis la page Équipe.')} />

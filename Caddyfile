@@ -9,6 +9,12 @@ mzsol.online, www.mzsol.online {
         reverse_proxy backend:8000
     }
 
+    # Pages légales (conditions, confidentialité) rendues par Django :
+    # sans cette règle, elles tombaient sur l'application React (404).
+    handle /legal/* {
+        reverse_proxy backend:8000
+    }
+
     handle /media/* {
         root * /srv
         file_server

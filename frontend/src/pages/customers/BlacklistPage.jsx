@@ -8,6 +8,7 @@ import { theme } from '../../theme'
 import { useTranslation } from 'react-i18next'
 import { sfx } from '../../i18n'
 import { tt } from '../../i18n'
+import TableSkeleton from '../../components/TableSkeleton'
 
 const PER_PAGE_OPTIONS = [10, 25, 50]
 
@@ -54,19 +55,6 @@ function PlusIcon(props) {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="16" height="16" {...props}>
       <path d="M12 5v14M5 12h14" />
     </svg>
-  )
-}
-
-function Spinner({ label = tt('Chargement…') }) {
-  const { t: tr } = useTranslation('dashboard')
-  return (
-    <div className="flex flex-col items-center justify-center gap-2 py-12 text-app-muted">
-      <svg className="animate-spin" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-        <circle cx="12" cy="12" r="9" opacity="0.25" />
-        <path d="M21 12a9 9 0 0 0-9-9" strokeLinecap="round" />
-      </svg>
-      <span className="text-xs">{label}</span>
-    </div>
   )
 }
 
@@ -152,7 +140,7 @@ export default function BlacklistPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={6}><Spinner /></td></tr>
+              <TableSkeleton rows={6} cols={6} />
             ) : data.results.length === 0 ? (
               <tr><td colSpan={6}>
                 <EmptyState icon={<ShieldIcon />} title={t('Aucun numéro bloqué')} subtitle={t('Bloquez un client problématique pour empêcher ses futures commandes.')} />

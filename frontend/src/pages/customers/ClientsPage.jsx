@@ -8,6 +8,7 @@ import { theme } from '../../theme'
 import { useTranslation } from 'react-i18next'
 import { sfx } from '../../i18n'
 import { tt } from '../../i18n'
+import TableSkeleton from '../../components/TableSkeleton'
 
 const PER_PAGE_OPTIONS = [10, 25, 50]
 
@@ -42,19 +43,6 @@ function ShieldIcon(props) {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="15" height="15" {...props}>
       <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" />
     </svg>
-  )
-}
-
-function Spinner({ label = tt('Chargement…') }) {
-  const { t: tr } = useTranslation('dashboard')
-  return (
-    <div className="flex flex-col items-center justify-center gap-2 py-12 text-app-muted">
-      <svg className="animate-spin" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-        <circle cx="12" cy="12" r="9" opacity="0.25" />
-        <path d="M21 12a9 9 0 0 0-9-9" strokeLinecap="round" />
-      </svg>
-      <span className="text-xs">{label}</span>
-    </div>
   )
 }
 
@@ -133,7 +121,7 @@ export default function ClientsPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={9}><Spinner /></td></tr>
+              <TableSkeleton rows={6} cols={9} />
             ) : data.results.length === 0 ? (
               <tr><td colSpan={9}>
                 <EmptyState icon={<UsersIcon />} title={t('Aucun client')} subtitle={t('Les clients apparaissent ici après leur première commande.')} />

@@ -5,6 +5,7 @@ import api from '../../api/axios'
 import { theme } from '../../theme'
 import { tt } from '../../i18n'
 import { useTranslation } from 'react-i18next'
+import TableSkeleton from '../../components/TableSkeleton'
 
 const FILTERS = [
   { label: tt('Tous'),       value: '' },
@@ -79,19 +80,6 @@ function StarOutlineIcon(props) {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18" {...props}>
       <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2Z" />
     </svg>
-  )
-}
-
-function Spinner() {
-  const { t } = useTranslation('dashboard')
-  return (
-    <div className="flex items-center justify-center gap-2 py-12 text-app-muted">
-      <svg className="animate-spin" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-        <circle cx="12" cy="12" r="9" opacity="0.25" />
-        <path d="M21 12a9 9 0 0 0-9-9" strokeLinecap="round" />
-      </svg>
-      <span className="text-xs">{t('Chargement…')}</span>
-    </div>
   )
 }
 
@@ -349,7 +337,7 @@ export default function ReviewsPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={10}><Spinner /></td></tr>
+              <TableSkeleton rows={6} cols={10} />
             ) : reviews.length === 0 ? (
               <tr><td colSpan={10}>
                 <EmptyState icon={<StarOutlineIcon />} title={t('Aucun avis trouvé')} subtitle={t('Les avis clients approuvés ou en attente apparaîtront ici.')} />
