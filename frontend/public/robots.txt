@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /store/
+Disallow: /dashboard
+Disallow: /platform-admin
+Disallow: /plateforme
+Disallow: /api/
+Disallow: /admin/
+Disallow: /auth
+Disallow: /reset-password
+Disallow: /accept-invitation

@@ -1407,3 +1407,31 @@ class AIProductDraftModelTest(TestCase):
         )
         self.assertEqual(draft.status, 'pending_review')
         self.assertIsNone(draft.created_product)
+
+
+class QuotaStatusEndpointTests(TestCase):
+    def setUp(self):
+        from core.test_utils import make_owner, auth_client
+        from django.core.cache import cache
+        cache.clear()
+        self.owner, self.store = make_owner()
+        self.client_o = auth_client(self.owner)
+
+    def test_remaining_per_feature_and_total(self):
+        from platform_admin.system_models import PlatformSettings
+        from django.utils import timezone
+        from .models import AIUsageDay
+        PlatformSettings.objects.update_or_create(pk=1, defaults={'ai_daily_limit': 10, 'ai_quotas': {'chat': {'daily': 5, 'weekly': 8}}})
+        AIUsageDay.objects.create(store=self.store, day=timezone.localdate(), calls=2, feature='chat')
+        data = self.client_o.get('/api/ai/quota/').data
+        chat = next(f for f in data['features'] if f['key'] == 'chat')
+        self.assertEqual(chat['daily'], {'limit': 5, 'used': 2, 'remaining': 3})
+        self.assertEqual(chat['weekly'], {'limit': 8, 'used': 2, 'remaining': 6})
+        scan = next(f for f in data['features'] if f['key'] == 'scan')
+        self.assertIsNone(scan['daily']['remaining'])  # illimité
+        self.assertEqual(data['total']['daily'], {'limit': 10, 'used': 2, 'remaining': 8})
+        self.assertEqual(len(data['features']), 10)
+
+    def test_requires_auth(self):
+        from rest_framework.test import APIClient
+        self.assertIn(APIClient().get('/api/ai/quota/').status_code, (401, 403))

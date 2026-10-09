@@ -6,7 +6,7 @@ import { theme } from '../theme'
 import { tt } from '../i18n'
 import { useTranslation } from 'react-i18next'
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8003'
 
 const TABS = [
   { value: 'facebook',            label: tt('Facebook Pixel') },

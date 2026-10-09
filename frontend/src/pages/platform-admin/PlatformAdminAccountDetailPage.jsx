@@ -43,7 +43,7 @@ export default function PlatformAdminAccountDetailPage() {
   const { user, refresh } = useAuth()
   const navigate = useNavigate()
   const isSuper = user?.platform_level === 'superadmin'
-  const [grant, setGrant] = useState({ action: 'add_orders', value: '', plan_id: '' })
+  const [grant, setGrant] = useState({ action: 'add_orders', value: '', plan_id: '', unit: 'days' })
   const [plans, setPlans] = useState([])
   const [integrations, setIntegrations] = useState(null)
   const [data, setData] = useState(null)
@@ -75,7 +75,7 @@ export default function PlatformAdminAccountDetailPage() {
     api.get('/platform-admin/plans/').then(({ data: d }) => setPlans(d.results.filter((p) => p.is_active))).catch(() => {})
   }, [modal])
 
-  const close = () => { setModal(null); setReason(''); setGrant({ action: 'add_orders', value: '', plan_id: '' }) }
+  const close = () => { setModal(null); setReason(''); setGrant({ action: 'add_orders', value: '', plan_id: '', unit: 'days' }) }
 
   const run = async (path, body, okMessage) => {
     setBusy(true)
@@ -252,13 +252,17 @@ export default function PlatformAdminAccountDetailPage() {
         {modal === 'grant' && (
           <div className="space-y-3">
             <Select value={grant.action} onChange={(v) => setGrant({ ...grant, action: v })} className={`${theme.inputDark} w-full`}
-              options={[{ value: 'add_orders', label: t('Ajouter des commandes') }, { value: 'extend_trial', label: t('Prolonger l\'essai (jours)') }, { value: 'grant_plan', label: t('Offrir un palier (mois)') }]} />
+              options={[{ value: 'add_orders', label: t('Ajouter des commandes') }, { value: 'extend_trial', label: t('Prolonger l\'essai (jours)') }, { value: 'grant_plan', label: t('Offrir un palier sans paiement') }]} />
             {grant.action === 'grant_plan' && (
-              <Select value={grant.plan_id} onChange={(v) => setGrant({ ...grant, plan_id: v })} className={`${theme.inputDark} w-full`}
-                options={[{ value: '', label: t('Choisir un palier') }, ...plans.map((p) => ({ value: String(p.id), label: p.name }))]} />
+              <>
+                <Select value={grant.plan_id} onChange={(v) => setGrant({ ...grant, plan_id: v })} className={`${theme.inputDark} w-full`}
+                  options={[{ value: '', label: t('Choisir un palier') }, ...plans.map((p) => ({ value: String(p.id), label: p.name }))]} />
+                <Select value={grant.unit} onChange={(v) => setGrant({ ...grant, unit: v })} className={`${theme.inputDark} w-full`}
+                  options={[{ value: 'days', label: t('Durée en jours') }, { value: 'months', label: t('Durée en mois') }]} />
+              </>
             )}
             <input type="number" min={1} value={grant.value} onChange={(e) => setGrant({ ...grant, value: e.target.value })}
-              placeholder={grant.action === 'add_orders' ? t('Nombre de commandes') : grant.action === 'extend_trial' ? t('Nombre de jours') : t('Nombre de mois')}
+              placeholder={grant.action === 'add_orders' ? t('Nombre de commandes') : grant.action === 'extend_trial' || grant.unit === 'days' ? t('Nombre de jours') : t('Nombre de mois')}
               className={`${theme.inputDark} w-full`} />
             <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={2} maxLength={300}
               placeholder={t('Motif (obligatoire)')} className={`${theme.inputDark} w-full`} />

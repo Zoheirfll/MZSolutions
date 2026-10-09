@@ -47,14 +47,14 @@ export default function AcceptInvitation() {
 
   if (invalid) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4 bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center px-4 bg-app">
         <div className="text-center">
-          <div className="w-14 h-14 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+          <div className="w-14 h-14 rounded-full bg-red-500/15 flex items-center justify-center mx-auto mb-4">
             <svg className="w-7 h-7 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </div>
-          <p className="text-gray-700 text-lg font-semibold">{t('Lien invalide ou déjà utilisé')}</p>
+          <p className="text-app-primary text-lg font-semibold">{t('Lien invalide ou déjà utilisé')}</p>
           <button onClick={() => navigate('/auth')}
             className={`mt-4 ${theme.btn.ghost}`}>{t('Retour à la connexion')}</button>
         </div>
@@ -64,13 +64,13 @@ export default function AcceptInvitation() {
 
   if (!info) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4 bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center px-4 bg-app">
         <div className="flex flex-col items-center gap-3">
           <svg className="w-8 h-8 text-violet-600 animate-spin" fill="none" viewBox="0 0 24 24">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
           </svg>
-          <p className="text-gray-500 text-sm">{t('Vérification du lien…')}</p>
+          <p className="text-app-muted-light text-sm">{t('Vérification du lien…')}</p>
         </div>
       </div>
     )
@@ -80,16 +80,16 @@ export default function AcceptInvitation() {
     <div className="flex min-h-screen font-sans">
 
       {/* ─── Formulaire ─── */}
-      <div className="w-full lg:w-[55%] flex flex-col px-6 py-12 sm:px-16 overflow-y-auto bg-white">
+      <div className="w-full lg:w-[55%] flex flex-col px-6 py-12 sm:px-16 overflow-y-auto bg-app">
         <div className="w-full max-w-sm mx-auto lg:mx-0 flex flex-col flex-1 justify-center">
 
           <p className={`text-2xl font-bold tracking-tight mb-2 ${theme.logo}`}>{t('MZSolutions')}</p>
-          <p className="text-sm text-gray-500 mb-8">{t('Activation de votre compte')}</p>
+          <p className="text-sm text-app-muted-light mb-8">{t('Activation de votre compte')}</p>
 
           <div className={`${theme.panel} mb-6`}>
-            <p className="text-gray-700 text-sm">{t('Bonjour')}{' '}<span className="text-gray-900 font-semibold">{info.first_name} {info.last_name}</span>,
+            <p className="text-app-primary text-sm">{t('Bonjour')}{' '}<span className="text-app-primary font-semibold">{info.first_name} {info.last_name}</span>,
             </p>
-            <p className="text-gray-500 text-sm mt-1">{t('Vous avez été invité(e) à rejoindre')}<span className="text-violet-700 font-medium">{info.store_name}</span>{t('en tant que')}<span className="text-violet-700 font-medium">{ROLE_LABELS[info.role]}</span>.
+            <p className="text-app-muted-light text-sm mt-1">{t('Vous avez été invité(e) à rejoindre')}<span className="text-app-accent font-medium">{info.store_name}</span>{t('en tant que')}<span className="text-app-accent font-medium">{ROLE_LABELS[info.role]}</span>.
             </p>
           </div>
 
@@ -103,7 +103,7 @@ export default function AcceptInvitation() {
                 onChange={handleChange}
                 required
                 minLength={8}
-                className={theme.input}
+                className={theme.authInput}
                 placeholder={t('Minimum 8 caractères')}
               />
             </div>
@@ -115,13 +115,13 @@ export default function AcceptInvitation() {
                 value={form.confirm}
                 onChange={handleChange}
                 required
-                className={theme.input}
+                className={theme.authInput}
                 placeholder={t('Répétez le mot de passe')}
               />
             </div>
 
             {error && (
-              <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+              <p className="text-sm text-app-danger bg-red-500/10 border border-red-500/25 rounded-xl px-4 py-3">
                 {error}
               </p>
             )}

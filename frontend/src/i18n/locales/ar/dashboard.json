@@ -2018,5 +2018,13 @@
  "Explication du risque d’une commande": "شرح مخاطر الطلب",
  "Explications des recommandations produit": "شرح توصيات المنتجات",
  "Audit global de la boutique": "تدقيق شامل للمتجر",
- "Suivi IA des confirmateurs": "متابعة المؤكِّدين بالذكاء الاصطناعي"
+ "Suivi IA des confirmateurs": "متابعة المؤكِّدين بالذكاء الاصطناعي",
+ "Cette semaine": "هذا الأسبوع",
+ "Quota IA de votre palier, pour toute la boutique": "حصة الذكاء الاصطناعي لباقتك، لكامل المتجر",
+ "Vous êtes hors ligne. Vérifiez votre connexion internet.": "أنت غير متصل بالإنترنت. تحقق من اتصالك.",
+ "Page introuvable": "الصفحة غير موجودة",
+ "Cette page n’existe pas ou a été déplacée.": "هذه الصفحة غير موجودة أو تم نقلها.",
+ "Retour à l’accueil": "العودة إلى الصفحة الرئيسية",
+ "Conditions d’utilisation": "شروط الاستخدام",
+ "Politique de confidentialité": "سياسة الخصوصية"
 }

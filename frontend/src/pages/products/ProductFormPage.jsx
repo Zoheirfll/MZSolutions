@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import AIQuotaBadge from '../../components/AIQuotaBadge'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import DashboardLayout from '../../components/DashboardLayout'
 import Select from '../../components/Select'
@@ -994,6 +995,7 @@ export default function ProductFormPage() {
               <div className="rounded-xl border p-6" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
                 <div className="flex items-center justify-between mb-2">
                   <label className="block text-xs text-app-muted-light">{t('Description du produit')}</label>
+                  <AIQuotaBadge feature="product_gen" className="ms-auto me-3" />
                   <button type="button" onClick={handleAiGenerate} disabled={aiGenerating}
                     className={theme.btn.outline + ' text-xs py-1 px-2 disabled:opacity-50'}>
                     {aiGenerating ? t('Génération…') : t('✨ Générer avec l\'IA')}

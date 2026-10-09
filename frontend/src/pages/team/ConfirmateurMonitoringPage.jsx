@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import AIQuotaBadge from '../../components/AIQuotaBadge'
 import DashboardLayout from '../../components/DashboardLayout'
 import Select from '../../components/Select'
 import api from '../../api/axios'
@@ -123,7 +124,8 @@ export default function ConfirmateurMonitoringPage() {
     <DashboardLayout title={t('Suivi des confirmateurs')} subtitle={t('Performance et signaux d\'anomalie calculés sur les 30 derniers jours — synthèse IA rédigée à partir de ces chiffres, jamais inventée.')}>
       {loading ? <p className="text-sm text-app-muted">{t('Chargement…')}</p> : (
         <div className="space-y-4">
-          <div className="flex justify-end">
+          <div className="flex justify-end items-center gap-3">
+            <AIQuotaBadge feature="team" />
             <button onClick={explainTeam} disabled={loadingTeamExplain} className={theme.btn.primary + ' text-sm disabled:opacity-60'}>
               {loadingTeamExplain ? t('Analyse en cours…') : t('Analyser l\'équipe')}
             </button>

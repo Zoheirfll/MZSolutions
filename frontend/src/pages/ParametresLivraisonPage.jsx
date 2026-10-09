@@ -694,7 +694,7 @@ export default function ParametresLivraisonPage() {
               <>
                 <label className={theme.labelDark}>{tr('URL du webhook (à coller dans votre dashboard Yalidine)')}</label>
                 <div className="mb-3">
-                  <CopyButton value={`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/public/webhooks/yalidine/`} label={tr('URL du webhook Yalidine')} />
+                  <CopyButton value={`${import.meta.env.VITE_API_URL || 'http://localhost:8003'}/api/public/webhooks/yalidine/`} label={tr('URL du webhook Yalidine')} />
                 </div>
                 <label className={theme.labelDark + ' mt-3'}>{tr('Clé secrète du webhook (générée par Yalidine)')}</label>
                 <input value={webhookSecret} onChange={e => setWebhookSecret(e.target.value)} type="password" placeholder={tr('Laissez vide pour ne pas changer')} className={theme.inputDark + ' mb-3'} />

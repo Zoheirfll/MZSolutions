@@ -56,6 +56,14 @@ export const theme = {
     // input, overriding the site-wide `color-scheme: dark` set in index.css.
     'transition-all duration-150 bg-white disabled:bg-gray-50 disabled:text-gray-400 [color-scheme:light]',
 
+  // Champ des pages d'accès (connexion, mot de passe, invitation) : suit le
+  // thème jour/nuit via les variables CSS, contrairement à `input` qui reste
+  // clair pour la boutique publique.
+  authInput:
+    'auth-input w-full px-3.5 py-2.5 border border-(--border-color-hover) rounded-lg text-sm text-app-primary bg-app-card outline-none ' +
+    'placeholder:text-(--text-muted) focus:border-violet-500 focus:ring-2 focus:ring-violet-500/25 ' +
+    'transition-all duration-150 disabled:opacity-50',
+
   inputDark:
     'w-full px-3.5 py-2.5 rounded-lg text-sm text-gray-200 outline-none bg-white/4 border border-white/10 ' +
     'placeholder:text-gray-600 focus:border-violet-500/60 focus:ring-2 focus:ring-violet-500/15 ' +

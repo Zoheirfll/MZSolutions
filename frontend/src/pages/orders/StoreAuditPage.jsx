@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import AIQuotaBadge from '../../components/AIQuotaBadge'
 import { Link } from 'react-router-dom'
 import DashboardLayout from '../../components/DashboardLayout'
 import api from '../../api/axios'
@@ -183,6 +184,7 @@ export default function StoreAuditPage() {
       {loading ? <p className="text-sm text-app-muted">{t('Chargement…')}</p> : !audit ? (
         <div className="rounded-xl border p-8 text-center" style={{ background: theme.dark.card, borderColor: theme.dark.border }}>
           <p className="text-sm text-app-muted mb-4">{t('Aucun audit n\'a encore été réalisé pour cette boutique.')}</p>
+          <AIQuotaBadge feature="audit" className="block mb-3" />
           <button onClick={runAudit} disabled={analyzing} className={theme.btn.primary + ' text-sm disabled:opacity-60'}>
             {analyzing ? t('Analyse en cours…') : t('Analyser ma boutique')}
           </button>
@@ -194,9 +196,12 @@ export default function StoreAuditPage() {
               <p className="text-xs text-app-muted mb-1">{t('Score global')}</p>
               <p className="text-3xl font-bold text-app-primary">{audit.global_score ?? '—'}</p>
             </div>
+            <div className="flex items-center gap-3">
+            <AIQuotaBadge feature="audit" />
             <button onClick={runAudit} disabled={analyzing} className={theme.btn.primary + ' text-sm disabled:opacity-60'}>
               {analyzing ? t('Analyse en cours…') : t('Réanalyser')}
             </button>
+            </div>
           </div>
 
           <div className="space-y-3">

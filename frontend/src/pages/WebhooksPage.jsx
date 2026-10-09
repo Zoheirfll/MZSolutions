@@ -5,7 +5,7 @@ import { theme } from '../theme'
 import { useTranslation } from 'react-i18next'
 import { sfx } from '../i18n'
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8003'
 
 function Spinner() {
   const { t } = useTranslation('dashboard')

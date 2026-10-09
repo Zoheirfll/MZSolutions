@@ -1,0 +1,123 @@
+{
+  "meta": {
+    "title": "MZSolutions — Confirmez, expédiez et encaissez vos commandes en Algérie",
+    "description": "La plateforme e-commerce pensée pour l'Algérie : boutique en ligne, confirmation des commandes, plus de 30 sociétés de livraison, suivi des retours et paiement SofizPay. 30 jours d'essai gratuit."
+  },
+  "nav": {
+    "features": "Fonctionnalités",
+    "how": "Comment ça marche",
+    "faq": "FAQ",
+    "login": "Connexion",
+    "cta": "Essai gratuit",
+    "dashboard": "Mon tableau de bord",
+    "themeLight": "Passer en mode clair",
+    "themeDark": "Passer en mode sombre",
+    "menu": "Ouvrir le menu",
+    "close": "Fermer le menu"
+  },
+  "hero": {
+    "badge": "Conçu pour le e-commerce algérien",
+    "title": "Confirmez, expédiez et encaissez vos commandes — au même endroit.",
+    "subtitle": "MZSolutions réunit votre boutique en ligne, la confirmation téléphonique, plus de 30 sociétés de livraison, le suivi des retours et le paiement en ligne dans une seule plateforme.",
+    "primary": "Démarrer l'essai gratuit",
+    "secondary": "Découvrir les fonctionnalités",
+    "trust": "30 jours d'essai · 50 commandes offertes",
+    "flowTitle": "Le parcours d'une commande",
+    "flow": {
+      "received": { "title": "Commande reçue", "desc": "Depuis votre boutique, une vente manuelle ou un canal externe." },
+      "confirmed": { "title": "Confirmée", "desc": "Un confirmateur appelle le client, les tentatives sont suivies." },
+      "shipped": { "title": "Expédiée", "desc": "L'expédition est créée chez votre société de livraison." },
+      "delivered": { "title": "Livrée", "desc": "Le statut du colis est synchronisé avec le transporteur." },
+      "collected": { "title": "Encaissée", "desc": "Le reversement est pointé et rapproché." }
+    }
+  },
+  "carriers": {
+    "title": "Connecté aux principales sociétés de livraison"
+  },
+  "stats": {
+    "carriers": "sociétés de livraison",
+    "wilayas": "wilayas couvertes",
+    "languages": "langues, dont l'arabe (RTL)",
+    "trial": "jours d'essai gratuit"
+  },
+  "features": {
+    "eyebrow": "Fonctionnalités",
+    "title": "Tout ce qu'il faut pour vendre en paiement à la livraison",
+    "subtitle": "Chaque étape, de la commande à l'encaissement, est suivie et automatisée.",
+    "confirmation": {
+      "title": "Confirmation des commandes",
+      "desc": "Répartition automatique entre vos confirmateurs, tentatives d'appel suivies, relances et annulation des commandes injoignables."
+    },
+    "delivery": {
+      "title": "Livraison multi-transporteurs",
+      "desc": "Créez l'expédition en un clic, imprimez les étiquettes et suivez le statut des colis, avec les tarifs par wilaya et par commune."
+    },
+    "returns": {
+      "title": "Moins de retours",
+      "desc": "Score de risque par commande, liste noire, clients à risque et alertes sur les colis susceptibles de revenir."
+    },
+    "payments": {
+      "title": "Paiements et rapprochement",
+      "desc": "Paiement en ligne SofizPay ou à la livraison, avec pointage des reversements des transporteurs et des écarts."
+    },
+    "store": {
+      "title": "Boutique en ligne prête à vendre",
+      "desc": "Boutique publique, codes promo, offres automatiques, pixels Facebook, TikTok et Google pour mesurer vos campagnes."
+    },
+    "team": {
+      "title": "Équipe, rôles et dropshipping",
+      "desc": "Confirmateurs, administrateurs et dropshippers avec des permissions précises, des commissions et un journal d'audit."
+    },
+    "stock": {
+      "title": "Stock sous contrôle",
+      "desc": "Variantes, alertes de stock bas, historique de chaque mouvement et estimation de la date de rupture."
+    },
+    "ai": {
+      "title": "Assistant IA et prévisions",
+      "desc": "Posez vos questions en français, générez vos fiches produit et anticipez vos ventes et vos retours."
+    }
+  },
+  "how": {
+    "eyebrow": "Comment ça marche",
+    "title": "De l'inscription à la première livraison",
+    "step1Title": "Créez votre boutique",
+    "step1Desc": "Inscrivez-vous, ajoutez vos produits et connectez votre société de livraison.",
+    "step2Title": "Recevez et confirmez",
+    "step2Desc": "Les commandes arrivent, sont réparties à vos confirmateurs et suivies jusqu'à la validation.",
+    "step3Title": "Expédiez et encaissez",
+    "step3Desc": "L'expédition part automatiquement, vous suivez la livraison puis le reversement."
+  },
+  "faq": {
+    "eyebrow": "Questions fréquentes",
+    "title": "Vos questions, nos réponses",
+    "q1": "L'essai est-il vraiment gratuit ?",
+    "a1": "Oui. Vous disposez de 30 jours et de 50 commandes pour tester toute la plateforme, sans engagement. Vous choisissez ensuite un palier d'abonnement adapté à votre volume.",
+    "q2": "Quelles sociétés de livraison sont disponibles ?",
+    "a2": "Plus de 30, dont Yalidine, ZR Express, Noest et celles de la plateforme Ecotrack. Chaque vendeur connecte son propre compte transporteur.",
+    "q3": "Comment mes clients peuvent-ils payer ?",
+    "a3": "À la livraison, ou en ligne par carte avec SofizPay. Une commande payée en ligne n'est confirmée qu'une fois le paiement vérifié.",
+    "q4": "La plateforme est-elle disponible en arabe ?",
+    "a4": "Oui, l'interface et la boutique publique sont disponibles en français et en arabe, avec le sens d'écriture de droite à gauche.",
+    "q5": "Puis-je travailler avec mon équipe de confirmateurs ?",
+    "a5": "Oui. Vous invitez vos confirmateurs, administrateurs et dropshippers, et vous choisissez précisément ce que chacun peut voir et faire.",
+    "q6": "Mes données sont-elles protégées ?",
+    "a6": "Les connexions utilisent des cookies sécurisés, les clés sensibles sont chiffrées en base et chaque action de l'équipe est consignée dans un journal d'audit."
+  },
+  "final": {
+    "title": "Prêt à structurer vos ventes ?",
+    "subtitle": "Créez votre boutique en quelques minutes et testez tout gratuitement pendant 30 jours.",
+    "cta": "Créer mon compte gratuitement"
+  },
+  "footer": {
+    "tagline": "La plateforme e-commerce pour l'Algérie.",
+    "product": "Produit",
+    "legal": "Informations légales",
+    "terms": "Conditions d'utilisation",
+    "privacy": "Politique de confidentialité",
+    "contact": "Contact",
+    "rights": "Tous droits réservés."
+  },
+  "sticky": {
+    "cta": "Essai gratuit — 30 jours"
+  }
+}

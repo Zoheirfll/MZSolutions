@@ -69,3 +69,27 @@ def ai_gate(store, feature=''):
     usage, _ = AIUsageDay.objects.get_or_create(store=store, day=today, feature=feature)
     AIUsageDay.objects.filter(pk=usage.pk).update(calls=F('calls') + 1)
     return None
+
+
+def quota_status(store):
+    """Consommation et reste de chaque fonctionnalité IA pour la boutique (quotidien et hebdo).
+    `remaining` vaut None quand la limite est 0 (illimité)."""
+    from .models import AIUsageDay
+    daily, weekly, per_feature = ai_limits(store)
+    today = timezone.localdate()
+    rows = list(AIUsageDay.objects.filter(store=store, day__gte=today - timedelta(days=6)).values('day', 'feature', 'calls'))
+
+    def used(feature=None, only_today=False):
+        return sum(r['calls'] for r in rows if (feature is None or r['feature'] == feature) and (not only_today or r['day'] == today))
+
+    def cell(limit, n):
+        return {'limit': limit, 'used': n, 'remaining': max(limit - n, 0) if limit else None}
+
+    features = []
+    for key, label in AI_FEATURES.items():
+        q = per_feature.get(key) or {}
+        features.append({'key': key, 'label': label,
+                         'daily': cell(q.get('daily') or 0, used(key, True)),
+                         'weekly': cell(q.get('weekly') or 0, used(key))})
+    return {'enabled': feature_enabled(store, 'ai'), 'features': features,
+            'total': {'daily': cell(daily, used(None, True)), 'weekly': cell(weekly, used())}}

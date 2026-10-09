@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import AIQuotaBadge from '../components/AIQuotaBadge'
 import { theme } from '../theme'
 import { getDashboardSummary } from '../api/aiApi'
 import { useTranslation } from 'react-i18next'
@@ -35,7 +36,7 @@ export default function AISummaryCard({ tab, queryString }) {
   return (
     <div className="rounded-lg border border-app p-4 bg-app-card mb-4">
       <div className="flex items-center justify-between">
-        <span className="text-sm font-medium text-app-primary">{t('✨ Résumé IA')}</span>
+        <span className="text-sm font-medium text-app-primary">{t('✨ Résumé IA')} <AIQuotaBadge feature="summary" className="ms-2 font-normal" /></span>
         <button type="button" onClick={handleGenerate} disabled={loading}
           className={theme.btn.outline + ' text-xs py-1 px-2 disabled:opacity-50'}>
           {loading ? tr('Analyse…') : summary ? t('Régénérer') : t('Générer')}

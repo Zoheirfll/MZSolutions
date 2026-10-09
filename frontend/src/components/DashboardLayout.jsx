@@ -214,6 +214,13 @@ export default function DashboardLayout({ children, title, subtitle }) {
   // frontend. `subtitle` ne sert plus que de repli pour une route absente
   // du registre.
   const effectiveSubtitle = resolvePageHelp(location.pathname, pageHelpMap) || subtitle
+  // Titre d'onglet par page (historique du navigateur, onglets multiples).
+  useEffect(() => {
+    if (typeof title !== 'string' || !title) return
+    const previous = document.title
+    document.title = `${title} — MZSolutions`
+    return () => { document.title = previous }
+  }, [title])
 
   const handleLeaveImpersonation = async () => {
     // Best-effort : même si l'appel échoue, on rafraîchit /auth/me/ pour

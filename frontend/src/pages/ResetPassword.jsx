@@ -42,15 +42,15 @@ export default function ResetPassword() {
 
   if (!uid || !token) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+      <div className="min-h-screen bg-app flex items-center justify-center px-4">
         <div className="text-center">
-          <div className="w-14 h-14 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+          <div className="w-14 h-14 rounded-full bg-red-500/15 flex items-center justify-center mx-auto mb-4">
             <svg className="w-7 h-7 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </div>
-          <p className="text-gray-600 mb-4">{t('Lien invalide.')}</p>
-          <Link to="/forgot-password" className="text-violet-600 hover:underline text-sm transition-colors duration-200">{t('Demander un nouveau lien')}</Link>
+          <p className="text-app-muted-light mb-4">{t('Lien invalide.')}</p>
+          <Link to="/forgot-password" className="text-app-accent hover:underline text-sm transition-colors duration-200">{t('Demander un nouveau lien')}</Link>
         </div>
       </div>
     )
@@ -60,47 +60,47 @@ export default function ResetPassword() {
     <div className="flex min-h-screen font-sans">
 
       {/* ─── Formulaire ─── */}
-      <div className="w-full lg:w-[55%] flex flex-col px-6 py-12 sm:px-16 overflow-y-auto bg-white">
+      <div className="w-full lg:w-[55%] flex flex-col px-6 py-12 sm:px-16 overflow-y-auto bg-app">
         <div className="w-full max-w-sm mx-auto lg:mx-0 flex flex-col flex-1 justify-center">
 
           <p className={`text-2xl font-bold tracking-tight mb-10 ${theme.logo}`}>{t('MZSolutions')}</p>
 
           {done ? (
             <div className="text-center">
-              <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-5">
-                <svg className="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="w-16 h-16 rounded-full bg-emerald-500/15 flex items-center justify-center mx-auto mb-5">
+                <svg className="w-8 h-8 text-app-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              <h2 className="text-xl font-semibold text-gray-900 mb-2">{t('Mot de passe mis à jour !')}</h2>
-              <p className="text-sm text-gray-500">{t('Redirection vers la page de connexion...')}</p>
+              <h2 className="text-xl font-semibold text-app-primary mb-2">{t('Mot de passe mis à jour !')}</h2>
+              <p className="text-sm text-app-muted-light">{t('Redirection vers la page de connexion...')}</p>
             </div>
           ) : (
             <>
               <div className="mb-8">
-                <h2 className="text-lg font-semibold text-gray-900 mb-1">{t('Nouveau mot de passe')}</h2>
-                <p className="text-sm text-gray-500">{t('Choisissez un nouveau mot de passe sécurisé.')}</p>
+                <h2 className="text-lg font-semibold text-app-primary mb-1">{t('Nouveau mot de passe')}</h2>
+                <p className="text-sm text-app-muted-light">{t('Choisissez un nouveau mot de passe sécurisé.')}</p>
               </div>
 
               <form onSubmit={handleSubmit} className="flex flex-col gap-5">
                 <div className="flex flex-col gap-1.5">
                   <label className={theme.label}>{t('Nouveau mot de passe *')}</label>
-                  <input type="password" placeholder={t('Minimum 8 caractères')} className={theme.input}
+                  <input type="password" placeholder={t('Minimum 8 caractères')} className={theme.authInput}
                     value={password} onChange={e => setPassword(e.target.value)} required minLength={8} />
                 </div>
 
                 <div className="flex flex-col gap-1.5">
                   <label className={theme.label}>{t('Confirmer le mot de passe *')}</label>
-                  <input type="password" placeholder={t('Répétez le mot de passe')} className={theme.input}
+                  <input type="password" placeholder={t('Répétez le mot de passe')} className={theme.authInput}
                     value={confirm} onChange={e => setConfirm(e.target.value)} required />
                 </div>
 
                 {error && (
-                  <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+                  <p className="text-sm text-app-danger bg-red-500/10 border border-red-500/25 rounded-xl px-4 py-3">
                     {error}
                     {error.includes('expiré') && (
                       <Link to="/forgot-password"
-                        className="block mt-1 text-violet-600 font-medium underline text-xs">{t('Demander un nouveau lien')}</Link>
+                        className="block mt-1 text-app-accent font-medium underline text-xs">{t('Demander un nouveau lien')}</Link>
                     )}
                   </p>
                 )}

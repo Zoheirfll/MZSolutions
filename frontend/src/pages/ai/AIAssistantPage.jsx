@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import AIQuotaBadge from '../../components/AIQuotaBadge'
 import { Link } from 'react-router-dom'
 import { Plus, Send, Sparkles, User, MessageSquare, Trash2, ScanLine } from 'lucide-react'
 import DashboardLayout from '../../components/DashboardLayout'
@@ -271,7 +272,8 @@ export default function AIAssistantPage() {
             <div ref={bottomRef} />
           </div>
           {error && <p className="text-xs text-red-400 px-4 pb-1">{error}</p>}
-          <div className="flex gap-2 p-3 border-t border-app items-end">
+          <div className="px-3 pt-2 border-t border-app"><AIQuotaBadge feature="chat" /></div>
+          <div className="flex gap-2 p-3 items-end">
             <textarea ref={textareaRef} value={input} onChange={e => setInput(e.target.value)}
               onKeyDown={handleKeyDown} rows={1}
               placeholder={t('Posez une question sur votre boutique… (Entrée pour envoyer, Maj+Entrée pour une nouvelle ligne)')}

@@ -14,7 +14,7 @@ if (import.meta.env.PROD && !import.meta.env.VITE_API_URL) {
 // un visiteur accédant au site via le tunnel ngrok (qui pointe vers le port
 // 5173) recevait un JS qui tentait d'appeler localhost:8000 sur SA PROPRE
 // machine — connexion impossible, aucune requête n'atteignait jamais le tunnel.
-const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? '' : 'http://localhost:8000')
+const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? '' : 'http://localhost:8003')
 // Détecté depuis l'URL réellement chargée par le navigateur (pas API_BASE) —
 // nécessaire même avec une base relative, car ngrok intercepte toutes les
 // requêtes du tunnel, y compris les appels API same-origin.

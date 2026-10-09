@@ -7,6 +7,8 @@ import StorefrontChatWidget from '../../components/StorefrontChatWidget'
 import { useCart } from '../../context/CartContext'
 import { injectTheme, cleanupTheme } from '../../storefront-themes'
 import { loadPixelScripts, trackEvent } from '../../lib/pixels'
+import { getConsent, setConsent, CONSENT_ACCEPTED, CONSENT_REFUSED } from '../../lib/consent'
+import CookieBanner from '../../components/CookieBanner'
 
 function SearchIcon(props) {
   return (
@@ -34,6 +36,7 @@ export default function StorefrontLayout({ children, storeOverride }) {
   const [store, setStore]     = useState(storeOverride || null)
   const [search, setSearch]   = useState('')
   const [scrolled, setScrolled] = useState(false)
+  const [consent, setConsentState] = useState(getConsent)
 
   useEffect(() => {
     if (storeOverride) {
@@ -45,10 +48,16 @@ export default function StorefrontLayout({ children, storeOverride }) {
       setStore(data)
       const th = data.theme || {}
       injectTheme(th.template || 'violet', th.primary || '', th.secondary || '', th.font || 'inter')
-      loadPixelScripts(slug, data.pixels)
     }).catch(() => {})
     return () => cleanupTheme()
   }, [slug, storeOverride])
+
+  // Les pixels marketing ne se chargent qu'après consentement explicite.
+  useEffect(() => {
+    if (store && !storeOverride && consent === CONSENT_ACCEPTED) loadPixelScripts(slug, store.pixels)
+  }, [slug, store, storeOverride, consent])
+
+  const chooseConsent = value => { setConsent(value); setConsentState(value) }
 
   // PageView (US-8.3.2) — à chaque navigation dans la boutique publique
   useEffect(() => {
@@ -206,6 +215,10 @@ export default function StorefrontLayout({ children, storeOverride }) {
           </div>
         </div>
       </footer>
+
+      {store?.pixels?.length > 0 && consent === null && (
+        <CookieBanner onAccept={() => chooseConsent(CONSENT_ACCEPTED)} onRefuse={() => chooseConsent(CONSENT_REFUSED)} />
+      )}
 
       {store && !store.is_paused && <StorefrontChatWidget slug={slug} />}
     </div>

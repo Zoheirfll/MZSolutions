@@ -164,5 +164,11 @@
     "placeholder": "Posez une question…",
     "send": "Envoyer",
     "assistant": "Assistant boutique"
+  },
+  "cookies": {
+    "title": "Cookies et mesure d'audience",
+    "message": "Cette boutique utilise des cookies de mesure et de publicité (Facebook, TikTok, Google) pour améliorer votre expérience. Vous pouvez les accepter ou les refuser.",
+    "accept": "Accepter",
+    "refuse": "Refuser"
   }
 }

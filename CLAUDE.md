@@ -266,6 +266,15 @@ pages/finance/PaymentsPage.jsx (+ PaymentReadyPage/PaymentCollectedPage/Payments
 - **Limites connues** : (1) wilayas/communes restent en caractères latins — ce sont des valeurs comparées en texte exact côté backend ; (2) les messages d'erreur renvoyés par l'API (`detail`) restent en français (i18n Django non faite) ; (3) dates/nombres gardent la locale `fr-DZ` ; (4) les axes des graphiques Recharts ne sont pas inversés en RTL ; (5) le message WhatsApp de relance de panier abandonné reste en français (c'est un texte destiné au client final, pas à l'interface).
 - **Migration initiale** : faite par codemod AST (extraction des textes JSX/attributs/littéraux → `t()`), traductions arabes générées par l'IA — **à faire relire par un arabophone** (termes métier : commande/طلب, confirmateur/مؤكِّد, wilaya/ولاية, échange/استبدال, réclamation/شكوى, dropshipper/دروبشيبر).
 
+### Landing page publique (2026-10, branche `epic-landing-page`)
+
+- Route `/` → `pages/landing/LandingPage.jsx` (avant : redirection vers `/auth`). Sections : nav (menu mobile, `LanguageSwitcher`), hero + aperçu de tableau de bord en JSX, bandeau transporteurs + chiffres, fonctionnalités (grille bento), « comment ça marche », FAQ (`<details>` natif), CTA final, footer (liens `/legal/terms/`, `/legal/privacy-policy/`, email de contact), barre CTA fixe mobile après le hero. Un fichier par section dans `pages/landing/`, animations d'apparition `Reveal.jsx` (opacity/translate uniquement, désactivées si `prefers-reduced-motion`).
+- i18n : namespace dédié `landing` (clés sémantiques, `locales/{fr,ar}/landing.json`), parité fr/ar vérifiée par `tests/pages/landing/LandingPage.test.jsx`. Tous les CTA mènent à `/auth?tab=register` (`Auth.jsx` lit `?tab=register`) ; un utilisateur connecté voit « Mon tableau de bord » à la place.
+- ⚠️ **Aucun prix ni témoignage affiché** : les paliers ne sont pas publics (`/api/stores/plans/` exige l'authentification) et leurs montants restent à décider (voir TBD) ; ne jamais inventer de preuve sociale. Les chiffres du bandeau (30+ transporteurs, 58 wilayas, 30 jours) viennent de la doc du projet. **Aucune donnée fictive** (décision utilisateur) : le hero montre le parcours d'une commande (reçue → confirmée → expédiée → livrée → encaissée), sans chiffre ni faux client — un premier essai avec un faux tableau de bord chiffré a été retiré à la demande de l'utilisateur.
+- **Thème jour/nuit** : la landing utilise les variables de thème du dashboard (`bg-app`, `bg-app-card`, `text-app-primary`, `text-app-muted-light`, `border-app`, `text-app-accent` — jamais de couleur codée en dur), avec un bouton soleil/lune dans la nav. Sans choix mémorisé (`mz-theme`), elle suit la préférence système ; `useTheme(fallback)` ne mémorise le thème qu'à un basculement explicite. Les **pages d'accès** (`Auth`, `ForgotPassword`, `ResetPassword`, `AcceptInvitation`) suivent aussi le thème : champs via `theme.authInput` (l'ancien `theme.input` reste clair, réservé à la boutique publique), erreurs/succès via `.text-app-danger`/`.text-app-success` (lisibles dans les deux thèmes), bouton partagé `components/ThemeToggle.jsx`, et `lib/initTheme.js` (appelé dans `main.jsx`) applique le thème avant le premier rendu pour qu'une page publique ouverte directement ne clignote pas. Le dashboard garde son défaut sombre tant qu'aucun choix n'existe (une partie de ses pages reste sombre en dur).
+- Reste à faire : image Open Graph (PNG 1200×630, non générée — les réseaux sociaux n'acceptent pas le SVG), prix publics si décidés, preuve sociale réelle quand elle existe.
+- Bannière cookies (boutique publique) : les pixels marketing ne se chargent qu'après consentement (`lib/consent.js`, `components/CookieBanner.jsx`). Page 404 (`NotFoundPage.jsx`), bandeau hors-ligne (`OfflineBanner.jsx`), titres d'onglet par page du dashboard (`DashboardLayout`), `public/robots.txt`.
+
 ### Thème — Premium SaaS sombre (style Linear/Vercel)
 
 Toujours importer et utiliser `theme.js` — ne jamais hardcoder des classes Tailwind de couleur directement. `theme.js` est la source unique : toute page qui consomme `theme.dark.*` / `theme.btn.*` / `theme.badge.*` / `theme.table.*` hérite automatiquement des mises à jour du design system (pas besoin de retoucher chaque page individuellement).
@@ -1998,6 +2007,6 @@ venv/Scripts/python manage.py createsuperuser    # Admin Django
 
 # Frontend
 cd frontend
-npm run dev      # Démarrer Vite (port 5173)
+npm run dev      # Démarrer Vite (port 3002) — backend : manage.py runserver 8003
 npm run build    # Build production
 ```

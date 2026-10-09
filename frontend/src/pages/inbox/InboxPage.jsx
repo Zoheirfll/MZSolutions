@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
+import AIQuotaBadge from '../../components/AIQuotaBadge'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import DashboardLayout from '../../components/DashboardLayout'
 import Select from '../../components/Select'
@@ -232,6 +233,7 @@ export default function InboxPage() {
               </div>
 
               <div className="p-3 border-t space-y-2" style={{ borderColor: theme.dark.border }}>
+                <AIQuotaBadge feature="reply" className="block" />
                 <button type="button" onClick={handleAiSuggest} disabled={aiSuggesting}
                   className={theme.btn.outline + ' text-xs py-1 px-2 disabled:opacity-50'}>
                   {aiSuggesting ? tr('Suggestion…') : t('✨ Suggérer une réponse')}

@@ -335,7 +335,7 @@ export default function StorefrontProductPage() {
                     <button key={img.id} onClick={() => setActiveImage(img.url)}
                       className="w-16 h-16 rounded-lg overflow-hidden transition"
                       style={{ border: `2px solid ${activeImage === img.url ? 'var(--sf-primary)' : 'var(--sf-header-border)'}` }}>
-                      <img src={img.url} alt="" className="w-full h-full object-cover" />
+                      <img src={img.url} alt={product.name} className="w-full h-full object-cover" />
                     </button>
                   ))}
                 </div>

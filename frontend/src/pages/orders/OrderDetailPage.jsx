@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef, Fragment } from 'react'
+import AIQuotaBadge from '../../components/AIQuotaBadge'
 import { useParams, useNavigate } from 'react-router-dom'
 import DashboardLayout from '../../components/DashboardLayout'
 import StatusBadge from '../../components/StatusBadge'
@@ -553,10 +554,13 @@ export default function OrderDetailPage() {
               </HelpTooltip>
             </div>
           ) : (
-            <button type="button" onClick={handleGenerateExplanation} disabled={loadingExplanation}
-              className={theme.btn.outline + ' text-xs disabled:opacity-50'}>
-              {loadingExplanation ? tr('Génération…') : tr('Réessayer de générer une explication')}
-            </button>
+            <div>
+              <AIQuotaBadge feature="risk" className="block mb-1" />
+              <button type="button" onClick={handleGenerateExplanation} disabled={loadingExplanation}
+                className={theme.btn.outline + ' text-xs disabled:opacity-50'}>
+                {loadingExplanation ? tr('Génération…') : tr('Réessayer de générer une explication')}
+              </button>
+            </div>
           )}
         </div>
       )}

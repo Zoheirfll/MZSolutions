@@ -29,32 +29,32 @@ export default function ForgotPassword() {
     <div className="flex min-h-screen font-sans">
 
       {/* ─── Formulaire ─── */}
-      <div className="w-full lg:w-[55%] flex flex-col px-6 py-12 sm:px-16 overflow-y-auto bg-white">
+      <div className="w-full lg:w-[55%] flex flex-col px-6 py-12 sm:px-16 overflow-y-auto bg-app">
         <div className="w-full max-w-sm mx-auto lg:mx-0 flex flex-col flex-1 justify-center">
 
           <p className={`text-2xl font-bold tracking-tight mb-10 ${theme.logo}`}>{t('MZSolutions')}</p>
 
-          <Link to="/auth" className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-violet-600 transition-colors duration-200 mb-8 w-fit">
+          <Link to="/auth" className="inline-flex items-center gap-1.5 text-sm text-app-muted-light hover:text-app-accent transition-colors duration-200 mb-8 w-fit">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>{t('Retour à la connexion')}</Link>
 
           {sent ? (
             <div className="text-center">
-              <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-5">
-                <svg className="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="w-16 h-16 rounded-full bg-emerald-500/15 flex items-center justify-center mx-auto mb-5">
+                <svg className="w-8 h-8 text-app-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              <h2 className="text-xl font-semibold text-gray-900 mb-2">{t('Email envoyé !')}</h2>
-              <p className="text-gray-500 text-sm leading-relaxed">{t('Si')}{' '}<span className="font-medium text-gray-700">{email}</span>{' '}{t('correspond à un compte, vous recevrez un lien de réinitialisation dans quelques minutes.')}</p>
-              <p className="text-xs text-gray-400 mt-4">{t('Pensez à vérifier vos spams.')}</p>
+              <h2 className="text-xl font-semibold text-app-primary mb-2">{t('Email envoyé !')}</h2>
+              <p className="text-app-muted-light text-sm leading-relaxed">{t('Si')}{' '}<span className="font-medium text-app-primary">{email}</span>{' '}{t('correspond à un compte, vous recevrez un lien de réinitialisation dans quelques minutes.')}</p>
+              <p className="text-xs text-app-muted-light mt-4">{t('Pensez à vérifier vos spams.')}</p>
             </div>
           ) : (
             <>
               <div className="mb-8">
-                <h2 className="text-lg font-semibold text-gray-900 mb-1">{t('Mot de passe oublié ?')}</h2>
-                <p className="text-sm text-gray-500">{t('Entrez votre email et nous vous enverrons un lien pour réinitialiser votre mot de passe.')}</p>
+                <h2 className="text-lg font-semibold text-app-primary mb-1">{t('Mot de passe oublié ?')}</h2>
+                <p className="text-sm text-app-muted-light">{t('Entrez votre email et nous vous enverrons un lien pour réinitialiser votre mot de passe.')}</p>
               </div>
 
               <form onSubmit={handleSubmit} className="flex flex-col gap-5">
@@ -63,7 +63,7 @@ export default function ForgotPassword() {
                   <input
                     type="email"
                     placeholder={t('votre@email.com')}
-                    className={theme.input}
+                    className={theme.authInput}
                     value={email}
                     onChange={e => setEmail(e.target.value)}
                     required
@@ -71,7 +71,7 @@ export default function ForgotPassword() {
                 </div>
 
                 {error && (
-                  <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+                  <p className="text-sm text-app-danger bg-red-500/10 border border-red-500/25 rounded-xl px-4 py-3">
                     {error}
                   </p>
                 )}

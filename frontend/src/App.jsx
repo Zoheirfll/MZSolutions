@@ -4,6 +4,9 @@ import { CartProvider } from './context/CartContext'
 import PrivateRoute from './components/PrivateRoute'
 import { useAuth } from './context/AuthContext'
 import Auth from './pages/Auth'
+import NotFoundPage from './pages/NotFoundPage'
+import LandingPage from './pages/landing/LandingPage'
+import OfflineBanner from './components/OfflineBanner'
 import Dashboard from './pages/Dashboard'
 import StorePage from './pages/StorePage'
 import FaqPage from './pages/FaqPage'
@@ -151,6 +154,7 @@ function App() {
     <BrowserRouter>
       <AuthProvider>
         <CartProvider>
+        <OfflineBanner />
         <Routes>
           {/* Storefront public */}
           <Route path="/store/:slug"                       element={<StorefrontHomePage />} />
@@ -284,7 +288,8 @@ function App() {
           <Route path="/dashboard/audit"                     element={<PD perm="audit_view"><AuditPage /></PD>} />
           <Route path="/dashboard/abonnement"                element={<PD perm="subscription_view"><SubscriptionPage /></PD>} />
 
-          <Route path="*" element={<Navigate to="/auth" replace />} />
+          <Route path="/" element={<LandingPage />} />
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
         </CartProvider>
       </AuthProvider>

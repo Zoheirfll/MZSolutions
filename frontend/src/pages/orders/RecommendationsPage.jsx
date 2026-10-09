@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import AIQuotaBadge from '../../components/AIQuotaBadge'
 import DashboardLayout from '../../components/DashboardLayout'
 import api from '../../api/axios'
 import { theme } from '../../theme'
@@ -67,6 +68,7 @@ export default function RecommendationsPage() {
             style={{ background: theme.dark.card, borderColor: theme.dark.border }}
           />
 
+          <p><AIQuotaBadge feature="reco" /></p>
           <section>
             <h2 className="text-base font-semibold text-app-primary mb-3">{tr('Produits à mettre en avant')}</h2>
             {filteredPromote.length === 0 ? <p className="text-sm text-app-muted">{tr('Aucun candidat pour le moment.')}</p> : (

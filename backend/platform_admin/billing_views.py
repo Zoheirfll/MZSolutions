@@ -294,7 +294,7 @@ class PlatformPaymentRefundView(APIView):
 class PlatformAccountGrantView(APIView):
     """Ajoute du quota / prolonge l'essai / offre un palier (superadmin, motif obligatoire).
     `action` : add_orders (value = commandes), extend_trial (value = jours),
-    grant_plan (plan_id + value = mois)."""
+    grant_plan (plan_id + value = mois, ou jours avec unit='days')."""
     permission_classes = [IsAuthenticated]
 
     @transaction.atomic
@@ -331,12 +331,20 @@ class PlatformAccountGrantView(APIView):
             plan = SubscriptionPlan.objects.filter(pk=request.data.get('plan_id')).first()
             if not plan:
                 return Response({'detail': 'Palier introuvable.'}, status=404)
-            if not 1 <= value <= 24:
-                return Response({'detail': 'Entre 1 et 24 mois.'}, status=400)
+            unit = request.data.get('unit', 'months')
+            if unit == 'days':
+                if not 1 <= value <= 730:
+                    return Response({'detail': 'Entre 1 et 730 jours.'}, status=400)
+                days = value
+            elif unit == 'months':
+                if not 1 <= value <= 24:
+                    return Response({'detail': 'Entre 1 et 24 mois.'}, status=400)
+                days = 365 if value == 12 else 30 * value
+            else:
+                return Response({'detail': 'Unité invalide (days ou months).'}, status=400)
             base = max(now, quota.period_end) if quota.period_end else now
-            days = 365 if value == 12 else 30 * value
             quota.plan = plan
-            quota.billing_cycle = 'yearly' if value == 12 else 'monthly'
+            quota.billing_cycle = 'yearly' if unit == 'months' and value == 12 else 'monthly'
             quota.orders_limit = plan.orders_limit if plan.orders_limit is not None else UNLIMITED
             quota.orders_used = 0
             quota.period_end = base + timedelta(days=days)
@@ -348,5 +356,5 @@ class PlatformAccountGrantView(APIView):
                  'period_end': str(quota.period_end) if quota.period_end else None}
         log_platform_audit(request, 'platform.quota_granted', store=store, target=store,
                            description=f'Geste commercial ({action}) — {reason}',
-                           metadata={'action': action, 'value': value, 'reason': reason, 'before': before, 'after': after})
+                           metadata={'action': action, 'value': value, 'unit': request.data.get('unit'), 'reason': reason, 'before': before, 'after': after})
         return Response({'before': before, 'after': after})

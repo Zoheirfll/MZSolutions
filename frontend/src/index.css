@@ -4,6 +4,20 @@
   --font-sans: "Plus Jakarta Sans", "Noto Sans Arabic", ui-sans-serif, system-ui, -apple-system, sans-serif;
 }
 
+/* Retour tactile : tout bouton actif se comprime légèrement (désactivé si
+   l'utilisateur demande moins d'animations). */
+@media (prefers-reduced-motion: no-preference) {
+  button:not(:disabled),
+  [role="button"] {
+    transition: transform 80ms ease-out;
+    -webkit-tap-highlight-color: transparent;
+  }
+  button:not(:disabled):active,
+  [role="button"]:active {
+    transform: scale(0.97);
+  }
+}
+
 :root {
   --bg-app: #08090a;
   --bg-sidebar: #0a0b0c;
@@ -78,6 +92,24 @@ select {
 .bg-app-card { background-color: var(--bg-card); }
 .bg-app-card-alt { background-color: var(--bg-card-alt); }
 .border-app { border-color: var(--border-color); }
+/* Violet lisible sur les deux thèmes : clair en sombre, foncé en clair (contraste ≥ 4.5:1). */
+.text-app-accent { color: #a78bfa; }
+[data-theme="light"] .text-app-accent { color: #6d28d9; }
+/* Les contrôles natifs (auto-remplissage, barres de défilement, listes) suivent le thème. */
+html[data-theme="light"] { color-scheme: light; }
+/* Chrome colore les champs auto-remplis (fond gris-bleu) : on impose les couleurs du thème. */
+.auth-input:-webkit-autofill,
+.auth-input:-webkit-autofill:hover,
+.auth-input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--text-primary);
+  caret-color: var(--text-primary);
+  box-shadow: 0 0 0 1000px var(--bg-card) inset;
+  transition: background-color 9999s ease-out 0s;
+}
+.text-app-danger { color: #f87171; }
+[data-theme="light"] .text-app-danger { color: #dc2626; }
+.text-app-success { color: #34d399; }
+[data-theme="light"] .text-app-success { color: #047857; }
 .border-app-hover:hover { border-color: var(--border-color-hover); }
 
 /* Rendu du contenu HTML produit par RichEditor (TipTap) sur la boutique

@@ -538,3 +538,15 @@ class PendingActionRejectView(APIView):
         action.save(update_fields=['status', 'resolved_at'])
         _log_ai_agent_action(request, store, action, 'ai_agent.action_rejected')
         return Response({'status': 'rejected'})
+
+
+class AIQuotaView(APIView):
+    """Reste de quota IA de la boutique, par fonctionnalité (affiché à côté de chaque bouton IA)."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        store = get_store(request)
+        if not store:
+            return Response({'detail': 'Accès refusé.'}, status=403)
+        from .gate import quota_status
+        return Response(quota_status(store))

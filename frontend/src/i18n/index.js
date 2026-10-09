@@ -8,6 +8,8 @@ import frStorefront from './locales/fr/storefront.json'
 import arStorefront from './locales/ar/storefront.json'
 import frDashboard from './locales/fr/dashboard.json'
 import arDashboard from './locales/ar/dashboard.json'
+import frLanding from './locales/fr/landing.json'
+import arLanding from './locales/ar/landing.json'
 
 // Clés plates (« layout.home ») : keySeparator est désactivé pour que le
 // dashboard puisse utiliser le texte français lui-même comme clé.
@@ -37,8 +39,8 @@ i18n
   .use(initReactI18next)
   .init({
     resources: {
-      fr: { common: flat(frCommon), storefront: flat(frStorefront), dashboard: frDashboard },
-      ar: { common: flat(arCommon), storefront: flat(arStorefront), dashboard: arDashboard },
+      fr: { common: flat(frCommon), storefront: flat(frStorefront), dashboard: frDashboard, landing: flat(frLanding) },
+      ar: { common: flat(arCommon), storefront: flat(arStorefront), dashboard: arDashboard, landing: flat(arLanding) },
     },
     initAsync: false, // chargement synchrone : tt() est appelé dès l'import des modules
     initImmediate: false,
@@ -46,7 +48,7 @@ i18n
     supportedLngs: ['fr', 'ar'],
     nonExplicitSupportedLngs: true,
     defaultNS: 'common',
-    ns: ['common', 'storefront', 'dashboard'],
+    ns: ['common', 'storefront', 'dashboard', 'landing'],
     keySeparator: false,
     nsSeparator: false,
     interpolation: { escapeValue: false },

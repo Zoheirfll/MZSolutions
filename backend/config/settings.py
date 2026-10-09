@@ -173,8 +173,8 @@ AUTH_COOKIE_SECURE = not DEBUG
 # (.env) sont autorisées, jamais le repli localhost/ngrok.
 if DEBUG:
     CORS_ALLOWED_ORIGINS = [
-        'http://localhost:5173',
-        'http://127.0.0.1:5173',
+        'http://localhost:3002',
+        'http://127.0.0.1:3002',
     ]
     CORS_ALLOWED_ORIGIN_REGEXES = [
         r'^https://.*\.ngrok-free\.dev$',
@@ -237,7 +237,7 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
 DEFAULT_FROM_EMAIL = config('EMAIL_HOST_USER', default='noreply@mzsolutions.app')
-FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:5173')
+FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:3002')
 PASSWORD_RESET_TIMEOUT = 3600  # 1 heure
 
 # Google OAuth
@@ -250,7 +250,7 @@ SOFIZPAY_ACCOUNT = config('SOFIZPAY_ACCOUNT', default='')
 SOFIZPAY_SANDBOX = config('SOFIZPAY_SANDBOX', default=True, cast=bool)
 # Dossier des sauvegardes de la base (monte en lecture seule dans le conteneur, voir docker-compose.yml)
 BACKUP_DIR = config('BACKUP_DIR', default='/backups')
-BACKEND_URL         = config('BACKEND_URL', default='http://localhost:8000')
+BACKEND_URL         = config('BACKEND_URL', default='http://localhost:8003')
 
 # Assistant IA (2026-09) — jamais figés en dur, voir ai_assistant/ollama_client.py
 # AI_PROVIDER='ollama' (local, défaut) ou 'groq' (cloud, quota gratuit —

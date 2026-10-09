@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from 'react'
+import AIQuotaBadge from '../../components/AIQuotaBadge'
 import { useNavigate } from 'react-router-dom'
 import { UploadCloud, ImageOff, FileImage, Sparkles, X, Package, Receipt } from 'lucide-react'
 import DashboardLayout from '../../components/DashboardLayout'
@@ -133,6 +134,7 @@ export default function ScanProductPage() {
 
           {error && <p className="text-xs text-red-400">{error}</p>}
 
+          <AIQuotaBadge feature="scan" className="block mb-2" />
           <button type="button" disabled={!file || busy} onClick={handleAnalyze}
             className={theme.btn.primary + ' text-sm w-full sm:w-auto disabled:opacity-40 flex items-center justify-center gap-2'}>
             {busy
